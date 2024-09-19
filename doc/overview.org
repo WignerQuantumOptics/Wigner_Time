@@ -1,0 +1,419 @@
+#+title: It's Wigner Time!
+#+author:  The why, what and how
+
+#+OPTIONS: num:nil timestamp:nil
+
+#+REVEAL_ROOT: https://cdn.jsdelivr.net/npm/reveal.js
+
+#+REVEAL_THEME: serif
+#+REVEAL_TRANS: cube
+# #+REVEAL_PLUGINS: (highlight, notes)
+
+#+OPTIONS: toc:nil num:nil
+#+OPTIONS: reveal_width:1920
+#+OPTIONS: reveal_height:1080
+
+#+REVEAL_DEFAULT_SLIDE_BACKGROUND_SIZE: 1080px
+
+* Abstract :noexport:
+Here, we outline the library for new users, in a form that is primarily designed for presentations.
+
+* Why?
+** We want to control things!
+#+REVEAL_HTML: <img class="stretch" src="graphics/MOT_pulsing.gif">
+** So...
+[[file:graphics/adwin.svg]]
+
+#+ATTR_REVEAL: :frag frag-style
+#+begin_quote
+The ADwin system was particularly developed for real-time applications demanding extremely short reaction times.
+#+end_quote
+
+
+** The good
+#+ATTR_REVEAL: :frag frag-style
+#+begin_quote
+The ADwin system executes all tasks that have to run fast, deterministically and with exactly predictable time behaviour.
+#+end_quote
+
+
+#+REVEAL_HTML: <div class="column" style="float:left; width: 50%">
+#+ATTR_REVEAL: :frag (appear)
+- competitive clock system
+  (it's fast)
+- real-time
+  (it's accurate)
+- closed-loop control
+#+REVEAL_HTML: </div>
+
+#+BEGIN_EXPORT html
+<div class="column" style="float:right; width: 50%">
+<img class="stretch,fragment" src="graphics/adwin-signal.png">
+<img class="stretch,fragment" src="graphics/wheel-control.gif">
+</div>
+#+END_EXPORT
+
+
+** The bad
+#+BEGIN_EXPORT html
+<div class="column" style="float:left; width: 50%">
+<img class="stretch,fragment" src="graphics/ADbasic.webp">
+</div>
+#+END_EXPORT
+
+#+REVEAL_HTML: <div class="column" style="float:right; width: 50%">
+#+ATTR_REVEAL: :frag (appear)
+- forces a low level of abstraction
+- bigger the code, slower the response
+#+REVEAL_HTML: </div>
+
+** The ugly (ADbasic)
+#+BEGIN_EXPORT html
+<div class="column" style="float:left; width: 50%">
+<img class="stretch,fragment" src="graphics/conway-life.gif">
+</div>
+#+END_EXPORT
+#+ATTR_REVEAL: :frag (appear)
+
+#+REVEAL_HTML: <div class="column" style="float:right; width: 50%">
+#+ATTR_REVEAL: :frag (appear)
+- ADbasic is horrible
+- really horrible...
+- complete language, but ...
+- complicated
+#+REVEAL_HTML: </div>
+
+** Simple vs Complex
+#+BEGIN_EXPORT html
+<div class="column" style="float:left; width: 50%">
+<img class="stretch,fragment" src="graphics/complected.png">
+</div>
+#+END_EXPORT
+#+ATTR_REVEAL: :frag (appear)
+
+#+REVEAL_HTML: <div class="column" style="float:right; width: 50%">
+#+ATTR_REVEAL: :frag (appear)
+- complicated?
+- assumed knowledge (the user is the messenger)
+- not flexible
+#+REVEAL_HTML: </div>
+
+** What can we do?
+*** Change the interface
+#+BEGIN_EXPORT html
+<div class="column" style="float:left; width: 50%">
+<img class="stretch,fragment" src="graphics/language-tree.png">
+</div>
+#+END_EXPORT
+#+ATTR_REVEAL: :frag (appear)
+
+#+REVEAL_HTML: <div class="column" style="float:right; width: 50%">
+#+ATTR_REVEAL: :frag (appear)
+- still use ADwin (for now...)
+- use a /real/ programming language
+- minimize interaction with the (underlying) system
+#+REVEAL_HTML: </div>
+
+* What?
+#+begin_quote
+A data-oriented approach to experimental timeline creation.
+#+end_quote
+** Data
+Not object oriented
+** Bottom-up design
+- careful to not lose any functionality
+- can always fall back
+- but we do lose something
+  - by not using ADbasic, we (mostly) lose dynamism
+  - ability to react within the clock cycles
+** DataFrames
+- almost as simple as possible
+  - not just a table of numbers (who would remember what those meant?)
+- in-memory database
+- columnar format
+- plays well with jupyter (image)
+- plays well with JsON
+- accesible and transferrable to any other language (collaborator)
+  - even a spreadsheet! ( if you're desperate )
+
+if you don't know what to do then you can always just create a table of numbers in any way that you want and then make a DF from the rows (example).
+
+** The good
+*** Consistency
+A more systematic approach to experiment creation
+*** Modularity
+*** Flexibility
+An underappreciated dimenson of software. Of particular importance to researchers.
+
+** The bad
+open-loop control
+
+* How?
+** rows
+#+begin_src python :session :exports both
+import pandas as pd
+pd.DataFrame(
+    [
+        ["lockbox_MOT__V", 0.0, 5.0, "testing"],
+        ["coil_compensationY__A", 0.0, 5.0, "testing"],
+        ["coil_MOTlowerPlus__A", 0.0, 5.0, "testing"],
+        ["coil_MOTupperPlus__A", 1.0, 6.0, "testing"],
+        ["coil_MOTupperPlus__A", 2.0, 7.0, "testing"],
+        ["coil_MOTupperPlus__A", 3.0, 8.0, "testing"],
+     ],
+   columns=['variable', 'time', 'value', 'context']
+)
+
+#+end_src
+
+#+RESULTS:
+:                 variable  time  value  context
+: 0         lockbox_MOT__V   0.0    5.0  testing
+: 1  coil_compensationY__A   0.0    5.0  testing
+: 2   coil_MOTlowerPlus__A   0.0    5.0  testing
+: 3   coil_MOTupperPlus__A   1.0    6.0  testing
+: 4   coil_MOTupperPlus__A   2.0    7.0  testing
+: 5   coil_MOTupperPlus__A   3.0    8.0  testing
+
+** ~create~
+*** basic
+#+begin_src python :session :exports both
+from wigner_time import timeline as tl
+tl.create(
+    [
+        ["lockbox_MOT__V", [[0.0, 5.0, "testing"]]],
+        ["coil_compensationY__A", [[0.0, 5.0, "testing"]]],
+        ["coil_MOTlowerPlus__A", [[0.0, 5.0, "testing"],
+                                  [ 1.0, 6.0, "testing"],
+                                  [ 2.0, 7.0, "testing"],
+                                  [ 3.0, 8.0, "testing"]] ],
+     ],
+)
+#+end_src
+
+#+RESULTS:
+:    time               variable  value  context
+: 0   0.0         lockbox_MOT__V    5.0  testing
+: 1   0.0  coil_compensationY__A    5.0  testing
+: 2   0.0   coil_MOTlowerPlus__A    5.0  testing
+: 3   1.0   coil_MOTlowerPlus__A    6.0  testing
+: 4   2.0   coil_MOTlowerPlus__A    7.0  testing
+: 5   3.0   coil_MOTlowerPlus__A    8.0  testing
+
+*** variable number of arguments
+#+begin_src python :session :exports both
+tl.create(
+["lockbox_MOT__V", [0.0, 5.0, "testing"]],
+["coil_compensationY__A", [0.0, 5.0, "testing"]],
+["coil_MOTlowerPlus__A", [[0.0, 5.0, "testing"],
+                                [ 1.0, 6.0, "testing"],
+                                [ 2.0, 7.0, "testing"],
+                                [ 3.0, 8.0, "testing"]] ],
+)
+#+end_src
+
+#+RESULTS:
+:    time               variable  value  context
+: 0   0.0         lockbox_MOT__V    5.0  testing
+: 1   0.0  coil_compensationY__A    5.0  testing
+: 2   0.0   coil_MOTlowerPlus__A    5.0  testing
+: 3   1.0   coil_MOTlowerPlus__A    6.0  testing
+: 4   2.0   coil_MOTlowerPlus__A    7.0  testing
+: 5   3.0   coil_MOTlowerPlus__A    8.0  testing
+
+*** context
+#+begin_src python :session :exports both
+tl.create(
+        ["lockbox_MOT__V", [0.0, 5.0 ]],
+        ["coil_compensationY__A", [0.0, 5.0 ]],
+        ["coil_MOTlowerPlus__A", [[0.0, 5.0 ],
+                                  [ 1.0, 6.0],
+                                  [ 2.0, 7.0],
+                                  [ 3.0, 8.0]] ],
+    context="testing"
+)
+#+end_src
+
+#+RESULTS:
+:    time               variable  value  context
+: 0   0.0         lockbox_MOT__V    5.0  testing
+: 1   0.0  coil_compensationY__A    5.0  testing
+: 2   0.0   coil_MOTlowerPlus__A    5.0  testing
+: 3   1.0   coil_MOTlowerPlus__A    6.0  testing
+: 4   2.0   coil_MOTlowerPlus__A    7.0  testing
+: 5   3.0   coil_MOTlowerPlus__A    8.0  testing
+
+*** constant time...
+#+begin_src python :session :exports both
+tl.create(
+        ["lockbox_MOT__V", 5.0 ],
+        ["coil_compensationY__A", 5.0 ],
+        ["coil_MOTlowerPlus__A", 5.0 ],
+    context="testing", t=0.0
+)
+#+end_src
+
+#+RESULTS:
+:    time               variable  value  context
+: 0   0.0         lockbox_MOT__V    5.0  testing
+: 1   0.0  coil_compensationY__A    5.0  testing
+: 2   0.0   coil_MOTlowerPlus__A    5.0  testing
+
+
+*** simplest...
+#+begin_src python :session :exports both
+tl.create(
+        lockbox_MOT__V= 5.0 ,
+        coil_compensationY__A= 5.0 ,
+        coil_MOTlowerPlus__A= 5.0 ,
+    context="testing", t=0.0
+)
+#+end_src
+
+#+RESULTS:
+:    time               variable  value  context
+: 0   0.0         lockbox_MOT__V    5.0  testing
+: 1   0.0  coil_compensationY__A    5.0  testing
+: 2   0.0   coil_MOTlowerPlus__A    5.0  testing
+
+but currently only works without normal arguments.
+
+** ~display~
+#+begin_notes
+Now that the timeline is simply data. It's easy to use the data for other purposes, e.g. for visualization.
+#+end_notes
+#+REVEAL_HTML: <div class="column" style="float:left; width: 50%">
+#+begin_src python
+tl.display(
+    tl.create(
+        ["lockbox_MOT__V", [0.0, 5.0 ]],
+        ["coil_compensationY__A", [0.0, 5.0 ]],
+        ["coil_MOTlowerPlus__A", [[0.0, 5.0 ],
+                                  [ 1.0, 6.0],
+                                  [ 2.0, 7.0],
+                                  [ 3.0, 8.0]] ],
+        context="testing"
+    )
+)
+#+end_src
+
+#+RESULTS:
+
+#+REVEAL_HTML: </div>
+
+#+BEGIN_EXPORT html
+<div class="column" style="float:right; width: 50%">
+<img class="stretch" src="graphics/display.png">
+</div>
+#+END_EXPORT
+
+** ~next~
+We dropped "coil_MOTlowerPlus__A" to demonstrate constant time, but we can add timelines to one another with a simple argument.
+#+begin_src python :session :exports both
+tline =  tl.create(
+    lockbox_MOT__V= 5.0 ,
+    coil_compensationY__A= 5.0 ,
+    coil_MOTlowerPlus__A= 5.0 ,
+    context="testing", t=0.0
+)
+
+tl.create(
+    ["coil_MOTlowerPlus__A", [[0.0, 5.0 ],
+                              [ 1.0, 6.0],
+                              [ 2.0, 7.0],
+                              [ 3.0, 8.0]] ]
+    context="testing", timeline=tline
+)
+#+end_src
+
+#+RESULTS:
+*** it's just data ...
+#+begin_src python :session :exports both
+def make_list():
+    return [[0.0, 5.0 ],
+            [ 1.0, 6.0],
+            [ 2.0, 7.0],
+            [ 3.0, 8.0]]
+
+tl.create(
+    ["coil_MOTlowerPlus__A", make_list() ]
+    context="testing", timeline=tline
+)
+
+#+end_src
+
+#+RESULTS:
+
+*** Ramps
+You don't need to do it manually though (defaults to ~tanh~).
+#+ATTR_REVEAL: :frag (appear)
+Takes arguments like ~create~ (and extras)
+#+begin_src python :session :exports both
+tl.next(
+    coil_MOTlowerPlus__A=8.0,
+    t=3.0,
+    timeline=tline,
+)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+            time               variable     value  context
+0       0.000000         lockbox_MOT__V  5.000000  testing
+1       0.000000  coil_compensationY__A  5.000000  testing
+2       0.000000   coil_MOTlowerPlus__A  5.000000  testing
+3       0.000000   coil_MOTlowerPlus__A  5.000000  testing
+4       0.000020   coil_MOTlowerPlus__A  5.000001  testing
+...          ...                    ...       ...      ...
+493332  2.999845   coil_MOTlowerPlus__A  7.999996  testing
+493333  2.999880   coil_MOTlowerPlus__A  7.999997  testing
+493334  2.999915   coil_MOTlowerPlus__A  7.999998  testing
+493335  2.999945   coil_MOTlowerPlus__A  7.999999  testing
+493336  2.999980   coil_MOTlowerPlus__A  8.000000  testing
+
+[493337 rows x 4 columns]
+#+end_example
+
+** update
+- passes timeline from one function to the next (don't specify)
+- note the 'natural' order of the functions
+- works with 'any' single-argument (timeline) function
+#+begin_src python :session :exports both
+tl.update(
+    tl.create(
+        lockbox_MOT__V=5.0,
+        coil_compensationY__A=5.0,
+        coil_MOTlowerPlus__A=5.0,
+        context="testing",
+        t=0.0,
+    ),
+    tl.next(
+        coil_MOTlowerPlus__A=8.0,
+        t=3.0,
+    ),
+)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+            time               variable     value  context
+0       0.000000         lockbox_MOT__V  5.000000  testing
+1       0.000000  coil_compensationY__A  5.000000  testing
+2       0.000000   coil_MOTlowerPlus__A  5.000000  testing
+3       0.000000   coil_MOTlowerPlus__A  5.000000  testing
+4       0.000020   coil_MOTlowerPlus__A  5.000001  testing
+...          ...                    ...       ...      ...
+493332  2.999845   coil_MOTlowerPlus__A  7.999996  testing
+493333  2.999880   coil_MOTlowerPlus__A  7.999997  testing
+493334  2.999915   coil_MOTlowerPlus__A  7.999998  testing
+493335  2.999945   coil_MOTlowerPlus__A  7.999999  testing
+493336  2.999980   coil_MOTlowerPlus__A  8.000000  testing
+
+[493337 rows x 4 columns]
+#+end_example
+
+** set
+** shift
+** Functions
+- for creating new functionality
+- chainable if the first argument is a timeline

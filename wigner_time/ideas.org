@@ -1,0 +1,36 @@
+#+title: Ideas
+
+* Design
+** concepts
+A *device* is a dictionary of properties that reperesents an experimental apparatus. Not all of this information need be necessary for taking the data (analysis is important too!) but the *variable* names should be unique for use with ADwin *connections*. This should not take much effort on the user's part and allows for much easier data processing. If it becomes necessary to nest dictionaries to describe a device then we should consider switching to DataFrames for this as well.
+
+A *variable* represents a single degree of freedom of an experimental apparatus which could be controllable using some intermediary (e.g. ADwin). This (currently) should be given as [device type]_[device UID]__[unit] e.g. AOM_probe__W, AOM_probeDetuning__MHz etc.
+
+A *connection* is a dictionary of properties that represents an ADwin IO socket and identifies the device variable that it's connected to.  N.B. in some cases this will mean that the same device will have multiple connections where each connection is still unique. In this case there should be a prefactor common to all, that indicates the root device.
+
+A *timeline* is a Pandas DataFrame that represents the information necessary to define an experiment as well as additional fields that help contextualise the operations. The layers of abstraction should be finalised but the current idea is that there should be a dataframe outlining the /desire/ for the experiment (laser-001 on at 100e-6s, photodiode-001 reads at 200e-6s etc.) that can then be transformed into a DataFrame that represents the Hardware information (card, module, value etc.) at a given cycle.
+This in the end will be used to define an array that ADwin can read and process.
+
+** layers
+- operational (time sequence: probe-on, probe-off etc.)
+- variable (time sequence of independent degrees of freedom: AOM_probe_power 5V)
+- ADwin (ADwin-specific details )
+
+Practical consequence is that conversion from time and voltage to cycle time and digits shouldn't happen until the end. Therefore, processing functions like ramps etc. shouldn't worry about the digital effect until necessary.
+** variables
+Assuming the 'table' as the fundamental unit, then the column names become important. Here, the idea is that we should use as few as possible. Hence, there is only one 'value' column, where the type indicates whether or not it's an input or an output. There is an 'is_digital' column because although this could be inferred from the outputs, it can not (currently) be inferred from the inputs. This line of reasoning could be reconsidered however if it causes storage problems.
+** datatypes
+The default object should be a pandas DataFrame or, when there would never be multiple rows, a dictionary.
+* Reasoning
+** departure from adwin
+We should be careful not to transfer the ADwin logic to python. This is part of the point of the new system!
+
+** data orientation
+There are many well-documented reasons for using a data-oriented approach to programming. The chief reason is that you shouldn't make things more complicated (cooupled) than it needs to be. The practical benefits of this is that any programming language or method can be used to create the timeline, as well as the fact that the data can be stored in pre-existing data formats that are already established and optimised. Using the cascading layer approach also allows for using a different hardware layer in the future i.e. National Instruments instead of ADwin.
+
+Similar reasoning was used when deciding to base the program around python's 'pandas' module. This is a very well developed platform for manipulating data and gives us the benefit of tried and tested objects as well as the convenience of not having to reinvent our own objects and methods.
+
+* Ideas
+** Bálint (for)
+- learn how to setup proper tests for python
+- document and make tests for the new system

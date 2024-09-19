@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "wigner-time"
+version = "0.1.0"
+description = ""
+authors = ["LightMatters <clark.thomaswilliam@zoho.eu>"]
+readme = "README.md"
+packages = [{include = "wigner_time"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+pandas = "^2.0.1"
+munch = "^3.0.0"
+matplotlib = "^3.7.1"
+funcy = "^2.0"
+pyqt6 = "^6.5.0"
+pytest = "^7.3.1"
+polars = "^0.20.21"
+pyarrow = "^15.0.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

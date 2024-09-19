@@ -1,0 +1,69 @@
+#+title: Notes Wigner Time
+
+
+* A bird's eye view
+*** Why data-oriented?
+On the science-engineering spectrum, experimental physics has to tread a particularly fine line between the /real/ and the /ideal/. And so, when it comes to organising the collection of experimental results, we must choose the appropriate compromise.
+
+It was, in fact, an erstwhile promise of object-oriented programming (OOP) that the real world is built of 'objects' with encapsulated attributes and behaviour and so physical modelling should reflect this. Although a credible claim at first glance however, a longer look reveals that OOP is not, in fact, /generally/ applicable in the real world but rather only /specifically/ applicable. This is because whereas the properties of objects might not change often, their function might and so strict hierarchies of categories (types) can quickly became unwieldy. Furthermore, by restricting functions by class you quickly find yourself in situations where you can only communicate with entities that you anticipated in advance, not to mention that encapsulating at the level of the language then limits wider communication further.
+
+To avoid such 'walled gardens' of operation, we embrace the idea that it is data, not types, that are fundamental and that, encapsulation should be avoided where possible, /i.e./ behaviour and attributes can be separated:
+
+#+begin_quote
+It is better to have 100 functions operate on one data structure than 10 functions on 10 data structures. —Alan Perlis
+#+end_quote
+
+As hinted at, the first advantage of this approach is the system scope. If communication between different contexts and devices is a goal, then we cannot tie ourselves to language-specific features, even if the most common way of running experiments is to use java/python objects or LabVIEW VIs. In contrast, by widening the desired scope, the necessary level of abstraction quickly converges to plain data. And this is something well-evidenced in web traffic, where JSON is now ubiquitous. In practise, this means that any programming language or method can be used to create the timeline, as well as the fact that the data can be stored in pre-existing data formats that are already established and optimised.
+
+A second advantage of a data-oriented approach is flexibility. Whereas software engineering has traditionally emphasized robustness and reliability, flexibility has often been a neglected dimension. This is particularly relevant for the reasercher, where one, by nature, can less easily predict what one's going to deal with and where novelty is desired more than stability. It is better therefore to /model for the unknown/ (Hanson and Sussman) and so structure programs such that new situations are dealt with by adding new code rather than changing existing code.
+
+*** Why Python?
+Following the discussion above, a data-oriented design naturally implies that the choice of implementation language is not so important. Particularly, as the output is a static collection of key-value pairs that does not need updated in /real/ time then performance constraints do not restrict the choice of language further.
+
+The main requirements are then user-friendliness (when it comes to manipulating raw data and hash-maps) and familiarity to scientists and lab technicians. On both counts, Python is currently a natural, though not optimal, choice. Although it is not strictly first-in-class when manipulating raw data (even when considering general purpose programming languages) it's place as a default language, taught in undergraduate programs, makes it a reasonable compromise.
+
+*** Why Pandas?
+A further reason for choosing Python is access to the Pandas library. Currently a staple of modern data science, 'Pandas' is the defacto platform for (non database) tabular data manipulation.
+As such, it is a very well developed platform for manipulating data and gives us the benefit and convenience of tried and tested objects.
+
+
+** Layers of abstraction
+Separation of concerns  .
+We should be careful not to transfer the ADwin logic to python. This is part of the point of the new system!
+
+Using the cascading layer approach also allows for using a different hardware layer in the future i.e. National Instruments instead of ADwin.
+
+program intent: the what; not the how
+*** Operational (make a MOT)
+
+Types of parameters
+*** Device (turn on 'that' AOM)
+*** Connection (output voltage)
+** Types of parameter
+*** Label
+Non-numerical description e.g. 'context'
+*** Specification
+Hardware-defined (never changes)
+*** Calibration
+Hardware-calibration (environment dependent)
+*** Independent
+Isolated variable; user defined
+
+** Terminology
+*** device
+A device is a dictionary of properties that reperesents an experimental apparatus. Not all of this information need be necessary for taking the data (analysis is important too!) but the variable names should be unique for use with ADwin connections. This should not take much effort on the user’s part and allows for much easier data processing. If it becomes necessary to nest dictionaries to describe a device then we should consider switching to DataFrames for this as well.
+*** variable
+A variable represents a single degree of freedom of an experimental apparatus which could be controllable using ADwin. This (currently) should be given as [device type]_[device UID]_[variable name] i.e. AOM_probe_power, AOM_probe_detuning etc.
+*** connection
+A connection is a dictionary of properties that represents an ADwin IO socket and identifies the device variable that it’s connected to.  N.B. in some cases this will mean that the same device will have multiple connections where each connection is still unique. In this case there should be a prefactor common to all, that indicates the root device.
+A timeline is a Pandas DataFrame that represents the information necessary to define an experiment as well as additional fields that help contextualise the operations. The layers of abstraction should be finalised but the current idea is that there should be a dataframe outlining the desire for the experiment (laser-001 on at 100e-6s, photodiode-001 reads at 200e-6s etc.) that can then be 'transformed' (add columns) into a DataFrame that represents the Hardware information (card, module, value etc.) at a given cycle.
+This in the end will be used to define an array that ADwin can read and process.
+
+The default object should be a pandas DataFrame or, when there would never be multiple rows, a dictionary.
+
+Assuming the ‘table’ as the fundamental unit, then the column names become important. Here, the idea is that we should use as few as possible. Hence, there is only one ‘value’ column, where the type indicates whether or not it’s an input or an output. There is an ‘is_digital’ column because although this could be inferred from the outputs, it can not (currently) be inferred from the inputs. This line of reasoning could be reconsidered however if it causes storage problems.
+* Questions
+** device_context__unit or context_device__unit?
+** why does Vukics' demo case have so much repetition?
+* Random notes (to be categorized later)
+** conversion functions can be generalized and stored collectively
