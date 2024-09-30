@@ -76,8 +76,10 @@ def create(
 
     Accepts programmatic and manual input.
 
-    variable_time_values (*vtv) has the form:
-    variable, time, value
+    TODO: document the possible combinations of arguments ordered according to usecases 
+
+    variable_time_values (*vtvc) has the form:
+    variable, time, value, context
     OR
     variable, [[time, value],...]
     OR
@@ -89,7 +91,7 @@ def create(
                   [time002,value002],
                   ...]]]
 
-    but when unspecified, is replaced by the dictionary form (**vtv)
+    but when unspecified, is replaced by the dictionary form (**vtvc_dict)
 
     The [time,value] list can also be replaced with [time,value,context] if you would like to specify data-specific context.
 

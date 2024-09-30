@@ -96,7 +96,7 @@ defaults = Munch()
 # NOTE: MOTplus coils are part of the compensation and so should default to the compensation values.
 defaults.MOT = Munch(
     lockbox_MOT__V=0.0,
-    shutter_MOT=1,
+    shutter_MOT=1, # TODO: why the shutter values here?
     shutter_repump=1,
     coil_MOTlower__A=-1.0,
     coil_MOTupper__A=-0.98,

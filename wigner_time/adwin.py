@@ -158,6 +158,7 @@ def add(df, adwin_connections, devices, specifications=specifications_default):
     """
     # TODO: parameterize the column names
     # TODO: Add vectorization to the python overview talk
+    # TODO: Anything that is not voltage should be converted using a functor from the devices layer, which should be a set of conversion functors from units like A, MHz
 
     dff = df.join(
         adwin_connections.set_index("variable"),
@@ -197,6 +198,20 @@ def add(df, adwin_connections, devices, specifications=specifications_default):
                 dff.loc[group.index[mask_voltage], "value_digits"] = (
                     conv.unit_to_digits(
                         group.loc[mask_voltage, "value"], unit_range=unit_range
+                    )
+                )
+
+        if (dff["variable"].str.contains("__MHz", regex=False)).any():
+            mask_frequency = group["variable"].str.contains("__MHz", regex=False)
+
+            # Check if the variable contains "__MHz" in its name
+            if mask_frequency.any():
+                # Get the unit_range from the rows with "__MHz" in their name
+                unit_range = group.loc[mask_frequency, "unit_range"].iloc[0]
+
+                dff.loc[group.index[mask_frequency], "value_digits"] = (
+                    conv.unit_to_digits(
+                        group.loc[mask_frequency, "value"], unit_range=unit_range
                     )
                 )
 
