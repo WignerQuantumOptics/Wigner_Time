@@ -149,6 +149,29 @@ def check_safety_range(df):
                 pass
 
 
+def add_linear_conversion(df, unit, separator="__"):
+    """
+    Performs a linear conversion, according to the supplied bounding values, and adds the resulting values as another column.
+
+    unit: string.
+    """
+    # TODO: Abstract out the conversions from the `add` function below.
+
+        if (dff["variable"].str.contains(separator + unit, regex=False)).any():
+            mask_current = group["variable"].str.contains("__A", regex=False)
+
+            # Check if the variable contains "__A" in its name
+            if mask_current.any():
+                # Get the unit_range from the rows with "__A" in their name
+                unit_range = group.loc[mask_current, "unit_range"].iloc[0]
+
+                dff.loc[group.index[mask_current], "value_digits"] = (
+                    conv.unit_to_digits(
+                        group.loc[mask_current, "value"], unit_range=unit_range
+                    )
+                )
+
+
 def add(df, adwin_connections, devices, specifications=specifications_default):
     """
     Takes an 'operational' layer timeline and inserts ADwin-specific columns, e.g. cycles and numbers for the module and channel etc.
