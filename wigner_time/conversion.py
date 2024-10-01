@@ -6,7 +6,9 @@ import pandas as pd
 
 from wigner_time import adwin
 
-#TODO: the devices layer should be a set of conversion functors from units like A, MHz, etc., and we should provide convenient factories for such functors
+# TODO: the devices layer should be a set of conversion functors from units like A, MHz, etc., and we should provide convenient factories for such functors
+#       (this might actually be an overkill: as long as the device is linear, supplying unit_range is sufficient for the conversion, so the functor is necessary only for nonlinear devices)
+
 
 #TODO: read out the corresponding bit, range and gain values from adwin.specifications!!!
 

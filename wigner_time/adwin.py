@@ -159,6 +159,7 @@ def add(df, adwin_connections, devices, specifications=specifications_default):
     # TODO: parameterize the column names
     # TODO: Add vectorization to the python overview talk
     # TODO: Anything that is not voltage should be converted using a functor from the devices layer, which should be a set of conversion functors from units like A, MHz
+    #       (this might actually be an overkill: as long as the device is linear, supplying unit_range is sufficient for the conversion, so the functor is necessary only for nonlinear devices)
 
     dff = df.join(
         adwin_connections.set_index("variable"),

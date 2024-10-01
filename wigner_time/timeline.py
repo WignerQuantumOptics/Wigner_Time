@@ -269,7 +269,7 @@ def next(
     *vtvc,
     timeline=None,
     context=None,
-    t=None,  # this is interpreted as time_end if !relative["time"] - maybe this should be renamed to `time`?
+    t=None,  # this is interpreted as time_end if !relative["time"] - maybe this should be renamed to `time` or maybe `duration`?
     relative={"time": True, "value": False},
     function=ramp.tanh,
     fargs={},
@@ -394,9 +394,21 @@ def shift(
     )
 
 
+def stack(firstArgument, *fs: list[Callable]):
+    """
+    For stacking modifications to the timeline in a composable way.
+    """
+    if isinstance(firstArgument, pd.DataFrame) :
+        return funcy.compose(*fs[::-1])(firstArgument)
+    else :
+        return funcy.compose(*fs[::-1],firstArgument)
+
+
 def update(timeline, *fs: list[Callable]):
     """
     For stacking modifications to the timeline in a composable way.
+
+    TODO: probably OBSOLATE beside the above function
     """
     return funcy.compose(*fs[::-1])(timeline)
 
@@ -461,6 +473,8 @@ def display(df, xlim=None, variables=None):
     Plot the experimental plan.
 
     Note that the last value for a device is taken as the end value.
+
+    TODO: display works on the operational level, where the (low)init and the actual t=0 of the timeline both have t=0, which can mess up the display of identical variables
     """
     df = df.sort_values("time", ignore_index=True)
     if variables is None:
