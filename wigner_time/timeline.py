@@ -59,55 +59,6 @@ def process_dataframe(df, num_decimal_places=6):
     return df.drop_duplicates(subset="value", keep="first")
 
 
-###############################################################################
-#                   Main functions
-###############################################################################
-def create(
-    *vtvc,
-    timeline=None,
-    context=None,
-    t=0.0,
-    labels=["time", "variable", "value", "context"],
-    **vtvc_dict,
-):
-    """
-    Does what it says on the tin: establishes a new timeline according to the given (flexible) input collection. If 'timeline' is also specified, then it concatenates the new creation with the existing one.
-
-
-    Accepts programmatic and manual input.
-
-    TODO: document the possible combinations of arguments ordered according to usecases 
-
-    variable_time_values (*vtvc) has the form:
-    variable, time, value, context
-    OR
-    variable, [[time, value],...]
-    OR
-    [['variable', value]]
-    OR
-    [['variable', [time, value]]]
-    OR
-    [['variable', [[time, value],
-                  [time002,value002],
-                  ...]]]
-
-    but when unspecified, is replaced by the dictionary form (**vtvc_dict)
-
-    The [time,value] list can also be replaced with [time,value,context] if you would like to specify data-specific context.
-
-    NOTE: It seems to be the case (on the internet) that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
-    """
-
-    schema = {"time": float, "variable": str, "value": float, "context": str}
-    rows = wtinput.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
-    if (len(rows[0]) != 4) and (context is not None):
-        schema.pop("context")
-    new = pd.DataFrame(rows, columns=schema.keys()).astype(schema)
-
-    result = pd.concat([timeline, new]) if timeline is not None else new
-    return result.sort_values(labels[0], ignore_index=True)
-
-
 def previous(
     timeline: pd.DataFrame, variable=None, sort_by="time", column="variable", index=-1
 ):
@@ -159,11 +110,68 @@ def previous_context(
     return previous(timeline, context, sort_by=sort_by, column=column)
 
 
+###############################################################################
+#                   Main functions
+###############################################################################
+def create(
+    *vtvc,
+    timeline=None,
+    context=None,
+    t=0.0,
+    relative=False,
+    labels=["time", "variable", "value", "context"],
+    **vtvc_dict,
+):
+    """
+    Does what it says on the tin: establishes a new timeline according to the given (flexible) input collection. If 'timeline' is also specified, then it concatenates the new creation with the existing one.
+
+
+    Accepts programmatic and manual input.
+
+    TODO: document the possible combinations of arguments ordered according to usecases 
+
+    variable_time_values (*vtvc) has the form:
+    variable, time, value, context
+    OR
+    variable, [[time, value],...]
+    OR
+    [['variable', value]]
+    OR
+    [['variable', [time, value]]]
+    OR
+    [['variable', [[time, value],
+                  [time002,value002],
+                  ...]]]
+
+    but when unspecified, is replaced by the dictionary form (**vtvc_dict)
+
+    The [time,value] list can also be replaced with [time,value,context] if you would like to specify data-specific context.
+
+    NOTE: It seems to be the case (on the internet) that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
+    """
+
+    schema = {"time": float, "variable": str, "value": float, "context": str}
+    rows = wtinput.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
+    if (len(rows[0]) != 4) and (context is not None):
+        schema.pop("context")
+    new = pd.DataFrame(rows, columns=schema.keys()).astype(schema)
+    if timeline is not None and relative :
+        for index, row in new.iterrows() :
+            _pt_max = previous_time(timeline,new.at[index,"variable"])
+            if _pt_max is not None:
+                new.at[index,"time"] += _pt_max
+
+    result = pd.concat([timeline, new]) if timeline is not None else new
+    return result.sort_values(labels[0], ignore_index=True)
+
+
+
 def set(
     *vtvc,
     timeline=None,
     context=None,
     t=None,
+    relative=False,
     labels=["time", "variable", "value", "context"],
     **vtvc_dict,
 ):
@@ -179,6 +187,7 @@ def set(
             timeline=x,
             context=context,
             t=t,
+            relative=relative,
             labels=labels,
             **vtvc_dict,
         )
@@ -196,6 +205,7 @@ def set(
             timeline=timeline,
             context=context,
             t=t,
+            relative=relative,
             labels=labels,
             **vtvc_dict,
         )
