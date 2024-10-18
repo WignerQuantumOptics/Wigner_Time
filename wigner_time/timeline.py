@@ -156,10 +156,9 @@ def create(
         schema.pop("context")
     new = pd.DataFrame(rows, columns=schema.keys()).astype(schema)
     if timeline is not None and relative :
-        for index, row in new.iterrows() :
-            _pt_max = previous_time(timeline,new.at[index,"variable"])
-            if _pt_max is not None:
-                new.at[index,"time"] += _pt_max
+        _pt_max = previous_time(timeline)
+        if _pt_max is None: raise ValueError("Previous time not found!")
+        for index, row in new.iterrows() : new.at[index,"time"] += _pt_max
 
     result = pd.concat([timeline, new]) if timeline is not None else new
     return result.sort_values(labels[0], ignore_index=True)
