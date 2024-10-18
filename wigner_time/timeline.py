@@ -274,6 +274,16 @@ def wait(
         return timeline
 
 
+def anchor(t, timeline=None, relative=Munch({"time": True}), context=None) :
+    if timeline is None :
+        return lambda x : anchor(t=t,timeline=x,relative=relative,context=context)
+
+    try :
+        return wait(t,variables=["Anchor"],timeline=timeline,relative=relative,context=context)
+    except ValueError :
+        return set("Anchor",t,0,timeline=timeline,context=context,relative=relative["time"])
+
+
 def next(
     *vtvc,
     timeline=None,
