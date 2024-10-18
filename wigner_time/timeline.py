@@ -284,6 +284,7 @@ def next(
     fargs={},
     time_start=None,
     value_start=None,
+    globalRelative=True,
     **vtvc_dict,
 ):
     """
@@ -304,6 +305,7 @@ def next(
             fargs=fargs,
             time_start=time_start,
             value_start=value_start,
+            globalRelative=globalRelative,
             **vtvc_dict,
         )
 
@@ -316,6 +318,7 @@ def next(
 
     frames = []
     if input is not None:
+        if globalRelative : _pt_max=previous_time(timeline)
         for variable, values in input:
             if len(values) > 1:
                 raise ValueError(
@@ -326,6 +329,7 @@ def next(
                 raise ValueError("Duration cannot be zero for changing values.")
 
             prev = previous(timeline, variable)
+            if globalRelative : prev.values[0]=_pt_max
 
             point_start = [time_start, value_start]
 
@@ -337,7 +341,6 @@ def next(
                 if prev is not None:
                     ps = point_start
                     for i, l, p in zip(range(2), relative.keys(), point_start):
-
                         if p is None:
                             ps[i] = prev[l]
                     point_start = ps
@@ -382,6 +385,7 @@ def shift(
     fargs={},
     time_start=None,
     value_start=None,
+    globalRelative=True,
     **vtvc_dict,
 ):
     """
@@ -399,6 +403,7 @@ def shift(
         fargs=fargs,
         time_start=time_start,
         value_start=value_start,
+        globalRelative=globalRelative,
         **vtvc_dict,
     )
 
