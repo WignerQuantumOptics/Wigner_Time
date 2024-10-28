@@ -14,7 +14,6 @@ These should be loaded by the ADwin system during initialization. The dictionary
 specifications_default = {
     "device_001": {
         "cycle_period__normal": 5e-6,
-        "cycle_period__burst": 250e-9,
         "module_001": {
             "bits": 16,
             "voltage_range": [-10.0, 10.0],
@@ -71,7 +70,6 @@ def add_cycles(
     ASSUMES: That the whole experimental run starts at t=0.
 
     """
-    # TODO: Allow for burst period
     # TODO: Implement the special contexts more efficiently
 
     if "time" in df.columns:
