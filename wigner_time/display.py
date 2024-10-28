@@ -8,8 +8,9 @@ import matplotlib.pyplot as plt
 from wigner_time import timeline as tl
 
 
+
 def display_new(timeline, variables=None) :
-    timeline = timeline.sort_values("time", ignore_index=True)
+    timeline.sort_values("time", inplace=True, ignore_index=True)
 
     max_time=timeline.loc[timeline["context"]!="ADwin_Finish","time"].max() # apart from the finish section
 
@@ -20,8 +21,7 @@ def display_new(timeline, variables=None) :
     if variables is None : variables = timeline["variable"].unique()
     variables = sorted(variables, key=(lambda s: s[s.find("_") + 1]))
 
-    analog_variables = { key: [s for s in variables if s.endswith(value)] for key, value in tl.ANALOG_SUFFIXES.items() }
-    analog_variables = { key: value for key, value in analog_variables.items() if value }
+    analog_variables = { key: value for key, value in { key: [s for s in variables if s.endswith(value)] for key, value in tl.ANALOG_SUFFIXES.items() }.items() if value }
 
     digital_variables = list( filter( lambda s : s not in [item for sublist in analog_variables.values() for item in sublist] and s!="Anchor" , variables ) )
 
@@ -29,50 +29,57 @@ def display_new(timeline, variables=None) :
     colors = prop_cycle.by_key()['color']
 
     fig, axes = plt.subplots(
-       len(analog_variables)+1 , sharex=True, figsize=(7.5, 7.5)
-    )  # TODO: make this more flexible, preferably sth like %matplotlib
+       len(analog_variables)+1 , sharex=True, figsize=(7.5, 7.5), height_ratios=[1,1,2]
+    )
 
     fig.tight_layout()
 
+    analogLabels=[]
     for key, axis in zip(analog_variables.keys(),axes[:-1]) :
         axis.set_ylabel(key+" [{}]".format(tl.ANALOG_SUFFIXES[key][2:]))
         for variable, color in zip(analog_variables[key],colors) :
-            array=timeline.loc[ timeline["variable"] == variable, ["time", "value", "context"] ].to_numpy()
-            axis.plot(array[:,0],array[:,1])
-            axis.text(array[0,0],array[0,1],variable,color=color)
+            array=timeline[ timeline["variable"] == variable]
+            axis.plot(array["time"],array["value"],marker="o",ms=3)
+            analogLabels.append(axis.text(0,array.iat[0,2],variable,color=color))
 
+    divider=1.5*len(digital_variables)
+    digitalLabels=[]
     axes[-1].set_ylabel("Digital channels")
     for variable, offset, color in zip(digital_variables,range(len(list(digital_variables))),colors) :
-        baseline=offset/10.
-        array=timeline.loc[ timeline["variable"] == variable, ["time", "value", "context"] ].to_numpy()
-        axes[-1].step(array[:,0],array[:,1]+baseline,where="post",color=color)
-        axes[-1].axhline(baseline, color=color, linestyle=":")
-    axes[-1].set_yticks( [i/10. for i in range(len(list(digital_variables))) ] )
-    axes[-1].set_yticklabels(digital_variables)
+        baseline=offset/divider
+        array=timeline[ timeline["variable"] == variable]
+        axes[-1].axhline(baseline, color=color, linestyle=":", alpha=0.5)
+        axes[-1].axhline(baseline+1, color=color, linestyle=":", alpha=0.5)
+        axes[-1].step(array["time"],array["value"]+baseline,where="post",color=color,marker="o",ms=3)
+        digitalLabels.append(axes[-1].text(0,baseline,variable+"_OFF",color=color))
+        digitalLabels.append(axes[-1].text(0,baseline+1,variable+"_ON",color=color))
+    axes[-1].set_yticks( [i/divider for i in range(len(list(digital_variables))) ] )
+    axes[-1].set_yticklabels([])
 
     # shade init and finish:
     axes[-1].axvspan(-.75, 0, color='gray', alpha=0.3)
     axes[-1].axvspan(max_time, max_time+.5, color='gray', alpha=0.3)
 
-    anchors=timeline.loc[ timeline["variable"] == "Anchor", ["time", "context"] ].to_numpy()
-    for anchorTime in anchors[:,0] :
-        for axis in axes :
-            axis.axvline(anchorTime, color='0.5', linestyle='--')
+    anchors=timeline[ timeline["variable"] == "Anchor"]
+    for anchorTime in anchors["time"] :
+        for axis in axes : axis.axvline(anchorTime, color='0.5', linestyle='--')
 
     ax2=axes[0].twiny()
     ax2.set_xlim(axes[0].get_xlim())
-    ax2.set_xticks(list(anchors[:,0]))  # Set ticks at the specified x-values
-    ax2.set_xticklabels(list(anchors[:,1]))
+    ax2.set_xticks(list(anchors["time"]))  # Set ticks at the specified x-values
+    ax2.set_xticklabels(list(anchors["context"]))
 
     def sync_axes(event):
-        ax2.set_xlim(axes[0].get_xlim())
+        xlim = axes[0].get_xlim()
+        ax2.set_xlim(xlim)
+        for label in analogLabels+digitalLabels :
+            label.set_position((0.9*xlim[0]+0.1*xlim[1],label.get_position()[1]))
 
     # Connect the sync function to the 'xlim_changed' event
     axes[0].callbacks.connect('xlim_changed', sync_axes)
 
     # Display the plot
     plt.show()
-
 
 
 
