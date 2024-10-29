@@ -558,3 +558,12 @@ def sanitize(df):
         },
         errors="ignore",
     )
+
+
+def time_from_anchor_to_context(timeline, t=None, anchorToContext=None) :
+    if anchorToContext is not None :
+        s=timeline.loc[(timeline['variable'] == "Anchor") & (timeline['context'] == anchorToContext), 'time']
+        if s.empty and t is None : raise ValueError("Anchor in context {} not found, and absolute time is not supplied".format(anchorToContext))
+        t = ( s.max() if not s.empty else 0. ) + ( t if t is not None else 0. )
+
+    return t
