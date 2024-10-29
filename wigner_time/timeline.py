@@ -2,27 +2,24 @@
 
 """
 Will use multiple layers of abstraction:
-- operational (time sequence: probe-on, probe-off etc.)
+- operational (time sequence: probe-on, probe-off etc.) – this should go to notebooks / experiment specific packages
 - variable (time sequence of independent degrees of freedom: AOM_probe_power 5V)
-- ADwin (ADwin-specific details )
+- ADwin (ADwin-specific details)
 
 It is a goal to be able to go up and down through the layers of abstraction.
 
 TODO:
 - Add proper basics of 'sanitize' function
 - channel layer
-    - validation
+- validation
 """
 
-from collections.abc import Iterable
 from copy import deepcopy
-from datetime import time
 from typing import Callable
 
 import numpy as np
 import pandas as pd
 import funcy
-from munch import Munch # TODO: do we really want to depend on this?
 
 from wigner_time import connection as con
 from wigner_time import ramp_utils as ramp_utils
@@ -43,10 +40,6 @@ ANALOG_SUFFIXES = {"Voltage" : "__V", "Current" : "__A", "Frequency" : "__MHz"}
 ###############################################################################
 
 
-def combine(*dfs):
-    return pd.concat(dfs, ignore_index=True)
-
-
 def process_dataframe(df, num_decimal_places=6):
     """
     Rounds the values (of voltages) and drops duplicates of values in pandas dataframes.
@@ -58,9 +51,7 @@ def process_dataframe(df, num_decimal_places=6):
     return df.drop_duplicates(subset="value", keep="first")
 
 
-def previous(
-    timeline: pd.DataFrame, variable=None, sort_by="time", column="variable", index=-1
-):
+def previous(timeline: pd.DataFrame, variable=None, sort_by="time", column="variable", index=-1):
     """
     Returns last occurence of `sort_by` - `value` pair of 'variable'.
     Usually the `time` - `value` pair.
@@ -71,42 +62,14 @@ def previous(
     # TODO: Allow for just latest row
 
     if not timeline[sort_by].is_monotonic_increasing:
-        tl_sorted = timeline.sort_values(sort_by)
-    else:
-        tl_sorted = timeline
+        timeline.sort_values(sort_by,inplace=True)
 
     if variable is not None:
-        qy = tl_sorted.query("{}=='{}'".format(column, variable))
-        if not qy.empty:
-            return qy.iloc[index]
-        else:
-            return None
+        qy = timeline[timeline[column] == variable]
+        if qy.empty : raise ValueError("Previous for variable {} not found".format(variable))
+        return qy.iloc[index]
     else:
-        return tl_sorted.iloc[index]
-
-
-def previous_value(timeline, variable=None, sort_by="time", column="variable", index=-1):
-    prev = previous(timeline, variable, sort_by, column, index)
-    if prev is not None:
-        return prev["value"]
-    else:
-        return None
-
-
-def previous_time(timeline, variable=None, sort_by="time", column="variable", index=-1):
-    prev = previous(timeline, variable, sort_by, column, index)
-    if prev is not None:
-        return prev["time"]
-    else:
-        return None
-
-
-def previous_context(timeline, variable=None, sort_by="time", column="variable", index=-1):
-    prev = previous(timeline, variable, sort_by, column, index)
-    if prev is not None:
-        return prev["context"]
-    else:
-        return None
+        return timeline.iloc[index]
 
 
 ###############################################################################
@@ -117,11 +80,12 @@ def create(
     timeline=None,
     context=None,
     t=0.0,
-    relative=Munch({"time": False, "value":False}),
+    relativeTime=False, relativeValue=False,
     **vtvc_dict,
 ):
     """
-    Does what it says on the tin: establishes a new timeline according to the given (flexible) input collection. If 'timeline' is also specified, then it concatenates the new creation with the existing one.
+    Establishes a new timeline according to the given (flexible) input collection.
+    If 'timeline' is also specified, then it concatenates the new creation with the existing one.
 
     Accepts programmatic and manual input.
 
@@ -132,19 +96,18 @@ def create(
     variable_time_values (*vtvc) has the form:
     variable, time, value, context
     OR
+    variable=value
+    OR
     variable, [[time, value],...]
     OR
     [['variable', value]]
     OR
     [['variable', [time, value]]]
     OR
-    [['variable', [[time, value],
-                  [time002,value002],
-                  ...]]]
-
+    [['variable', [[time, value],[time002,value002],...]]]
     but when unspecified, is replaced by the dictionary form (**vtvc_dict)
 
-    The [time,value] list can also be replaced with [time,value,context] if you would like to specify data-specific context.
+    When either time or context is not specified for a given variable, it is taken from the common `t` or `context` argument.
 
     NOTE: It seems to be the case (on the internet) that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
     """
@@ -157,12 +120,10 @@ def create(
 
     new = pd.DataFrame(rows, columns=schema.keys()).astype(schema)
 
-    if timeline is not None and relative["time"] :
-        tAnchor = previous_time(timeline,variable="Anchor")
-        if tAnchor is None: raise ValueError("Previous time not found!")
-        for index, row in new.iterrows() : new.at[index,"time"] += tAnchor
+    if timeline is not None and relativeTime :
+        new["time"] += previous(timeline,variable="Anchor")["time"]
 
-    result = pd.concat([timeline, new]) if timeline is not None else new
+    result = pd.concat([timeline, new],ignore_index=True) if timeline is not None else new
 
     return result.sort_values("time", ignore_index=True)
 
@@ -173,7 +134,7 @@ def set(
     timeline=None,
     context=None,
     t=0.0,
-    relative=Munch({"time": True, "value": False}),
+    relativeTime=True, relativeValue=False,
     **vtvc_dict,
 ):
     """
@@ -188,98 +149,31 @@ def set(
             timeline=x,
             context=context,
             t=t,
-            relative=relative,
+            relativeTime=relativeTime, relativeValue=relativeValue,
             **vtvc_dict,
         )
 
     else:
-        if context is None : context = previous_context(timeline)
+        if context is None : context = previous(timeline)["context"]
 
         return create(
             *vtvc,
             timeline=timeline,
             context=context,
             t=t,
-            relative=relative,
+            relativeTime=relativeTime, relativeValue=relativeValue,
             **vtvc_dict,
         )
 
 
-
-def wait(
-    t=None, variables=None, timeline=None, relative=Munch({"time": True}), context=None
-):
-    """
-    For specific circumstances. Makes sure that the variable has the same value at a later t or at `t`s later (depending on the value of relative.time).
-
-    If no time is given (`t=None`) then `wait` simply makes sure that all variables remain the same at the last time.
-
-    `t` - either the 'duration' to wait or the absolute 'time_end'.
-    `relative` - `dict` must contain a 'time' keyword.
-
-    OBSOLATE?
-
-    """
-
-    _variables = deepcopy(variables)
-
-    if timeline is None:
-        return lambda x: wait(
-            variables=variables,
-            t=t,
-            timeline=x,
-            relative=relative,
-            context=context,
-        )
-
-    _pt_max = previous_time(timeline)
-    if t is None:
-        relative.time = False
-        t = _pt_max
-
-    if relative.time:
-        tnew = t + _pt_max
-    else:
-        tnew = t
-
-    # filter out variables that already have a value at the given time
-    _variables_excluded = timeline.query(f"time=={tnew}")["variable"].values
-    if variables is None:
-        _variables = [
-            v for v in timeline["variable"].unique() if v not in _variables_excluded
-        ]
-
-    _variables = util.ensure_iterable(_variables)
-
-    if _variables:
-        _rows = []
-        for _var in _variables:
-            _p = previous(timeline, _var)
-            if _p is None:
-                raise ValueError("Previous value ({}) doesn't exist!".format(_var))
-
-            _pv = _p["value"]
-            if _pv is None:
-                raise ValueError("Previous value ({}) doesn't exist!".format(_var))
-
-            if (context is None) and "context" in _p.keys():
-                context = _p["context"]
-
-            _rows.append([_var, [[tnew, _pv]]])
-
-        return combine(*[timeline, create(_rows, context=context)])
-    else:
-        return timeline
-
-
-def anchor(t, timeline=None, relative=Munch({"time": True}), context=None) :
+def anchor(t, timeline=None, relativeTime=True, context=None) :
     if timeline is None :
-        return lambda x : anchor(t=t,timeline=x,relative=relative,context=context)
+        return lambda x : anchor(t=t,timeline=x,relativeTime=relativeTime,context=context)
 
     try :
-        return set("Anchor",t,0,timeline=timeline,context=context,relative=relative)
+        return set("Anchor",t,0,timeline=timeline,context=context,relativeTime=relativeTime)
     except ValueError :
-        return set("Anchor",t,0,timeline=timeline,context=context,relative={"time": False})
+        return set("Anchor",t,0,timeline=timeline,context=context,relativeTime=False)
 
 
 
@@ -288,7 +182,7 @@ def ramp(
     timeline=None,
     context=None,
     t=0.0,
-    relative=Munch({"time": True, "value": False}),
+    relativeTime=True, relativeValue=False,
     duration=None,
     function=ramp_utils.tanh,
     fargs={},
@@ -310,7 +204,7 @@ def ramp(
             timeline=x,
             context=context,
             t=t, # starting time
-            relative=relative,
+            relativeTime=relativeTime, relativeValue=relativeValue,
             duration=duration,
             function=function,
             fargs=fargs,
@@ -321,7 +215,10 @@ def ramp(
     frames = []
 
     if input_data is not None:
-        tAnchor=previous_time(timeline,variable="Anchor")
+        try :
+            tAnchor=previous(timeline,variable="Anchor")["time"]
+        except ValueError :
+            tAnchor=0.
 
         for variable, values in input_data:
             if len(values) > 1:
@@ -329,14 +226,14 @@ def ramp(
 
             t, value = values[0][:2]
 
-            if relative["time"] and tAnchor is not None : t+=tAnchor
+            if relativeTime : t+=tAnchor
 
             prev = previous(timeline, variable)
 
             if prev is None : raise ValueError("Tried to use 'ramp' without previous value for variable {}".format(variable))
 
             if context is None : context = prev["context"]
-            if relative["value"] : value += prev["value"]
+            if relativeValue : value += prev["value"]
 
             point_start = [t, prev["value"]]
 
@@ -352,143 +249,7 @@ def ramp(
         # TODO: process_dataframe can be replaced with sanitize here?
         frames = [process_dataframe(frame) for frame in frames]
 
-    return combine(*([timeline] + frames))
-
-
-def next(
-    *vtvc,
-    timeline=None,
-    context=None,
-    t=None,  # this is interpreted as time_end if !relative["time"] - maybe this should be renamed to `time` or maybe `duration`?
-    relative=Munch({"time": True, "value": False}),
-    function=ramp_utils.tanh,
-    fargs={},
-    time_start=None,
-    value_start=None,
-    globalRelative=True,
-    **vtvc_dict,
-):
-    """
-    vtvc is variable,t,value,context (following that of 'create')
-
-    Here, `t` is interpreted as time_end if `relative={"time": True, ...}`
-    NOTE: The order of variables and time are different in `wait`.
-
-    OBSOLATE?
-    """
-    # TODO: Should fargs be a dictionary?
-    if timeline is None:
-        return lambda x: next(
-            *vtvc,
-            timeline=x,
-            context=context,
-            t=t,
-            relative=relative,
-            function=function,
-            fargs=fargs,
-            time_start=time_start,
-            value_start=value_start,
-            globalRelative=globalRelative,
-            **vtvc_dict,
-        )
-
-    if (t is not None) and (t < 0):
-        raise ValueError(
-            'cannot go back in time or create quantum superpositions with "timeline.next"!'
-        )
-
-    input = wtinput.convert(*vtvc, time=t, context=context, **vtvc_dict)
-
-    frames = []
-    if input is not None:
-        if globalRelative : _pt_max=previous_time(timeline)
-        for variable, values in input:
-            if len(values) > 1:
-                raise ValueError(
-                    "Badly formatted input to 'next'. There should only be one collection of t and value per variable."
-                )
-            t, value = values[0][:2]
-            if not (t > 0):
-                raise ValueError("Duration cannot be zero for changing values.")
-
-            prev = previous(timeline, variable)
-            if globalRelative : prev.values[0]=_pt_max
-
-            point_start = [time_start, value_start]
-
-            if prev is not None:
-                if context is None and "context" in prev.keys():
-                    context = prev["context"]
-
-            if (time_start is None) or (value_start is None):
-                if prev is not None:
-                    ps = point_start
-                    for i, l, p in zip(range(2), relative.keys(), point_start):
-                        if p is None:
-                            ps[i] = prev[l]
-                    point_start = ps
-
-            for x in point_start:
-                if x is None:
-                    raise ValueError(
-                        "Tried to use 'next' without starting time and value. Check that you're trying to change an existing variable."
-                    )
-
-            frames.append(
-                create(
-                    variable,
-                    function(
-                        point_start,
-                        ramp_utils.to_point_end(
-                            point_start,
-                            t,
-                            value,
-                            relative=list(relative.values()),
-                        ),
-                        **fargs,
-                    ),
-                    context=context,
-                )
-            )
-
-        # Rounding up the values and dropping duplicates
-        # TODO: process_dataframe can be replaced with sanitize here?
-        frames = [process_dataframe(frame) for frame in frames]
-
-        return combine(*([timeline] + frames))
-
-
-def shift(
-    *vtvc,
-    timeline=None,
-    context=None,
-    t=None,
-    relative=Munch({"time": True, "value": True}),
-    function=ramp_utils.tanh,
-    fargs={},
-    time_start=None,
-    value_start=None,
-    globalRelative=True,
-    **vtvc_dict,
-):
-    """
-    Convenience function. Just `next`, but with relative defaults.
-
-    `time` and `value` are relative 'shift's with respect to the previous values.
-    """
-    return next(
-        *vtvc,
-        timeline=timeline,
-        context=context,
-        t=t,
-        relative=relative,
-        function=function,
-        fargs=fargs,
-        time_start=time_start,
-        value_start=value_start,
-        globalRelative=globalRelative,
-        **vtvc_dict,
-    )
+    return pd.concat(([timeline] + frames),ignore_index=True)
 
 
 def stack(firstArgument, *fs: list[Callable]):

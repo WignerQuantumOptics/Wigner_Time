@@ -89,7 +89,7 @@ def init(**kwargs) :
             context="ADwin_LowInit",
             **kwargs
         ),
-        tl.anchor(t=0.0,relative={"time" : False},context="InitialAnchor")
+        tl.anchor(t=0.0,relativeTime=False,context="InitialAnchor")
     )
 
 
