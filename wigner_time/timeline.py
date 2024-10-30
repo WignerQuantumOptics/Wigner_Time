@@ -56,11 +56,9 @@ def previous(timeline: pd.DataFrame, variable=None, sort_by="time", column="vari
     Returns last occurence of `sort_by` - `value` pair of 'variable'.
     Usually the `time` - `value` pair.
 
-    Returns `None` if no previous value exists.
+    Raises ValueError if no previous value exists.
 
     """
-    # TODO: Allow for just latest row
-
     if not timeline[sort_by].is_monotonic_increasing:
         timeline.sort_values(sort_by,inplace=True)
 
@@ -90,8 +88,6 @@ def create(
     Accepts programmatic and manual input.
 
     TODO: implement relative value
-
-    TODO: document the possible combinations of arguments ordered according to usecases 
 
     variable_time_values (*vtvc) has the form:
     variable, time, value, context
@@ -140,8 +136,15 @@ def set(
     """
     Creates a timeline for a single or many variables the same as the 'create' function.
 
-    One difference is that when an existing timeline is not specified, then it returns an anonymous function for use in function chaining, like the other main functions in this module.
+    One difference is that when an existing timeline is not specified,
+    then it returns an anonymous function for use in function chaining,
+    like the other main functions in this module.
 
+    The chaining can be effected by the `stack` function.
+
+    When context is not specified for a given variable, it is taken to be the latest context in the timeline.
+    WARNING: this can lead to subtle bugs if the latest context is a special context
+    TODO: this case could be protected against, but at the moment we don’t have info on special contexts in timeline.py
     """
     if timeline is None:
         return lambda x: set(
@@ -167,6 +170,9 @@ def set(
 
 
 def anchor(t, timeline=None, relativeTime=True, context=None) :
+    """
+    Sets the anchor, optionally relative to the previous anchor
+    """
     if timeline is None :
         return lambda x : anchor(t=t,timeline=x,relativeTime=relativeTime,context=context)
 
@@ -189,11 +195,11 @@ def ramp(
     **vtvc_dict,
 ):
     """
-    vtvc is variable,t,value,context (following that of 'create')
+    vtvc is variable,t,value,context (the argument passing follows the same logic as with 'create')
 
-    `t` is starting time, which is relative to the previous anchor if `relative={"time": True, ...}`
+    `t` is starting time, which is relative to the previous anchor if `relativeTime=True`
 
-    the starting value of the ramp is the previous value of the variable, and if it doesn’t exist, an exception is thrown
+    The starting value of the ramp is the previous value of the variable. If that doesn’t exist, an exception is thrown.
 
     """
     # TODO: Should fargs be a dictionary?
@@ -252,23 +258,30 @@ def ramp(
     return pd.concat(([timeline] + frames),ignore_index=True)
 
 
-def stack(firstArgument, *fs: list[Callable]):
+def stack(firstArgument, *fs : list[Callable]):
     """
     For stacking modifications to the timeline in a composable way.
+
+    If the bottom of the stack is a timeline, the result is also timeline
+    e.g.:
+    stack(
+        timeline,
+        set(…),
+        ramp(…)
+    )
+    the action of `set` and `ramp` is added to the existing `timeline` in this case.
+    Equivalently:
+    stack(
+        set(…,timeline=timeline),
+        ramp(…)
+    )
+
+    Otherwise, the result is a functional, which can be later be applied on an existing timeline.
     """
     if isinstance(firstArgument, pd.DataFrame) :
         return funcy.compose(*fs[::-1])(firstArgument)
     else :
         return funcy.compose(*fs[::-1],firstArgument)
-
-
-def update(timeline, *fs: list[Callable]):
-    """
-    For stacking modifications to the timeline in a composable way.
-
-    TODO: probably OBSOLATE beside the above function
-    """
-    return funcy.compose(*fs[::-1])(timeline)
 
 
 def is_value_within_range(value, unit_range):
