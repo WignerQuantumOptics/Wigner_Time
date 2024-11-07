@@ -2,6 +2,8 @@
 
 from copy import deepcopy
 
+import numpy as np
+
 from wigner_time import timeline as tl
 from wigner_time import conversion as conv
 
@@ -60,35 +62,40 @@ def add_cycles(
     df,
     specifications=specifications_default,
     special_contexts={"ADwin_LowInit": -2, "ADwin_Init": -1, "ADwin_Finish": 2**31},
+    device="device_001"
 ):
     """
-    Inserts a new `cycle` column into the timeline, that is a conversion of the `time` column into 'number of cycles'.
+    Inserts a new `cycle` column into the timeline as a conversion of the `time` column into 'number of cycles'.
 
-    The `special_contexts` dictionary is used to overwrite the timing conversion, to allow the user to utilise ADwin's special features, e.g. to allow initialization and finalization to be carried out outside of the usual cycle progression.
-    NOTE: The same convention has to be implemented on both the Python and ADwin side.
+    Parameters:
+    - df: DataFrame containing the experimental data.
+    - specifications: Dictionary with device-specific configuration, must contain cycle period.
+    - special_contexts: Dictionary with context-specific overrides for cycle values.
+    - device: Device name to use for cycle period in specifications.
 
-    ASSUMES: That the whole experimental run starts at t=0.
-
+    Raises:
+    - ValueError if required columns are missing or if cycle period is not found for specified device.
     """
-    # TODO: Implement the special contexts more efficiently
+    # Check if `time` column is present
+    if "time" not in df.columns:
+        raise ValueError(f"`time` column not found. Columns present: {list(df.columns)}")
 
-    if "time" in df.columns:
-        dff = deepcopy(df)
-        dff["cycle"] = (
-            df["time"].values / specifications["device_001"]["cycle_period__normal"]
-        )
+    # Ensure device-specific cycle period is available
+    try:
+        cycle_period = specifications[device]["cycle_period__normal"]
+    except KeyError:
+        raise ValueError(f"`cycle_period__normal` not found in specifications for {device}.")
 
-        for context in special_contexts:
-            dff.loc[dff["context"] == context, "cycle"] = special_contexts[context]
+    # Calculate cycles and handle special contexts
+    df["cycle"] = np.round(df["time"].values / cycle_period).astype(np.int64)
 
-        return dff.astype(
-            {
-                "cycle": int,
-            },
-            errors="raise",
-        )
-    else:
-        raise Exception("No `time` column.")
+    # Apply special context cycles
+    for context, cycle_value in special_contexts.items():
+        if context in df["context"].values:
+            df.loc[df["context"] == context, "cycle"] = cycle_value
+
+    return df
+
 
 
 def initialize_ADwin(m, output):
@@ -236,7 +243,7 @@ def modules_digital(specifications):
 
 
 def to_tuples(df, cols=["cycle", "module", "channel", "value_digits"]):
-    return [tuple([int(i) for i in x]) for x in df[cols].values]
+    return [tuple([np.int64(i) for i in x]) for x in df[cols].values]
 
 
 def output(df, specifications=specifications_default):
