@@ -243,7 +243,7 @@ def modules_digital(specifications):
 
 
 def to_tuples(df, cols=["cycle", "module", "channel", "value_digits"]):
-    return [tuple([int(i) for i in x]) for x in df[cols].values]
+    return [tuple([np.int64(i) for i in x]) for x in df[cols].values]
 
 
 def output(df, specifications=specifications_default):

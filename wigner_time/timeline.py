@@ -327,8 +327,8 @@ def sanitize(df):
             "module": int,
             "channel": int,
             # "context": str,
-            "cycle": int,
-            "value_digits": int,
+            "cycle": np.int64,
+            "value_digits": np.int64,
         },
         errors="ignore",
     )
