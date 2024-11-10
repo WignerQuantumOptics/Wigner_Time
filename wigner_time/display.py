@@ -28,9 +28,11 @@ def display_new(timeline, variables=None) :
     prop_cycle = plt.rcParams['axes.prop_cycle']
     colors = prop_cycle.by_key()['color']
 
+    analogPanels=len(analog_variables)
     fig, axes = plt.subplots(
-       len(analog_variables)+1 , sharex=True, figsize=(7.5, 7.5), height_ratios=[1,1,2]
+       analogPanels+1 , sharex=True, figsize=(7.5, 7.5), height_ratios=[1]*analogPanels+[2]
     )
+    if analogPanels==0 : axes=[axes]
 
     fig.tight_layout()
 
@@ -57,8 +59,9 @@ def display_new(timeline, variables=None) :
     axes[-1].set_yticklabels([])
 
     # shade init and finish:
-    axes[-1].axvspan(-.75, 0, color='gray', alpha=0.3)
-    axes[-1].axvspan(max_time, max_time+.5, color='gray', alpha=0.3)
+    for ax in axes :
+        ax.axvspan(-.75, 0, color='gray', alpha=0.3)
+        ax.axvspan(max_time, max_time+.5, color='gray', alpha=0.3)
 
     anchors=timeline[ timeline["variable"] == "Anchor"]
     for anchorTime in anchors["time"] :
@@ -81,6 +84,7 @@ def display_new(timeline, variables=None) :
     # Display the plot
     plt.show()
 
+    return fig, axes
 
 
 
