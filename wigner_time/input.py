@@ -11,20 +11,25 @@ from wigner_time import util as util
 
 def __find_depth(vtvc):
     """
-    Returns the necessary level of nesting to reach the data. This is complicated by the fact that the array input can be inhomogenously shaped (which is convenient for the user, if not for the programming!).
+    Returns the necessary level of nesting to reach the data. This is complicated by the fact that the array input can be inhomogeneously shaped (which is convenient for the user, if not for the programming!).
     """
-    # TODO: Check that first element is actually a string.
+    depth = 0
+    current_level = vtvc
 
-    if util.is_collection(vtvc[0]):
-        if util.is_collection(vtvc[0][0]):
-            if util.is_collection(vtvc[0][0][0]):
-                raise ValueError("input involves too deeply nested array. ")
-            else:
-                return 3
-        else:
-            return 2
-    else:
-        return 1
+    # Dynamically determine depth until a non-collection is reached or depth exceeds limit
+    while util.is_collection(current_level):
+        if not current_level:  # Handle empty collections safely
+            raise ValueError("Empty collection as input.")
+        current_level = current_level[0]
+        depth += 1
+        if depth > 3:  # Limit depth to avoid overly nested structures
+            raise ValueError("Input involves too deeply nested array.")
+
+    # Check if the innermost element is a string
+    if depth > 0 and not isinstance(current_level, str):
+        raise ValueError("The innermost element must be a string.")
+
+    return depth
 
 
 def __ensure_time_context(collection, time, context=None, context__default=""):
