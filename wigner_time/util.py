@@ -29,16 +29,11 @@ def ensure_iterable(x, is_string=False):
 
 
 def is_collection(x, is_string=False):
-    """
-    Checks if x is a non-string sequence or numpy array by default. Strings can be included using the 'is_string' flag.
-    """
-
+    """Checks if x is a non-string iterable or numpy array by default."""
     if not is_string:
-        return (
-            isinstance(x, Sequence) or isinstance(x, np.ndarray)
-        ) and not isinstance(x, str)
+        return (isinstance(x, Iterable) and not isinstance(x, str)) or isinstance(x, np.ndarray)
     else:
-        return isinstance(x, Sequence) or isinstance(x, np.ndarray)
+        return isinstance(x, Iterable)
 
 
 def filter_dict(d, ks):
