@@ -3,6 +3,7 @@ import pandas as pd
 
 from wigner_time import adwin as adwin
 from wigner_time import connection as con
+from wigner_time import device as device
 
 
 @pytest.fixture
@@ -36,6 +37,33 @@ def test_remove_unconnected_variables(df_simple, connections_simple):
                 "variable": ["AOM_imaging", "AOM_imaging__V", "AOM_repump"],
                 "value": [0.0, 2.0, 1.0],
                 "context": ["init"] * 3,
+            }
+        ),
+    )
+
+
+def test_add_linear_conversion(df_simple):
+    df_devs = device.add_devices(
+        df_simple,
+        pd.DataFrame(
+            columns=["variable", "unit_range", "safety_range"],
+            data=[
+                ["AOM_imaging__V", (-3, 3), (-3, 3)],
+            ],
+        ),
+    )
+
+    return pd.testing.assert_frame_equal(
+        adwin.add_linear_conversion(df_devs, "V"),
+        pd.DataFrame(
+            {
+                "time": [0.0, 0.0, 0.0, 0.0],
+                "variable": ["AOM_imaging", "AOM_imaging__V", "AOM_repump", "virtual"],
+                "value": [0.0, 2.0, 1.0, 1.0],
+                "context": ["init", "init", "init", "MOT"],
+                "unit_range": [None, (-3, 3), None, None],
+                "safety_range": [None, (-3, 3), None, None],
+                "value__digits": [None, 54613.0, None, None],
             }
         ),
     )

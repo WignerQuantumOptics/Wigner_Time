@@ -297,9 +297,9 @@ def switch_laser(
     """
     # TODO: I live in hope that the shutter convention will be changed!
     #
-    _time__AOM = _time_start - params.lag_AOM_on - params.lag_shutter_on
+    _time__AOM = time_start - params.lag_AOM_on - params.lag_shutter_on
     _time__shutter = (
-        _time_start
+        time_start
         - params.lag_AOM_on
         - params.safety_factor * (params.lag_shutter_on + params.duration_shutter_on)
     )
@@ -471,14 +471,20 @@ def prepare_atoms():
 ###########################################################################
 #                                 SCRATCH                                 #
 ###########################################################################
-_time_start = 0.0
 duration_cooling = 1e-3
 timeline = init()
 context = "test"
 
 
-data = prepare_atoms()
-print(data)
+# data = prepare_atoms()
+# print(data)
 
 
 init = init()
+
+from wigner_time import variable as var
+
+
+print("here")
+mask_current = init["variable"].str.contains("A" + "$")
+init
