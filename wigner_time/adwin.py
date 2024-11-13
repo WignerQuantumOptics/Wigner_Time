@@ -2,10 +2,16 @@
 
 from copy import deepcopy
 
+<<<<<<< HEAD
 import numpy as np
 
 from wigner_time import timeline as tl
+=======
+from wigner_time import device, timeline as tl
+>>>>>>> origin/dev_ctw
 from wigner_time import conversion as conv
+from wigner_time import variable as var
+from wigner_time.internal import dataframe as frame
 
 
 """
@@ -154,6 +160,24 @@ def check_safety_range(df):
                 pass
 
 
+def add_linear_conversion(df, unit, separator="__", column__new="value__digits"):
+    """
+    Performs a linear conversion, according to the associated bounding values ('unit_range'), and adds the resulting values as another column, 'value__digits'.
+
+    unit: string.
+    """
+    dff = deepcopy(df)
+    mask = dff["variable"].str.contains(separator + unit + "$")
+
+    if mask.any():
+        unit_range = dff.loc[mask, "unit_range"].iloc[0]
+
+        dff.loc[dff.index[mask], column__new] = conv.unit_to_digits(
+            dff.loc[mask, "value"], unit_range=unit_range
+        )
+    return dff
+
+
 def add(df, adwin_connections, devices, specifications=specifications_default):
     """
     Takes an 'operational' layer timeline and inserts ADwin-specific columns, e.g. cycles and numbers for the module and channel etc.
@@ -283,3 +307,33 @@ def to_adwin(df, connections, devices, adwin_settings=specifications_default):
         add(df, connections, devices, specifications=specifications_default),
         specifications=specifications_default,
     )
+
+
+# ===
+# SCRIPT
+# ===
+if __name__ == "__main__":
+    import pandas as pd
+
+    df_simple = pd.DataFrame(
+        [
+            [0.0, "AOM_imaging", 0.0, "init"],
+            [0.0, "AOM_imaging__V", 2.0, "init"],
+            [0.0, "AOM_repump", 1.0, "init"],
+            [0.0, "virtual", 1.0, "MOT"],
+        ],
+        columns=["time", "variable", "value", "context"],
+    )
+
+    df_devs = device.add_devices(
+        df_simple,
+        pd.DataFrame(
+            columns=["variable", "unit_range", "safety_range"],
+            data=[
+                ["AOM_imaging__V", (-3, 3), (-3, 3)],
+            ],
+        ),
+    )
+
+    _dff = add_linear_conversion(df_devs, "V")
+    print(_dff)

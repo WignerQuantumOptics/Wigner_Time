@@ -87,7 +87,11 @@ def create(
 
     Accepts programmatic and manual input.
 
+<<<<<<< HEAD
     TODO: implement relative value
+=======
+    TODO: document the possible combinations of arguments ordered according to usecases
+>>>>>>> origin/dev_ctw
 
     variable_time_values (*vtvc) has the form:
     variable, time, value, context
