@@ -326,35 +326,48 @@ def is_value_within_range(value, unit_range):
         return min_value <= value <= max_value
 
 
-def sanitize(df):
+def sanitize_values(timeline):
     """
+    Ensures that the given timeline doesn't contain values outside of the given unit or safety range.
+    """
+    if ("unit_range" in timeline.columns) or ("safety_range" in timeline.columns):
+        df = deepcopy(timeline)
+
+        # List to store rows with values outside the range
+        out_of_range_rows = []
+
+        # Iterate through each row
+        for index, row in df.iterrows():
+            # Check if the 'value' is within the specified 'unit_range'
+            if not is_value_within_range(row["value"], row["unit_range"]):
+                # Print or handle the row where the value is outside the range
+                print(
+                    f"Value {row['value']} is outside device unit range {row['unit_range']} for {row['variable']} at time {row['time']} at dataframe index {index}."
+                )
+
+                # Append the row index to the list
+                out_of_range_rows.append(index)
+
+        # Raise ValueError after printing all relevant information
+        if out_of_range_rows:
+            raise ValueError(
+                f"Values outside the desired range: {out_of_range_rows}! Please update these before proceeding."
+            )
+    return timeline
+
+
+def sanitize(timeline):
+    """
+    Check for inefficiencies, type and logical errors with respect the current dataframe and either return an updated dataframe or an error.
+
+
     WARNING: The list of expected column names needs to be kept up to date.
 
     TODO:Remove points within a certain time interval (no point being too precise).
     TODO:Instead of list of rows, only modify the value of an integer (which gives the number of rows).
     """
-    # List to store rows with values outside the range
-    out_of_range_rows = []
 
-    # Iterate through each row
-    for index, row in df.iterrows():
-        # Check if the 'value' is within the specified 'unit_range'
-        if not is_value_within_range(row["value"], row["unit_range"]):
-            # Print or handle the row where the value is outside the range
-            print(
-                f"Value {row['value']} is outside device unit range {row['unit_range']} for {row['variable']} at time {row['time']} at dataframe index {index}."
-            )
-
-            # Append the row index to the list
-            out_of_range_rows.append(index)
-
-    # Raise ValueError after printing all relevant information
-    if out_of_range_rows:
-        raise ValueError(
-            f"Values outside the device unit range in {len(out_of_range_rows)} rows! YOU MUST CHANGE THESE BEFORE PROCEEDING!"
-        )
-
-    return df.astype(
+    return sanitize_values(timeline).astype(
         {
             "variable": str,
             "module": int,

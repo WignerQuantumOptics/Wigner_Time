@@ -62,7 +62,7 @@ def remove_unconnected_variables(df, connections):
     return df
 
 
-def add_cycles(
+def add_cycle(
     df,
     specifications=specifications_default,
     special_contexts=special_contexts,
@@ -252,7 +252,7 @@ def add(df, adwin_connections, devices, specifications=specifications_default):
 
     check_safety_range(dff)
 
-    return tl.sanitize(add_cycles(dff, specifications))
+    return tl.sanitize(add_cycle(dff, specifications))
 
 
 def modules_digital(specifications):
@@ -328,12 +328,23 @@ def sanitize_special_contexts(timeline, special_contexts=special_contexts):
         )
 
 
+def sanitize_types(timeline):
+    return timeline.astype(
+        {
+            "module": int,
+            "channel": int,
+            "cycle": np.int64,
+            "value_digits": np.int64,
+        }
+    )
+
+
 def sanitize(timeline):
     """
     Includes ADwin-specific methods ontop of the basic timeline sanitization for removing unnecessary points and raising errors on illogical input.
 
     """
-    return sanitize_special_contexts(tl.sanitize(timeline))
+    return sanitize_special_contexts(sanitize_types(tl.sanitize(timeline)))
 
 
 # ======

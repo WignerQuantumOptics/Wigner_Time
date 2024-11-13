@@ -75,7 +75,7 @@ def test_add_cycles():
     df["context"] = (
         ["MOT"] * 4 + ["ADwin_LowInit"] * 3 + ["ADwin_Init"] * 2 + ["ADwin_Finish"]
     )
-    tst = adwin.add_cycles(df)
+    tst = adwin.add_cycle(df)
 
     return pd.testing.assert_frame_equal(
         tst,
@@ -97,8 +97,8 @@ def test_add_cycles():
                 ],
                 "cycle": [
                     0,
-                    199999,
-                    399999,
+                    200000,
+                    400000,
                     600000,
                     -2,
                     -2,
@@ -111,6 +111,10 @@ def test_add_cycles():
         ),
     )
 
+
+###############################################################################
+#                        dealing with special contexts                        #
+###############################################################################
 
 df_special1 = frame.new(
     [
@@ -137,19 +141,27 @@ df_special2 = frame.new(
 
 df_special3 = frame.new(
     [
-        [0.0, "AOM_imaging", 0.0, "ADwin_Init"],
-        [0.0, "AOM_imaging__V", 2.0, "ADwin_Init"],
-        [0.0, "AOM_repump", 1.0, "init"],
-        [0.0, "virtual", 1.0, "MOT"],
+        [0.0, "AOM_imaging", 0.0, "ADwin_Init", 1, 1, 0, 1],
+        [0.0, "AOM_imaging__V", 2.0, "ADwin_Init", 1, 1, 0, 5],
+        [0.0, "AOM_repump", 1.0, "init", 1, 1, 0, 5],
     ],
-    columns=["time", "variable", "value", "context"],
+    columns=[
+        "time",
+        "variable",
+        "value",
+        "context",
+        "module",
+        "channel",
+        "cycle",
+        "value_digits",
+    ],
 )
 
 
 @pytest.mark.parametrize("input_value", [df_special1, df_special2])
 def test_sanitize_raises(input_value):
     with pytest.raises(ValueError):
-        adwin.sanitize(input_value)
+        adwin.sanitize_special_contexts(input_value)
 
 
 def test_sanitize_success():
