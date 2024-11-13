@@ -44,6 +44,9 @@ devices = pd.DataFrame(
 )
 
 
+# OP1 ON delay: 1.48ms (OFF: 2.6); OP2 OFF delay: 1.78ms (ON: 2.42) measured on Nov 7, 2024
+# MOT OFF delay: 2.3ms (ON: 1.8) measured on Nov 12, 2024
+# sum of ON and OFF delays adds up to 4.1ms for each shutter, which is OK!
 constants = Munch(
     safety_factor=1.1,
 #    factor__VpMHz=0.05,
@@ -188,9 +191,9 @@ def OP(durationExposition=80e-6, durationCoilRamp=50e-6, i=-0.12, pt=3, **kwargs
             fargs={"ti": pt},
             context="OP",**kwargs
         ),
-        tl.set("AOM_OP",[[-0.1,0],[durationCoilRamp,1],[fullDuration,0]]),
-        tl.set("shutter_OP001",[[durationCoilRamp-constants.OP.lag_shutter_on,1],[0.1,0]]),
-        tl.set("shutter_OP002",[[fullDuration-constants.OP.lag_shutter_off,0],[0.1,1]]),
+        tl.set(AOM_OP=[[-0.1,0],[durationCoilRamp,1],[fullDuration,0]]),
+        tl.set(shutter_OP001=[[durationCoilRamp-constants.OP.lag_shutter_on,1],[0.1,0]]),
+        tl.set(shutter_OP002=[[fullDuration-constants.OP.lag_shutter_off,0],[0.1,1]]),
         tl.set(AOM_repump=0,shutter_repump=0,t=fullDuration),
         tl.anchor(fullDuration,context="OP")
         )
