@@ -9,6 +9,10 @@ import pandas as pd
 # ^^^ This should change at somepoint!
 
 
+def new(data, columns):
+    return pd.DataFrame(data, columns=columns)
+
+
 def join(df1, df2, label="variable"):
     return df1.join(
         df2.set_index(label),

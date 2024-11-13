@@ -4,6 +4,7 @@ import pandas as pd
 from wigner_time import adwin as adwin
 from wigner_time import connection as con
 from wigner_time import device as device
+from wigner_time.internal import dataframe as frame
 
 
 @pytest.fixture
@@ -109,3 +110,47 @@ def test_add_cycles():
             }
         ),
     )
+
+
+df_special1 = frame.new(
+    [
+        [0.0, "AOM_imaging", 0.0, "ADwin_Init"],
+        [10.0, "AOM_imaging", 0.0, "ADwin_Init"],
+        [0.0, "AOM_imaging__V", 2.0, "ADwin_Init"],
+        [0.0, "AOM_repump", 1.0, "init"],
+        [0.0, "virtual", 1.0, "MOT"],
+    ],
+    columns=["time", "variable", "value", "context"],
+)
+
+
+df_special2 = frame.new(
+    [
+        [0.0, "AOM_imaging", 0, "ADwin_Init"],
+        [10.0, "AOM_imaging", 1, "ADwin_Init"],
+        [0.0, "AOM_imaging__V", 2.0, "ADwin_Init"],
+        [0.0, "AOM_repump", 1.0, "init"],
+        [0.0, "virtual", 1.0, "MOT"],
+    ],
+    columns=["time", "variable", "value", "context"],
+)
+
+df_special3 = frame.new(
+    [
+        [0.0, "AOM_imaging", 0.0, "ADwin_Init"],
+        [0.0, "AOM_imaging__V", 2.0, "ADwin_Init"],
+        [0.0, "AOM_repump", 1.0, "init"],
+        [0.0, "virtual", 1.0, "MOT"],
+    ],
+    columns=["time", "variable", "value", "context"],
+)
+
+
+@pytest.mark.parametrize("input_value", [df_special1, df_special2])
+def test_sanitize_raises(input_value):
+    with pytest.raises(ValueError):
+        adwin.sanitize(input_value)
+
+
+def test_sanitize_success():
+    return pd.testing.assert_frame_equal(adwin.sanitize(df_special3), df_special3)

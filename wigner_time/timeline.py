@@ -32,7 +32,7 @@ from wigner_time import input as wtinput
 
 TIME_RESOLUTION = 1.0e-6
 
-ANALOG_SUFFIXES = {"Voltage" : "__V", "Current" : "__A", "Frequency" : "__MHz"}
+ANALOG_SUFFIXES = {"Voltage": "__V", "Current": "__A", "Frequency": "__MHz"}
 
 
 ###############################################################################
@@ -51,7 +51,9 @@ def process_dataframe(df, num_decimal_places=6):
     return df.drop_duplicates(subset="value", keep="first")
 
 
-def previous(timeline: pd.DataFrame, variable=None, sort_by="time", column="variable", index=-1):
+def previous(
+    timeline: pd.DataFrame, variable=None, sort_by="time", column="variable", index=-1
+):
     """
     Returns last occurence of `sort_by` - `value` pair of 'variable'.
     Usually the `time` - `value` pair.
@@ -60,11 +62,12 @@ def previous(timeline: pd.DataFrame, variable=None, sort_by="time", column="vari
 
     """
     if not timeline[sort_by].is_monotonic_increasing:
-        timeline.sort_values(sort_by,inplace=True)
+        timeline.sort_values(sort_by, inplace=True)
 
     if variable is not None:
         qy = timeline[timeline[column] == variable]
-        if qy.empty : raise ValueError("Previous for variable {} not found".format(variable))
+        if qy.empty:
+            raise ValueError("Previous for variable {} not found".format(variable))
         return qy.iloc[index]
     else:
         return timeline.iloc[index]
@@ -78,38 +81,37 @@ def create(
     timeline=None,
     context=None,
     t=0.0,
-    relativeTime=False, relativeValue=False,
+    relativeTime=False,
+    relativeValue=False,
     **vtvc_dict,
 ):
     """
-    Establishes a new timeline according to the given (flexible) input collection.
-    If 'timeline' is also specified, then it concatenates the new creation with the existing one.
+        Establishes a new timeline according to the given (flexible) input collection.
+        If 'timeline' is also specified, then it concatenates the new creation with the existing one.
 
-    Accepts programmatic and manual input.
+        Accepts programmatic and manual input.
 
-<<<<<<< HEAD
-    TODO: implement relative value
-=======
-    TODO: document the possible combinations of arguments ordered according to usecases
->>>>>>> origin/dev_ctw
+        TODO: implement relative value
+    =======
+        TODO: document the possible combinations of arguments ordered according to usecases
 
-    variable_time_values (*vtvc) has the form:
-    variable, time, value, context
-    OR
-    variable=value
-    OR
-    variable, [[time, value],...]
-    OR
-    [['variable', value]]
-    OR
-    [['variable', [time, value]]]
-    OR
-    [['variable', [[time, value],[time002,value002],...]]]
-    but when unspecified, is replaced by the dictionary form (**vtvc_dict)
+        variable_time_values (*vtvc) has the form:
+        variable, time, value, context
+        OR
+        variable=value
+        OR
+        variable, [[time, value],...]
+        OR
+        [['variable', value]]
+        OR
+        [['variable', [time, value]]]
+        OR
+        [['variable', [[time, value],[time002,value002],...]]]
+        but when unspecified, is replaced by the dictionary form (**vtvc_dict)
 
-    When either time or context is not specified for a given variable, it is taken from the common `t` or `context` argument.
+        When either time or context is not specified for a given variable, it is taken from the common `t` or `context` argument.
 
-    NOTE: It seems to be the case (on the internet) that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
+        NOTE: It seems to be the case (on the internet) that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
     """
 
     schema = {"time": float, "variable": str, "value": float, "context": str}
@@ -120,13 +122,14 @@ def create(
 
     new = pd.DataFrame(rows, columns=schema.keys()).astype(schema)
 
-    if timeline is not None and relativeTime :
-        new["time"] += previous(timeline,variable="Anchor")["time"]
+    if timeline is not None and relativeTime:
+        new["time"] += previous(timeline, variable="Anchor")["time"]
 
-    result = pd.concat([timeline, new],ignore_index=True) if timeline is not None else new
+    result = (
+        pd.concat([timeline, new], ignore_index=True) if timeline is not None else new
+    )
 
     return result.sort_values("time", ignore_index=True)
-
 
 
 def set(
@@ -134,7 +137,8 @@ def set(
     timeline=None,
     context=None,
     t=0.0,
-    relativeTime=True, relativeValue=False,
+    relativeTime=True,
+    relativeValue=False,
     **vtvc_dict,
 ):
     """
@@ -156,35 +160,48 @@ def set(
             timeline=x,
             context=context,
             t=t,
-            relativeTime=relativeTime, relativeValue=relativeValue,
+            relativeTime=relativeTime,
+            relativeValue=relativeValue,
             **vtvc_dict,
         )
 
     else:
-        if context is None : context = previous(timeline)["context"]
+        if context is None:
+            context = previous(timeline)["context"]
 
         return create(
             *vtvc,
             timeline=timeline,
             context=context,
             t=t,
-            relativeTime=relativeTime, relativeValue=relativeValue,
+            relativeTime=relativeTime,
+            relativeValue=relativeValue,
             **vtvc_dict,
         )
 
 
-def anchor(t, timeline=None, relativeTime=True, context=None) :
+def anchor(t, timeline=None, relativeTime=True, context=None):
     """
     Sets the anchor, optionally relative to the previous anchor
     """
-    if timeline is None :
-        return lambda x : anchor(t=t,timeline=x,relativeTime=relativeTime,context=context)
+    if timeline is None:
+        return lambda x: anchor(
+            t=t, timeline=x, relativeTime=relativeTime, context=context
+        )
 
-    try :
-        return set("Anchor",t,0,timeline=timeline,context=context,relativeTime=relativeTime)
-    except ValueError :
-        return set("Anchor",t,0,timeline=timeline,context=context,relativeTime=False)
-
+    try:
+        return set(
+            "Anchor",
+            t,
+            0,
+            timeline=timeline,
+            context=context,
+            relativeTime=relativeTime,
+        )
+    except ValueError:
+        return set(
+            "Anchor", t, 0, timeline=timeline, context=context, relativeTime=False
+        )
 
 
 def ramp(
@@ -192,7 +209,8 @@ def ramp(
     timeline=None,
     context=None,
     t=0.0,
-    relativeTime=True, relativeValue=False,
+    relativeTime=True,
+    relativeValue=False,
     duration=None,
     function=ramp_utils.tanh,
     fargs={},
@@ -213,56 +231,67 @@ def ramp(
             *vtvc,
             timeline=x,
             context=context,
-            t=t, # starting time
-            relativeTime=relativeTime, relativeValue=relativeValue,
+            t=t,  # starting time
+            relativeTime=relativeTime,
+            relativeValue=relativeValue,
             duration=duration,
             function=function,
             fargs=fargs,
             **vtvc_dict,
-            )
+        )
     input_data = wtinput.convert(*vtvc, time=t, context=context, **vtvc_dict)
 
     frames = []
 
     if input_data is not None:
-        try :
-            tAnchor=previous(timeline,variable="Anchor")["time"]
-        except ValueError :
-            tAnchor=0.
+        try:
+            tAnchor = previous(timeline, variable="Anchor")["time"]
+        except ValueError:
+            tAnchor = 0.0
 
         for variable, values in input_data:
             if len(values) > 1:
-                raise ValueError("Badly formatted input to 'ramp'. There should only be one collection of t and value per variable.")
+                raise ValueError(
+                    "Badly formatted input to 'ramp'. There should only be one collection of t and value per variable."
+                )
 
             t, value = values[0][:2]
 
-            if relativeTime : t+=tAnchor
+            if relativeTime:
+                t += tAnchor
 
             prev = previous(timeline, variable)
 
-            if prev is None : raise ValueError("Tried to use 'ramp' without previous value for variable {}".format(variable))
+            if prev is None:
+                raise ValueError(
+                    "Tried to use 'ramp' without previous value for variable {}".format(
+                        variable
+                    )
+                )
 
-            if context is None : context = prev["context"]
-            if relativeValue : value += prev["value"]
+            if context is None:
+                context = prev["context"]
+            if relativeValue:
+                value += prev["value"]
 
             point_start = [t, prev["value"]]
 
             frames.append(
                 create(
                     variable,
-                    function(point_start,[t+duration,value],**fargs),
+                    function(point_start, [t + duration, value], **fargs),
                     context=context,
-                    )
                 )
+            )
 
         # Rounding up the values and dropping duplicates
         # TODO: process_dataframe can be replaced with sanitize here?
         frames = [process_dataframe(frame) for frame in frames]
 
-    return pd.concat(([timeline] + frames),ignore_index=True)
+    return pd.concat(([timeline] + frames), ignore_index=True)
 
 
-def stack(firstArgument, *fs : list[Callable]):
+def stack(firstArgument, *fs: list[Callable]):
     """
     For stacking modifications to the timeline in a composable way.
 
@@ -282,10 +311,10 @@ def stack(firstArgument, *fs : list[Callable]):
 
     Otherwise, the result is a functional, which can be later be applied on an existing timeline.
     """
-    if isinstance(firstArgument, pd.DataFrame) :
+    if isinstance(firstArgument, pd.DataFrame):
         return funcy.compose(*fs[::-1])(firstArgument)
-    else :
-        return funcy.compose(*fs[::-1],firstArgument)
+    else:
+        return funcy.compose(*fs[::-1], firstArgument)
 
 
 def is_value_within_range(value, unit_range):
@@ -338,10 +367,19 @@ def sanitize(df):
     )
 
 
-def time_from_anchor_to_context(timeline, t=None, anchorToContext=None) :
-    if anchorToContext is not None :
-        s=timeline.loc[(timeline['variable'] == "Anchor") & (timeline['context'] == anchorToContext), 'time']
-        if s.empty and t is None : raise ValueError("Anchor in context {} not found, and absolute time is not supplied".format(anchorToContext))
-        t = ( s.max() if not s.empty else 0. ) + ( t if t is not None else 0. )
+def time_from_anchor_to_context(timeline, t=None, anchorToContext=None):
+    if anchorToContext is not None:
+        s = timeline.loc[
+            (timeline["variable"] == "Anchor")
+            & (timeline["context"] == anchorToContext),
+            "time",
+        ]
+        if s.empty and t is None:
+            raise ValueError(
+                "Anchor in context {} not found, and absolute time is not supplied".format(
+                    anchorToContext
+                )
+            )
+        t = (s.max() if not s.empty else 0.0) + (t if t is not None else 0.0)
 
     return t

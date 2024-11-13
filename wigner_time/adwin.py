@@ -2,13 +2,9 @@
 
 from copy import deepcopy
 
-<<<<<<< HEAD
 import numpy as np
 
 from wigner_time import timeline as tl
-=======
-from wigner_time import device, timeline as tl
->>>>>>> origin/dev_ctw
 from wigner_time import conversion as conv
 from wigner_time import variable as var
 from wigner_time.internal import dataframe as frame
@@ -45,6 +41,8 @@ specifications_default = {
     },
 }
 
+special_contexts = {"ADwin_LowInit": -2, "ADwin_Init": -1, "ADwin_Finish": 2**31}
+
 
 def remove_unconnected_variables(df, connections):
     """
@@ -67,8 +65,8 @@ def remove_unconnected_variables(df, connections):
 def add_cycles(
     df,
     specifications=specifications_default,
-    special_contexts={"ADwin_LowInit": -2, "ADwin_Init": -1, "ADwin_Finish": 2**31},
-    device="device_001"
+    special_contexts=special_contexts,
+    device="device_001",
 ):
     """
     Inserts a new `cycle` column into the timeline as a conversion of the `time` column into 'number of cycles'.
@@ -84,13 +82,17 @@ def add_cycles(
     """
     # Check if `time` column is present
     if "time" not in df.columns:
-        raise ValueError(f"`time` column not found. Columns present: {list(df.columns)}")
+        raise ValueError(
+            f"`time` column not found. Columns present: {list(df.columns)}"
+        )
 
     # Ensure device-specific cycle period is available
     try:
         cycle_period = specifications[device]["cycle_period__normal"]
     except KeyError:
-        raise ValueError(f"`cycle_period__normal` not found in specifications for {device}.")
+        raise ValueError(
+            f"`cycle_period__normal` not found in specifications for {device}."
+        )
 
     # Calculate cycles and handle special contexts
     df["cycle"] = np.round(df["time"].values / cycle_period).astype(np.int64)
@@ -101,7 +103,6 @@ def add_cycles(
             df.loc[df["context"] == context, "cycle"] = cycle_value
 
     return df
-
 
 
 def initialize_ADwin(m, output):
@@ -309,31 +310,36 @@ def to_adwin(df, connections, devices, adwin_settings=specifications_default):
     )
 
 
-# ===
+def sanitize_special_contexts(timeline, special_contexts=special_contexts):
+    """
+    that there isn't more than one entry for a given variable inside special contexts. This is necessary as there is no concept of 'time' inside the special contexts defined for ADwin.
+    """
+    df = timeline[timeline["context"].isin(special_contexts)]
+    df_N = df.groupby(["variable", "context"])["value"].count()
+    duplicates = df_N[df_N > 1].reset_index()
+    duplicates.columns = ["variable", "context", "variable_occurences"]
+
+    if duplicates.empty:
+        return timeline
+    else:
+        raise ValueError(
+            "The same variable has more than one value inside a special context. This will not work as expected on export to ADwin as these special contexts have no concept of time. For details,  see the duplicate information: "
+            + str(duplicates)
+        )
+
+
+def sanitize(timeline):
+    """
+    Includes ADwin-specific methods ontop of the basic timeline sanitization for removing unnecessary points and raising errors on illogical input.
+
+    """
+    return sanitize_special_contexts(tl.sanitize(timeline))
+
+
+# ======
 # SCRIPT
-# ===
+# ======
 if __name__ == "__main__":
     import pandas as pd
 
-    df_simple = pd.DataFrame(
-        [
-            [0.0, "AOM_imaging", 0.0, "init"],
-            [0.0, "AOM_imaging__V", 2.0, "init"],
-            [0.0, "AOM_repump", 1.0, "init"],
-            [0.0, "virtual", 1.0, "MOT"],
-        ],
-        columns=["time", "variable", "value", "context"],
-    )
-
-    df_devs = device.add_devices(
-        df_simple,
-        pd.DataFrame(
-            columns=["variable", "unit_range", "safety_range"],
-            data=[
-                ["AOM_imaging__V", (-3, 3), (-3, 3)],
-            ],
-        ),
-    )
-
-    _dff = add_linear_conversion(df_devs, "V")
-    print(_dff)
+    import importlib
