@@ -132,7 +132,7 @@ def create(
     return result.sort_values("time", ignore_index=True)
 
 
-def set(
+def update(
     *vtvc,
     timeline=None,
     context=None,
@@ -155,7 +155,7 @@ def set(
     TODO: this case could be protected against, but at the moment we don’t have info on special contexts in timeline.py
     """
     if timeline is None:
-        return lambda x: set(
+        return lambda x: update(
             *vtvc,
             timeline=x,
             context=context,
@@ -190,7 +190,7 @@ def anchor(t, timeline=None, relativeTime=True, context=None):
         )
 
     try:
-        return set(
+        return update(
             "Anchor",
             t,
             0,
@@ -199,7 +199,7 @@ def anchor(t, timeline=None, relativeTime=True, context=None):
             relativeTime=relativeTime,
         )
     except ValueError:
-        return set(
+        return update(
             "Anchor", t, 0, timeline=timeline, context=context, relativeTime=False
         )
 
@@ -407,13 +407,13 @@ def stack(firstArgument, *fs: list[Callable]):
     e.g.:
     stack(
         timeline,
-        set(…),
+        update(…),
         ramp(…)
     )
-    the action of `set` and `ramp` is added to the existing `timeline` in this case.
+    the action of `update` and `ramp` is added to the existing `timeline` in this case.
     Equivalently:
     stack(
-        set(…,timeline=timeline),
+        update(…,timeline=timeline),
         ramp(…)
     )
 

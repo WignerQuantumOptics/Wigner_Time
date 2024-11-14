@@ -118,8 +118,8 @@ defaults.magnetic = Munch(
     strong=Munch(duration_ramp=3e-3, coil_MOTlower__A=-4.8, coil_MOTupper__A=-4.7),
 )
 
-defaults.finish = Munch(set={}, ramp={})
-defaults.finish.set = Munch(
+defaults.finish = Munch(update={}, ramp={})
+defaults.finish.update = Munch(
     AOM_MOT=1,
     AOM_repump=1,
     AOM_repump__V=5,
@@ -201,7 +201,7 @@ def finish(
 
     return tl.stack(
         tl.next(**_vars_ramp, t=duration_ramp, timeline=timeline, context="Finish"),
-        tl.set(**_vars_set, context="ADwin_Finish"),
+        tl.update(**_vars_set, context="ADwin_Finish"),
     )
 
 
@@ -306,7 +306,7 @@ def switch_laser(
     _value__AOM = 0 if state == "ON" else 1
     _value__shutter = 1 if state == "ON" else 0
 
-    return tl.set(
+    return tl.update(
         context=context,
         timeline=timeline,
         **{
@@ -366,7 +366,7 @@ def optical_pumping(
             timeline=timeline,
             context=context,
         ),
-        tl.set(
+        tl.update(
             AOM_OP=[
                 _time_start - constants.OP.lag_AOM_on + constant__mysterious_001,
                 1,
@@ -379,7 +379,7 @@ def optical_pumping(
             ],
         ),
         # Shutters switched back, to reinitialize them before any additional optical pumpings later.
-        tl.set(
+        tl.update(
             AOM_OP=[_time_start + duration_exposure + constant__mysterious_002, 0],
             AOM_repump=[_time_start + duration_exposure, 0],
             shutter_repump=[_time_start + duration_exposure, 0],

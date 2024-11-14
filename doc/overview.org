@@ -412,7 +412,7 @@ tl.stack(
 [493337 rows x 4 columns]
 #+end_example
 
-** set
+** update
 ** shift
 ** Functions
 - for creating new functionality
