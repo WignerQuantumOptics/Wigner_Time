@@ -22,7 +22,7 @@ import pandas as pd
 import funcy
 
 from wigner_time import connection as con
-from wigner_time import ramp_utils as ramp_utils
+from wigner_time import ramp_function as ramp_function
 from wigner_time import util as util
 from wigner_time import input as wtinput
 
@@ -212,7 +212,7 @@ def ramp(
     relativeTime=True,
     relativeValue=False,
     duration=None,
-    function=ramp_utils.tanh,
+    function=ramp_function.tanh,
     fargs={},
     **vtvc_dict,
 ):
