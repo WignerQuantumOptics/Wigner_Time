@@ -3,12 +3,10 @@ import sys
 sys.path.append("..")
 
 import pandas as pd
-import numpy as np
+
 from munch import Munch
 from wigner_time import connection as con
 from wigner_time import timeline as tl
-from wigner_time import adwin as adwin
-from wigner_time import display as dp
 
 
 connections = con.connection(
@@ -45,7 +43,9 @@ devices = pd.DataFrame(
 
 
 # OP1 ON delay: 1.48ms (OFF: 2.6); OP2 OFF delay: 1.78ms (ON: 2.42) measured on Nov 7, 2024
+# OP AOM ON delay: ~20us, not negligible compared to the length of the OP phase
 # MOT OFF delay: 2.3ms (ON: 1.8) measured on Nov 12, 2024
+# imaging ON delay: 2.25ms OFF: 1.9ms
 # sum of ON and OFF delays adds up to 4.1ms for each shutter, which is OK!
 constants = Munch(
     safety_factor=1.1,
