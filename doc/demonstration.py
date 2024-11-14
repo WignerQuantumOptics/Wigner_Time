@@ -199,7 +199,7 @@ def finish(
     _vars_set = construct.arguments(vars_set, defaults_set)
     _vars_ramp = construct.arguments(vars_ramp, defaults_ramp)
 
-    return tl.update(
+    return tl.stack(
         tl.next(**_vars_ramp, t=duration_ramp, timeline=timeline, context="Finish"),
         tl.set(**_vars_set, context="ADwin_Finish"),
     )
@@ -224,7 +224,7 @@ def MOT(
         time_start, variables, variables_default, timeline
     )
 
-    return tl.update(
+    return tl.stack(
         tl.create(
             shutter_MOT=_variables.shutter_MOT,
             shutter_repump=_variables.shutter_repump,
@@ -261,7 +261,7 @@ def molasses(
     if duration_ramp >= duration_cooling:
         raise ValueError("duration_ramp should be smaller than duration_cooling!")
 
-    return tl.update(
+    return tl.stack(
         tl.create(
             AOM_MOT=[_time_start + duration_cooling, 0],
             shutter_MOT=[_time_start + duration_cooling - constants.lag_MOTshutter, 0],
@@ -357,7 +357,7 @@ def optical_pumping(
         time_start, variables, variables_default, timeline
     )
 
-    return tl.update(
+    return tl.stack(
         switch_laser(
             "AOM_OP",
             "shutter_OP001",
@@ -444,7 +444,7 @@ def ramp_magnetic_coils(
 def make_and_strengthen_magnetic_trap(
     timeline=optical_pumping(), params=defaults.magnetic, context="magnetic_trap"
 ):
-    return tl.update(
+    return tl.stack(
         ramp_magnetic_coils(
             timeline=timeline,
             params=params.quadrupole,
@@ -462,10 +462,10 @@ def prepare_atoms():
     """
     Convenience for setting up the cold atoms.
 
-    NOTE: `tl.update` can be used with any single-argument function, where the single argument is a (DataFrame-like) timeline.
+    NOTE: `tl.stack` can be used with any single-argument function, where the single argument is a (DataFrame-like) timeline.
     """
     # TODO: should really take the whole parameters dict as an input and use it intelligently.
-    return tl.update(make_and_strengthen_magnetic_trap, finish)
+    return tl.stack(make_and_strengthen_magnetic_trap, finish)
 
 
 ###########################################################################
