@@ -18,3 +18,11 @@ def join(df1, df2, label="variable"):
         df2.set_index(label),
         on=label,
     )
+
+
+def concat(dfs, ignore_index=True):
+    return pd.concat(dfs, ignore_index=ignore_index)
+
+
+def assert_equal(df1, df2):
+    return pd.testing.assert_frame_equal(df1, df2)

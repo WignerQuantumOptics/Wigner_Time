@@ -17,14 +17,16 @@ TODO:
 from copy import deepcopy
 from typing import Callable
 
+import funcy
 import numpy as np
 import pandas as pd
-import funcy
+from munch import Munch
 
 from wigner_time import connection as con
-from wigner_time import ramp_utils as ramp_utils
-from wigner_time import util as util
 from wigner_time import input as wtinput
+from wigner_time import ramp_function as ramp_function
+from wigner_time.internal import dataframe as frame
+from wigner_time import util as util
 
 ###############################################################################
 #                   Constants                                                 #
@@ -33,7 +35,6 @@ from wigner_time import input as wtinput
 TIME_RESOLUTION = 1.0e-6
 
 ANALOG_SUFFIXES = {"Voltage": "__V", "Current": "__A", "Frequency": "__MHz"}
-
 
 ###############################################################################
 #                   Internal functions
@@ -67,7 +68,7 @@ def previous(
     if variable is not None:
         qy = timeline[timeline[column] == variable]
         if qy.empty:
-            raise ValueError("Previous for variable {} not found".format(variable))
+            raise ValueError("Previous {} not found".format(variable))
         return qy.iloc[index]
     else:
         return timeline.iloc[index]
@@ -86,32 +87,31 @@ def create(
     **vtvc_dict,
 ):
     """
-        Establishes a new timeline according to the given (flexible) input collection.
-        If 'timeline' is also specified, then it concatenates the new creation with the existing one.
+    Establishes a new timeline according to the given (flexible) input collection.
+    If 'timeline' is also specified, then it concatenates the new creation with the existing one.
 
-        Accepts programmatic and manual input.
+    Accepts programmatic and manual input.
 
-        TODO: implement relative value
-    =======
-        TODO: document the possible combinations of arguments ordered according to usecases
+    TODO: implement relative value
+    TODO: document the possible combinations of arguments ordered according to usecases
 
-        variable_time_values (*vtvc) has the form:
-        variable, time, value, context
-        OR
-        variable=value
-        OR
-        variable, [[time, value],...]
-        OR
-        [['variable', value]]
-        OR
-        [['variable', [time, value]]]
-        OR
-        [['variable', [[time, value],[time002,value002],...]]]
-        but when unspecified, is replaced by the dictionary form (**vtvc_dict)
+    variable_time_values (*vtvc) has the form:
+    variable, time, value, context
+    OR
+    variable=value
+    OR
+    variable, [[time, value],...]
+    OR
+    [['variable', value]]
+    OR
+    [['variable', [time, value]]]
+    OR
+    [['variable', [[time, value],[time002,value002],...]]]
+    but when unspecified, is replaced by the dictionary form (**vtvc_dict)
 
-        When either time or context is not specified for a given variable, it is taken from the common `t` or `context` argument.
+    When either time or context is not specified for a given variable, it is taken from the common `t` or `context` argument.
 
-        NOTE: It seems to be the case (on the internet) that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
+    NOTE: It seems to be the case (on the internet) that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
     """
 
     schema = {"time": float, "variable": str, "value": float, "context": str}
@@ -132,7 +132,7 @@ def create(
     return result.sort_values("time", ignore_index=True)
 
 
-def set(
+def update(
     *vtvc,
     timeline=None,
     context=None,
@@ -155,7 +155,7 @@ def set(
     TODO: this case could be protected against, but at the moment we don’t have info on special contexts in timeline.py
     """
     if timeline is None:
-        return lambda x: set(
+        return lambda x: update(
             *vtvc,
             timeline=x,
             context=context,
@@ -190,7 +190,7 @@ def anchor(t, timeline=None, relativeTime=True, context=None):
         )
 
     try:
-        return set(
+        return update(
             "Anchor",
             t,
             0,
@@ -199,7 +199,7 @@ def anchor(t, timeline=None, relativeTime=True, context=None):
             relativeTime=relativeTime,
         )
     except ValueError:
-        return set(
+        return update(
             "Anchor", t, 0, timeline=timeline, context=context, relativeTime=False
         )
 
@@ -212,7 +212,7 @@ def ramp(
     relativeTime=True,
     relativeValue=False,
     duration=None,
-    function=ramp_utils.tanh,
+    function=ramp_function.tanh,
     fargs={},
     **vtvc_dict,
 ):
@@ -224,7 +224,6 @@ def ramp(
     The starting value of the ramp is the previous value of the variable. If that doesn’t exist, an exception is thrown.
 
     """
-    # TODO: Should fargs be a dictionary?
 
     if timeline is None:
         return lambda x: ramp(
@@ -299,13 +298,13 @@ def stack(firstArgument, *fs: list[Callable]):
     e.g.:
     stack(
         timeline,
-        set(…),
+        update(…),
         ramp(…)
     )
-    the action of `set` and `ramp` is added to the existing `timeline` in this case.
+    the action of `update` and `ramp` is added to the existing `timeline` in this case.
     Equivalently:
     stack(
-        set(…,timeline=timeline),
+        update(…,timeline=timeline),
         ramp(…)
     )
 

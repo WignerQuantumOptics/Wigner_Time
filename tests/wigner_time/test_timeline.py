@@ -2,6 +2,7 @@ import pytest
 import pandas as pd
 
 from wigner_time import timeline as tl
+from wigner_time.internal import dataframe as frame
 
 
 @pytest.fixture
@@ -41,7 +42,7 @@ def df_wait():
 
 @pytest.fixture
 def dfseq():
-    return pd.DataFrame(
+    return frame.new(
         [
             [0.0, "lockbox_MOT__V", 0.000000, ""],
             [5.0, "lockbox_MOT__V", 0.000000, ""],
@@ -57,12 +58,12 @@ def dfseq():
 
 def test_createSimple(df_simple):
     tst = tl.create("AOM_imaging", 0.0, 0.0)
-    return pd.testing.assert_frame_equal(tst, df_simple)
+    return frame.assert_equal(tst, df_simple)
 
 
 def test_createSingle(df_simple):
     tst = tl.create("AOM_imaging", [[0.0, 0.0]])
-    return pd.testing.assert_frame_equal(tst, df_simple)
+    return frame.assert_equal(tst, df_simple)
 
 
 def test_createOriginal(df):
@@ -74,7 +75,7 @@ def test_createOriginal(df):
         ],
         context="init",
     )
-    return pd.testing.assert_frame_equal(tst, df)
+    return frame.assert_equal(tst, df)
 
 
 def test_createManyListPairs(df):
@@ -87,7 +88,7 @@ def test_createManyListPairs(df):
         context="init",
         t=0.0,
     )
-    return pd.testing.assert_frame_equal(tst, df)
+    return frame.assert_equal(tst, df)
 
 
 def test_createManyArgs(df):
@@ -98,7 +99,7 @@ def test_createManyArgs(df):
         context="init",
         t=0.0,
     )
-    return pd.testing.assert_frame_equal(tst, df)
+    return frame.assert_equal(tst, df)
 
 
 def test_createManyKWargs(df):
@@ -109,21 +110,23 @@ def test_createManyKWargs(df):
         AOM_imaging__V=2,
         AOM_repump=1.0,
     )
-    return pd.testing.assert_frame_equal(tst, df)
+    return frame.assert_equal(tst, df)
 
 
-def test_updateArgs(dfseq):
-    tst = tl.update(
+def test_stack(dfseq):
+    tst = tl.stack(
         tl.create("lockbox_MOT__V", [[0.0, 0.0]]),
         tl.wait(5.0, "lockbox_MOT__V"),
-        tl.shift("lockbox_MOT__V", 1.0, 1.0, fargs={"time_resolution": 0.2}),
-        tl.wait(),  # This shouldn't do anything for a timeline of a single variable.
+        tl.ramp0(
+            "lockbox_MOT__V", 1.0, 1.0, fargs={"time_resolution": 0.2}, duration=1.0
+        ),
+        # tl.wait(),  # This shouldn't do anything for a timeline of a single variable.
     )
-    return pd.testing.assert_frame_equal(tst, dfseq)
+    return frame.assert_equal(tst, dfseq)
 
 
 def test_waitVariable(df_wait):
-    return pd.testing.assert_frame_equal(
+    return frame.assert_equal(
         tl.wait(variables=["AOM_imaging"], timeline=df_wait, context="test"),
         pd.DataFrame(
             {
@@ -143,7 +146,7 @@ def test_waitVariable(df_wait):
 
 
 def test_waitAll(df_wait):
-    return pd.testing.assert_frame_equal(
+    return frame.assert_equal(
         tl.wait(timeline=df_wait),
         pd.DataFrame(
             [
