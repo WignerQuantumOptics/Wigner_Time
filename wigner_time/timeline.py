@@ -370,7 +370,9 @@ def sanitize(timeline):
     return sanitize_values(timeline).astype(
         {
             "variable": str,
-            # "context": str,
+            "time": float,
+            "value": float,
+            # "context": str, # Currently, context can sometimes be None - this should be questioned though
         },
         errors="ignore",
     )
