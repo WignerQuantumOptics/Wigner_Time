@@ -4,9 +4,12 @@ This namespace is for abstracting out the implementation of dataframe manipulati
 Particularly relevant for the pandas to polars upgrade.
 """
 
+# In the medium term, this should have a polars counterpart namespace so that we can switch between the two easily.
+
 import pandas as pd
 
-# ^^^ This should change at somepoint!
+
+CLASS = pd.DataFrame
 
 
 def new(data, columns):
@@ -22,6 +25,20 @@ def join(df1, df2, label="variable"):
 
 def concat(dfs, ignore_index=True):
     return pd.concat(dfs, ignore_index=ignore_index)
+
+
+def isnull(o):
+    """
+    Detect missing values for an array-like object.
+    """
+    return pd.isnull(o)
+
+
+def row_from_max_column(df, column="time"):
+    """
+    Finds the maximum value of the column and returns the corresponding row.
+    """
+    return df.loc[df[column].idxmax()]
 
 
 def assert_equal(df1, df2):

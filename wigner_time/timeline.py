@@ -19,7 +19,6 @@ from typing import Callable
 
 import funcy
 import numpy as np
-import pandas as pd
 from munch import Munch
 
 from wigner_time import connection as con
@@ -46,32 +45,43 @@ def process_dataframe(df, num_decimal_places=6):
     Rounds the values (of voltages) and drops duplicates of values in pandas dataframes.
     Should be used for one device at a time!
     """
-    # TODO: make this more universal, connect the rounding sensitivity to ADwin or device specifications!
+    # TODO:
+    # - move rounding to adwin module
+    # - drop duplicates in sanitize
 
     df["value"] = df["value"].round(num_decimal_places)
     return df.drop_duplicates(subset="value", keep="first")
 
 
 def previous(
-    timeline: pd.DataFrame, variable=None, sort_by="time", column="variable", index=-1
+    timeline: frame.CLASS,
+    variable=None,
+    column="variable",
+    sort_by=None,
+    index=-1,
 ):
     """
-    Returns last occurence of `sort_by` - `value` pair of 'variable'.
-    Usually the `time` - `value` pair.
+    Returns a row from the previous timeline. By default, this is done by finding the highest value for time and returning that row. If `sort_by` is specified (e.g. 'time'), then the dataframe is sorted and then the row indexed by `index` is returned.
 
-    Raises ValueError if no previous value exists.
 
+    Raises ValueError if the specified variable, or timeline, doesn't exist.
     """
-    if not timeline[sort_by].is_monotonic_increasing:
-        timeline.sort_values(sort_by, inplace=True)
+    if timeline is None:
+        raise ValueError("Previous timeline not found.")
 
-    if variable is not None:
-        qy = timeline[timeline[column] == variable]
-        if qy.empty:
-            raise ValueError("Previous {} not found".format(variable))
-        return qy.iloc[index]
+    if sort_by is not None:
+        if not timeline[sort_by].is_monotonic_increasing:
+            timeline.sort_values(sort_by, inplace=True)
+
+        if variable is not None:
+            qy = timeline[timeline[column] == variable]
+            if qy.empty:
+                raise ValueError("Previous {} not found".format(variable))
+            return qy.iloc[index]
+        else:
+            return timeline.iloc[index]
     else:
-        return timeline.iloc[index]
+        return frame.row_from_max_column(timeline)
 
 
 ###############################################################################
@@ -120,16 +130,17 @@ def create(
     if (len(rows[0]) != 4) and (context is not None):
         schema.pop("context")
 
-    new = pd.DataFrame(rows, columns=schema.keys()).astype(schema)
+    new = frame.new(rows, columns=schema.keys()).astype(schema)
 
     if timeline is not None and relativeTime:
         new["time"] += previous(timeline, variable="Anchor")["time"]
 
     result = (
-        pd.concat([timeline, new], ignore_index=True) if timeline is not None else new
+        frame.concat([timeline, new], ignore_index=True)
+        if timeline is not None
+        else new
     )
-
-    return result.sort_values("time", ignore_index=True)
+    return result
 
 
 def update(
@@ -287,7 +298,7 @@ def ramp(
         # TODO: process_dataframe can be replaced with sanitize here?
         frames = [process_dataframe(frame) for frame in frames]
 
-    return pd.concat(([timeline] + frames), ignore_index=True)
+    return frame.concat([timeline] + frames, ignore_index=True)
 
 
 def stack(firstArgument, *fs: list[Callable]):
@@ -310,14 +321,14 @@ def stack(firstArgument, *fs: list[Callable]):
 
     Otherwise, the result is a functional, which can be later be applied on an existing timeline.
     """
-    if isinstance(firstArgument, pd.DataFrame):
+    if isinstance(firstArgument, frame.CLASS):
         return funcy.compose(*fs[::-1])(firstArgument)
     else:
         return funcy.compose(*fs[::-1], firstArgument)
 
 
 def is_value_within_range(value, unit_range):
-    if pd.isnull(unit_range):
+    if frame.isnull(unit_range):
         # If unit_range is NaN, consider it as within range
         return True
     else:
