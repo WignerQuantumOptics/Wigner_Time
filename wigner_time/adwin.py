@@ -95,7 +95,7 @@ def add_cycle(
         )
 
     # Calculate cycles and handle special contexts
-    df["cycle"] = np.round(df["time"].values / cycle_period).astype(np.int64)
+    df["cycle"] = np.round(df["time"].values / cycle_period).astype(np.int32)
 
     # Apply special context cycles
     for context, cycle_value in special_contexts.items():
@@ -268,7 +268,7 @@ def modules_digital(specifications):
 
 
 def to_tuples(df, cols=["cycle", "module", "channel", "value_digits"]):
-    return [tuple([np.int64(i) for i in x]) for x in df[cols].values]
+    return [tuple([np.int32(i) for i in x]) for x in df[cols].values]
 
 
 def output(df, specifications=specifications_default):
@@ -333,8 +333,8 @@ def sanitize_types(timeline):
         {
             "module": int,
             "channel": int,
-            "cycle": np.int64,
-            "value_digits": np.int64,
+            "cycle": np.int32,
+            "value_digits": np.int32,
         }
     )
 
