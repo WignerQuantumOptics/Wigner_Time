@@ -374,12 +374,12 @@ tl.next(
 [493337 rows x 4 columns]
 #+end_example
 
-** update
+** stack
 - passes timeline from one function to the next (don't specify)
 - note the 'natural' order of the functions
 - works with 'any' single-argument (timeline) function
 #+begin_src python :session :exports both
-tl.update(
+tl.stack(
     tl.create(
         lockbox_MOT__V=5.0,
         coil_compensationY__A=5.0,
@@ -412,7 +412,7 @@ tl.update(
 [493337 rows x 4 columns]
 #+end_example
 
-** set
+** update
 ** shift
 ** Functions
 - for creating new functionality

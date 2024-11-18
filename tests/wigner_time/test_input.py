@@ -4,10 +4,6 @@ import pandas as pd
 from wigner_time import timeline as tl
 from wigner_time import input
 
-from importlib import reload
-
-reload(input)
-
 
 def test_ensure_time_context():
     assert input.__ensure_time_context((0.0, 0.0), 0.0, context=None) == [

@@ -15,13 +15,13 @@ import experiment as ex
 connections=pd.concat([ex.connections,con.connection(["shutter_imaging", 1, 13],["AOM_imaging", 1, 5],["trigger_camera", 1, 0])])
 
 def trigger_camera(t, exposure, context, **kwargs) :
-    return tl.set("trigger_camera",[[t,1],[t+exposure,0]],relativeTime=False,context=context,**kwargs)
+    return tl.update("trigger_camera",[[t,1],[t+exposure,0]],relativeTime=False,context=context,**kwargs)
 
 def flash_light(t, exposure, context, **kwargs) :
     sf = ex.constants.safety_factor
     return tl.stack(
-        tl.set("AOM_imaging",[[t,1],[t+exposure,0]],relativeTime=False,context=context,**kwargs),
-        tl.set("shutter_imaging",[[t-exposure*(sf-1)-ex.constants.AI.lag_shutter_on,1],[t+exposure*sf,0]],relativeTime=False,context=context),
+        tl.update("AOM_imaging",[[t,1],[t+exposure,0]],relativeTime=False,context=context,**kwargs),
+        tl.update("shutter_imaging",[[t-exposure*(sf-1)-ex.constants.AI.lag_shutter_on,1],[t+exposure*sf,0]],relativeTime=False,context=context),
         # TODO: what to write here exactly?
     )
 
@@ -46,7 +46,7 @@ def imaging_absorption(t, exposure, delayBg, delayLi, timeline, exposureBlow=Non
     context = "imaging_absorption"
     return tl.stack(
         timeline,
-        tl.set(AOM_imaging=0,t=t-0.1,relativeTime=False,context=context,**kwargs), # initializing the AOM
+        tl.update(AOM_imaging=0,t=t-0.1,relativeTime=False,context=context,**kwargs), # initializing the AOM
         take_image_plus_Bg(t, exposure, delayBg, context), # taking At + Bg_At image
         flash_light(t+delayBg+delayLi/2.,exposureBlow,context) if exposureBlow is not None else None, # blow out the atoms in between
         take_image_plus_Bg(t+delayLi, exposure, delayBg, context), # taking Li + Bg_Li image
