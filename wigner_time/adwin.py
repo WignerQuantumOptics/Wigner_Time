@@ -41,7 +41,7 @@ specifications_default = {
     },
 }
 
-special_contexts = {"ADwin_LowInit": -2, "ADwin_Init": -1, "ADwin_Finish": 2**31}
+special_contexts = {"ADwin_LowInit": -2, "ADwin_Init": -1, "ADwin_Finish": 2**31 - 1}
 
 
 def remove_unconnected_variables(df, connections):
