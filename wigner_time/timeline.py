@@ -122,11 +122,7 @@ def create(
     if timeline is not None and relativeTime:
         new["time"] += previous(timeline, variable="Anchor")["time"]
 
-    result = (
-        frame.concat([timeline, new], ignore_index=True)
-        if timeline is not None
-        else new
-    )
+    result = frame.concat([timeline, new]) if timeline is not None else new
     return result
 
 
@@ -281,11 +277,7 @@ def ramp(
                 )
             )
 
-        # Rounding up the values and dropping duplicates
-        # TODO: process_dataframe can be replaced with sanitize here?
-        frames = [process_dataframe(frame) for frame in frames]
-
-    return frame.concat([timeline] + frames, ignore_index=True)
+    return frame.concat([timeline] + frames)
 
 
 def stack(firstArgument, *fs: list[Callable]):
