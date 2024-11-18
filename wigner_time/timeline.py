@@ -1,27 +1,19 @@
 # Copyright Thomas W. Clark & András Vukics 2024. Distributed under the Boost Software License, Version 1.0. (See accompanying file LICENSE.txt)
 
 """
-Will use multiple layers of abstraction:
+Multiple layers of abstraction:
 - operational (time sequence: probe-on, probe-off etc.) – this should go to notebooks / experiment specific packages
 - variable (time sequence of independent degrees of freedom: AOM_probe_power 5V)
 - ADwin (ADwin-specific details)
 
 It is a goal to be able to go up and down through the layers of abstraction.
-
-TODO:
-- Add proper basics of 'sanitize' function
-- channel layer
-- validation
 """
 
 from copy import deepcopy
 from typing import Callable
 
 import funcy
-import numpy as np
-from munch import Munch
 
-from wigner_time import connection as con
 from wigner_time import input as wtinput
 from wigner_time import ramp_function as ramp_function
 from wigner_time.internal import dataframe as frame
@@ -357,11 +349,9 @@ def sanitize_values(timeline):
                 rows__out_of_safety_range.append(index)
 
         # Raise ValueError after printing all relevant information
-        if rows__out_of_unit_range:
+        if rows__out_of_unit_range or rows__out_of_safety_range:
             raise ValueError(
-                f"Values outside the unit range: {rows__out_of_unit_range}!\n
-                Values outside the safety range: {rows__out_of_safety_range}! \n\n
-                Please update these before proceeding."
+                f"Values outside the unit range: {rows__out_of_unit_range}!\n Values outside the safety range: {rows__out_of_safety_range}! \n\nPlease update these before proceeding."
             )
     return timeline
 
