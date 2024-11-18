@@ -36,6 +36,7 @@ COLUMN_NAMES__SPECIAL = [
     "safety_range",
 ]
 """These column names are assumed to exist and are used in core functions. Be careful about editing them."""
+# TODO: This could be replaced with the 'schema' from `create`
 
 ###############################################################################
 #                   Utility functions
@@ -200,86 +201,98 @@ def anchor(t, timeline=None, relativeTime=True, context=None):
         )
 
 
-def ramp(
+def next(
     *vtvc,
     timeline=None,
     context=None,
-    t=0.0,
-    relativeTime=True,
-    relativeValue=False,
-    duration=None,
+    t=None,  # this is interpreted as time_end if !relative["time"] - maybe this should be renamed to `time` or maybe `duration`?
+    relative={"time": True, "value": False},
     function=ramp_function.tanh,
     fargs={},
+    time_start=None,
+    value_start=None,
     **vtvc_dict,
 ):
     """
-    vtvc is variable,t,value,context (the argument passing follows the same logic as with 'create')
+    vtvc is variable,t,value,context (following that of 'create')
 
-    `t` is starting time, which is relative to the previous anchor if `relativeTime=True`
-
-    The starting value of the ramp is the previous value of the variable. If that doesn’t exist, an exception is thrown.
-
+    Here, `t` is interpreted as time_end if `relative={"time": True, ...}`
+    NOTE: The order of variables and time are different in `wait`.
     """
-
+    # TODO: Should fargs be a dictionary?
     if timeline is None:
-        return lambda x: ramp(
+        return lambda x: next(
             *vtvc,
             timeline=x,
             context=context,
-            t=t,  # starting time
-            relativeTime=relativeTime,
-            relativeValue=relativeValue,
-            duration=duration,
+            t=t,
+            relative=relative,
             function=function,
             fargs=fargs,
+            time_start=time_start,
+            value_start=value_start,
             **vtvc_dict,
         )
-    input_data = wtinput.convert(*vtvc, time=t, context=context, **vtvc_dict)
+
+    if (t is not None) and (t < 0):
+        raise ValueError(
+            'cannot go back in time or create quantum superpositions with "timeline.next"!'
+        )
+
+    input = wtinput.convert(*vtvc, time=t, context=context, **vtvc_dict)
 
     frames = []
-
-    if input_data is not None:
-        try:
-            tAnchor = previous(timeline, variable="Anchor")["time"]
-        except ValueError:
-            tAnchor = 0.0
-
-        for variable, values in input_data:
+    if input is not None:
+        for variable, values in input:
             if len(values) > 1:
                 raise ValueError(
-                    "Badly formatted input to 'ramp'. There should only be one collection of t and value per variable."
+                    "Badly formatted input to 'next'. There should only be one collection of t and value per variable."
                 )
-
             t, value = values[0][:2]
-
-            if relativeTime:
-                t += tAnchor
+            if not (t > 0):
+                raise ValueError("Duration cannot be zero for changing values.")
 
             prev = previous(timeline, variable)
 
-            if prev is None:
-                raise ValueError(
-                    "Tried to use 'ramp' without previous value for variable {}".format(
-                        variable
+            point_start = [time_start, value_start]
+
+            if prev is not None:
+                if context is None and "context" in prev.keys():
+                    context = prev["context"]
+
+            if (time_start is None) or (value_start is None):
+                if prev is not None:
+                    ps = point_start
+                    for i, l, p in zip(range(2), relative.keys(), point_start):
+
+                        if p is None:
+                            ps[i] = prev[l]
+                    point_start = ps
+
+            for x in point_start:
+                if x is None:
+                    raise ValueError(
+                        "Tried to use 'next' without starting time and value. Check that you're trying to change an existing variable."
                     )
-                )
-
-            if context is None:
-                context = prev["context"]
-            if relativeValue:
-                value += prev["value"]
-
-            point_start = [t, prev["value"]]
 
             frames.append(
                 create(
                     variable,
-                    function(point_start, [t + duration, value], **fargs),
+                    function(
+                        point_start,
+                        ramp_function.to_point_end(
+                            point_start,
+                            t,
+                            value,
+                            relative=list(relative.values()),
+                        ),
+                        **fargs,
+                    ),
                     context=context,
                 )
             )
 
-    return frame.concat([timeline] + frames)
+        return frame.concat([timeline] + frames)
 
 
 def stack(firstArgument, *fs: list[Callable]):
