@@ -1,27 +1,19 @@
 # Copyright Thomas W. Clark & András Vukics 2024. Distributed under the Boost Software License, Version 1.0. (See accompanying file LICENSE.txt)
 
 """
-Will use multiple layers of abstraction:
+Multiple layers of abstraction:
 - operational (time sequence: probe-on, probe-off etc.) – this should go to notebooks / experiment specific packages
 - variable (time sequence of independent degrees of freedom: AOM_probe_power 5V)
 - ADwin (ADwin-specific details)
 
 It is a goal to be able to go up and down through the layers of abstraction.
-
-TODO:
-- Add proper basics of 'sanitize' function
-- channel layer
-- validation
 """
 
 from copy import deepcopy
 from typing import Callable
 
 import funcy
-import numpy as np
-from munch import Munch
 
-from wigner_time import connection as con
 from wigner_time import input as wtinput
 from wigner_time import ramp_function as ramp_function
 from wigner_time.internal import dataframe as frame
@@ -35,22 +27,19 @@ TIME_RESOLUTION = 1.0e-6
 
 ANALOG_SUFFIXES = {"Voltage": "__V", "Current": "__A", "Frequency": "__MHz"}
 
+COLUMN_NAMES__SPECIAL = [
+    "variable",
+    "time",
+    "value",
+    "context",
+    "unit_range",
+    "safety_range",
+]
+"""These column names are assumed to exist and are used in core functions. Be careful about editing them."""
+
 ###############################################################################
-#                   Internal functions
+#                   Utility functions
 ###############################################################################
-
-
-def process_dataframe(df, num_decimal_places=6):
-    """
-    Rounds the values (of voltages) and drops duplicates of values in pandas dataframes.
-    Should be used for one device at a time!
-    """
-    # TODO:
-    # - move rounding to adwin module
-    # - drop duplicates in sanitize
-
-    df["value"] = df["value"].round(num_decimal_places)
-    return df.drop_duplicates(subset="value", keep="first")
 
 
 def previous(
@@ -135,11 +124,7 @@ def create(
     if timeline is not None and relativeTime:
         new["time"] += previous(timeline, variable="Anchor")["time"]
 
-    result = (
-        frame.concat([timeline, new], ignore_index=True)
-        if timeline is not None
-        else new
-    )
+    result = frame.concat([timeline, new]) if timeline is not None else new
     return result
 
 
@@ -294,11 +279,7 @@ def ramp(
                 )
             )
 
-        # Rounding up the values and dropping duplicates
-        # TODO: process_dataframe can be replaced with sanitize here?
-        frames = [process_dataframe(frame) for frame in frames]
-
-    return frame.concat([timeline] + frames, ignore_index=True)
+    return frame.concat([timeline] + frames)
 
 
 def stack(firstArgument, *fs: list[Callable]):
@@ -340,52 +321,80 @@ def sanitize_values(timeline):
     """
     Ensures that the given timeline doesn't contain values outside of the given unit or safety range.
     """
+    # TODO: Check for efficiency
+    #
     if ("unit_range" in timeline.columns) or ("safety_range" in timeline.columns):
         df = deepcopy(timeline)
 
         # List to store rows with values outside the range
-        out_of_range_rows = []
+        rows__out_of_unit_range = []
+        rows__out_of_safety_range = []
 
         # Iterate through each row
         for index, row in df.iterrows():
-            # Check if the 'value' is within the specified 'unit_range'
             if not is_value_within_range(row["value"], row["unit_range"]):
-                # Print or handle the row where the value is outside the range
                 print(
                     f"Value {row['value']} is outside device unit range {row['unit_range']} for {row['variable']} at time {row['time']} at dataframe index {index}."
                 )
 
                 # Append the row index to the list
-                out_of_range_rows.append(index)
+                rows__out_of_unit_range.append(index)
+
+            if not is_value_within_range(row["value"], row["safety_range"]):
+                print(
+                    f"Value {row['value']} is outside device safety range {row['safety_range']} for {row['variable']} at time {row['time']} at dataframe index {index}."
+                )
+
+                # Append the row index to the list
+                rows__out_of_safety_range.append(index)
 
         # Raise ValueError after printing all relevant information
-        if out_of_range_rows:
+        if rows__out_of_unit_range or rows__out_of_safety_range:
             raise ValueError(
-                f"Values outside the desired range: {out_of_range_rows}! Please update these before proceeding."
+                f"Values outside the unit range: {rows__out_of_unit_range}!\n Values outside the safety range: {rows__out_of_safety_range}! \n\nPlease update these before proceeding."
             )
     return timeline
 
 
+def sanitize__drop_duplicates(timeline):
+    """
+    Drop duplicate rows and drop rows where the variable and time are duplicated.
+    """
+    return funcy.compose(
+        frame.drop_duplicates,
+        lambda timeline: frame.drop_duplicates(timeline, subset=["variable", "time"]),
+    )(timeline)
+
+
+def sanitize__round_value(timeline, num_decimal_places=6):
+    """
+    Rounds the 'value' column to the given number of decimal places and returns the updated timeline.
+    """
+    df = deepcopy(timeline)
+    df["value"] = df["value"].round(num_decimal_places)
+    return df
+
+
 def sanitize(timeline):
     """
-    Check for inefficiencies, type and logical errors with respect the current dataframe and either return an updated dataframe or an error.
+    Check for duplicate, range and type errors in the current dataframe and either return an updated dataframe or an error.
 
-
-    WARNING: The list of expected column names needs to be kept up to date.
-
-    TODO:Remove points within a certain time interval (no point being too precise).
-    TODO:Instead of list of rows, only modify the value of an integer (which gives the number of rows).
+    `sanitize__round_value` is not by default because this might be unexpected by the user.
     """
 
-    return sanitize_values(timeline).astype(
-        {
-            "variable": str,
-            "time": float,
-            "value": float,
-            # "context": str, # Currently, context can sometimes be None - this should be questioned though
-        },
-        errors="ignore",
-    )
+    return funcy.compose(
+        sanitize__drop_duplicates,
+        sanitize_values,
+        lambda df: frame.cast(
+            df,
+            {
+                "variable": str,
+                "time": float,
+                "value": float,
+                # "context": str, # Currently, context can sometimes be None - this should be questioned though
+            },
+        ),
+    )(timeline)
 
 
 def time_from_anchor_to_context(timeline, t=None, anchorToContext=None):

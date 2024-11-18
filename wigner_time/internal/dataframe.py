@@ -34,6 +34,10 @@ def isnull(o):
     return pd.isnull(o)
 
 
+def cast(df, col_type: dict):
+    return df.astype(col_type)
+
+
 def row_from_max_column(df, column="time"):
     """
     Finds the maximum value of the column and returns the corresponding row.
@@ -41,5 +45,12 @@ def row_from_max_column(df, column="time"):
     return df.loc[df[column].idxmax()]
 
 
+def drop_duplicates(df, subset=None, keep="last"):
+    return df.drop_duplicates(subset=subset, keep=keep, ignore_index=True).copy()
+
+
+# ============================================================
+# TESTS
+# ============================================================
 def assert_equal(df1, df2):
     return pd.testing.assert_frame_equal(df1, df2)

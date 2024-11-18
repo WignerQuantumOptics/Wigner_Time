@@ -32,6 +32,52 @@ def test_row_from_max_column(input_value):
     return pd.testing.assert_series_equal(frame.row_from_max_column(input_value), row)
 
 
+df_duplicate1 = frame.new(
+    [
+        ["thing2", 7.0, 5, "init"],
+        ["thing2", 7.0, 5, "init"],
+        ["thing", 0.0, 5, "init"],
+        ["thing", 0.0, 7.0, "different"],
+        ["thing3", 3.0, 5, "blah"],
+        ["thing4", 7.0, 5, "init"],
+    ],
+    columns=["variable", "time", "value", "context"],
+)
+
+
+@pytest.mark.parametrize("input_value", [df_duplicate1])
+def test_drop_duplicates(input_value):
+    return frame.assert_equal(
+        frame.drop_duplicates(input_value),
+        frame.new(
+            [
+                ["thing2", 7.0, 5, "init"],
+                ["thing", 0.0, 5, "init"],
+                ["thing", 0.0, 7.0, "different"],
+                ["thing3", 3.0, 5, "blah"],
+                ["thing4", 7.0, 5, "init"],
+            ],
+            columns=["variable", "time", "value", "context"],
+        ),
+    )
+
+
+@pytest.mark.parametrize("input_value", [df_duplicate1])
+def test_drop_duplicatesSubset(input_value):
+    return frame.assert_equal(
+        frame.drop_duplicates(input_value, subset=["variable", "time"]),
+        frame.new(
+            [
+                ["thing2", 7.0, 5, "init"],
+                ["thing", 0.0, 7.0, "different"],
+                ["thing3", 3.0, 5, "blah"],
+                ["thing4", 7.0, 5, "init"],
+            ],
+            columns=["variable", "time", "value", "context"],
+        ),
+    )
+
+
 if __name__ == "__main__":
     import importlib
 
