@@ -92,23 +92,20 @@ def create(
     timeline=None,
     context=None,
     t=0.0,
-    relativeTime=False,
-    relativeValue=False,
+    relative=False,
+    labels=["time", "variable", "value", "context"],
     **vtvc_dict,
 ):
     """
-    Establishes a new timeline according to the given (flexible) input collection.
-    If 'timeline' is also specified, then it concatenates the new creation with the existing one.
+    Does what it says on the tin: establishes a new timeline according to the given (flexible) input collection. If 'timeline' is also specified, then it concatenates the new creation with the existing one.
+
 
     Accepts programmatic and manual input.
 
-    TODO: implement relative value
     TODO: document the possible combinations of arguments ordered according to usecases
 
     variable_time_values (*vtvc) has the form:
     variable, time, value, context
-    OR
-    variable=value
     OR
     variable, [[time, value],...]
     OR
@@ -116,24 +113,28 @@ def create(
     OR
     [['variable', [time, value]]]
     OR
-    [['variable', [[time, value],[time002,value002],...]]]
+    [['variable', [[time, value],
+                  [time002,value002],
+                  ...]]]
+
     but when unspecified, is replaced by the dictionary form (**vtvc_dict)
 
-    When either time or context is not specified for a given variable, it is taken from the common `t` or `context` argument.
+    The [time,value] list can also be replaced with [time,value,context] if you would like to specify data-specific context.
 
     NOTE: It seems to be the case (on the internet) that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
     """
 
     schema = {"time": float, "variable": str, "value": float, "context": str}
     rows = wtinput.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
-
     if (len(rows[0]) != 4) and (context is not None):
         schema.pop("context")
-
     new = frame.new(rows, columns=schema.keys()).astype(schema)
-
-    if timeline is not None and relativeTime:
-        new["time"] += previous(timeline, variable="Anchor")["time"]
+    if timeline is not None and relative:
+        _pt_max = previous_time(timeline)
+        if _pt_max is None:
+            raise ValueError("Previous time not found!")
+        for index, row in new.iterrows():
+            new.at[index, "time"] += _pt_max
 
     result = (
         frame.concat([timeline, new], ignore_index=True)
@@ -163,8 +164,8 @@ def update(
 
     When context is not specified for a given variable, it is taken to be the latest context in the timeline.
     WARNING: this can lead to subtle bugs if the latest context is a special context
-    TODO: this case could be protected against, but at the moment we don’t have info on special contexts in timeline.py
     """
+    # TODO: STILL USING ANCHORY THINGS
     if timeline is None:
         return lambda x: update(
             *vtvc,
