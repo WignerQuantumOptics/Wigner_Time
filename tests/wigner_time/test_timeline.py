@@ -88,61 +88,55 @@ def dfseq():
     )
 
 
-def test_createSimple(df_simple):
-    tst = tl.create("AOM_imaging", 0.0, 0.0)
-    return frame.assert_equal(tst, df_simple)
+@pytest.mark.parametrize(
+    "input",
+    [
+        tl.create("AOM_imaging", 0.0, 0.0),
+        tl.create("AOM_imaging", [[0.0, 0.0]]),
+    ],
+)
+def test_createSimple(input, df_simple):
+    return frame.assert_equal(input, df_simple)
 
 
-def test_createSingle(df_simple):
-    tst = tl.create("AOM_imaging", [[0.0, 0.0]])
-    return frame.assert_equal(tst, df_simple)
-
-
-def test_createOriginal(df):
-    tst = tl.create(
-        [
-            ["AOM_imaging", [[0.0, 0.0]]],
-            ["AOM_imaging__V", [[0.0, 2]]],
-            ["AOM_repump", [[0.0, 1.0]]],
-        ],
-        context="init",
-    )
-    return frame.assert_equal(tst, df)
-
-
-def test_createManyListPairs(df):
-    tst = tl.create(
-        [
+@pytest.mark.parametrize(
+    "input",
+    [
+        tl.create(
+            [
+                ["AOM_imaging", [[0.0, 0.0]]],
+                ["AOM_imaging__V", [[0.0, 2]]],
+                ["AOM_repump", [[0.0, 1.0]]],
+            ],
+            context="init",
+        ),
+        tl.create(
+            [
+                ["AOM_imaging", 0.0],
+                ["AOM_imaging__V", 2],
+                ["AOM_repump", 1.0],
+            ],
+            context="init",
+            t=0.0,
+        ),
+        tl.create(
             ["AOM_imaging", 0.0],
             ["AOM_imaging__V", 2],
             ["AOM_repump", 1.0],
-        ],
-        context="init",
-        t=0.0,
-    )
-    return frame.assert_equal(tst, df)
-
-
-def test_createManyArgs(df):
-    tst = tl.create(
-        ["AOM_imaging", 0.0],
-        ["AOM_imaging__V", 2],
-        ["AOM_repump", 1.0],
-        context="init",
-        t=0.0,
-    )
-    return frame.assert_equal(tst, df)
-
-
-def test_createManyKWargs(df):
-    tst = tl.create(
-        context="init",
-        t=0.0,
-        AOM_imaging=0.0,
-        AOM_imaging__V=2,
-        AOM_repump=1.0,
-    )
-    return frame.assert_equal(tst, df)
+            context="init",
+            t=0.0,
+        ),
+        tl.create(
+            context="init",
+            t=0.0,
+            AOM_imaging=0.0,
+            AOM_imaging__V=2,
+            AOM_repump=1.0,
+        ),
+    ],
+)
+def test_createDifferent(input, df):
+    return frame.assert_equal(input, df)
 
 
 # def test_stack(dfseq):

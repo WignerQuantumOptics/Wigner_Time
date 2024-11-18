@@ -26,12 +26,10 @@ from wigner_time import util as util
 TIME_RESOLUTION = 1.0e-6
 
 ANALOG_SUFFIXES = {"Voltage": "__V", "Current": "__A", "Frequency": "__MHz"}
+# TODO: Should be deleted, but currently needed by display
 
-COLUMN_NAMES__SPECIAL = [
-    "variable",
-    "time",
-    "value",
-    "context",
+_SCHEMA = {"time": float, "variable": str, "value": float, "context": str}
+_COLUMN_NAMES__SPECIAL = list(_SCHEMA.keys()) + [
     "unit_range",
     "safety_range",
 ]
@@ -52,7 +50,6 @@ def previous(
 ):
     """
     Returns a row from the previous timeline. By default, this is done by finding the highest value for time and returning that row. If `sort_by` is specified (e.g. 'time'), then the dataframe is sorted and then the row indexed by `index` is returned.
-
 
     Raises ValueError if the specified variable, or timeline, doesn't exist.
     """
@@ -78,11 +75,11 @@ def previous(
 ###############################################################################
 def create(
     *vtvc,
-    timeline=None,
-    context=None,
     t=0.0,
-    relative=False,
-    labels=["time", "variable", "value", "context"],
+    context=None,
+    timeline=None,
+    origin=0.0,
+    schema=_SCHEMA,
     **vtvc_dict,
 ):
     """
@@ -113,15 +110,12 @@ def create(
     NOTE: It seems to be the case (on the internet) that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
     """
 
-    schema = {"time": float, "variable": str, "value": float, "context": str}
     rows = wtinput.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
     if (len(rows[0]) != 4) and (context is not None):
         schema.pop("context")
     new = frame.new(rows, columns=schema.keys()).astype(schema)
-    if timeline is not None and relative:
-        _pt_max = previous_time(timeline)
-        if _pt_max is None:
-            raise ValueError("Previous time not found!")
+    if timeline is not None:
+        _pt_max = previous(timeline)["time"]
         for index, row in new.iterrows():
             new.at[index, "time"] += _pt_max
 
@@ -181,6 +175,7 @@ def anchor(t, timeline=None, relativeTime=True, context=None):
     """
     Sets the anchor, optionally relative to the previous anchor
     """
+    # TODO: Hopefully will be deleted
     if timeline is None:
         return lambda x: anchor(
             t=t, timeline=x, relativeTime=relativeTime, context=context
@@ -201,7 +196,7 @@ def anchor(t, timeline=None, relativeTime=True, context=None):
         )
 
 
-def next(
+def ramp(
     *vtvc,
     timeline=None,
     context=None,
@@ -322,6 +317,7 @@ def stack(firstArgument, *fs: list[Callable]):
 
 
 def is_value_within_range(value, unit_range):
+    # TODO: Shouldn't be here - internal function
     if frame.isnull(unit_range):
         # If unit_range is NaN, consider it as within range
         return True
