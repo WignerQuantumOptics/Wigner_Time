@@ -55,22 +55,21 @@ def previous(
 
     Raises ValueError if the specified variable, or timeline, doesn't exist.
     """
-    if timeline is None:
-        raise ValueError("Previous timeline not found.")
+    if variable is not None:
+        tl__filtered = timeline[timeline[column] == variable]
+        if tl__filtered.empty:
+            raise ValueError("Previous {} not found".format(variable))
+    else:
+        tl__filtered = timeline
 
-    if sort_by is not None:
+    if sort_by is None:
+        return frame.row_from_max_column(tl__filtered)
+    else:
         if not timeline[sort_by].is_monotonic_increasing:
-            timeline.sort_values(sort_by, inplace=True)
-
-        if variable is not None:
-            qy = timeline[timeline[column] == variable]
-            if qy.empty:
-                raise ValueError("Previous {} not found".format(variable))
-            return qy.iloc[index]
+            tl__filtered.sort_values(sort_by, inplace=True)
+            return tl__filtered.iloc[index]
         else:
             return timeline.iloc[index]
-    else:
-        return frame.row_from_max_column(timeline)
 
 
 ###############################################################################
