@@ -36,21 +36,8 @@ TIME_RESOLUTION = 1.0e-6
 ANALOG_SUFFIXES = {"Voltage": "__V", "Current": "__A", "Frequency": "__MHz"}
 
 ###############################################################################
-#                   Internal functions
+#                   Utility functions
 ###############################################################################
-
-
-def process_dataframe(df, num_decimal_places=6):
-    """
-    Rounds the values (of voltages) and drops duplicates of values in pandas dataframes.
-    Should be used for one device at a time!
-    """
-    # TODO:
-    # - move rounding to adwin module
-    # - drop duplicates in sanitize
-
-    df["value"] = df["value"].round(num_decimal_places)
-    return df.drop_duplicates(subset="value", keep="first")
 
 
 def previous(
@@ -340,6 +327,8 @@ def sanitize_values(timeline):
     """
     Ensures that the given timeline doesn't contain values outside of the given unit or safety range.
     """
+    # TODO: Check for efficiency
+    #
     if ("unit_range" in timeline.columns) or ("safety_range" in timeline.columns):
         df = deepcopy(timeline)
 
@@ -366,9 +355,23 @@ def sanitize_values(timeline):
     return timeline
 
 
-def _sanitize__drop_duplicates(timeline):
-    # TODO: WIP
-    return
+def sanitize__drop_duplicates(timeline):
+    """
+    Drop duplicate rows and drop rows where the variable and time are duplicated.
+    """
+    return funcy.compose(
+        frame.drop_duplicates,
+        lambda timeline: frame.drop_duplicates(timeline, subset=["variable", "time"]),
+    )(timeline)
+
+
+def sanitize__round_value(timeline, num_decimal_places=6):
+    """
+    Rounds the 'value' column to the given number of decimal places and returns the updated timeline.
+    """
+    df = deepcopy(timeline)
+    df["value"] = df["value"].round(num_decimal_places)
+    return df
 
 
 def sanitize(timeline):

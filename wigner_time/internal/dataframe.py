@@ -41,5 +41,12 @@ def row_from_max_column(df, column="time"):
     return df.loc[df[column].idxmax()]
 
 
+def drop_duplicates(df, subset=None, keep="last"):
+    return df.drop_duplicates(subset=subset, keep=keep, ignore_index=True).copy()
+
+
+# ============================================================
+# TESTS
+# ============================================================
 def assert_equal(df1, df2):
     return pd.testing.assert_frame_equal(df1, df2)
