@@ -74,4 +74,4 @@ event:
   inc cyclecount
 
 finish:
-  processSwitches(2147483648) ' 2**31
+  processSwitches(2147483647) ' 2**31-1

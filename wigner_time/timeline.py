@@ -380,11 +380,9 @@ def sanitize(timeline):
     return sanitize_values(timeline).astype(
         {
             "variable": str,
-            "module": int,
-            "channel": int,
-            # "context": str,
-            "cycle": np.int64,
-            "value_digits": np.int64,
+            "time": float,
+            "value": float,
+            # "context": str, # Currently, context can sometimes be None - this should be questioned though
         },
         errors="ignore",
     )
