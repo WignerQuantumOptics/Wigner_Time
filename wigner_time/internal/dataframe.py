@@ -34,6 +34,10 @@ def isnull(o):
     return pd.isnull(o)
 
 
+def cast(df, col_type: dict):
+    return df.astype(col_type)
+
+
 def row_from_max_column(df, column="time"):
     """
     Finds the maximum value of the column and returns the corresponding row.

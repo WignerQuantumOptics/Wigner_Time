@@ -35,6 +35,16 @@ TIME_RESOLUTION = 1.0e-6
 
 ANALOG_SUFFIXES = {"Voltage": "__V", "Current": "__A", "Frequency": "__MHz"}
 
+COLUMN_NAMES__SPECIAL = [
+    "variable",
+    "time",
+    "value",
+    "context",
+    "unit_range",
+    "safety_range",
+]
+"""These column names are assumed to exist and are used in core functions. Be careful about editing them."""
+
 ###############################################################################
 #                   Utility functions
 ###############################################################################
@@ -325,24 +335,33 @@ def sanitize_values(timeline):
         df = deepcopy(timeline)
 
         # List to store rows with values outside the range
-        out_of_range_rows = []
+        rows__out_of_unit_range = []
+        rows__out_of_safety_range = []
 
         # Iterate through each row
         for index, row in df.iterrows():
-            # Check if the 'value' is within the specified 'unit_range'
             if not is_value_within_range(row["value"], row["unit_range"]):
-                # Print or handle the row where the value is outside the range
                 print(
                     f"Value {row['value']} is outside device unit range {row['unit_range']} for {row['variable']} at time {row['time']} at dataframe index {index}."
                 )
 
                 # Append the row index to the list
-                out_of_range_rows.append(index)
+                rows__out_of_unit_range.append(index)
+
+            if not is_value_within_range(row["value"], row["safety_range"]):
+                print(
+                    f"Value {row['value']} is outside device safety range {row['safety_range']} for {row['variable']} at time {row['time']} at dataframe index {index}."
+                )
+
+                # Append the row index to the list
+                rows__out_of_safety_range.append(index)
 
         # Raise ValueError after printing all relevant information
-        if out_of_range_rows:
+        if rows__out_of_unit_range:
             raise ValueError(
-                f"Values outside the desired range: {out_of_range_rows}! Please update these before proceeding."
+                f"Values outside the unit range: {rows__out_of_unit_range}!\n
+                Values outside the safety range: {rows__out_of_safety_range}! \n\n
+                Please update these before proceeding."
             )
     return timeline
 
@@ -368,24 +387,24 @@ def sanitize__round_value(timeline, num_decimal_places=6):
 
 def sanitize(timeline):
     """
-    Check for inefficiencies, type and logical errors with respect the current dataframe and either return an updated dataframe or an error.
+    Check for duplicate, range and type errors in the current dataframe and either return an updated dataframe or an error.
 
-
-    WARNING: The list of expected column names needs to be kept up to date.
-
-    TODO:Remove points within a certain time interval (no point being too precise).
-    TODO:Instead of list of rows, only modify the value of an integer (which gives the number of rows).
+    `sanitize__round_value` is not by default because this might be unexpected by the user.
     """
 
-    return sanitize_values(timeline).astype(
-        {
-            "variable": str,
-            "time": float,
-            "value": float,
-            # "context": str, # Currently, context can sometimes be None - this should be questioned though
-        },
-        errors="ignore",
-    )
+    return funcy.compose(
+        sanitize__drop_duplicates,
+        sanitize_values,
+        lambda df: frame.cast(
+            df,
+            {
+                "variable": str,
+                "time": float,
+                "value": float,
+                # "context": str, # Currently, context can sometimes be None - this should be questioned though
+            },
+        ),
+    )(timeline)
 
 
 def time_from_anchor_to_context(timeline, t=None, anchorToContext=None):
