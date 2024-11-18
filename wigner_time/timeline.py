@@ -366,6 +366,11 @@ def sanitize_values(timeline):
     return timeline
 
 
+def _sanitize__drop_duplicates(timeline):
+    # TODO: WIP
+    return
+
+
 def sanitize(timeline):
     """
     Check for inefficiencies, type and logical errors with respect the current dataframe and either return an updated dataframe or an error.
