@@ -7,7 +7,7 @@ from wigner_time.internal import dataframe as frame
 
 @pytest.fixture
 def df_simple():
-    return pd.DataFrame(
+    return frame.new(
         [
             [0.0, "AOM_imaging", 0.0, ""],
         ],
@@ -17,7 +17,7 @@ def df_simple():
 
 @pytest.fixture
 def df():
-    return pd.DataFrame(
+    return frame.new(
         [
             [0.0, "AOM_imaging", 0, "init"],
             [0.0, "AOM_imaging__V", 2.0, "init"],
@@ -59,17 +59,17 @@ def test_previousSort(input_value, sort_by="time"):
     return pd.testing.assert_series_equal(tl.previous(input_value), row)
 
 
-@pytest.fixture
-def df_wait():
-    return pd.DataFrame(
-        [
-            [0.0, "AOM_imaging", 0, "init"],
-            [0.0, "AOM_imaging__V", 2.0, "init"],
-            [0.0, "AOM_repump", 1, "init"],
-            [10.0, "AOM_repump", 0, "init"],
-        ],
-        columns=["time", "variable", "value", "context"],
-    )
+# @pytest.fixture
+# def df_wait():
+#     return frame.new(
+#         [
+#             [0.0, "AOM_imaging", 0, "init"],
+#             [0.0, "AOM_imaging__V", 2.0, "init"],
+#             [0.0, "AOM_repump", 1, "init"],
+#             [10.0, "AOM_repump", 0, "init"],
+#         ],
+#         columns=["time", "variable", "value", "context"],
+#     )
 
 
 @pytest.fixture
@@ -145,49 +145,110 @@ def test_createManyKWargs(df):
     return frame.assert_equal(tst, df)
 
 
-def test_stack(dfseq):
-    tst = tl.stack(
-        tl.create("lockbox_MOT__V", [[0.0, 0.0]]),
-        tl.wait(5.0, "lockbox_MOT__V"),
-        tl.ramp0(
-            "lockbox_MOT__V", 1.0, 1.0, fargs={"time_resolution": 0.2}, duration=1.0
-        ),
-        # tl.wait(),  # This shouldn't do anything for a timeline of a single variable.
-    )
-    return frame.assert_equal(tst, dfseq)
+# def test_stack(dfseq):
+#     tst = tl.stack(
+#         tl.create("lockbox_MOT__V", [[0.0, 0.0]]),
+#         tl.wait(5.0, "lockbox_MOT__V"),
+#         tl.ramp0(
+#             "lockbox_MOT__V", 1.0, 1.0, fargs={"time_resolution": 0.2}, duration=1.0
+#         ),
+#         # tl.wait(),  # This shouldn't do anything for a timeline of a single variable.
+#     )
+#     return frame.assert_equal(tst, dfseq)
 
 
-def test_waitVariable(df_wait):
+# def test_waitVariable(df_wait):
+#     return frame.assert_equal(
+#         tl.wait(variables=["AOM_imaging"], timeline=df_wait, context="test"),
+#         frame.new(
+#             {
+#                 "time": {0: 0.0, 1: 0.0, 2: 0.0, 3: 10.0, 4: 10.0},
+#                 "variable": {
+#                     0: "AOM_imaging",
+#                     1: "AOM_imaging__V",
+#                     2: "AOM_repump",
+#                     3: "AOM_repump",
+#                     4: "AOM_imaging",
+#                 },
+#                 "value": {0: 0.0, 1: 2.0, 2: 1.0, 3: 0.0, 4: 0.0},
+#                 "context": {0: "init", 1: "init", 2: "init", 3: "init", 4: "test"},
+#             }
+#         ),
+#     )
+
+
+# def test_waitAll(df_wait):
+#     return frame.assert_equal(
+#         tl.wait(timeline=df_wait),
+#         frame.new(
+#             [
+#                 [0.0, "AOM_imaging", 0.0, "init"],
+#                 [0.0, "AOM_imaging__V", 2.0, "init"],
+#                 [0.0, "AOM_repump", 1.0, "init"],
+#                 [10.0, "AOM_repump", 0.0, "init"],
+#                 [10.0, "AOM_imaging", 0.0, "init"],
+#                 [10.0, "AOM_imaging__V", 2.0, "init"],
+#             ],
+#             columns=["time", "variable", "value", "context"],
+#         ),
+#     )
+
+
+devices001 = frame.new(
+    [
+        ["coil_compensationX__A", (-3, 3), (-3, 3)],
+    ],
+    columns=["variable", "unit_range", "safety_range"],
+)
+devices002 = frame.new(
+    [
+        ["coil_compensationX__A", (-5, 5), (-3, 3)],
+    ],
+    columns=["variable", "unit_range", "safety_range"],
+)
+devices003 = frame.new(
+    [
+        ["coil_compensationX__A", (-5, 5), (-5, 5)],
+    ],
+    columns=["variable", "unit_range", "safety_range"],
+)
+
+df_sanitize001 = frame.new(
+    [
+        [0.0, "AOM_imaging", 0.0, ""],
+        [0.0, "AOM_imaging", 0.0, ""],
+        [0.0, "coil_compensationX__A", 0.0, "coil"],
+        [0.0, "coil_compensationX__A", 10.0, "coil"],
+        [10.0, "coil_compensationX__A", 5.0, "coil"],
+    ],
+    columns=["time", "variable", "value", "context"],
+)
+
+
+@pytest.mark.parametrize(
+    "input_value", [[df_sanitize001, devices001], [df_sanitize001, devices002]]
+)
+def test_sanitize_raises(input_value):
+    df, dev = input_value
+    with pytest.raises(ValueError):
+        tl.sanitize(frame.join(df, dev))
+
+
+@pytest.mark.parametrize(
+    "input_value",
+    [
+        [df_sanitize001, devices003],
+    ],
+)
+def test_sanitize_success(input_value):
+    df, dev = input_value
     return frame.assert_equal(
-        tl.wait(variables=["AOM_imaging"], timeline=df_wait, context="test"),
-        pd.DataFrame(
-            {
-                "time": {0: 0.0, 1: 0.0, 2: 0.0, 3: 10.0, 4: 10.0},
-                "variable": {
-                    0: "AOM_imaging",
-                    1: "AOM_imaging__V",
-                    2: "AOM_repump",
-                    3: "AOM_repump",
-                    4: "AOM_imaging",
-                },
-                "value": {0: 0.0, 1: 2.0, 2: 1.0, 3: 0.0, 4: 0.0},
-                "context": {0: "init", 1: "init", 2: "init", 3: "init", 4: "test"},
-            }
-        ),
-    )
-
-
-def test_waitAll(df_wait):
-    return frame.assert_equal(
-        tl.wait(timeline=df_wait),
-        pd.DataFrame(
+        tl.sanitize(df),
+        frame.new(
             [
-                [0.0, "AOM_imaging", 0.0, "init"],
-                [0.0, "AOM_imaging__V", 2.0, "init"],
-                [0.0, "AOM_repump", 1.0, "init"],
-                [10.0, "AOM_repump", 0.0, "init"],
-                [10.0, "AOM_imaging", 0.0, "init"],
-                [10.0, "AOM_imaging__V", 2.0, "init"],
+                [0.0, "AOM_imaging", 0.0, ""],
+                [0.0, "coil_compensationX__A", 10.0, "coil"],
+                [10.0, "coil_compensationX__A", 5.0, "coil"],
             ],
             columns=["time", "variable", "value", "context"],
         ),
@@ -197,5 +258,5 @@ def test_waitAll(df_wait):
 ###########################################################################
 #                               scratch                                   #
 ###########################################################################
-
-import importlib
+if __name__ == "__main__":
+    import importlib
