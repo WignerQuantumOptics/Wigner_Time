@@ -28,6 +28,18 @@ def ensure_iterable(x, is_string=False):
         return x if isinstance(x, Iterable) else [x]
 
 
+def ensure_iterable_with_None(x, is_string=False) -> Iterable:
+    """
+    'x' if iterable, [x] otherwise.
+
+    is_string determines if 'x' is allowed to be a string.
+    """
+    if not is_string:
+        return x if (isinstance(x, Iterable) and not isinstance(x, str)) else [x, None]
+    else:
+        return x if isinstance(x, Iterable) else [x, None]
+
+
 def is_collection(x, is_string=False):
     """
     Checks if x is a non-string sequence or numpy array by default. Strings can be included using the 'is_string' flag.

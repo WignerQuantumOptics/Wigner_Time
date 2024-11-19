@@ -17,6 +17,7 @@ import funcy
 from wigner_time import input as wtinput
 from wigner_time import ramp_function as ramp_function
 from wigner_time.internal import dataframe as frame
+from wigner_time.internal import origin as WTorigin
 from wigner_time import util as util
 
 ###############################################################################
@@ -78,8 +79,7 @@ def create(
     t=0.0,
     context=None,
     timeline=None,
-    origin__time=0.0,
-    origin__value=0.0,
+    origin=None,
     schema=_SCHEMA,
     **vtvc_dict,
 ):
@@ -115,8 +115,9 @@ def create(
     if (len(rows[0]) != 4) and (context is not None):
         schema.pop("context")
     new = frame.new(rows, columns=schema.keys()).astype(schema)
+
     if timeline is not None:
-        _pt_max = previous(timeline)["time"]
+        _t0, val0 = WTorigin.find(timeline, origin=origin__time)
         for index, row in new.iterrows():
             new.at[index, "time"] += _pt_max
 
@@ -176,7 +177,6 @@ def anchor(t, timeline=None, relativeTime=True, context=None):
     """
     Sets the anchor, optionally relative to the previous anchor
     """
-    # TODO: Hopefully will be deleted
     if timeline is None:
         return lambda x: anchor(
             t=t, timeline=x, relativeTime=relativeTime, context=context
@@ -201,12 +201,10 @@ def ramp(
     *vtvc,
     timeline=None,
     context=None,
-    t=None,  # this is interpreted as time_end if !relative["time"] - maybe this should be renamed to `time` or maybe `duration`?
-    relative={"time": True, "value": False},
+    t=None,
+    origin="anchor",
     function=ramp_function.tanh,
     fargs={},
-    time_start=None,
-    value_start=None,
     **vtvc_dict,
 ):
     """
@@ -214,8 +212,11 @@ def ramp(
 
     Here, `t` is interpreted as time_end if `relative={"time": True, ...}`
     NOTE: The order of variables and time are different in `wait`.
+
     """
+    # TODO: If origin is None, tries for anchor and then falls back to 'time'.
     # TODO: Should fargs be a dictionary?
+    # - Maybe not. List (with the option of a dictionary) would be most flexible.
     if timeline is None:
         return lambda x: next(
             *vtvc,
@@ -232,7 +233,7 @@ def ramp(
 
     if (t is not None) and (t < 0):
         raise ValueError(
-            'cannot go back in time or create quantum superpositions with "timeline.next"!'
+            'cannot go back in time or create quantum superpositions with "timeline.ramp"!'
         )
 
     input = wtinput.convert(*vtvc, time=t, context=context, **vtvc_dict)

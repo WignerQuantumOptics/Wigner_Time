@@ -3,17 +3,17 @@ For manipulating column 'origins', particularly 'time' and 'value'.
 
 This is important for inferring what the user means when they want to add rows to their dataframe and is especially important when it comes to chaining `ramp`s together.
 
-The options are:
-- "anchor"
-- "variable"
-- "time" (last time)
-- "context" ?
-- <float> (specific time)
-
-In the future, there should be equivalent options for 'value'.
 """
 
+# TODO:
+# - "variable" flag (i.e. find the previous occurence of this particular variable)
+# - "context" (Should we support this?)
+
+from wigner_time import util
 from wigner_time.internal import dataframe as frame
+
+_OPTIONS = ["anchor", "last"]
+"These origin labels are reserved for interpretation by the package."
 
 
 def previous(
@@ -45,29 +45,83 @@ def previous(
             return timeline.iloc[index]
 
 
-def find(timeline: frame.CLASS, origin=None):
+def find(
+    timeline: frame.CLASS,
+    variable: str | None = None,
+    origin=None,
+    label__anchor="ANCHOR",
+):
     """
-    If origin is None, tries for anchor and then falls back to SOMETHING (TBC).
+    Returns a time-value pair, according to the choice of origin.
+
+    Often, `None` will be returned for a value as it would be presumptuous to assume the same value origin for all devices.
+
+    Example origins:
+    - [0.0,0.0]
+    - 0.0
+    - "anchor"
+    - ["anchor", 0.0]
+    - "variable"
+    - "last" (The row highest in time)
+    - "...AOM_shutter..." (A variable name that is present in the dataframe)
+    """
+    _is_available__anchor = (timeline["variable"] == label__anchor).any()
+
+    def _is_available__variable(var):
+        return (timeline["variable"] == var).any() if (var is not None) else None
+
+    """
+    Falls back to last time entry if anchor is not available.
+    TODO:
+    - Is this a good idea?
+    - More meaningful error if anchor is not available
     """
     if origin is None:
-        if (timeline["variable"] == "ANCHOR").any():
+        if _is_available__anchor:
             origin = "anchor"
         else:
-            origin = "time"
-    match origin:
-        case str() as text if "anchor" == text:
-            row = previous(timeline, variable="ANCHOR")
-        case str() as text if "variable" == text:
-            # TODO: need extra argument or the decision has to be made further up the chain
-            row = previous(timeline, variable="variable")
-        case str() as text if "time" == text:
-            row = previous(timeline)
-        case str() as text:
-            row = previous(timeline, variable=text)
-        case float() as num:
-            row = num
+            origin = "last"
+
+    o = util.ensure_iterable_with_None(origin)
+
+    error__unsupported_option = ValueError(
+        "Unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
+    )
+
+    if len(o) != 2:
+        raise error__unsupported_option
+
+    match o:
+        case [float(), float()] | [float(), None] | [None, float()] as lst:
+            tv = lst
+
+        case [a, None | float() as b]:
+            match a:
+                case str(text) if ("anchor" == text) and _is_available__anchor:
+                    tv = [
+                        previous(timeline, variable=label__anchor).at[0, "time"],
+                        b,
+                    ]
+
+                case str(text) if "last" == text:
+                    tv = [previous(timeline).at[0, "time"], b]
+
+                case str(text) if _is_available__variable(text):
+                    tv = [previous(timeline, variable=text).at[0, "time"], b]
+                case _:
+                    raise error__unsupported_option
+
+        case [str(t1), str(t2)] if (t1 == t2) and _is_available__variable(t1):
+            tv = previous(timeline, variable=t1)[["time", "value"]].values[0]
+
+        case [str(t1), str(t2)] if (
+            _is_available__variable(t1) and _is_available__variable(t1)
+        ):
+            tv = [
+                previous(timeline, variable=t1).at[0, "time"],
+                previous(timeline, variable=t2).at[0, "value"],
+            ]
+
         case _:
-            raise ValueError(
-                "Unsupported option for 'origin' in `wigner_time.internal.origin.previous`."
-            )
-    return row
+            raise error__unsupported_option
+    return tv
