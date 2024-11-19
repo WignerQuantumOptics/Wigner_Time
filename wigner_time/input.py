@@ -6,7 +6,7 @@ A module for managing flexible input to entry-level timeline functions.
 
 import numpy as np
 
-from wigner_time import util as util
+from wigner_time import util as WTutil
 
 
 def __find_depth(vtvc):
@@ -15,9 +15,9 @@ def __find_depth(vtvc):
     """
     # TODO: Check that first element is actually a string.
 
-    if util.is_collection(vtvc[0]):
-        if util.is_collection(vtvc[0][0]):
-            if util.is_collection(vtvc[0][0][0]):
+    if WTutil.is_collection(vtvc[0]):
+        if WTutil.is_collection(vtvc[0][0]):
+            if WTutil.is_collection(vtvc[0][0][0]):
                 raise ValueError("input involves too deeply nested array. ")
             else:
                 return 3
