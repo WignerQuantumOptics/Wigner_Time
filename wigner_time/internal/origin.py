@@ -7,17 +7,22 @@ This is important for inferring what the user means when they want to add rows t
 
 # TODO:
 # - "variable" flag (i.e. find the previous occurence of this particular variable)
+# - Rename this file (and relevant functions) to something to do with query/history?
+# - dictionary option for origin (i.e. different origin for different variables?)
 # - "context" (Should we support this?)
 
-from wigner_time import util
-from wigner_time.internal import dataframe as frame
+from copy import deepcopy
+from wigner_time import util as WTutil
+from wigner_time.internal import dataframe as WTframe
+from wigner_time.internal import origin as WTorigin
 
-_OPTIONS = ["anchor", "last"]
+_ORIGINS = ["anchor", "last", "variable"]
 "These origin labels are reserved for interpretation by the package."
+_LABEL__ANCHOR = "ANCHOR"
 
 
 def previous(
-    timeline: frame.CLASS,
+    timeline: WTframe.CLASS,
     variable=None,
     column="variable",
     sort_by=None,
@@ -36,7 +41,7 @@ def previous(
         tl__filtered = timeline
 
     if sort_by is None:
-        return frame.row_from_max_column(tl__filtered)
+        return WTframe.row_from_max_column(tl__filtered)
     else:
         if not timeline[sort_by].is_monotonic_increasing:
             tl__filtered.sort_values(sort_by, inplace=True)
@@ -46,10 +51,9 @@ def previous(
 
 
 def find(
-    timeline: frame.CLASS,
-    variable: str | None = None,
+    timeline: WTframe.CLASS,
     origin=None,
-    label__anchor="ANCHOR",
+    label__anchor=_LABEL__ANCHOR,
 ):
     """
     Returns a time-value pair, according to the choice of origin.
@@ -61,7 +65,6 @@ def find(
     - 0.0
     - "anchor"
     - ["anchor", 0.0]
-    - "variable"
     - "last" (The row highest in time)
     - "...AOM_shutter..." (A variable name that is present in the dataframe)
     """
@@ -82,7 +85,7 @@ def find(
         else:
             origin = "last"
 
-    o = util.ensure_iterable_with_None(origin)
+    o = WTutil.ensure_iterable_with_None(origin)
 
     error__unsupported_option = ValueError(
         "Unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
@@ -97,17 +100,17 @@ def find(
 
         case [a, None | float() as b]:
             match a:
-                case str(text) if ("anchor" == text) and _is_available__anchor:
+                case str(text) if (text == "anchor") and _is_available__anchor:
                     tv = [
-                        previous(timeline, variable=label__anchor).at[0, "time"],
+                        previous(timeline, variable=label__anchor).at["time"],
                         b,
                     ]
 
                 case str(text) if "last" == text:
-                    tv = [previous(timeline).at[0, "time"], b]
+                    tv = [previous(timeline).at["time"], b]
 
                 case str(text) if _is_available__variable(text):
-                    tv = [previous(timeline, variable=text).at[0, "time"], b]
+                    tv = [previous(timeline, variable=text).at["time"], b]
                 case _:
                     raise error__unsupported_option
 
@@ -118,10 +121,32 @@ def find(
             _is_available__variable(t1) and _is_available__variable(t1)
         ):
             tv = [
-                previous(timeline, variable=t1).at[0, "time"],
-                previous(timeline, variable=t2).at[0, "value"],
+                previous(timeline, variable=t1).at["time"],
+                previous(timeline, variable=t2).at["value"],
             ]
 
         case _:
             raise error__unsupported_option
     return tv
+
+
+def update(
+    timeline__past: WTframe.CLASS,
+    timeline__present: WTframe.CLASS,
+    origin=None,
+    label__anchor=_LABEL__ANCHOR,
+) -> WTframe.CLASS:
+    timeline__future = deepcopy(timeline__present)
+
+    match origin:
+        case "variable":
+            raise ValueError("Not implemented yet!")
+            return timeline__future
+        case _:
+            _t0, _v0 = WTorigin.find(timeline__past, origin=origin)
+            if _t0:
+                timeline__future["time"] += _t0
+            if _v0:
+                timeline__future["value"] += _v0
+
+            return timeline__future

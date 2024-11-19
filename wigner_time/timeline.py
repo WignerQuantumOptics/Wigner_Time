@@ -14,11 +14,10 @@ from typing import Callable
 
 import funcy
 
-from wigner_time import input as wtinput
-from wigner_time import ramp_function as ramp_function
-from wigner_time.internal import dataframe as frame
+from wigner_time import input as WTinput
+from wigner_time import ramp_function as WTramp_function
+from wigner_time.internal import dataframe as WTframe
 from wigner_time.internal import origin as WTorigin
-from wigner_time import util as util
 
 ###############################################################################
 #                   Constants                                                 #
@@ -30,12 +29,11 @@ ANALOG_SUFFIXES = {"Voltage": "__V", "Current": "__A", "Frequency": "__MHz"}
 # TODO: Should be deleted, but currently needed by display
 
 _SCHEMA = {"time": float, "variable": str, "value": float, "context": str}
-_COLUMN_NAMES__SPECIAL = list(_SCHEMA.keys()) + [
+_COLUMN_NAMES__RESERVED = list(_SCHEMA.keys()) + [
     "unit_range",
     "safety_range",
 ]
 """These column names are assumed to exist and are used in core functions. Be careful about editing them."""
-# TODO: This could be replaced with the 'schema' from `create`
 
 ###############################################################################
 #                   Utility functions
@@ -43,7 +41,7 @@ _COLUMN_NAMES__SPECIAL = list(_SCHEMA.keys()) + [
 
 
 def previous(
-    timeline: frame.CLASS,
+    timeline: WTframe.CLASS,
     variable=None,
     column="variable",
     sort_by=None,
@@ -54,6 +52,9 @@ def previous(
 
     Raises ValueError if the specified variable, or timeline, doesn't exist.
     """
+    # DEPRECATED:
+    # TODO: Delete this in favour of the implementation in origin?
+    # Can be exposed through the package API
     if variable is not None:
         tl__filtered = timeline[timeline[column] == variable]
         if tl__filtered.empty:
@@ -62,7 +63,7 @@ def previous(
         tl__filtered = timeline
 
     if sort_by is None:
-        return frame.row_from_max_column(tl__filtered)
+        return WTframe.row_from_max_column(tl__filtered)
     else:
         if not timeline[sort_by].is_monotonic_increasing:
             tl__filtered.sort_values(sort_by, inplace=True)
@@ -76,9 +77,9 @@ def previous(
 ###############################################################################
 def create(
     *vtvc,
+    timeline=None,
     t=0.0,
     context=None,
-    timeline=None,
     origin=None,
     schema=_SCHEMA,
     **vtvc_dict,
@@ -111,17 +112,15 @@ def create(
     NOTE: It seems to be the case (on the internet) that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
     """
 
-    rows = wtinput.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
+    rows = WTinput.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
     if (len(rows[0]) != 4) and (context is not None):
         schema.pop("context")
-    new = frame.new(rows, columns=schema.keys()).astype(schema)
+    new = WTframe.new(rows, columns=schema.keys()).astype(schema)
 
     if timeline is not None:
-        _t0, val0 = WTorigin.find(timeline, origin=origin__time)
-        for index, row in new.iterrows():
-            new.at[index, "time"] += _pt_max
+        newnew = WTorigin.update(timeline, new, origin=origin)
 
-    result = frame.concat([timeline, new]) if timeline is not None else new
+    result = WTframe.concat([timeline, new]) if timeline is not None else new
     return result
 
 
@@ -146,7 +145,6 @@ def update(
     When context is not specified for a given variable, it is taken to be the latest context in the timeline.
     WARNING: this can lead to subtle bugs if the latest context is a special context
     """
-    # TODO: STILL USING ANCHORY THINGS
     if timeline is None:
         return lambda x: update(
             *vtvc,
@@ -203,7 +201,7 @@ def ramp(
     context=None,
     t=None,
     origin="anchor",
-    function=ramp_function.tanh,
+    function=WTramp_function.tanh,
     fargs={},
     **vtvc_dict,
 ):
@@ -236,7 +234,7 @@ def ramp(
             'cannot go back in time or create quantum superpositions with "timeline.ramp"!'
         )
 
-    input = wtinput.convert(*vtvc, time=t, context=context, **vtvc_dict)
+    input = WTinput.convert(*vtvc, time=t, context=context, **vtvc_dict)
 
     frames = []
     if input is not None:
@@ -277,7 +275,7 @@ def ramp(
                     variable,
                     function(
                         point_start,
-                        ramp_function.to_point_end(
+                        WTramp_function.to_point_end(
                             point_start,
                             t,
                             value,
@@ -289,7 +287,7 @@ def ramp(
                 )
             )
 
-        return frame.concat([timeline] + frames)
+        return WTframe.concat([timeline] + frames)
 
 
 def stack(firstArgument, *fs: list[Callable]):
@@ -312,7 +310,7 @@ def stack(firstArgument, *fs: list[Callable]):
 
     Otherwise, the result is a functional, which can be later be applied on an existing timeline.
     """
-    if isinstance(firstArgument, frame.CLASS):
+    if isinstance(firstArgument, WTframe.CLASS):
         return funcy.compose(*fs[::-1])(firstArgument)
     else:
         return funcy.compose(*fs[::-1], firstArgument)
@@ -320,7 +318,7 @@ def stack(firstArgument, *fs: list[Callable]):
 
 def is_value_within_range(value, unit_range):
     # TODO: Shouldn't be here - internal function
-    if frame.isnull(unit_range):
+    if WTframe.isnull(unit_range):
         # If unit_range is NaN, consider it as within range
         return True
     else:
@@ -372,8 +370,8 @@ def sanitize__drop_duplicates(timeline):
     Drop duplicate rows and drop rows where the variable and time are duplicated.
     """
     return funcy.compose(
-        frame.drop_duplicates,
-        lambda timeline: frame.drop_duplicates(timeline, subset=["variable", "time"]),
+        WTframe.drop_duplicates,
+        lambda timeline: WTframe.drop_duplicates(timeline, subset=["variable", "time"]),
     )(timeline)
 
 
@@ -396,7 +394,7 @@ def sanitize(timeline):
     return funcy.compose(
         sanitize__drop_duplicates,
         sanitize_values,
-        lambda df: frame.cast(
+        lambda df: WTframe.cast(
             df,
             {
                 "variable": str,

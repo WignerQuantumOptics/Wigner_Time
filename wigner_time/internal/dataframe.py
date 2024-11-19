@@ -54,3 +54,7 @@ def drop_duplicates(df, subset=None, keep="last"):
 # ============================================================
 def assert_equal(df1, df2):
     return pd.testing.assert_frame_equal(df1, df2)
+
+
+def assert_series_equal(s1, s2):
+    return pd.testing.assert_series_equal(s1, s2)

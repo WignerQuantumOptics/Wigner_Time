@@ -18,6 +18,18 @@ def df_001():
     )
 
 
+@pytest.fixture
+def df_002():
+    return frame.new(
+        [
+            ["thing2", 7.0, 5.0, "init"],
+            ["thing", 0.0, 5.0, "init"],
+            ["thing3", 3.0, 5.0, "blah"],
+        ],
+        columns=["variable", "time", "value", "context"],
+    )
+
+
 @pytest.mark.parametrize(
     "input",
     [
@@ -26,10 +38,7 @@ def df_001():
     ],
 )
 def test_originAnchor(input, df_001):
-    return pd.testing.assert_series_equal(
-        input(df_001),
-        df_001.iloc[2],
-    )
+    assert input(df_001) == [4.5, None]
 
 
 @pytest.mark.parametrize(
@@ -39,30 +48,46 @@ def test_originAnchor(input, df_001):
     ],
 )
 def test_originSpecificVariable(input, df_001):
-    return pd.testing.assert_series_equal(
-        input(df_001),
-        df_001.iloc[3],
-    )
+    assert input(df_001) == [3.0, None]
 
 
 @pytest.mark.parametrize(
     "input",
     [
-        lambda df: origin.find(df, "time"),
+        lambda df: origin.find(df, "last"),
+        lambda df: origin.find(df),
     ],
 )
-def test_originTime(input, df_001):
-    return pd.testing.assert_series_equal(
-        input(df_001),
-        df_001.iloc[0],
-    )
+def test_originTime(input, df_002):
+    assert input(df_002) == [7.0, None]
 
 
 @pytest.mark.parametrize(
     "input",
     [
         lambda df: origin.find(df, 5.0),
+        lambda df: origin.find(df, [5.0, None]),
     ],
 )
 def test_originNumber(input, df_001):
-    assert input(df_001) == 5.0
+    assert input(df_001) == [5.0, None]
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        lambda df: origin.find(df, [5.0, 0.0]),
+    ],
+)
+def test_originNumbers(input, df_001):
+    assert input(df_001) == [5.0, 0.0]
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        lambda df: origin.find(df, [None, -10.0]),
+    ],
+)
+def test_originNumbers2(input, df_001):
+    assert input(df_001) == [None, -10.0]
