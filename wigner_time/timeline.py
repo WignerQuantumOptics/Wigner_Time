@@ -119,9 +119,9 @@ def create(
 
     if timeline is not None:
         newnew = WTorigin.update(timeline, new, origin=origin)
+        return WTframe.concat([timeline, newnew])
 
-    result = WTframe.concat([timeline, new]) if timeline is not None else new
-    return result
+    return new
 
 
 def update(

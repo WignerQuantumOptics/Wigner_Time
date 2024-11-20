@@ -17,7 +17,6 @@ from wigner_time import connection as con
 from wigner_time import timeline as tl
 from wigner_time import adwin as adwin
 from wigner_time import util as u
-import wigner_time
 
 from copy import deepcopy
 
