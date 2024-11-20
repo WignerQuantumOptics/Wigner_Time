@@ -88,7 +88,7 @@ def find(
     o = WTutil.ensure_iterable_with_None(origin)
 
     error__unsupported_option = ValueError(
-        "Unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
+        "Unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. \n\n If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
     )
 
     if len(o) != 2:
@@ -134,8 +134,10 @@ def update(
     timeline__past: WTframe.CLASS,
     timeline__present: WTframe.CLASS,
     origin=None,
-    label__anchor=_LABEL__ANCHOR,
 ) -> WTframe.CLASS:
+    # TODO:
+    # Deal with ['tihng'] case
+    # Deal with numerical origin when no previous timeline is present
     timeline__future = deepcopy(timeline__present)
 
     match origin:

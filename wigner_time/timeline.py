@@ -109,16 +109,22 @@ def create(
 
     The [time,value] list can also be replaced with [time,value,context] if you would like to specify data-specific context.
 
-    NOTE: It seems to be the case (on the internet) that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
+    If you supply an additional timeline, the result will be concatenated with this and the new timeline (if one isn't specified) will inherit the old context.
+
+    NOTE: It seems to be the case that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
     """
 
     rows = WTinput.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
-    if (len(rows[0]) != 4) and (context is not None):
+    if (len(rows[0]) != 4) and (context is None):
         schema.pop("context")
     new = WTframe.new(rows, columns=schema.keys()).astype(schema)
 
     if timeline is not None:
         newnew = WTorigin.update(timeline, new, origin=origin)
+
+        if context is None:
+            newnew['context'] = previous(timeline)['context']
+
         return WTframe.concat([timeline, newnew])
 
     return new

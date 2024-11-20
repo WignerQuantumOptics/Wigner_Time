@@ -1,5 +1,4 @@
 import pytest
-import pandas as pd
 
 from wigner_time import timeline as tl
 from wigner_time.internal import dataframe as wt_frame
@@ -76,3 +75,25 @@ def test_createSimple(input, df_simple):
 )
 def test_createDifferent(input, df):
     return wt_frame.assert_equal(input, df)
+
+
+if __name__ == "__main__":
+    import importlib as lib
+
+    lib.reload(tl)
+
+    tline = tl.create(
+        [
+            ["AOM_imaging", [[0.0, 0.0]]],
+            ["AOM_imaging__V", [[0.0, 2]]],
+            ["AOM_repump", [[1.0, 1.0]]],
+        ],
+        context="init",
+    )
+    print(
+        tl.create(
+            AOM_imaging__V=[1.0, 10.0],
+            timeline=tline,
+            origin=["AOM_imaging", "AOM_imaging"],
+        )
+    )
