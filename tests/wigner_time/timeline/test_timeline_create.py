@@ -2,6 +2,7 @@ import pytest
 
 from wigner_time import timeline as tl
 from wigner_time.internal import dataframe as wt_frame
+from wigner_time.internal import origin
 
 
 @pytest.fixture
@@ -77,10 +78,37 @@ def test_createDifferent(input, df):
     return wt_frame.assert_equal(input, df)
 
 
+tline = tl.create(
+    [
+        ["AOM_imaging", [[0.0, 0.0]]],
+        ["AOM_imaging__V", [[0.0, 2]]],
+        ["AOM_repump", [[1.0, 1.0]]],
+    ],
+    context="init",
+)
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        tl.create(
+            AOM_imaging__V=[1.0, 10.0],
+            timeline=tline,
+            origin="AOM_imaging",
+        )
+    ],
+)
+def test_createOrigin():
+    return wt_frame.assert_equal(
+        input,
+    )
+
+
 if __name__ == "__main__":
     import importlib as lib
 
     lib.reload(tl)
+    lib.reload(origin)
 
     tline = tl.create(
         [
@@ -94,6 +122,6 @@ if __name__ == "__main__":
         tl.create(
             AOM_imaging__V=[1.0, 10.0],
             timeline=tline,
-            origin=["AOM_imaging", "AOM_imaging"],
+            origin="AOM_imaging",
         )
     )

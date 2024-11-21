@@ -77,7 +77,7 @@ def previous(
 ###############################################################################
 def create(
     *vtvc,
-    timeline=None,
+    timeline: WTframe.CLASS | None = None,
     t=0.0,
     context=None,
     origin=None,
@@ -115,17 +115,20 @@ def create(
     """
 
     rows = WTinput.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
-    if (len(rows[0]) != 4) and (context is None):
-        schema.pop("context")
-    new = WTframe.new(rows, columns=schema.keys()).astype(schema)
+
+    # DEPRECATED: Removing context column
+    # If there are no errors here for a while then we can just remove the 'popping' code below.
+    # if (len(rows[0]) != 4) and (context is None):
+    #     schema.pop("context")
+
+    df_rows = WTframe.new(rows, columns=schema.keys()).astype(schema)
+    new = WTorigin.update(df_rows, timeline, origin=origin)
 
     if timeline is not None:
-        newnew = WTorigin.update(timeline, new, origin=origin)
-
         if context is None:
-            newnew['context'] = previous(timeline)['context']
+            new["context"] = previous(timeline)["context"]
 
-        return WTframe.concat([timeline, newnew])
+        return WTframe.concat([timeline, new])
 
     return new
 

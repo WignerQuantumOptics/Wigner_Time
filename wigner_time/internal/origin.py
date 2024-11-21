@@ -51,7 +51,7 @@ def previous(
 
 
 def find(
-    timeline: WTframe.CLASS,
+    timeline,
     origin=None,
     label__anchor=_LABEL__ANCHOR,
 ):
@@ -68,7 +68,9 @@ def find(
     - "last" (The row highest in time)
     - "...AOM_shutter..." (A variable name that is present in the dataframe)
     """
-    _is_available__anchor = (timeline["variable"] == label__anchor).any()
+    _is_available__anchor = (
+        (timeline["variable"] == label__anchor).any() if timeline is not None else False
+    )
 
     def _is_available__variable(var):
         return (timeline["variable"] == var).any() if (var is not None) else None
@@ -90,6 +92,9 @@ def find(
     error__unsupported_option = ValueError(
         "Unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. \n\n If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
     )
+    error__timeline = ValueError(
+        "Timeline not specified, but necessary for this type of origin."
+    )
 
     if len(o) != 2:
         raise error__unsupported_option
@@ -99,6 +104,8 @@ def find(
             tv = lst
 
         case [a, None | float() as b]:
+            if timeline is None:
+                raise error__timeline
             match a:
                 case str(text) if (text == "anchor") and _is_available__anchor:
                     tv = [
@@ -131,24 +138,32 @@ def find(
 
 
 def update(
-    timeline__past: WTframe.CLASS,
     timeline__present: WTframe.CLASS,
+    timeline__past: WTframe.CLASS | None,
     origin=None,
 ) -> WTframe.CLASS:
     # TODO:
-    # Deal with ['tihng'] case
-    # Deal with numerical origin when no previous timeline is present
+    # - Deal with 'variable' case
+    # - Deal with ['thing'] case
+    # - Move numerical origin checks here?
     timeline__future = deepcopy(timeline__present)
 
-    match origin:
-        case "variable":
-            raise ValueError("Not implemented yet!")
-            return timeline__future
-        case _:
-            _t0, _v0 = WTorigin.find(timeline__past, origin=origin)
-            if _t0:
-                timeline__future["time"] += _t0
-            if _v0:
-                timeline__future["value"] += _v0
+    if timeline__past is not None:
+        match origin:
+            case "variable":
+                raise ValueError("Not implemented yet!")
+            case _:
+                _t0, _v0 = WTorigin.find(timeline__past, origin=origin)
 
-            return timeline__future
+    else:
+        if origin is not None:
+            _t0, _v0 = WTorigin.find(None, origin=origin)
+        else:
+            _t0, _v0 = [None, None]
+
+    if _t0 is not None:
+        timeline__future["time"] += _t0
+    if _v0 is not None:
+        timeline__future["value"] += _v0
+
+    return timeline__future
