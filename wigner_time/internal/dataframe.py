@@ -6,6 +6,7 @@ Particularly relevant for the pandas to polars upgrade.
 
 # In the medium term, this should have a polars counterpart namespace so that we can switch between the two easily.
 
+from copy import deepcopy
 import pandas as pd
 
 
@@ -43,6 +44,21 @@ def row_from_max_column(df, column="time"):
     Finds the maximum value of the column and returns the corresponding row.
     """
     return df.loc[df[column].idxmax()]
+
+
+def increment_selected_rows(
+    df, column__increment="time", column__match="variable", in_place=True, **incs
+):
+    """
+    Keywords are variable=<increment> pairs. If none are provided then the original df is returned.
+    """
+    if incs is not None:
+        dff = df if in_place else deepcopy(df)
+        for k, v in incs.items():
+            dff.loc[dff[column__match] == k, column__increment] += v
+        return dff
+    else:
+        return df
 
 
 def drop_duplicates(df, subset=None, keep="last"):

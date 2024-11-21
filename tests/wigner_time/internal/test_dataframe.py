@@ -78,6 +78,42 @@ def test_drop_duplicatesSubset(input_value):
     )
 
 
+@pytest.mark.parametrize("input", [df_duplicate1])
+def test_increment_selected_rows(input):
+    return frame.assert_equal(
+        frame.increment_selected_rows(input, thing=1.0),
+        frame.new(
+            [
+                ["thing2", 7.0, 5, "init"],
+                ["thing2", 7.0, 5, "init"],
+                ["thing", 1.0, 5, "init"],
+                ["thing", 1.0, 7.0, "different"],
+                ["thing3", 3.0, 5, "blah"],
+                ["thing4", 7.0, 5, "init"],
+            ],
+            columns=["variable", "time", "value", "context"],
+        ),
+    )
+
+
+@pytest.mark.parametrize("input", [df_duplicate1])
+def test_increment_selected_rows(input):
+    return frame.assert_equal(
+        frame.increment_selected_rows(input, thing=1.0, column__increment="value"),
+        frame.new(
+            [
+                ["thing2", 7.0, 5, "init"],
+                ["thing2", 7.0, 5, "init"],
+                ["thing", 0.0, 6, "init"],
+                ["thing", 0.0, 8.0, "different"],
+                ["thing3", 3.0, 5, "blah"],
+                ["thing4", 7.0, 5, "init"],
+            ],
+            columns=["variable", "time", "value", "context"],
+        ),
+    )
+
+
 if __name__ == "__main__":
     import importlib
 

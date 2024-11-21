@@ -87,7 +87,7 @@ def find(
         else:
             origin = "last"
 
-    o = WTutil.ensure_iterable_with_None(origin)
+    o = WTutil.ensure_pair(WTutil.ensure_iterable_with_None(origin))
 
     error__unsupported_option = ValueError(
         "Unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. \n\n If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
@@ -122,7 +122,7 @@ def find(
                     raise error__unsupported_option
 
         case [str(t1), str(t2)] if (t1 == t2) and _is_available__variable(t1):
-            tv = previous(timeline, variable=t1)[["time", "value"]].values[0]
+            tv = previous(timeline, variable=t1)[["time", "value"]].values
 
         case [str(t1), str(t2)] if (
             _is_available__variable(t1) and _is_available__variable(t1)
@@ -144,16 +144,47 @@ def update(
 ) -> WTframe.CLASS:
     # TODO:
     # - Deal with 'variable' case
-    # - Deal with ['thing'] case
     # - Move numerical origin checks here?
     timeline__future = deepcopy(timeline__present)
 
+    def _update_future(tlfuture, t0, v0, variable=None):
+        if variable is not None:
+            if t0 is not None:
+                WTframe.increment_selected_rows(tlfuture, **{variable: t0})
+            if v0 is not None:
+                WTframe.increment_selected_rows(
+                    tlfuture, column__increment="value", **{variable: v0}
+                )
+        else:
+            if t0 is not None:
+                tlfuture["time"] += t0
+            if v0 is not None:
+                tlfuture["value"] += v0
+        return tlfuture
+
     if timeline__past is not None:
         match origin:
-            case "variable":
-                raise ValueError("Not implemented yet!")
+            case "variable" | ["variable"]:
+                for var in timeline__future["variable"]:
+                    _t0, _v0 = WTorigin.find(timeline__past, origin=var)
+                    timeline__future = _update_future(
+                        timeline__future, _t0, _v0, variable=var
+                    )
+
+            case ["variable", "variable"]:
+                for var in timeline__future["variable"]:
+                    _t0, _v0 = WTorigin.find(timeline__past, origin=[var, var])
+                    timeline__future = _update_future(
+                        timeline__future, _t0, _v0, variable=var
+                    )
+
             case _:
                 _t0, _v0 = WTorigin.find(timeline__past, origin=origin)
+
+                if _t0 is not None:
+                    timeline__future["time"] += _t0
+                if _v0 is not None:
+                    timeline__future["value"] += _v0
 
     else:
         if origin is not None:
@@ -161,9 +192,9 @@ def update(
         else:
             _t0, _v0 = [None, None]
 
-    if _t0 is not None:
-        timeline__future["time"] += _t0
-    if _v0 is not None:
-        timeline__future["value"] += _v0
+        if _t0 is not None:
+            timeline__future["time"] += _t0
+        if _v0 is not None:
+            timeline__future["value"] += _v0
 
     return timeline__future
