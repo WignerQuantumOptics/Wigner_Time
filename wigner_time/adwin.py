@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 
+import funcy
 import numpy as np
 
 from wigner_time import timeline as tl
@@ -42,6 +43,15 @@ SPECIFICATIONS__DEFAULT = {
 
 CONTEXTS__SPECIAL = {"ADwin_LowInit": -2, "ADwin_Init": -1, "ADwin_Finish": 2**31 - 1}
 """Used for passing information to the ADwin controller"""
+
+
+SCHEMA = {"time": float, "variable": str, "value": float, "context": str,
+        "module": int,
+        "channel": int,
+        "cycle": np.int32,
+        "value_digits":np.int32,
+          }
+
 
 
 def remove_unconnected_variables(df, connections):
@@ -342,9 +352,13 @@ def sanitize_types(timeline):
 def sanitize(timeline):
     """
     Includes ADwin-specific methods ontop of the basic timeline sanitization for removing unnecessary points and raising errors on illogical input.
-
     """
-    return sanitize_special_contexts(sanitize_types(tl.sanitize(timeline)))
+    return funcy.compose(
+        lambda tline: tl.sanitize__drop_duplicates(tline, subset=["variable", "cycle"]),
+        sanitize_special_contexts,
+        sanitize_types,
+        tl.sanitize
+    )(timeline)
 
 
 # ======

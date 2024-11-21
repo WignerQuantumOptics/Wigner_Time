@@ -1,5 +1,6 @@
 import pytest
 import pandas as pd
+import numpy as np
 
 from wigner_time import adwin as adwin
 from wigner_time import connection as con
@@ -70,7 +71,7 @@ def test_add_linear_conversion(df_simple):
     )
 
 
-def test_add_cycles():
+def test_add_cycle():
     df = pd.DataFrame({"time": range(10), "other": range(11, 21)})
     df["context"] = (
         ["MOT"] * 4 + ["ADwin_LowInit"] * 3 + ["ADwin_Init"] * 2 + ["ADwin_Finish"]
@@ -79,7 +80,7 @@ def test_add_cycles():
 
     return pd.testing.assert_frame_equal(
         tst,
-        pd.DataFrame(
+        frame.cast(pd.DataFrame(
             {
                 "time": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                 "other": [11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
@@ -108,7 +109,7 @@ def test_add_cycles():
                     2147483648,
                 ],
             }
-        ),
+        ), {'cycle': np.int32}),
     )
 
 
@@ -139,7 +140,8 @@ df_special2 = frame.new(
     columns=["time", "variable", "value", "context"],
 )
 
-df_special3 = frame.new(
+df_special3 = frame.cast(
+    frame.new(
     [
         [0.0, "AOM_imaging", 0.0, "ADwin_Init", 1, 1, 0, 1],
         [0.0, "AOM_imaging__V", 2.0, "ADwin_Init", 1, 1, 0, 5],
@@ -155,7 +157,7 @@ df_special3 = frame.new(
         "cycle",
         "value_digits",
     ],
-)
+    ), adwin.SCHEMA)
 
 
 @pytest.mark.parametrize("input_value", [df_special1, df_special2])

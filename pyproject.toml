@@ -13,13 +13,13 @@ munch = "^3.0.0"
 matplotlib = "^3.7.1"
 funcy = "^2.0"
 pyqt6 = "^6.5.0"
-pytest = "^7.3.1"
 polars = "^0.20.21"
 pyarrow = "^15.0.2"
 
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.1.1"
+pytest = "^7.3.1"
 
 [build-system]
 requires = ["poetry-core"]
