@@ -115,37 +115,42 @@ def add_cycle(
     return df
 
 
-def initialize_ADwin(m, output):
+def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFAULT):
     """
     NOTE: Stateful.
     General setup of the *system*, rather than the specific experimental project.
     """
-    # TODO: Should we prepare all of the possible variables or does this waste memory?
+    # TODO:
+    # - This would probably be easier if it accepted a dataframe
+    # - Should we prepare all of the possible variables or does this waste memory?
 
-    time_end__cycles = max(
-        max([t[0] for t in output[0]]), max([t[0] for t in output[1]])
-    )
+    cycles = np.array([np.array(output[i])[:,0] for i in range(2)]).flatten()
+    # Finds the maximum cycle value, discounting special contexts
+    time_end__cycles = cycles[~np.isin(cycles, list(CONTEXTS__SPECIAL.values()))].max()
+
     print(
         "time_end: {}s".format(
             time_end__cycles
-            * SPECIFICATIONS__DEFAULT["device_001"]["cycle_period__normal"]
+            * specifications["device_001"]["cycle_period__normal"]
         )
     )
 
-    m.Set_Par(1, time_end__cycles)
-    m.Set_Par(2, len(output[0]))
-    m.Set_Par(3, len(output[1]))
 
-    m.SetData_Long([a[0] for a in output[0]], 10, 1, len(output[0]))
-    m.SetData_Long([a[1] for a in output[0]], 11, 1, len(output[0]))
-    m.SetData_Long([a[2] for a in output[0]], 12, 1, len(output[0]))
-    m.SetData_Long([a[3] for a in output[0]], 13, 1, len(output[0]))
+    # TODO: What's happening below should be explained here
+    machine__adwin.Set_Par(1, int(time_end__cycles))
+    machine__adwin.Set_Par(2, len(output[0]))
+    machine__adwin.Set_Par(3, len(output[1]))
 
-    m.SetData_Long([d[0] for d in output[1]], 20, 1, len(output[1]))
-    m.SetData_Long([d[1] for d in output[1]], 22, 1, len(output[1]))
-    m.SetData_Long([d[2] for d in output[1]], 23, 1, len(output[1]))
+    machine__adwin.SetData_Long([a[0] for a in output[0]], 10, 1, len(output[0]))
+    machine__adwin.SetData_Long([a[1] for a in output[0]], 11, 1, len(output[0]))
+    machine__adwin.SetData_Long([a[2] for a in output[0]], 12, 1, len(output[0]))
+    machine__adwin.SetData_Long([a[3] for a in output[0]], 13, 1, len(output[0]))
 
-    return m
+    machine__adwin.SetData_Long([d[0] for d in output[1]], 20, 1, len(output[1]))
+    machine__adwin.SetData_Long([d[1] for d in output[1]], 22, 1, len(output[1]))
+    machine__adwin.SetData_Long([d[2] for d in output[1]], 23, 1, len(output[1]))
+
+    return machine__adwin
 
 
 def check_safety_range(df):
@@ -291,7 +296,6 @@ def output(df, specifications=SPECIFICATIONS__DEFAULT):
     """
     # TODO: ensure digital outputs are integers
     # TODO: sort table by cycle before export
-    # As defined in PyAdwin.py
     # TODO: use the same format for analogue and digital (requires change at the ADwin side)
 
     mods_digital = modules_digital(specifications)
@@ -338,15 +342,8 @@ def sanitize_special_contexts(timeline, special_contexts=CONTEXTS__SPECIAL):
         )
 
 
-def sanitize_types(timeline):
-    return timeline.astype(
-        {
-            "module": int,
-            "channel": int,
-            "cycle": np.int32,
-            "value_digits": np.int32,
-        }
-    )
+def sanitize_types(timeline, schema=SCHEMA):
+    return timeline.astype(schema)
 
 
 def sanitize(timeline):
@@ -361,10 +358,5 @@ def sanitize(timeline):
     )(timeline)
 
 
-# ======
-# SCRIPT
-# ======
-if __name__ == "__main__":
-    import pandas as pd
 
-    import importlib
+print()
