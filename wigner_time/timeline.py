@@ -359,10 +359,7 @@ def sanitize__drop_duplicates(timeline):
     """
     Drop duplicate rows and drop rows where the variable and time are duplicated.
     """
-    return funcy.compose(
-        frame.drop_duplicates,
-        lambda timeline: frame.drop_duplicates(timeline, subset=["variable", "time"]),
-    )(timeline)
+    return frame.drop_duplicates(timeline, subset=["variable", "time"])
 
 
 def sanitize__round_value(timeline, num_decimal_places=6):

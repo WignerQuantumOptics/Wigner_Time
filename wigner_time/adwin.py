@@ -6,8 +6,6 @@ import numpy as np
 
 from wigner_time import timeline as tl
 from wigner_time import conversion as conv
-from wigner_time import variable as var
-from wigner_time.internal import dataframe as frame
 
 
 """
@@ -15,7 +13,7 @@ Represents the key ADwin settings for the given machine.
 
 These should be loaded by the ADwin system during initialization. The dictionary of settings should grow as large as possible (to encompass all of the internal ADwin features) for maximum reproducibility.
 """
-specifications_default = {
+SPECIFICATIONS__DEFAULT = {
     "device_001": {
         "cycle_period__normal": 5e-6,
         "module_001": {
@@ -40,8 +38,10 @@ specifications_default = {
         },
     },
 }
+# TODO: Rather than naming the above with numbers, this could be a list of dicts.
 
-special_contexts = {"ADwin_LowInit": -2, "ADwin_Init": -1, "ADwin_Finish": 2**31 - 1}
+CONTEXTS__SPECIAL = {"ADwin_LowInit": -2, "ADwin_Init": -1, "ADwin_Finish": 2**31 - 1}
+"""Used for passing information to the ADwin controller"""
 
 
 def remove_unconnected_variables(df, connections):
@@ -64,8 +64,8 @@ def remove_unconnected_variables(df, connections):
 
 def add_cycle(
     df,
-    specifications=specifications_default,
-    special_contexts=special_contexts,
+    specifications=SPECIFICATIONS__DEFAULT,
+    special_contexts=CONTEXTS__SPECIAL,
     device="device_001",
 ):
     """
@@ -118,7 +118,7 @@ def initialize_ADwin(m, output):
     print(
         "time_end: {}s".format(
             time_end__cycles
-            * specifications_default["device_001"]["cycle_period__normal"]
+            * SPECIFICATIONS__DEFAULT["device_001"]["cycle_period__normal"]
         )
     )
 
@@ -179,7 +179,7 @@ def add_linear_conversion(df, unit, separator="__", column__new="value__digits")
     return dff
 
 
-def add(df, adwin_connections, devices, specifications=specifications_default):
+def add(df, adwin_connections, devices, specifications=SPECIFICATIONS__DEFAULT):
     """
     Takes an 'operational' layer timeline and inserts ADwin-specific columns, e.g. cycles and numbers for the module and channel etc.
 
@@ -271,7 +271,7 @@ def to_tuples(df, cols=["cycle", "module", "channel", "value_digits"]):
     return [tuple([np.int32(i) for i in x]) for x in df[cols].values]
 
 
-def output(df, specifications=specifications_default):
+def output(df, specifications=SPECIFICATIONS__DEFAULT):
     """
     Takes a dataframe of the experimental run and converts the result to a PyADwin 'Output' class.
 
@@ -296,7 +296,7 @@ def output(df, specifications=specifications_default):
     ]
 
 
-def to_adwin(df, connections, devices, adwin_settings=specifications_default):
+def to_adwin(df, connections, devices, adwin_settings=SPECIFICATIONS__DEFAULT):
     """
     Convenience for converting a Wigner timeline (DataFrame) to an ADwin-compatible list of tuples.
 
@@ -305,12 +305,12 @@ def to_adwin(df, connections, devices, adwin_settings=specifications_default):
     """
 
     return output(
-        add(df, connections, devices, specifications=specifications_default),
-        specifications=specifications_default,
+        add(df, connections, devices, specifications=SPECIFICATIONS__DEFAULT),
+        specifications=SPECIFICATIONS__DEFAULT,
     )
 
 
-def sanitize_special_contexts(timeline, special_contexts=special_contexts):
+def sanitize_special_contexts(timeline, special_contexts=CONTEXTS__SPECIAL):
     """
     that there isn't more than one entry for a given variable inside special contexts. This is necessary as there is no concept of 'time' inside the special contexts defined for ADwin.
     """
