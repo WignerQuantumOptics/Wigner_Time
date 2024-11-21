@@ -51,7 +51,7 @@ devices = pd.DataFrame(
 constants = Munch(
     safety_factor=1.1,
     #    factor__VpMHz=0.05,
-    lag_MOTshutter=2.48e-3,
+    lag_MOTshutter=2.3e-3,
     Compensation=Munch(
         Z__A=-0.1,
         Y__A=1.5,
@@ -59,8 +59,8 @@ constants = Munch(
     ),
     OP=Munch(
         lag_AOM_on=15e-6,
-        lag_shutter_on=1.5e-3,
-        lag_shutter_off=1.5e-3,
+        lag_shutter_on=1.48e-3,
+        lag_shutter_off=1.78e-3,
         duration_shutter_on=140e-6,
         duration_shutter_off=600e-6,
     ),
@@ -156,15 +156,7 @@ def MOT_detunedGrowth(duration=100e-3, durationRamp=10e-3, toMHz=-5, pt=3, **kwa
     )
 
 
-def molasses(
-    duration=5e-3,
-    durationCoilRamp=9e-4,
-    durationLockboxRamp=1e-3,
-    toMHz=-90,
-    coil_pt=3,
-    lockbox_pt=3,
-    **kwargs
-):
+def molasses(duration=5e-3, durationCoilRamp=9e-4, durationLockboxRamp=1e-3, toMHz=-90, coil_pt=3, lockbox_pt=3, **kwargs):
 
     return tl.stack(
         tl.ramp(
