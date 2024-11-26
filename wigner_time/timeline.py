@@ -14,10 +14,10 @@ from typing import Callable
 
 import funcy
 
-from wigner_time import input as WTinput
-from wigner_time import ramp_function as WTramp_function
-from wigner_time.internal import dataframe as WTframe
-from wigner_time.internal import origin as WTorigin
+from wigner_time import input as wt_input
+from wigner_time import ramp_function as wt_ramp_function
+from wigner_time.internal import dataframe as wt_frame
+from wigner_time.internal import origin as wt_origin
 
 ###############################################################################
 #                   Constants                                                 #
@@ -41,7 +41,7 @@ _COLUMN_NAMES__RESERVED = list(_SCHEMA.keys()) + [
 
 
 def previous(
-    timeline: WTframe.CLASS,
+    timeline: wt_frame.CLASS,
     variable=None,
     column="variable",
     sort_by=None,
@@ -63,7 +63,7 @@ def previous(
         tl__filtered = timeline
 
     if sort_by is None:
-        return WTframe.row_from_max_column(tl__filtered)
+        return wt_frame.row_from_max_column(tl__filtered)
     else:
         if not timeline[sort_by].is_monotonic_increasing:
             tl__filtered.sort_values(sort_by, inplace=True)
@@ -77,7 +77,7 @@ def previous(
 ###############################################################################
 def create(
     *vtvc,
-    timeline: WTframe.CLASS | None = None,
+    timeline: wt_frame.CLASS | None = None,
     t=0.0,
     context=None,
     origin=None,
@@ -114,21 +114,21 @@ def create(
     NOTE: It seems to be the case that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
     """
 
-    rows = WTinput.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
+    rows = wt_input.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
 
     # DEPRECATED: Removing context column
     # If there are no errors here for a while then we can just remove the 'popping' code below.
     # if (len(rows[0]) != 4) and (context is None):
     #     schema.pop("context")
 
-    df_rows = WTframe.new(rows, columns=schema.keys()).astype(schema)
-    new = WTorigin.update(df_rows, timeline, origin=origin)
+    df_rows = wt_frame.new(rows, columns=schema.keys()).astype(schema)
+    new = wt_origin.update(df_rows, timeline, origin=origin)
 
     if timeline is not None:
         if context is None:
             new["context"] = previous(timeline)["context"]
 
-        return WTframe.concat([timeline, new])
+        return wt_frame.concat([timeline, new])
 
     return new
 
@@ -142,6 +142,7 @@ def update(
     relativeValue=False,
     **vtvc_dict,
 ):
+    # TODO: Pass on origin argument
     """
     Creates a timeline for a single or many variables the same as the 'create' function.
 
@@ -204,13 +205,92 @@ def anchor(t, timeline=None, relativeTime=True, context=None):
         )
 
 
-def ramp(
+def ramp__start(
     *vtvc,
     timeline=None,
+    t=0.0,
     context=None,
+        origin="anchor",
+    duration=None,
+    function=wt_ramp_function.tanh,
+    fargs={},
+    **vtvc_dict,
+):
+    """
+    vtvc is variable,t,value,context (the argument passing follows the same logic as with 'create')
+
+    `t` is starting time, which is relative to the previous anchor if `relativeTime=True`
+
+    The starting value of the ramp is the previous value of the variable. If that doesn’t exist, an exception is thrown.
+
+    """
+
+    if timeline is None:
+        return lambda x: ramp(
+            *vtvc,
+            timeline=x,
+            t=t,  # starting time
+            context=context,
+            origin=origin,
+            duration=duration,
+            function=function,
+            fargs=fargs,
+            **vtvc_dict,
+        )
+    input_data = wtinput.convert(*vtvc, time=t, context=context, **vtvc_dict)
+
+    frames = []
+
+    if input_data is not None:
+        try:
+            tAnchor = previous(timeline, variable="Anchor")["time"]
+        except ValueError:
+            tAnchor = 0.0
+
+        for variable, values in input_data:
+            if len(values) > 1:
+                raise ValueError(
+                    "Badly formatted input to 'ramp'. There should only be one collection of t and value per variable."
+                )
+
+            t, value = values[0][:2]
+
+            if relativeTime:
+                t += tAnchor
+
+            prev = previous(timeline, variable)
+
+            if prev is None:
+                raise ValueError(
+                    "Tried to use 'ramp' without previous value for variable {}".format(
+                        variable
+                    )
+                )
+
+            if context is None:
+                context = prev["context"]
+            if relativeValue:
+                value += prev["value"]
+
+            point_start = [t, prev["value"]]
+
+            frames.append(
+                create(
+                    variable,
+                    function(point_start, [t + duration, value], **fargs),
+                    context=context,
+                )
+            )
+
+    return frame.concat([timeline] + frames)
+
+def ramp__next(
+    *vtvc,
+    timeline=None,
     t=None,
+    context=None,
     origin="anchor",
-    function=WTramp_function.tanh,
+    function=wt_ramp_function.tanh,
     fargs={},
     **vtvc_dict,
 ):
@@ -221,20 +301,18 @@ def ramp(
     NOTE: The order of variables and time are different in `wait`.
 
     """
-    # TODO: If origin is None, tries for anchor and then falls back to 'time'.
     # TODO: Should fargs be a dictionary?
     # - Maybe not. List (with the option of a dictionary) would be most flexible.
+    # - Making it a dictionary maximizes the readability though.
     if timeline is None:
         return lambda x: next(
             *vtvc,
             timeline=x,
-            context=context,
             t=t,
-            relative=relative,
+            context=context,
+            origin=origin,
             function=function,
             fargs=fargs,
-            time_start=time_start,
-            value_start=value_start,
             **vtvc_dict,
         )
 
@@ -243,7 +321,7 @@ def ramp(
             'cannot go back in time or create quantum superpositions with "timeline.ramp"!'
         )
 
-    input = WTinput.convert(*vtvc, time=t, context=context, **vtvc_dict)
+    input = wt_input.convert(*vtvc, time=t, context=context, **vtvc_dict)
 
     frames = []
     if input is not None:
@@ -284,7 +362,7 @@ def ramp(
                     variable,
                     function(
                         point_start,
-                        WTramp_function.to_point_end(
+                        wt_ramp_function.to_point_end(
                             point_start,
                             t,
                             value,
@@ -296,7 +374,7 @@ def ramp(
                 )
             )
 
-        return WTframe.concat([timeline] + frames)
+        return wt_frame.concat([timeline] + frames)
 
 
 def stack(firstArgument, *fs: list[Callable]):
@@ -319,7 +397,7 @@ def stack(firstArgument, *fs: list[Callable]):
 
     Otherwise, the result is a functional, which can be later be applied on an existing timeline.
     """
-    if isinstance(firstArgument, WTframe.CLASS):
+    if isinstance(firstArgument, wt_frame.CLASS):
         return funcy.compose(*fs[::-1])(firstArgument)
     else:
         return funcy.compose(*fs[::-1], firstArgument)
@@ -327,7 +405,7 @@ def stack(firstArgument, *fs: list[Callable]):
 
 def is_value_within_range(value, unit_range):
     # TODO: Shouldn't be here - internal function
-    if WTframe.isnull(unit_range):
+    if wt_frame.isnull(unit_range):
         # If unit_range is NaN, consider it as within range
         return True
     else:
@@ -379,8 +457,8 @@ def sanitize__drop_duplicates(timeline):
     Drop duplicate rows and drop rows where the variable and time are duplicated.
     """
     return funcy.compose(
-        WTframe.drop_duplicates,
-        lambda timeline: WTframe.drop_duplicates(timeline, subset=["variable", "time"]),
+        wt_frame.drop_duplicates,
+        lambda timeline: wt_frame.drop_duplicates(timeline, subset=["variable", "time"]),
     )(timeline)
 
 
@@ -399,11 +477,12 @@ def sanitize(timeline):
 
     `sanitize__round_value` is not by default because this might be unexpected by the user.
     """
+    # TODO: Add check for negative times in the 'final' databases.
 
     return funcy.compose(
         sanitize__drop_duplicates,
         sanitize_values,
-        lambda df: WTframe.cast(
+        lambda df: wt_frame.cast(
             df,
             {
                 "variable": str,
