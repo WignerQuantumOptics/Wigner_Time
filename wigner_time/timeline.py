@@ -206,15 +206,15 @@ def anchor(t, timeline=None, relativeTime=True, context=None):
 
 
 def ramp__start(
-    *vtvc,
     timeline=None,
-    t=0.0,
     context=None,
-        origin="anchor",
+    origin="anchor",
     duration=None,
     function=wt_ramp_function.tanh,
     fargs={},
     **vtvc_dict,
+    # TODO: **vv_dict?
+    # - document difference in defaults (time vs value for origin and vtvc)
 ):
     """
     vtvc is variable,t,value,context (the argument passing follows the same logic as with 'create')
@@ -283,6 +283,7 @@ def ramp__start(
             )
 
     return frame.concat([timeline] + frames)
+
 
 def ramp__next(
     *vtvc,
@@ -458,7 +459,9 @@ def sanitize__drop_duplicates(timeline):
     """
     return funcy.compose(
         wt_frame.drop_duplicates,
-        lambda timeline: wt_frame.drop_duplicates(timeline, subset=["variable", "time"]),
+        lambda timeline: wt_frame.drop_duplicates(
+            timeline, subset=["variable", "time"]
+        ),
     )(timeline)
 
 
