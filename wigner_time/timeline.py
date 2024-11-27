@@ -186,6 +186,8 @@ def anchor(t, timeline=None, relativeTime=True, context=None):
     """
     Sets the anchor, optionally relative to the previous anchor
     """
+    # TODO: Anchors should be automatically numbered?
+    # Making them uniquely identifiable would be good for debugging.
     if timeline is None:
         return lambda x: anchor(
             t=t, timeline=x, relativeTime=relativeTime, context=context
@@ -210,12 +212,11 @@ def ramp(
     timeline=None,
     duration=None,
     context=None,
-    origins=[["anchor", "variable"], ["variable"]],
+    origins=[["ANCHOR", "variable"], ["variable"]],
     schema=_SCHEMA,
     function=wt_ramp_function.tanh,
     fargs={},
-    is_compact=False,
-    #TODO: ^^^ This should be True by default once it's implemented
+    is_compact=True,
     **vtvc_dict,
 ):
     """
@@ -228,6 +229,7 @@ def ramp(
     `**vtvc_dict` follows that of 'create', but with the difference that it can be used to specify only one or two points (this may be extended in the future to allow for more complicated ramps). The default behaviour is simply to provide a [variable, value] pair and this will be taken to define the end point of the ramp. In many circumstances, e.g. as outlined in `demonstration.py`, this and the collective definition of the ramp duration is enough to define the ramp.
     """
     # TODO:
+    # - check for ramps with 0 duration (shouldn't do anything)
     # - Let vtvc_dict be pairs?
     # - Limit data to two points per variable
     # - Let origin be a pair of pairs?
@@ -252,25 +254,30 @@ def ramp(
     match max_ndim:
         case 0 | 1:
             rows1=None
-            rows2 = wt_input.convert(None, time=duration, context=context, **vtvc_dict)
+            rows2 = wt_input.rows_from_arguments(*[], time=duration, context=context, **vtvc_dict)
 
         case 2:
             _vtvc_1d = {k: v for k, v in _vtvcs.items() if v.ndim != 2}
             _vtvc_2d_0 = {k: v[0] for k, v in _vtvcs.items() if v.ndim == 2}
             _vtvc_2d_1 = {k: v[1] for k, v in _vtvcs.items() if v.ndim == 2}
 
-            rows1= wt_input.convert(None, time=duration, context=context, **_vtvc_2d_0)
-            rows2= wt_input.convert(None, time=duration, context=context, **(_vtvc_1d|_vtvc_2d_1))
+            rows1= wt_input.convert(*[], time=duration, context=context, **_vtvc_2d_0)
+            rows2= wt_input.convert(*[], time=duration, context=context, **(_vtvc_1d|_vtvc_2d_1))
 
         case _:
             raise ValueError("Unsupported input to the `ramp` function. Only one or two tuples can be processed per variable.")
 
     # Prepare the starting points and then basically do two (shorcut-ed) `create`s. One depending on the previous timeline and one depending on the previous `create`.
+
     df_1 = wt_frame.new(rows1, columns=schema.keys()).astype(schema)
     df_2 = wt_frame.new(rows2, columns=schema.keys()).astype(schema)
 
+
     df__no_start_points = df_2[~df_2['variable'].isin(df_1['variable'])]
     df__no_start_points.loc[:, ['time', 'value']] = 0.0
+
+    print(f'=== dfconcat: {wt_frame.concat([df_1, df__no_start_points])}')
+    print(f'{origins[0]}')
 
     new1 = wt_origin.update(wt_frame.concat([df_1, df__no_start_points]),
                             timeline, origin=origins[0])
@@ -279,8 +286,12 @@ def ramp(
                             new1, origin=origins[1])
     new2['function'] = function
 
+    # TODO: Should we sort the new timelines before returning them?
 
-    return wt_frame.concat([timeline, new1, new2])
+    if is_compact:
+        return wt_frame.concat([timeline, new1, new2])
+    else:
+        raise ValueError("Non-compact ramps are not currently implemented.")
 
     # frames = []
 

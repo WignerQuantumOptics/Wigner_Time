@@ -80,6 +80,7 @@ def find(
     TODO:
     - Is this a good idea?
     - More meaningful error if anchor is not available
+    - Should anchor be 'hardcoded' or should we just use it as any other variable name?
     """
     if origin is None:
         if _is_available__anchor:
@@ -99,6 +100,11 @@ def find(
     if len(o) != 2:
         raise error__unsupported_option
 
+    print('===')
+    print(o[0], o[1])
+    print(_is_available__variable(o[0]))
+    print(_is_available__variable(o[1]))
+    print('===')
     match o:
         case [float(), float()] | [float(), None] | [None, float()] as lst:
             tv = lst
@@ -173,6 +179,22 @@ def update(
             case ["variable", "variable"]:
                 for var in timeline__future["variable"]:
                     _t0, _v0 = wt_origin.find(timeline__past, origin=[var, var])
+                    timeline__future = _update_future(
+                        timeline__future, _t0, _v0, variable=var
+                    )
+            case ['ANCHOR', 'variable' ]:
+                for var in timeline__future["variable"]:
+                    print(f'{var}: GOT HERE')
+                    _t0, _v0 = wt_origin.find(timeline__past, origin=['ANCHOR', var])
+                    print(f'found anchor!===')
+                    timeline__future = _update_future(
+                        timeline__future, _t0, _v0, variable=var
+                    )
+
+            case ['variable', 'ANCHOR']:
+                # TODO: Can combine this with the above?
+                for var in timeline__future["variable"]:
+                    _t0, _v0 = wt_origin.find(timeline__past, origin=[var,'ANCHOR'])
                     timeline__future = _update_future(
                         timeline__future, _t0, _v0, variable=var
                     )
