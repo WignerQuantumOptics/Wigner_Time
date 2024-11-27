@@ -12,9 +12,9 @@ This is important for inferring what the user means when they want to add rows t
 # - "context" (Should we support this?)
 
 from copy import deepcopy
-from wigner_time import util as WTutil
-from wigner_time.internal import dataframe as WTframe
-from wigner_time.internal import origin as WTorigin
+from wigner_time import util as wt_util
+from wigner_time.internal import dataframe as wt_frame
+from wigner_time.internal import origin as wt_origin
 
 _ORIGINS = ["anchor", "last", "variable"]
 "These origin labels are reserved for interpretation by the package."
@@ -22,7 +22,7 @@ _LABEL__ANCHOR = "ANCHOR"
 
 
 def previous(
-    timeline: WTframe.CLASS,
+    timeline: wt_frame.CLASS,
     variable=None,
     column="variable",
     sort_by=None,
@@ -41,7 +41,7 @@ def previous(
         tl__filtered = timeline
 
     if sort_by is None:
-        return WTframe.row_from_max_column(tl__filtered)
+        return wt_frame.row_from_max_column(tl__filtered)
     else:
         if not timeline[sort_by].is_monotonic_increasing:
             tl__filtered.sort_values(sort_by, inplace=True)
@@ -87,7 +87,7 @@ def find(
         else:
             origin = "last"
 
-    o = WTutil.ensure_pair(WTutil.ensure_iterable_with_None(origin))
+    o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))
 
     error__unsupported_option = ValueError(
         "Unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. \n\n If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
@@ -138,21 +138,20 @@ def find(
 
 
 def update(
-    timeline__present: WTframe.CLASS,
-    timeline__past: WTframe.CLASS | None,
+    timeline__present: wt_frame.CLASS,
+    timeline__past: wt_frame.CLASS | None,
     origin=None,
-) -> WTframe.CLASS:
+) -> wt_frame.CLASS:
     # TODO:
-    # - Deal with 'variable' case
     # - Move numerical origin checks here?
     timeline__future = deepcopy(timeline__present)
 
     def _update_future(tlfuture, t0, v0, variable=None):
         if variable is not None:
             if t0 is not None:
-                WTframe.increment_selected_rows(tlfuture, **{variable: t0})
+                wt_frame.increment_selected_rows(tlfuture, **{variable: t0})
             if v0 is not None:
-                WTframe.increment_selected_rows(
+                wt_frame.increment_selected_rows(
                     tlfuture, column__increment="value", **{variable: v0}
                 )
         else:
@@ -166,20 +165,20 @@ def update(
         match origin:
             case "variable" | ["variable"]:
                 for var in timeline__future["variable"]:
-                    _t0, _v0 = WTorigin.find(timeline__past, origin=var)
+                    _t0, _v0 = wt_origin.find(timeline__past, origin=var)
                     timeline__future = _update_future(
                         timeline__future, _t0, _v0, variable=var
                     )
 
             case ["variable", "variable"]:
                 for var in timeline__future["variable"]:
-                    _t0, _v0 = WTorigin.find(timeline__past, origin=[var, var])
+                    _t0, _v0 = wt_origin.find(timeline__past, origin=[var, var])
                     timeline__future = _update_future(
                         timeline__future, _t0, _v0, variable=var
                     )
 
             case _:
-                _t0, _v0 = WTorigin.find(timeline__past, origin=origin)
+                _t0, _v0 = wt_origin.find(timeline__past, origin=origin)
 
                 if _t0 is not None:
                     timeline__future["time"] += _t0
@@ -188,7 +187,7 @@ def update(
 
     else:
         if origin is not None:
-            _t0, _v0 = WTorigin.find(None, origin=origin)
+            _t0, _v0 = wt_origin.find(None, origin=origin)
         else:
             _t0, _v0 = [None, None]
 

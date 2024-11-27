@@ -206,98 +206,16 @@ def anchor(t, timeline=None, relativeTime=True, context=None):
         )
 
 
-def ramp__start(
-            *vtvc,
-    timeline=None,
-    duration=None,
-    context=None,
-    origin="anchor",
-    function=wt_ramp_function.tanh,
-    fargs={},
-    **vtvc_dict,
-    # TODO: **vv_dict?
-    # - document difference in defaults (time vs value for origin and vtvc)
-):
-    """
-    vtvc is variable,t,value,context (the argument passing follows the same logic as with 'create')
-
-    `t` is starting time, which is relative to the previous anchor if `relativeTime=True`
-
-    The starting value of the ramp is the previous value of the variable. If that doesn’t exist, an exception is thrown.
-
-    """
-
-    if timeline is None:
-        return lambda x: ramp(
-            *vtvc,
-            timeline=x,
-            t=t,  # starting time
-            context=context,
-            origin=origin,
-            duration=duration,
-            function=function,
-            fargs=fargs,
-            # More Arguments to be deleted
-            relativeTime=True,
-            relativeValue=False,
-            **vtvc_dict,
-        )
-    input_data = wt_input.convert(*vtvc, time=t, context=context, **vtvc_dict)
-
-    frames = []
-
-    if input_data is not None:
-        try:
-            tAnchor = previous(timeline, variable="Anchor")["time"]
-        except ValueError:
-            tAnchor = 0.0
-
-        for variable, values in input_data:
-            if len(values) > 1:
-                raise ValueError(
-                    "Badly formatted input to 'ramp'. There should only be one collection of t and value per variable."
-                )
-
-            t, value = values[0][:2]
-
-            if relativeTime:
-                t += tAnchor
-
-            prev = previous(timeline, variable)
-
-            if prev is None:
-                raise ValueError(
-                    "Tried to use 'ramp' without previous value for variable {}".format(
-                        variable
-                    )
-                )
-
-            if context is None:
-                context = prev["context"]
-            if relativeValue:
-                value += prev["value"]
-
-            point_start = [t, prev["value"]]
-
-            frames.append(
-                create(
-                    variable,
-                    function(point_start, [t + duration, value], **fargs),
-                    context=context,
-                )
-            )
-
-    return wt_frame.concat([timeline] + frames)
-
-
-def ramp__origin(
+def ramp(
     timeline=None,
     duration=None,
     context=None,
     origins=[["anchor", "variable"], ["variable"]],
+    schema=_SCHEMA,
     function=wt_ramp_function.tanh,
     fargs={},
-        is_delayed=True,
+    is_compact=False,
+    #TODO: ^^^ This should be True by default once it's implemented
     **vtvc_dict,
 ):
     """
@@ -310,12 +228,12 @@ def ramp__origin(
     `**vtvc_dict` follows that of 'create', but with the difference that it can be used to specify only one or two points (this may be extended in the future to allow for more complicated ramps). The default behaviour is simply to provide a [variable, value] pair and this will be taken to define the end point of the ramp. In many circumstances, e.g. as outlined in `demonstration.py`, this and the collective definition of the ramp duration is enough to define the ramp.
     """
     # TODO:
-    # - Let vtvc_dct be a pair?
+    # - Let vtvc_dict be pairs?
     # - Limit data to two points per variable
     # - Let origin be a pair of pairs?
     # - Should fargs be a dictionary?
-    # - Maybe not. List (with the option of a dictionary) would be most flexible.
-    # - Making it a dictionary maximizes the readability though.
+        # - Maybe not. List (with the option of a dictionary) would be most flexible.
+        # - Making it a dictionary maximizes the readability though.
     if timeline is None:
         return lambda x: ramp__origin(
             timeline=x,
@@ -327,77 +245,63 @@ def ramp__origin(
             **vtvc_dict,
         )
 
-    # Deal with vtvc for two separate points
+    # Check vtvc for two separate points
     _vtvcs = {k: np.asarray(v) for k, v in vtvc_dict.items()}
-
     max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
 
     match max_ndim:
         case 0 | 1:
-            input1=None
-            input2 = wt_input.convert(None, time=duration, context=context, **vtvc_dict)
+            rows1=None
+            rows2 = wt_input.convert(None, time=duration, context=context, **vtvc_dict)
+
         case 2:
+            _vtvc_1d = {k: v for k, v in _vtvcs.items() if v.ndim != 2}
+            _vtvc_2d_0 = {k: v[0] for k, v in _vtvcs.items() if v.ndim == 2}
+            _vtvc_2d_1 = {k: v[1] for k, v in _vtvcs.items() if v.ndim == 2}
+
+            rows1= wt_input.convert(None, time=duration, context=context, **_vtvc_2d_0)
+            rows2= wt_input.convert(None, time=duration, context=context, **(_vtvc_1d|_vtvc_2d_1))
+
         case _:
             raise ValueError("Unsupported input to the `ramp` function. Only one or two tuples can be processed per variable.")
 
-    #
+    # Prepare the starting points and then basically do two (shorcut-ed) `create`s. One depending on the previous timeline and one depending on the previous `create`.
+    df_1 = wt_frame.new(rows1, columns=schema.keys()).astype(schema)
+    df_2 = wt_frame.new(rows2, columns=schema.keys()).astype(schema)
 
-    frames = []
+    df__no_start_points = df_2[~df_2['variable'].isin(df_1['variable'])]
+    df__no_start_points.loc[:, ['time', 'value']] = 0.0
 
-    # TODO: Avoid doing this row by row
-    if input is not None:
-        for variable, values in input:
-            if len(values) > 1:
-                raise ValueError(
-                    "Badly formatted input to 'next'. There should only be one collection of t and value per variable."
-                )
-            t, value = values[0][:2]
-            if not (t > 0):
-                raise ValueError("Duration cannot be zero for changing values.")
-
-            prev = previous(timeline, variable)
-
-            point_start = [time_start, value_start]
-
-            if prev is not None:
-                if context is None and "context" in prev.keys():
-                    context = prev["context"]
-
-            if (time_start is None) or (value_start is None):
-                if prev is not None:
-                    ps = point_start
-                    for i, l, p in zip(range(2), relative.keys(), point_start):
-
-                        if p is None:
-                            ps[i] = prev[l]
-                    point_start = ps
+    new1 = wt_origin.update(wt_frame.concat([df_1, df__no_start_points]),
+                            timeline, origin=origins[0])
+    new1['function'] = function
+    new2 = wt_origin.update(df_2,
+                            new1, origin=origins[1])
+    new2['function'] = function
 
 
-            # TODO: fix this for new ramp
-            for x in point_start:
-                if x is None:
-                    raise ValueError(
-                        "Tried to use 'next' without starting time and value. Check that you're trying to change an existing variable."
-                    )
+    return wt_frame.concat([timeline, new1, new2])
 
-            frames.append(
-                create(
-                    variable,
-                    function(
-                        point_start,
-                        wt_ramp_function.to_point_end(
-                            point_start,
-                            t,
-                            value,
-                            relative=list(relative.values()),
-                        ),
-                        **fargs,
-                    ),
-                    context=context,
-                )
-            )
+    # frames = []
 
-        return wt_frame.concat([timeline] + frames)
+    #         frames.append(
+    #             create(
+    #                 variable,
+    #                 function(
+    #                     point_start,
+    #                     wt_ramp_function.to_point_end(
+    #                         point_start,
+    #                         t,
+    #                         value,
+    #                         relative=list(relative.values()),
+    #                     ),
+    #                     **fargs,
+    #                 ),
+    #                 context=context,
+    #             )
+    #         )
+
+        # return wt_frame.concat([timeline] + frames)
 
 
 def stack(firstArgument, *fs: list[Callable]):
