@@ -13,6 +13,7 @@ from copy import deepcopy
 from typing import Callable
 
 import funcy
+import numpy as np
 
 from wigner_time import input as wt_input
 from wigner_time import ramp_function as wt_ramp_function
@@ -206,10 +207,11 @@ def anchor(t, timeline=None, relativeTime=True, context=None):
 
 
 def ramp__start(
+            *vtvc,
     timeline=None,
+    duration=None,
     context=None,
     origin="anchor",
-    duration=None,
     function=wt_ramp_function.tanh,
     fargs={},
     **vtvc_dict,
@@ -235,9 +237,12 @@ def ramp__start(
             duration=duration,
             function=function,
             fargs=fargs,
+            # More Arguments to be deleted
+            relativeTime=True,
+            relativeValue=False,
             **vtvc_dict,
         )
-    input_data = wtinput.convert(*vtvc, time=t, context=context, **vtvc_dict)
+    input_data = wt_input.convert(*vtvc, time=t, context=context, **vtvc_dict)
 
     frames = []
 
@@ -282,49 +287,64 @@ def ramp__start(
                 )
             )
 
-    return frame.concat([timeline] + frames)
+    return wt_frame.concat([timeline] + frames)
 
 
-def ramp__next(
-    *vtvc,
+def ramp__origin(
     timeline=None,
-    t=None,
+    duration=None,
     context=None,
-    origin="anchor",
+    origins=[["anchor", "variable"], ["variable"]],
     function=wt_ramp_function.tanh,
     fargs={},
+        is_delayed=True,
     **vtvc_dict,
 ):
     """
-    vtvc is variable,t,value,context (following that of 'create')
+    Convenient ways of defining two points and a function!
 
-    Here, `t` is interpreted as time_end if `relative={"time": True, ...}`
-    NOTE: The order of variables and time are different in `wait`.
+    Take care with the differences from the `create` function. Ramps are naturally defined relative to other starting points and so the interface is slightly different.
 
+    It is assumed that `*vtvc` is not necessary, as if you wanted to specify the points manually (in a big list), you should just use `create` or `update`.
+
+    `**vtvc_dict` follows that of 'create', but with the difference that it can be used to specify only one or two points (this may be extended in the future to allow for more complicated ramps). The default behaviour is simply to provide a [variable, value] pair and this will be taken to define the end point of the ramp. In many circumstances, e.g. as outlined in `demonstration.py`, this and the collective definition of the ramp duration is enough to define the ramp.
     """
-    # TODO: Should fargs be a dictionary?
+    # TODO:
+    # - Let vtvc_dct be a pair?
+    # - Limit data to two points per variable
+    # - Let origin be a pair of pairs?
+    # - Should fargs be a dictionary?
     # - Maybe not. List (with the option of a dictionary) would be most flexible.
     # - Making it a dictionary maximizes the readability though.
     if timeline is None:
-        return lambda x: next(
-            *vtvc,
+        return lambda x: ramp__origin(
             timeline=x,
-            t=t,
+            duration=duration,
             context=context,
-            origin=origin,
+            origins=origins,
             function=function,
             fargs=fargs,
             **vtvc_dict,
         )
 
-    if (t is not None) and (t < 0):
-        raise ValueError(
-            'cannot go back in time or create quantum superpositions with "timeline.ramp"!'
-        )
+    # Deal with vtvc for two separate points
+    _vtvcs = {k: np.asarray(v) for k, v in vtvc_dict.items()}
 
-    input = wt_input.convert(*vtvc, time=t, context=context, **vtvc_dict)
+    max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
+
+    match max_ndim:
+        case 0 | 1:
+            input1=None
+            input2 = wt_input.convert(None, time=duration, context=context, **vtvc_dict)
+        case 2:
+        case _:
+            raise ValueError("Unsupported input to the `ramp` function. Only one or two tuples can be processed per variable.")
+
+    #
 
     frames = []
+
+    # TODO: Avoid doing this row by row
     if input is not None:
         for variable, values in input:
             if len(values) > 1:
@@ -352,6 +372,8 @@ def ramp__next(
                             ps[i] = prev[l]
                     point_start = ps
 
+
+            # TODO: fix this for new ramp
             for x in point_start:
                 if x is None:
                     raise ValueError(

@@ -99,7 +99,7 @@ def convert(
                   ...]]
     ['variable002', [...] ]]
 
-    This was abstracted from `set`... to simplify (well, we tried) the logic.
+    This was abstracted from `create`... to simplify (well, we tried) the logic.
     """
     # TODO: could probably still be simplified
     # TODO: make consistent: sometimes a tuple and sometimes a list
