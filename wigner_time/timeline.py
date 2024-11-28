@@ -237,7 +237,7 @@ def ramp(
         # - Maybe not. List (with the option of a dictionary) would be most flexible.
         # - Making it a dictionary maximizes the readability though.
     if timeline is None:
-        return lambda x: ramp__origin(
+        return lambda x: ramp(
             timeline=x,
             duration=duration,
             context=context,
@@ -246,6 +246,8 @@ def ramp(
             fargs=fargs,
             **vtvc_dict,
         )
+
+    print(f'timeline: {timeline}')
 
     # Check vtvc for two separate points
     _vtvcs = {k: np.asarray(v) for k, v in vtvc_dict.items()}
@@ -285,6 +287,8 @@ def ramp(
 
     # TODO: Should we sort the new timelines before returning them?
 
+    print(f'timeline: {timeline}')
+    print(f'new1: {new1}')
     if is_compact:
         return wt_frame.drop_duplicates(wt_frame.concat([timeline, new1, new2]),
                                         subset=['variable', 'time'])

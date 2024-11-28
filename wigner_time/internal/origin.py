@@ -90,6 +90,8 @@ def find(
 
     o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))
 
+    print(f'origin find: {o}')
+
     error__unsupported_option = ValueError(
         "Unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. \n\n If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
     )
@@ -126,6 +128,18 @@ def find(
                     tv = [previous(timeline, variable=text).at["time"], b]
                 case _:
                     raise error__unsupported_option
+
+        case ['last', str(t1)] :
+            tv = [
+                previous(timeline).at["time"],
+                previous(timeline, variable=t1).at["value"],
+            ]
+
+        case [str(t1), 'last'] :
+            tv = [
+                previous(timeline, variable=t1).at["time"],
+                previous(timeline).at["value"],
+            ]
 
         case [str(t1), str(t2)] if (t1 == t2) and _is_available__variable(t1):
             tv = previous(timeline, variable=t1)[["time", "value"]].values
@@ -182,19 +196,17 @@ def update(
                     timeline__future = _update_future(
                         timeline__future, _t0, _v0, variable=var
                     )
-            case ['ANCHOR', 'variable' ]:
+            case [str(a), 'variable' ]:
                 for var in timeline__future["variable"]:
-                    print(f'{var}: GOT HERE')
-                    _t0, _v0 = wt_origin.find(timeline__past, origin=['ANCHOR', var])
-                    print(f'found anchor!===')
+                    _t0, _v0 = wt_origin.find(timeline__past, origin=[a, var])
                     timeline__future = _update_future(
                         timeline__future, _t0, _v0, variable=var
                     )
 
-            case ['variable', 'ANCHOR']:
+            case ['variable',str(a)]:
                 # TODO: Can combine this with the above?
                 for var in timeline__future["variable"]:
-                    _t0, _v0 = wt_origin.find(timeline__past, origin=[var,'ANCHOR'])
+                    _t0, _v0 = wt_origin.find(timeline__past, origin=[var,a])
                     timeline__future = _update_future(
                         timeline__future, _t0, _v0, variable=var
                     )
