@@ -63,14 +63,18 @@ def test_ramp0(args):
     [
         Munch(
             lockbox_MOT__V=5,
-            duration=100e-3,
-            origins=[[0.05], ["variable"]],
+            duration=0.05,
+            origins=[[0.05, "variable"], ["variable"]],
         ),
-        # Munch(lockbox_MOT__V=[100e-3, 5]),
-        # Munch(lockbox_MOT__V=[50e-3, 5],
-        #       origins=[['last', 'variable'],['variable']]),
-        # Munch(lockbox_MOT__V=[100e-3, 4.8],
-        #       origins=[['last', 'variable'],['variable', 'variable']])
+        Munch(
+            lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
+            origins=[["ANCHOR", "variable"], ["variable"]],
+        ),
+        Munch(lockbox_MOT__V=[50e-3, 5], origins=[["last", "variable"], ["variable"]]),
+        Munch(
+            lockbox_MOT__V=[50e-3, 4.8],
+            origins=[["last", "variable"], ["variable", "variable"]],
+        ),
     ],
 )
 def test_ramp1(args):
@@ -98,7 +102,9 @@ def test_ramp1(args):
         ramp_function.tanh
     )
 
+    print("comparison:")
     print(tl_ramp)
+    print()
     print(tl_check)
     return wt_frame.assert_equal(tl_ramp, tl_check)
 

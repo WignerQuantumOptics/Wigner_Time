@@ -90,7 +90,7 @@ def find(
 
     o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))
 
-    print(f'origin find: {o}')
+    print(f"origin find: {o}")
 
     error__unsupported_option = ValueError(
         "Unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. \n\n If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
@@ -102,11 +102,11 @@ def find(
     if len(o) != 2:
         raise error__unsupported_option
 
-    print('===')
+    print("===")
     print(o[0], o[1])
     print(_is_available__variable(o[0]))
     print(_is_available__variable(o[1]))
-    print('===')
+    print("===")
     match o:
         case [float(), float()] | [float(), None] | [None, float()] as lst:
             tv = lst
@@ -129,13 +129,24 @@ def find(
                 case _:
                     raise error__unsupported_option
 
-        case ['last', str(t1)] :
+        case [float(num), str(t)]:
+            tv = [
+                num,
+                previous(timeline, variable=t).at["value"],
+            ]
+        case [str(t), float(num)]:
+            tv = [
+                previous(timeline, variable=t).at["time"],
+                num,
+            ]
+
+        case ["last", str(t1)]:
             tv = [
                 previous(timeline).at["time"],
                 previous(timeline, variable=t1).at["value"],
             ]
 
-        case [str(t1), 'last'] :
+        case [str(t1), "last"]:
             tv = [
                 previous(timeline, variable=t1).at["time"],
                 previous(timeline).at["value"],
@@ -196,17 +207,29 @@ def update(
                     timeline__future = _update_future(
                         timeline__future, _t0, _v0, variable=var
                     )
-            case [str(a), 'variable' ]:
+            case [str(a), "variable"]:
                 for var in timeline__future["variable"]:
                     _t0, _v0 = wt_origin.find(timeline__past, origin=[a, var])
                     timeline__future = _update_future(
                         timeline__future, _t0, _v0, variable=var
                     )
 
-            case ['variable',str(a)]:
+            case ["variable", str(a)]:
                 # TODO: Can combine this with the above?
                 for var in timeline__future["variable"]:
-                    _t0, _v0 = wt_origin.find(timeline__past, origin=[var,a])
+                    _t0, _v0 = wt_origin.find(timeline__past, origin=[var, a])
+                    timeline__future = _update_future(
+                        timeline__future, _t0, _v0, variable=var
+                    )
+            case [float(num), "variable"]:
+                for var in timeline__future["variable"]:
+                    _t0, _v0 = wt_origin.find(timeline__past, origin=[num, var])
+                    timeline__future = _update_future(
+                        timeline__future, _t0, _v0, variable=var
+                    )
+            case ["variable", float(num)]:
+                for var in timeline__future["variable"]:
+                    _t0, _v0 = wt_origin.find(timeline__past, origin=[var, num])
                     timeline__future = _update_future(
                         timeline__future, _t0, _v0, variable=var
                     )

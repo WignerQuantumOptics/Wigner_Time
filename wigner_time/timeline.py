@@ -230,12 +230,11 @@ def ramp(
     """
     # TODO:
     # - check for ramps with 0 duration (shouldn't do anything)
-    # - Let vtvc_dict be pairs?
     # - Limit data to two points per variable
     # - Let origin be a pair of pairs?
     # - Should fargs be a dictionary?
-        # - Maybe not. List (with the option of a dictionary) would be most flexible.
-        # - Making it a dictionary maximizes the readability though.
+    # - Maybe not. List (with the option of a dictionary) would be most flexible.
+    # - Making it a dictionary maximizes the readability though.
     if timeline is None:
         return lambda x: ramp(
             timeline=x,
@@ -247,51 +246,62 @@ def ramp(
             **vtvc_dict,
         )
 
-    print(f'timeline: {timeline}')
-
     # Check vtvc for two separate points
     _vtvcs = {k: np.asarray(v) for k, v in vtvc_dict.items()}
     max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
 
     match max_ndim:
         case 0 | 1:
-            rows1=None
-            rows2 = wt_input.rows_from_arguments(*[], time=duration, context=context, **vtvc_dict)
+            rows1 = None
+            rows2 = wt_input.rows_from_arguments(
+                *[], time=duration, context=context, **vtvc_dict
+            )
 
         case 2:
             _vtvc_1d = {k: v for k, v in _vtvcs.items() if v.ndim != 2}
             _vtvc_2d_0 = {k: v[0] for k, v in _vtvcs.items() if v.ndim == 2}
             _vtvc_2d_1 = {k: v[1] for k, v in _vtvcs.items() if v.ndim == 2}
 
-            rows1= wt_input.convert(*[], time=duration, context=context, **_vtvc_2d_0)
-            rows2= wt_input.convert(*[], time=duration, context=context, **(_vtvc_1d|_vtvc_2d_1))
+            rows1 = wt_input.rows_from_arguments(
+                *[], time=duration, context=context, **_vtvc_2d_0
+            )
+            rows2 = wt_input.rows_from_arguments(
+                *[], time=duration, context=context, **(_vtvc_1d | _vtvc_2d_1)
+            )
 
         case _:
-            raise ValueError("Unsupported input to the `ramp` function. Only one or two tuples can be processed per variable.")
+            raise ValueError(
+                "Unsupported input to the `ramp` function. Only one or two tuples can be processed per variable."
+            )
 
     # Prepare the starting points and then basically do two (shorcut-ed) `create`s. One depending on the previous timeline and one depending on the previous `create`.
 
     df_1 = wt_frame.new(rows1, columns=schema.keys()).astype(schema)
     df_2 = wt_frame.new(rows2, columns=schema.keys()).astype(schema)
 
+    df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])]
+    df__no_start_points.loc[:, ["time", "value"]] = 0.0
 
-    df__no_start_points = df_2[~df_2['variable'].isin(df_1['variable'])]
-    df__no_start_points.loc[:, ['time', 'value']] = 0.0
+    print(f"df1: {df_1}")
+    print(f"df2: {df_2}")
+    print("df__no_start_points:")
+    print(df__no_start_points)
 
-    new1 = wt_origin.update(wt_frame.concat([df_1, df__no_start_points]),
-                            timeline, origin=origins[0])
-    new1['function'] = function
-    new2 = wt_origin.update(df_2,
-                            new1, origin=origins[1])
-    new2['function'] = function
+    new1 = wt_origin.update(
+        wt_frame.concat([df_1, df__no_start_points]), timeline, origin=origins[0]
+    )
+    new1["function"] = function
+    new2 = wt_origin.update(df_2, new1, origin=origins[1])
+    new2["function"] = function
 
     # TODO: Should we sort the new timelines before returning them?
 
-    print(f'timeline: {timeline}')
-    print(f'new1: {new1}')
+    print(f"new1: {new1}")
+    print(f"new2: {new2}")
     if is_compact:
-        return wt_frame.drop_duplicates(wt_frame.concat([timeline, new1, new2]),
-                                        subset=['variable', 'time'])
+        return wt_frame.drop_duplicates(
+            wt_frame.concat([timeline, new1, new2]), subset=["variable", "time"]
+        )
     else:
         raise ValueError("Non-compact ramps are not currently implemented.")
 
@@ -314,7 +324,7 @@ def ramp(
     #             )
     #         )
 
-        # return wt_frame.concat([timeline] + frames)
+    # return wt_frame.concat([timeline] + frames)
 
 
 def stack(firstArgument, *fs: list[Callable]):
