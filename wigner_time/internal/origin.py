@@ -66,7 +66,7 @@ def find(
     - "anchor"
     - ["anchor", 0.0]
     - "last" (The row highest in time)
-    - "...AOM_shutter..." (A variable name that is present in the dataframe)
+    - "AOM_shutter" (A variable name that is present in the dataframe)
     """
     _is_available__anchor = (
         (timeline["variable"] == label__anchor).any() if timeline is not None else False
@@ -79,10 +79,32 @@ def find(
             else None
         )
 
+    def _previous_vt(timeline, var=None, get="time"):
+        """
+        `get` is one of ['time', 'value', 'BOTH']
+        """
+        # TODO: WIP
+        match get:
+            case "time":
+                return previous(timeline, variable=var).at["time"]
+            case "value":
+                return previous(timeline, variable=var).at["value"]
+            case "both":
+                return previous(timeline, variable=var)[["time", "value"]].values
+
+    def _label_to_var(label):
+        if label == "anchor" and _is_available__anchor:
+            return label__anchor
+        elif label == "last":
+            return None
+        elif _is_available__variable(label):
+            return label
+        else:
+            raise error__unsupported_option
+
     """
     Falls back to last time entry if anchor is not available.
     TODO:
-    - Is this a good idea?
     - More meaningful error if anchor is not available
     - Should anchor be 'hardcoded' or should we just use it as any other variable name?
     """
@@ -103,61 +125,24 @@ def find(
 
     if len(o) != 2:
         raise error__unsupported_option
+    if any(isinstance(e, str) for e in o) and timeline is None:
+        raise error__timeline
 
     match o:
         case [float(), float()] | [float(), None] | [None, float()] as lst:
             tv = lst
 
-        case [a, None | float() as b]:
-            if timeline is None:
-                raise error__timeline
-            match a:
-                case str(text) if (text == "anchor") and _is_available__anchor:
-                    tv = [
-                        previous(timeline, variable=label__anchor).at["time"],
-                        b,
-                    ]
+        case [str(s1), None | float() as n1]:
+            tv = [_previous_vt(timeline, _label_to_var(s1), "time"), n1]
+        case [None | float() as n1, str(s1)]:
+            tv = [n1, _previous_vt(timeline, _label_to_var(s1), "value")]
 
-                case str(text) if "last" == text:
-                    tv = [previous(timeline).at["time"], b]
-
-                case str(text) if _is_available__variable(text):
-                    tv = [previous(timeline, variable=text).at["time"], b]
-                case _:
-                    raise error__unsupported_option
-
-        case [float(num), str(t)]:
+        case [str(s1), str(s2)] if (s1 == s2):
+            tv = _previous_vt(timeline, _label_to_var(s1), "both")
+        case [str(s1), str(s2)]:
             tv = [
-                num,
-                previous(timeline, variable=t).at["value"],
-            ]
-        case [str(t), float(num)]:
-            tv = [
-                previous(timeline, variable=t).at["time"],
-                num,
-            ]
-
-        case ["last", str(t1)]:
-            tv = [
-                previous(timeline).at["time"],
-                previous(timeline, variable=t1).at["value"],
-            ]
-
-        case [str(t1), "last"]:
-            tv = [
-                previous(timeline, variable=t1).at["time"],
-                previous(timeline).at["value"],
-            ]
-
-        case [str(t1), str(t2)] if (t1 == t2) and _is_available__variable(t1):
-            tv = previous(timeline, variable=t1)[["time", "value"]].values
-
-        case [str(t1), str(t2)] if (
-            _is_available__variable(t1) and _is_available__variable(t1)
-        ):
-            tv = [
-                previous(timeline, variable=t1).at["time"],
-                previous(timeline, variable=t2).at["value"],
+                _previous_vt(timeline, _label_to_var(s1), "time"),
+                _previous_vt(timeline, _label_to_var(s2), "value"),
             ]
 
         case _:

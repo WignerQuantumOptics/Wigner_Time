@@ -17,7 +17,7 @@ import numpy as np
 
 from wigner_time import input as wt_input
 from wigner_time import ramp_function as wt_ramp_function
-from wigner_time.internal import dataframe as wt_frame
+from wigner_time.internal import dataframe as wt_frame, origin
 from wigner_time.internal import origin as wt_origin
 
 ###############################################################################
@@ -56,21 +56,13 @@ def previous(
     # DEPRECATED:
     # TODO: Delete this in favour of the implementation in origin?
     # Can be exposed through the package API
-    if variable is not None:
-        tl__filtered = timeline[timeline[column] == variable]
-        if tl__filtered.empty:
-            raise ValueError("Previous {} not found".format(variable))
-    else:
-        tl__filtered = timeline
-
-    if sort_by is None:
-        return wt_frame.row_from_max_column(tl__filtered)
-    else:
-        if not timeline[sort_by].is_monotonic_increasing:
-            tl__filtered.sort_values(sort_by, inplace=True)
-            return tl__filtered.iloc[index]
-        else:
-            return timeline.iloc[index]
+    return origin.previous(
+        timeline=timeline,
+        variable=variable,
+        column=column,
+        sort_by=sort_by,
+        index=index,
+    )
 
 
 ###############################################################################
