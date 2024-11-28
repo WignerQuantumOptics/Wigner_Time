@@ -27,16 +27,16 @@ df_previous2 = frame.new(
 def test_previous(input_value):
     row = df_previous2.loc[0]
 
-    return pd.testing.assert_series_equal(tl.previous(input_value), row)
+    return frame.assert_series_equal(tl.previous(input_value), row)
 
 
 @pytest.mark.parametrize("input_value", [df_previous1])
 def test_previousSort(input_value):
     row = df_previous2.loc[0]
-    return pd.testing.assert_series_equal(tl.previous(input_value, sort_by="time"), row)
+    return frame.assert_series_equal(tl.previous(input_value, sort_by="time"), row)
 
 
 @pytest.mark.parametrize("input_value", [df_previous2])
 def test_previousSort2(input_value):
     row = df_previous2.loc[3]
-    return pd.testing.assert_series_equal(tl.previous(input_value, sort_by="time"), row)
+    return frame.assert_series_equal(tl.previous(input_value, sort_by="time"), row)

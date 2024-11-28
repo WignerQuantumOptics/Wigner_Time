@@ -102,22 +102,39 @@ def test_ramp1(args):
         ramp_function.tanh
     )
 
-    print("comparison:")
-    print(tl_ramp)
-    print()
-    print(tl_check)
     return wt_frame.assert_equal(tl_ramp, tl_check)
 
 
-def test_ramp_wait5s(dfseq):
-    tst = tl.stack(
-        tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
-        #     tl.ramp(
-        #         lockbox_MOT__V= [[5.0,0.0],[1.0, 1.0]],
-        #         fargs={"time_resolution": 0.2},
-        #         origins=['lockbox_MOT__V', ['variable']],
-        #         is_compact=True
-        #     ),
+def test_ramp_combined(dfseq):
+    """
+    Alternative to `wait`-ing 5s.
+    """
+    tl_check = tl.create(
+        lockbox_MOT__V=[
+            [1.0, 1.0],
+            [
+                6.0,
+                1.0,
+            ],
+            [
+                7.0,
+                10.0,
+            ],
+        ],
+        context="badger",
     )
-    print(tst)
-    return wt_frame.assert_equal(tst, dfseq)
+    tl_check.loc[
+        (tl_check["variable"] == "lockbox_MOT__V") & (tl_check["time"] > 1.0),
+        "function",
+    ] = ramp_function.tanh
+
+    tl_ramp = tl.stack(
+        tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
+        tl.ramp(
+            lockbox_MOT__V=[[5.0, 0.0], [1.0, 10.0]],
+            fargs={"time_resolution": 0.2},
+            origins=[["lockbox_MOT__V", "lockbox_MOT__V"], ["variable"]],
+            is_compact=True,
+        ),
+    )
+    return wt_frame.assert_equal(tl_check, tl_ramp)

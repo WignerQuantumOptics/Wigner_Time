@@ -245,6 +245,9 @@ def ramp(
             fargs=fargs,
             **vtvc_dict,
         )
+    else:
+        if context is None:
+            context = previous(timeline)["context"]
 
     # Check vtvc for two separate points
     _vtvcs = {k: np.asarray(v) for k, v in vtvc_dict.items()}

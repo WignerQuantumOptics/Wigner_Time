@@ -73,7 +73,11 @@ def find(
     )
 
     def _is_available__variable(var):
-        return (timeline["variable"] == var).any() if (var is not None) else None
+        return (
+            (timeline["variable"] == var).any()
+            if (timeline is not None) and (var is not None)
+            else None
+        )
 
     """
     Falls back to last time entry if anchor is not available.
@@ -90,8 +94,6 @@ def find(
 
     o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))
 
-    print(f"origin find: {o}")
-
     error__unsupported_option = ValueError(
         "Unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. \n\n If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
     )
@@ -102,11 +104,6 @@ def find(
     if len(o) != 2:
         raise error__unsupported_option
 
-    print("===")
-    print(o[0], o[1])
-    print(_is_available__variable(o[0]))
-    print(_is_available__variable(o[1]))
-    print("===")
     match o:
         case [float(), float()] | [float(), None] | [None, float()] as lst:
             tv = lst
