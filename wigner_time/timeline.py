@@ -276,9 +276,6 @@ def ramp(
     df__no_start_points = df_2[~df_2['variable'].isin(df_1['variable'])]
     df__no_start_points.loc[:, ['time', 'value']] = 0.0
 
-    print(f'=== dfconcat: {wt_frame.concat([df_1, df__no_start_points])}')
-    print(f'{origins[0]}')
-
     new1 = wt_origin.update(wt_frame.concat([df_1, df__no_start_points]),
                             timeline, origin=origins[0])
     new1['function'] = function
@@ -289,7 +286,8 @@ def ramp(
     # TODO: Should we sort the new timelines before returning them?
 
     if is_compact:
-        return wt_frame.concat([timeline, new1, new2])
+        return wt_frame.drop_duplicates(wt_frame.concat([timeline, new1, new2]),
+                                        subset=['variable', 'time'])
     else:
         raise ValueError("Non-compact ramps are not currently implemented.")
 
