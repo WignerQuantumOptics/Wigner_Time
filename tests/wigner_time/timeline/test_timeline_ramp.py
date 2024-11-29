@@ -138,3 +138,42 @@ def test_ramp_combined(dfseq):
         ),
     )
     return wt_frame.assert_equal(tl_check, tl_ramp)
+
+
+def test_ramp_expand():
+    tl_ramp = tl.stack(
+        tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
+        tl.ramp(
+            lockbox_MOT__V=[[5.0, 0.0], [1.0, 10.0]],
+            fargs={"time_resolution": 0.2},
+            origins=[["lockbox_MOT__V", "lockbox_MOT__V"], ["variable"]],
+            is_compact=True,
+        ),
+    )
+
+
+if __name__ == "__main__":
+    timeline = tl_ramp
+    mask_fs = timeline["function"].notna()
+    dff = timeline[mask_fs]
+
+    indices_drop = dff.index
+    dff = dff.reset_index(drop=True)
+    dff["ramp_group"] = dff.index // 2
+
+    columns__keep = dff.columns.drop(["function", "ramp_group"])
+
+    print(indices_drop)
+    dfs = []
+    for _, group in dff.groupby("ramp_group"):
+        pt_start, pt_end = group[["time", "value"]].values
+        dfs.append(
+            tl.create(
+                [group["variable"][0], group["function"][0](pt_start, pt_end)],
+            ).add(group.iloc[0][columns__keep])
+        )
+
+    print(dfs)
+    # values_to_add = df_source.iloc[0][columns_to_add]
+
+    # df_target[columns_to_add] = df_target[columns_to_add].add(values_to_add)

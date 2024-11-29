@@ -14,6 +14,7 @@ from typing import Callable
 
 import funcy
 import numpy as np
+from pandas.core.frame import to_arrays
 
 from wigner_time import input as wt_input
 from wigner_time import ramp_function as wt_ramp_function
@@ -154,8 +155,6 @@ def update(
             timeline=x,
             context=context,
             t=t,
-            relativeTime=relativeTime,
-            relativeValue=relativeValue,
             **vtvc_dict,
         )
 
@@ -168,8 +167,6 @@ def update(
             timeline=timeline,
             context=context,
             t=t,
-            relativeTime=relativeTime,
-            relativeValue=relativeValue,
             **vtvc_dict,
         )
 
@@ -277,11 +274,6 @@ def ramp(
     df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])]
     df__no_start_points.loc[:, ["time", "value"]] = 0.0
 
-    print(f"df1: {df_1}")
-    print(f"df2: {df_2}")
-    print("df__no_start_points:")
-    print(df__no_start_points)
-
     new1 = wt_origin.update(
         wt_frame.concat([df_1, df__no_start_points]), timeline, origin=origins[0]
     )
@@ -291,8 +283,6 @@ def ramp(
 
     # TODO: Should we sort the new timelines before returning them?
 
-    print(f"new1: {new1}")
-    print(f"new2: {new2}")
     if is_compact:
         return wt_frame.drop_duplicates(
             wt_frame.concat([timeline, new1, new2]), subset=["variable", "time"]
@@ -346,6 +336,17 @@ def stack(firstArgument, *fs: list[Callable]):
         return funcy.compose(*fs[::-1])(firstArgument)
     else:
         return funcy.compose(*fs[::-1], firstArgument)
+
+
+def expand_ramps(timeline, function_args=None):
+    """
+    Filters the timeline for pairs of rows that depend on a function, creates the necessary ramps, and concats the resulting dfs back into the existing timeline.
+    """
+    # TODO: Should this be expanded to deal with other types of functions or does it make sense for each compression to define it's own expansion?
+    timeline.loc[timeline["function"]]
+    mask_fs = timeline["function"].notna()
+    dff = timeline[mask_fs]
+    arrs = dff.to_arrays()
 
 
 def is_value_within_range(value, unit_range):
