@@ -12,8 +12,25 @@ import pandas as pd
 CLASS = pd.DataFrame
 
 
-def new(data, columns):
+def new(data, columns: list):
     return pd.DataFrame(data, columns=columns)
+
+
+def cast(df, col_type: dict):
+    return df.astype(col_type)
+
+
+def new_schema(data, schema: dict):
+    """
+    Makes another dataframe using `new`, but where the schema parameter provides some convenience.
+    """
+    return cast(
+        new(
+            data,
+            list(schema.keys()),
+        ),
+        schema,
+    )
 
 
 def join(df1, df2, label="variable"):
@@ -34,10 +51,6 @@ def isnull(o):
     return pd.isnull(o)
 
 
-def cast(df, col_type: dict):
-    return df.astype(col_type)
-
-
 def row_from_max_column(df, column="time"):
     """
     Finds the maximum value of the column and returns the corresponding row.
@@ -47,6 +60,10 @@ def row_from_max_column(df, column="time"):
 
 def drop_duplicates(df, subset=None, keep="last"):
     return df.drop_duplicates(subset=subset, keep=keep, ignore_index=True).copy()
+
+
+def duplicated(df, subset=["time", "variable"], keep="last"):
+    return df.duplicated(df, subset=subset, keep=keep)
 
 
 # ============================================================

@@ -80,36 +80,39 @@ def test_add_cycle():
 
     return pd.testing.assert_frame_equal(
         tst,
-        frame.cast(pd.DataFrame(
-            {
-                "time": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-                "other": [11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-                "context": [
-                    "MOT",
-                    "MOT",
-                    "MOT",
-                    "MOT",
-                    "ADwin_LowInit",
-                    "ADwin_LowInit",
-                    "ADwin_LowInit",
-                    "ADwin_Init",
-                    "ADwin_Init",
-                    "ADwin_Finish",
-                ],
-                "cycle": [
-                    0,
-                    200000,
-                    400000,
-                    600000,
-                    -2,
-                    -2,
-                    -2,
-                    -1,
-                    -1,
-                    2147483648,
-                ],
-            }
-        ), {'cycle': np.int32}),
+        frame.cast(
+            pd.DataFrame(
+                {
+                    "time": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                    "other": [11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+                    "context": [
+                        "MOT",
+                        "MOT",
+                        "MOT",
+                        "MOT",
+                        "ADwin_LowInit",
+                        "ADwin_LowInit",
+                        "ADwin_LowInit",
+                        "ADwin_Init",
+                        "ADwin_Init",
+                        "ADwin_Finish",
+                    ],
+                    "cycle": [
+                        0,
+                        200000,
+                        400000,
+                        600000,
+                        -2,
+                        -2,
+                        -2,
+                        -1,
+                        -1,
+                        2147483648,
+                    ],
+                }
+            ),
+            {"cycle": np.int32},
+        ),
     )
 
 
@@ -142,22 +145,33 @@ df_special2 = frame.new(
 
 df_special3 = frame.cast(
     frame.new(
+        [
+            [0.0, "AOM_imaging", 0.0, "ADwin_Init", 1, 1, 0, 1],
+            [0.0, "AOM_imaging__V", 2.0, "ADwin_Init", 1, 1, 0, 5],
+            [0.0, "AOM_repump", 1.0, "init", 1, 1, 0, 5],
+        ],
+        columns=[
+            "time",
+            "variable",
+            "value",
+            "context",
+            "module",
+            "channel",
+            "cycle",
+            "value_digits",
+        ],
+    ),
+    adwin.SCHEMA,
+)
+
+df_special4 = frame.new_schema(
     [
         [0.0, "AOM_imaging", 0.0, "ADwin_Init", 1, 1, 0, 1],
         [0.0, "AOM_imaging__V", 2.0, "ADwin_Init", 1, 1, 0, 5],
         [0.0, "AOM_repump", 1.0, "init", 1, 1, 0, 5],
     ],
-    columns=[
-        "time",
-        "variable",
-        "value",
-        "context",
-        "module",
-        "channel",
-        "cycle",
-        "value_digits",
-    ],
-    ), adwin.SCHEMA)
+    schema=adwin.SCHEMA,
+)
 
 
 @pytest.mark.parametrize("input_value", [df_special1, df_special2])
