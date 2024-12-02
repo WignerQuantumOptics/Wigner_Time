@@ -337,33 +337,53 @@ def stack(firstArgument, *fs: list[Callable]):
         return funcy.compose(*fs[::-1], firstArgument)
 
 
-def expand_ramps(timeline, function_args=None):
+def expand_ramps(timeline, num__bounds=2, **function_args):
     """
-    Filters the timeline for pairs of rows that depend on a function, creates the necessary ramps, and concats the resulting dfs back into the existing timeline.
+    `num__bounds` refers to the number of points (and so rows) needed to define the ramp function in the first place. Currently, this is implicitly assumed to be two, i.e. that `ramp`s are simply defined by the origin, terminus and expansion function.
     """
-    # TODO: Should this be expanded to deal with other types of functions or does it make sense for each compression to define it's own expansion?
+    # TODO: Make these variables 'private'
     mask_fs = timeline["function"].notna()
     dff = timeline[mask_fs]
 
+    # Work out where the ramps start
+    import numpy as np
+
     indices_drop = dff.index
+    inds = np.asarray(indices_drop)
+    diff = np.diff(inds)
+    inds__split = np.where(diff > 1)[0] + 1
+    inds__start = [a[0] for a in np.split(inds, inds__split)]
+
+    # Mark the beginning and end points (allowing for the number of points per ramp specification to increase in the future)
     dff = dff.reset_index(drop=True)
-    dff["ramp_group"] = dff.index // 2
+    dff["ramp_group"] = dff.index // num__bounds
 
-    columns__keep = dff.columns.drop(["function", "ramp_group"])
-
-    print(indices_drop)
+    # Fill out the values
     dfs = []
+
+    # For adding back in the value of other columns, based on the first row, like `context` etc. Written this way to allow for more, unknown columns to continue.
+    columns__keep = dff.columns.drop(
+        ["time", "value", "variable", "function", "ramp_group"]
+    )
+
     for _, group in dff.groupby("ramp_group"):
         pt_start, pt_end = group[["time", "value"]].values
+
+        # Apply the ramp function
         dfs.append(
             create(
                 [
                     group["variable"][0],
-                    group["function"][0](pt_start, pt_end, time_resolution=0.2),
+                    group["function"][0](pt_start, pt_end, **function_args),
                 ],
-            ).add(group.iloc[0][columns__keep])
+            ).assign(**group.iloc[0][columns__keep].to_dict())
         )
-    return dfs
+
+    timeline.drop(index=indices_drop, inplace=True)
+    timeline.drop(columns=["function"], inplace=True)
+
+    # Add the values back into the main timeline
+    return wt_frame.insert_dataframes(timeline, inds__start, dfs)
 
 
 def is_value_within_range(value, unit_range):

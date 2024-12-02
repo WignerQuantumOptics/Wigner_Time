@@ -3,6 +3,7 @@
 from collections.abc import Iterable, Sequence
 
 import numpy as np
+import math
 
 
 def is_sequence(x, is_string=False):
@@ -77,3 +78,14 @@ def is_collection(x, is_string=False):
 
 def filter_dict(d, ks):
     return dict(filter(lambda item: item[0] in ks, d.items()))
+
+
+def range__inclusive(start, stop, step):
+    """
+    Numpy's `arange`, but including the final value.
+
+    Adapting arange, by adding the step size, leads to awkward corner cases, so we use a modified `linspace` instead.
+    """
+    # Uses `math` because it returns an integer rather than a float.
+    num = math.ceil((stop - start) / step) + 1
+    return np.linspace(start, stop, num=num)
