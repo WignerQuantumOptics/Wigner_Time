@@ -153,27 +153,56 @@ def test_ramp_expand():
 
 
 if __name__ == "__main__":
-    timeline = tl_ramp
-    mask_fs = timeline["function"].notna()
-    dff = timeline[mask_fs]
 
-    indices_drop = dff.index
-    dff = dff.reset_index(drop=True)
-    dff["ramp_group"] = dff.index // 2
+    def expand_ramps(timeline, num__bounds=2, **function_args):
+        """
+        `num__bounds` refers to the number of points (and so rows) needed to define the ramp function in the first place. Currently, this is implicitly assumed to be two, i.e. that `ramp`s are simply defined by the origin, terminus and expansion function.
+        """
+        # TODO: Make these variables 'private'
+        mask_fs = timeline["function"].notna()
+        dff = timeline[mask_fs]
 
-    columns__keep = dff.columns.drop(["function", "ramp_group"])
+        # Work out where the ramps start
+        import numpy as np
 
-    print(indices_drop)
-    dfs = []
-    for _, group in dff.groupby("ramp_group"):
-        pt_start, pt_end = group[["time", "value"]].values
-        dfs.append(
-            tl.create(
-                [group["variable"][0], group["function"][0](pt_start, pt_end)],
-            ).add(group.iloc[0][columns__keep])
-        )
+        indices_drop = dff.index
+        inds = np.asarray(indices_drop)
+        diff = np.diff(inds)
+        inds__split = np.where(diff > 1)[0] + 1
+        inds__start = [a[0] for a in np.split(inds, inds__split)]
+        print(inds__start)
 
-    print(dfs)
-    # values_to_add = df_source.iloc[0][columns_to_add]
+        # Mark the beginning and end points (allowing for the number of points per ramp specification to increase in the future)
+        dff = dff.reset_index(drop=True)
+        dff["ramp_group"] = dff.index // num__bounds
 
-    # df_target[columns_to_add] = df_target[columns_to_add].add(values_to_add)
+        # Fill out the values
+        dfs = []
+        columns__keep = dff.columns.drop(["function", "ramp_group"])
+        for _, group in dff.groupby("ramp_group"):
+            pt_start, pt_end = group[["time", "value"]].values
+            dfs.append(
+                tl.create(
+                    [
+                        group["variable"][0],
+                        group["function"][0](pt_start, pt_end, **function_args),
+                    ],
+                ).add(group.iloc[0][columns__keep])
+            )
+
+        timeline.drop(index=indices_drop, inplace=True)
+        timeline.drop(columns=["function"], inplace=True)
+
+        # Add the values back into the main timeline
+        return wt_frame.insert_dataframes(timeline, inds__start, dfs)
+
+    timeline = tl.stack(
+        tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
+        tl.ramp(
+            lockbox_MOT__V=[1.0, 10.0],
+            fargs={"time_resolution": 0.2},
+            origins=[["lockbox_MOT__V", "lockbox_MOT__V"], ["variable"]],
+            is_compact=True,
+        ),
+    )
+    print(expand_ramps(timeline, time_resolution=0.2))

@@ -342,10 +342,28 @@ def expand_ramps(timeline, function_args=None):
     Filters the timeline for pairs of rows that depend on a function, creates the necessary ramps, and concats the resulting dfs back into the existing timeline.
     """
     # TODO: Should this be expanded to deal with other types of functions or does it make sense for each compression to define it's own expansion?
-    timeline.loc[timeline["function"]]
     mask_fs = timeline["function"].notna()
     dff = timeline[mask_fs]
-    arrs = dff.to_arrays()
+
+    indices_drop = dff.index
+    dff = dff.reset_index(drop=True)
+    dff["ramp_group"] = dff.index // 2
+
+    columns__keep = dff.columns.drop(["function", "ramp_group"])
+
+    print(indices_drop)
+    dfs = []
+    for _, group in dff.groupby("ramp_group"):
+        pt_start, pt_end = group[["time", "value"]].values
+        dfs.append(
+            create(
+                [
+                    group["variable"][0],
+                    group["function"][0](pt_start, pt_end, time_resolution=0.2),
+                ],
+            ).add(group.iloc[0][columns__keep])
+        )
+    return dfs
 
 
 def is_value_within_range(value, unit_range):

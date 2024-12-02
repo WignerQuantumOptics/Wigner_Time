@@ -65,6 +65,43 @@ def drop_duplicates(df, subset=None, keep="last"):
     return df.drop_duplicates(subset=subset, keep=keep, ignore_index=True).copy()
 
 
+def insert_dataframes(df, indices, dfs):
+    """
+    Inserts multiple DataFrames (`dfs`) into an existing DataFrame (`df`) at specified `indices`.
+    """
+    # TODO: Currently doesn't have tests
+    # Sort the insertions by index to ensure correct order of insertion
+    if len(indices) != len(dfs):
+        raise ValueError("`indices` and `dfs` are different lengths.")
+    insertions = zip(indices, dfs)
+    insertions = sorted(insertions, key=lambda x: x[0])
+
+    # Track the cumulative offset caused by insertions
+    offset = 0
+    result_parts = []
+    current_start = 0
+
+    for index, new_df in insertions:
+        # Adjust index for previous insertions
+        adjusted_index = index + offset
+
+        # Add the portion of the original DataFrame up to the insertion point
+        result_parts.append(df.iloc[current_start:adjusted_index])
+
+        # Add the new DataFrame
+        result_parts.append(new_df)
+
+        # Update offset and the starting point for the next slice
+        offset += len(new_df)
+        current_start = adjusted_index
+
+    # Add the remainder of the original DataFrame
+    result_parts.append(df.iloc[current_start:])
+
+    # Concatenate all parts into a single DataFrame
+    return pd.concat(result_parts, ignore_index=True).reset_index(drop=True)
+
+
 # ============================================================
 # TESTS
 # ============================================================
