@@ -78,6 +78,40 @@ def test_drop_duplicatesSubset(input_value):
     )
 
 
+def test_replace_column__filtered():
+    df = frame.new_schema(
+        [
+            ["thing2", 7.0, 5, "init"],
+            ["thing", 0.0, 7.0, "different"],
+            ["thing3", 3.0, 5, "blah"],
+            ["thing4", 7.0, 5, "init"],
+        ],
+        {
+            "variable": str,
+            "time": float,
+            "value": float,
+            "context": str,
+        },
+    )
+    return frame.assert_equal(
+        frame.replace_column__filtered(df, {"init": -1, "different": -500}),
+        frame.new_schema(
+            [
+                ["thing2", -1, 5, "init"],
+                ["thing", -500, 7.0, "different"],
+                ["thing3", 3.0, 5, "blah"],
+                ["thing4", -1.0, 5, "init"],
+            ],
+            {
+                "variable": str,
+                "time": float,
+                "value": float,
+                "context": str,
+            },
+        ),
+    )
+
+
 if __name__ == "__main__":
     import importlib
 

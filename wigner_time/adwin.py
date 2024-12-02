@@ -112,9 +112,11 @@ def add_cycle(
     df["cycle"] = np.round(df["time"].values / cycle_period).astype(np.int32)
 
     # Apply special context cycles
-    for context, cycle_value in special_contexts.items():
-        if context in df["context"].values:
-            df.loc[df["context"] == context, "cycle"] = cycle_value
+    df = wt_frame.replace_column__filtered(
+        df,
+        CONTEXTS__SPECIAL,
+        column__change="cycle",
+    )
 
     return df
 
@@ -329,11 +331,16 @@ def to_adwin(df, connections, devices, adwin_settings=SPECIFICATIONS__DEFAULT):
 def sanitize_special_contexts(timeline, special_contexts=CONTEXTS__SPECIAL):
     """
     Ensures that there isn't more than one entry for a given variable inside special contexts. This is necessary as there is no concept of 'time' inside the special contexts defined for ADwin.
+
+    Similarly, the time values are adjusted to avoid automatic removal later on.
     """
     df = timeline[timeline["context"].isin(special_contexts)]
     df_N = df.groupby(["variable", "context"])["value"].count()
     duplicates = df_N[df_N > 1].reset_index()
     duplicates.columns = ["variable", "context", "variable_occurences"]
+
+    # Replace time values with those specified in CONTEXTS__SPECIAL
+    timeline = wt_frame.replace_column__filtered(timeline, CONTEXTS__SPECIAL)
 
     if duplicates.empty:
         return timeline
@@ -360,8 +367,7 @@ def sanitize__drop_duplicates(
     """
     mask__duplicates = wt_frame.duplicated(timeline, subset=subset)
 
-    tl_filt = timeline[~mask__duplicates | (timeline["context"].isin(unless_context))]
-    return
+    return timeline[~mask__duplicates | (timeline["context"].isin(unless_context))]
 
 
 def sanitize(timeline):
