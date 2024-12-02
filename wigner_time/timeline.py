@@ -14,7 +14,6 @@ from typing import Callable
 
 import funcy
 import numpy as np
-from pandas.core.frame import to_arrays
 
 from wigner_time import input as wt_input
 from wigner_time import ramp_function as wt_ramp_function
@@ -398,16 +397,11 @@ def sanitize_values(timeline):
     return timeline
 
 
-def sanitize__drop_duplicates(timeline):
+def sanitize__drop_duplicates(timeline, subset=["variable", "time"]):
     """
     Drop duplicate rows and drop rows where the variable and time are duplicated.
     """
-    return funcy.compose(
-        wt_frame.drop_duplicates,
-        lambda timeline: wt_frame.drop_duplicates(
-            timeline, subset=["variable", "time"]
-        ),
-    )(timeline)
+    return wt_frame.drop_duplicates(timeline, subset=subset)
 
 
 def sanitize__round_value(timeline, num_decimal_places=6):

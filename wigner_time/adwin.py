@@ -2,12 +2,11 @@
 
 from copy import deepcopy
 
+import funcy
 import numpy as np
 
 from wigner_time import timeline as tl
 from wigner_time import conversion as conv
-from wigner_time import variable as var
-from wigner_time.internal import dataframe as frame
 
 
 """
@@ -15,7 +14,7 @@ Represents the key ADwin settings for the given machine.
 
 These should be loaded by the ADwin system during initialization. The dictionary of settings should grow as large as possible (to encompass all of the internal ADwin features) for maximum reproducibility.
 """
-specifications_default = {
+SPECIFICATIONS__DEFAULT = {
     "device_001": {
         "cycle_period__normal": 5e-6,
         "module_001": {
@@ -40,8 +39,19 @@ specifications_default = {
         },
     },
 }
+# TODO: Rather than naming the above with numbers, this could be a list of dicts.
 
-special_contexts = {"ADwin_LowInit": -2, "ADwin_Init": -1, "ADwin_Finish": 2**31 - 1}
+CONTEXTS__SPECIAL = {"ADwin_LowInit": -2, "ADwin_Init": -1, "ADwin_Finish": 2**31 - 1}
+"""Used for passing information to the ADwin controller"""
+
+
+SCHEMA = {"time": float, "variable": str, "value": float, "context": str,
+        "module": int,
+        "channel": int,
+        "cycle": np.int32,
+        "value_digits":np.int32,
+          }
+
 
 
 def remove_unconnected_variables(df, connections):
@@ -64,8 +74,8 @@ def remove_unconnected_variables(df, connections):
 
 def add_cycle(
     df,
-    specifications=specifications_default,
-    special_contexts=special_contexts,
+    specifications=SPECIFICATIONS__DEFAULT,
+    special_contexts=CONTEXTS__SPECIAL,
     device="device_001",
 ):
     """
@@ -105,37 +115,42 @@ def add_cycle(
     return df
 
 
-def initialize_ADwin(m, output):
+def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFAULT):
     """
     NOTE: Stateful.
     General setup of the *system*, rather than the specific experimental project.
     """
-    # TODO: Should we prepare all of the possible variables or does this waste memory?
+    # TODO:
+    # - This would probably be easier if it accepted a dataframe
+    # - Should we prepare all of the possible variables or does this waste memory?
 
-    time_end__cycles = max(
-        max([t[0] for t in output[0]]), max([t[0] for t in output[1]])
-    )
+    cycles = np.array([np.array(output[i])[:,0] for i in range(2)]).flatten()
+    # Finds the maximum cycle value, discounting special contexts
+    time_end__cycles = cycles[~np.isin(cycles, list(CONTEXTS__SPECIAL.values()))].max()
+
     print(
         "time_end: {}s".format(
             time_end__cycles
-            * specifications_default["device_001"]["cycle_period__normal"]
+            * specifications["device_001"]["cycle_period__normal"]
         )
     )
 
-    m.Set_Par(1, time_end__cycles)
-    m.Set_Par(2, len(output[0]))
-    m.Set_Par(3, len(output[1]))
 
-    m.SetData_Long([a[0] for a in output[0]], 10, 1, len(output[0]))
-    m.SetData_Long([a[1] for a in output[0]], 11, 1, len(output[0]))
-    m.SetData_Long([a[2] for a in output[0]], 12, 1, len(output[0]))
-    m.SetData_Long([a[3] for a in output[0]], 13, 1, len(output[0]))
+    # TODO: What's happening below should be explained here
+    machine__adwin.Set_Par(1, int(time_end__cycles))
+    machine__adwin.Set_Par(2, len(output[0]))
+    machine__adwin.Set_Par(3, len(output[1]))
 
-    m.SetData_Long([d[0] for d in output[1]], 20, 1, len(output[1]))
-    m.SetData_Long([d[1] for d in output[1]], 22, 1, len(output[1]))
-    m.SetData_Long([d[2] for d in output[1]], 23, 1, len(output[1]))
+    machine__adwin.SetData_Long([a[0] for a in output[0]], 10, 1, len(output[0]))
+    machine__adwin.SetData_Long([a[1] for a in output[0]], 11, 1, len(output[0]))
+    machine__adwin.SetData_Long([a[2] for a in output[0]], 12, 1, len(output[0]))
+    machine__adwin.SetData_Long([a[3] for a in output[0]], 13, 1, len(output[0]))
 
-    return m
+    machine__adwin.SetData_Long([d[0] for d in output[1]], 20, 1, len(output[1]))
+    machine__adwin.SetData_Long([d[1] for d in output[1]], 22, 1, len(output[1]))
+    machine__adwin.SetData_Long([d[2] for d in output[1]], 23, 1, len(output[1]))
+
+    return machine__adwin
 
 
 def check_safety_range(df):
@@ -179,7 +194,7 @@ def add_linear_conversion(df, unit, separator="__", column__new="value__digits")
     return dff
 
 
-def add(df, adwin_connections, devices, specifications=specifications_default):
+def add(df, adwin_connections, devices, specifications=SPECIFICATIONS__DEFAULT):
     """
     Takes an 'operational' layer timeline and inserts ADwin-specific columns, e.g. cycles and numbers for the module and channel etc.
 
@@ -271,7 +286,7 @@ def to_tuples(df, cols=["cycle", "module", "channel", "value_digits"]):
     return [tuple([np.int32(i) for i in x]) for x in df[cols].values]
 
 
-def output(df, specifications=specifications_default):
+def output(df, specifications=SPECIFICATIONS__DEFAULT):
     """
     Takes a dataframe of the experimental run and converts the result to a PyADwin 'Output' class.
 
@@ -281,7 +296,6 @@ def output(df, specifications=specifications_default):
     """
     # TODO: ensure digital outputs are integers
     # TODO: sort table by cycle before export
-    # As defined in PyAdwin.py
     # TODO: use the same format for analogue and digital (requires change at the ADwin side)
 
     mods_digital = modules_digital(specifications)
@@ -296,7 +310,7 @@ def output(df, specifications=specifications_default):
     ]
 
 
-def to_adwin(df, connections, devices, adwin_settings=specifications_default):
+def to_adwin(df, connections, devices, adwin_settings=SPECIFICATIONS__DEFAULT):
     """
     Convenience for converting a Wigner timeline (DataFrame) to an ADwin-compatible list of tuples.
 
@@ -305,12 +319,12 @@ def to_adwin(df, connections, devices, adwin_settings=specifications_default):
     """
 
     return output(
-        add(df, connections, devices, specifications=specifications_default),
-        specifications=specifications_default,
+        add(df, connections, devices, specifications=SPECIFICATIONS__DEFAULT),
+        specifications=SPECIFICATIONS__DEFAULT,
     )
 
 
-def sanitize_special_contexts(timeline, special_contexts=special_contexts):
+def sanitize_special_contexts(timeline, special_contexts=CONTEXTS__SPECIAL):
     """
     that there isn't more than one entry for a given variable inside special contexts. This is necessary as there is no concept of 'time' inside the special contexts defined for ADwin.
     """
@@ -328,29 +342,21 @@ def sanitize_special_contexts(timeline, special_contexts=special_contexts):
         )
 
 
-def sanitize_types(timeline):
-    return timeline.astype(
-        {
-            "module": int,
-            "channel": int,
-            "cycle": np.int32,
-            "value_digits": np.int32,
-        }
-    )
+def sanitize_types(timeline, schema=SCHEMA):
+    return timeline.astype(schema)
 
 
 def sanitize(timeline):
     """
     Includes ADwin-specific methods ontop of the basic timeline sanitization for removing unnecessary points and raising errors on illogical input.
-
     """
-    return sanitize_special_contexts(sanitize_types(tl.sanitize(timeline)))
+    return funcy.compose(
+        lambda tline: tl.sanitize__drop_duplicates(tline, subset=["variable", "cycle"]),
+        sanitize_special_contexts,
+        sanitize_types,
+        tl.sanitize
+    )(timeline)
 
 
-# ======
-# SCRIPT
-# ======
-if __name__ == "__main__":
-    import pandas as pd
 
-    import importlib
+print()
