@@ -1,12 +1,7 @@
 [tool.poetry]
-name = "wigner-time"
+name = "wigner_time"
 version = "0.9.0"
-description = "
-Extras:
-- performance_and_export (Recommended): Installs `pyarrow` for memory management, sharing between systems and export to `parquet`.
-- display: Installs `matplotlib` and `pyqt` for visualization.
-- parallel_processing: Installs `polars` for parallel dataframe manipulation. (WARNING: This is currently not used, but will be in the future)
-"
+description="Timeline creation and management for open-loop control in AMO experiments and beyond."
 authors = ["LightMatters <clark.thomaswilliam@zoho.eu>"]
 readme = "README.md"
 packages = [{include = "wigner_time"}]
