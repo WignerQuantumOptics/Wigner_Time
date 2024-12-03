@@ -22,7 +22,7 @@ from wigner_time.internal import origin as wt_origin
 ###############################################################################
 
 _ORIGINS = ["anchor", "last", "variable"]
-"These origin labels are reserved for interpretation by the package."
+"These origin labels are reserved for interpretation by the package. Other origin strings will be interpreted as`variable`s."
 
 error__unsupported_option = ValueError(
     "Unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. \n\n If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
@@ -97,8 +97,6 @@ def find(
         (timeline["variable"] == label__anchor).any() if timeline is not None else False
     )
 
-    wtlog.info(f"origin: {origin}")
-
     def _is_available__variable(var):
         return (
             (timeline["variable"] == var).any()
@@ -135,7 +133,7 @@ def find(
     - More meaningful error if anchor is not available
     - Should anchor be 'hardcoded' or should we just use it as any other variable name?
     """
-    if (origin is None) or (origin is [None, None]):
+    if (origin is None) or (origin == [None, None]):
         if _is_available__anchor:
             origin = "anchor"
         else:
