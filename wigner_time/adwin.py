@@ -7,6 +7,7 @@ import numpy as np
 
 from wigner_time import timeline as tl
 from wigner_time import conversion as conv
+from wigner_time.internal import dataframe as wt_frame
 
 
 """
@@ -45,13 +46,16 @@ CONTEXTS__SPECIAL = {"ADwin_LowInit": -2, "ADwin_Init": -1, "ADwin_Finish": 2**3
 """Used for passing information to the ADwin controller"""
 
 
-SCHEMA = {"time": float, "variable": str, "value": float, "context": str,
-        "module": int,
-        "channel": int,
-        "cycle": np.int32,
-        "value_digits":np.int32,
-          }
-
+SCHEMA = {
+    "time": float,
+    "variable": str,
+    "value": float,
+    "context": str,
+    "module": int,
+    "channel": int,
+    "cycle": np.int32,
+    "value_digits": np.int32,
+}
 
 
 def remove_unconnected_variables(df, connections):
@@ -108,9 +112,11 @@ def add_cycle(
     df["cycle"] = np.round(df["time"].values / cycle_period).astype(np.int32)
 
     # Apply special context cycles
-    for context, cycle_value in special_contexts.items():
-        if context in df["context"].values:
-            df.loc[df["context"] == context, "cycle"] = cycle_value
+    df = wt_frame.replace_column__filtered(
+        df,
+        CONTEXTS__SPECIAL,
+        column__change="cycle",
+    )
 
     return df
 
@@ -124,17 +130,15 @@ def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFA
     # - This would probably be easier if it accepted a dataframe
     # - Should we prepare all of the possible variables or does this waste memory?
 
-    cycles = np.array([np.array(output[i])[:,0] for i in range(2)]).flatten()
+    cycles = np.array([np.array(output[i])[:, 0] for i in range(2)]).flatten()
     # Finds the maximum cycle value, discounting special contexts
     time_end__cycles = cycles[~np.isin(cycles, list(CONTEXTS__SPECIAL.values()))].max()
 
     print(
         "time_end: {}s".format(
-            time_end__cycles
-            * specifications["device_001"]["cycle_period__normal"]
+            time_end__cycles * specifications["device_001"]["cycle_period__normal"]
         )
     )
-
 
     # TODO: What's happening below should be explained here
     machine__adwin.Set_Par(1, int(time_end__cycles))
@@ -326,12 +330,17 @@ def to_adwin(df, connections, devices, adwin_settings=SPECIFICATIONS__DEFAULT):
 
 def sanitize_special_contexts(timeline, special_contexts=CONTEXTS__SPECIAL):
     """
-    that there isn't more than one entry for a given variable inside special contexts. This is necessary as there is no concept of 'time' inside the special contexts defined for ADwin.
+    Ensures that there isn't more than one entry for a given variable inside special contexts. This is necessary as there is no concept of 'time' inside the special contexts defined for ADwin.
+
+    Similarly, the time values are adjusted to avoid automatic removal later on.
     """
     df = timeline[timeline["context"].isin(special_contexts)]
     df_N = df.groupby(["variable", "context"])["value"].count()
     duplicates = df_N[df_N > 1].reset_index()
     duplicates.columns = ["variable", "context", "variable_occurences"]
+
+    # Replace time values with those specified in CONTEXTS__SPECIAL
+    timeline = wt_frame.replace_column__filtered(timeline, CONTEXTS__SPECIAL)
 
     if duplicates.empty:
         return timeline
@@ -346,17 +355,27 @@ def sanitize_types(timeline, schema=SCHEMA):
     return timeline.astype(schema)
 
 
+def sanitize__drop_duplicates(
+    timeline,
+    subset=["variable", "cycle"],
+    unless_context=list(CONTEXTS__SPECIAL.keys()),
+):
+    """
+    An alternative to that in timeline, to deal with ADwin-specific cases.
+
+    Drop rows where the columns specified in `subset` are both duplicated, except for in the specific `context`s listed.
+    """
+    mask__duplicates = wt_frame.duplicated(timeline, subset=subset)
+
+    return timeline[~mask__duplicates | (timeline["context"].isin(unless_context))]
+
+
 def sanitize(timeline):
     """
     Includes ADwin-specific methods ontop of the basic timeline sanitization for removing unnecessary points and raising errors on illogical input.
     """
     return funcy.compose(
-        lambda tline: tl.sanitize__drop_duplicates(tline, subset=["variable", "cycle"]),
+        sanitize__drop_duplicates,
         sanitize_special_contexts,
         sanitize_types,
-        tl.sanitize
     )(timeline)
-
-
-
-print()
