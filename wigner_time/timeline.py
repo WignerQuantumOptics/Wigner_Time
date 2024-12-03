@@ -82,7 +82,9 @@ def create(
 
     Accepts programmatic and manual input.
 
-    TODO: document the possible combinations of arguments ordered according to usecases
+    TODO:
+    - document the possible combinations of arguments ordered according to usecases
+    - change from default `t` to default `origin`?
 
     variable_time_values (*vtvc) has the form:
     variable, time, value, context

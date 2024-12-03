@@ -50,7 +50,7 @@ def previous(
     Raises ValueError if the specified variable, or timeline, doesn't exist.
     """
     if variable is not None:
-        tl__filtered = timeline[timeline[column] == variable]
+        tl__filtered = timeline[timeline[column].str.startswith(variable)]
         if tl__filtered.empty:
             raise ValueError("Previous {} not found".format(variable))
     else:
@@ -94,7 +94,9 @@ def find(
     - "AOM_shutter" (A variable name that is present in the dataframe)
     """
     _is_available__anchor = (
-        (timeline["variable"] == label__anchor).any() if timeline is not None else False
+        (timeline["variable"].str.startswith(label__anchor)).any()
+        if timeline is not None
+        else False
     )
 
     def _is_available__variable(var):

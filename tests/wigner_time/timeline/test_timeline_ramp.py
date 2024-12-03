@@ -105,7 +105,7 @@ def test_ramp1(args):
     return wt_frame.assert_equal(tl_ramp, tl_check)
 
 
-def test_ramp_combined(dfseq):
+def test_ramp_combined():
     """
     Alternative to `wait`-ing 5s.
     """
@@ -166,15 +166,4 @@ def test_ramp_expand():
 
 
 if __name__ == "__main__":
-
-    timeline = tl.stack(
-        tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
-        tl.ramp(
-            lockbox_MOT__V=[1.0, 10.0],
-            fargs={"time_resolution": 0.2},
-            origins=[["lockbox_MOT__V", "lockbox_MOT__V"], ["variable"]],
-            is_compact=True,
-        ),
-    )
-    print(timeline)
-    print(expand_ramps(timeline, time_resolution=0.2))
+    print("the end")
