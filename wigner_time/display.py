@@ -1,10 +1,16 @@
 # Copyright Thomas W. Clark & András Vukics 2024. Distributed under the Boost Software License, Version 1.0. (See accompanying file LICENSE.txt)
 
+# Block module based on dependency
+import wigner_time
+
+
+if not wigner_time.DISPLAY:
+    raise ImportError("The `display` module requires `matplotlib` to be installed.")
+
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
 from wigner_time import timeline as tl
 
 
