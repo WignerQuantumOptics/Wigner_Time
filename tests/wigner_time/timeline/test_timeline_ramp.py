@@ -149,7 +149,7 @@ def test_ramp_expand():
             origins=[["lockbox_MOT__V", "lockbox_MOT__V"], ["variable"]],
             is_compact=True,
         ),
-        lambda tline: tl.expand_ramps(tline, time_resolution=0.2),
+        lambda tline: tl.expand(tline, time_resolution=0.2),
     )
     tl_check = wt_frame.new(
         [
