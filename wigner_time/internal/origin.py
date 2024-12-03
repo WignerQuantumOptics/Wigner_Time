@@ -113,7 +113,6 @@ def find(
         """
         match get:
             case "time":
-                wtlog.debug(f"var: {var}")
                 return previous(timeline, variable=var).at["time"]
             case "value":
                 return previous(timeline, variable=var).at["value"]
@@ -128,7 +127,6 @@ def find(
         elif _is_available__variable(label):
             return label
         else:
-            wtlog.debug(f"label unsupported: {label}")
             raise error__unsupported_option
 
     """
@@ -143,7 +141,6 @@ def find(
             origin = "last"
 
     o = sanitize_origin(timeline, origin)
-    wtlog.debug(o)
     match o:
         case [float(), float()] | [float(), None] | [None, float()] as lst:
             tv = lst
@@ -156,14 +153,12 @@ def find(
         case [str(s1), str(s2)] if (s1 == s2):
             tv = _previous_vt(timeline, _label_to_var(s1), "both")
         case [str(s1), str(s2)]:
-            wtlog.debug(f"ss: {s1}, {s2}")
             tv = [
                 _previous_vt(timeline, _label_to_var(s1), "time"),
                 _previous_vt(timeline, _label_to_var(s2), "value"),
             ]
 
         case _:
-            wtlog.debug(f"got to _: {o}")
             raise error__unsupported_option
     return tv
 

@@ -23,13 +23,20 @@ def test_anchor__basic():
             [10.0, 0.0, "new ramp"],
             [11.0, 10.0, "new ramp"],
         ],
-        ANCHOR__001=[10.0, 0.0, "InitialAnchor"],
     )
+
+    tl_check = tl.create(
+        ["⚓__001", [10.0, 0.0, "InitialAnchor"]],
+        timeline=tl_check,
+        context="InitialAnchor",
+        origin=[0.0, 0.0],
+    )
+
     tl_check.loc[
         (tl_check["variable"] == "lockbox_MOT__MHz") & (tl_check["time"] > 1.0),
         "function",
     ] = ramp_function.tanh
-    tl_check.sort_values(["time", "variable"], inplace=True, ignore_index=True)
+    tl_check.sort_values(["time", "context"], inplace=True, ignore_index=True)
 
     print(tl_check)
     print(tl_anchor)
