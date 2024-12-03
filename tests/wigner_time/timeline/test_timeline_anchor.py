@@ -8,35 +8,29 @@ from wigner_time.internal import dataframe as wt_frame
 
 
 def test_anchor__basic():
-    # TODO: WIP
     tl_anchor = tl.stack(
         tl.create(
             lockbox_MOT__MHz=0.0,
-            shutter_OP001=0,
-            shutter_OP002=1,
             context="ADwin_LowInit",
         ),
         tl.anchor(t=10.0, context="InitialAnchor"),
-        tl.ramp(lockbox_MOT__V=[1.0, 10.0], context="new ramp"),
+        tl.ramp(lockbox_MOT__MHz=[1.0, 10.0], context="new ramp"),
     )
 
     tl_check = tl.create(
-        lockbox_MOT__V=[
-            [1.0, 1.0, "ADwin_LowInit"],
-            [6.0, 1.0, "new ramp"],
-            [7.0, 10.0, "new ramp"],
+        lockbox_MOT__MHz=[
+            [0.0, 0.0, "ADwin_LowInit"],
+            [10.0, 0.0, "new ramp"],
+            [11.0, 10.0, "new ramp"],
         ],
+        ANCHOR__001=[10.0, 0.0, "InitialAnchor"],
     )
     tl_check.loc[
-        (tl_check["variable"] == "lockbox_MOT__V") & (tl_check["time"] > 1.0),
+        (tl_check["variable"] == "lockbox_MOT__MHz") & (tl_check["time"] > 1.0),
         "function",
     ] = ramp_function.tanh
+    tl_check.sort_values(["time", "variable"], inplace=True, ignore_index=True)
 
-    tl_ramp = tl.stack(
-        tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
-        tl.ramp(lockbox_MOT__V=[1.0, 10.0], context="new ramp"),
-    )
-    return wt_frame.assert_equal(tl_check, tl_ramp)
-
+    print(tl_check)
     print(tl_anchor)
-    assert tl_anchor
+    return wt_frame.assert_equal(tl_check, tl_anchor)

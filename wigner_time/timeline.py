@@ -212,7 +212,7 @@ def ramp(
     timeline=None,
     duration=None,
     context=None,
-    origins=[["ANCHOR", "variable"], ["variable"]],
+    origins=[["anchor", "variable"], ["variable"]],
     schema=_SCHEMA,
     function=wt_ramp_function.tanh,
     fargs={},
@@ -230,8 +230,6 @@ def ramp(
     """
     # TODO:
     # - check for ramps with 0 duration (shouldn't do anything)
-    # - Limit data to two points per variable
-    # - Let origin be a pair of pairs?
     # - Should fargs be a dictionary?
     # - Maybe not. List (with the option of a dictionary) would be most flexible.
     # - Making it a dictionary maximizes the readability though.
