@@ -15,6 +15,7 @@ from typing import Callable
 import funcy
 import numpy as np
 
+from wigner_time import config as wt_config
 from wigner_time import input as wt_input
 from wigner_time import ramp_function as wt_ramp_function
 from wigner_time.internal import dataframe as wt_frame, origin
@@ -23,8 +24,6 @@ from wigner_time.internal import origin as wt_origin
 ###############################################################################
 #                   Constants                                                 #
 ###############################################################################
-
-TIME_RESOLUTION = 1.0e-6
 
 ANALOG_SUFFIXES = {"Voltage": "__V", "Current": "__A", "Frequency": "__MHz"}
 # TODO: Should be deleted, but currently needed by display
@@ -76,7 +75,7 @@ def create(
     origin=None,
     schema=_SCHEMA,
     **vtvc_dict,
-):
+) -> wt_frame.CLASS:
     """
     Does what it says on the tin: establishes a new timeline according to the given (flexible) input collection. If 'timeline' is also specified, then it concatenates the new creation with the existing one.
 
@@ -109,11 +108,6 @@ def create(
 
     rows = wt_input.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
 
-    # DEPRECATED: Removing context column
-    # If there are no errors here for a while then we can just remove the 'popping' code below.
-    # if (len(rows[0]) != 4) and (context is None):
-    #     schema.pop("context")
-
     df_rows = wt_frame.new(rows, columns=schema.keys()).astype(schema)
     new = wt_origin.update(df_rows, timeline, origin=origin)
 
@@ -128,32 +122,33 @@ def create(
 
 def update(
     *vtvc,
-    timeline=None,
-    context=None,
+    timeline: wt_frame.CLASS | None = None,
     t=0.0,
-    relativeTime=True,
-    relativeValue=False,
+    context=None,
+    origin=None,
+    schema=_SCHEMA,
     **vtvc_dict,
 ):
-    # TODO: Pass on origin argument
     """
-    Creates a timeline for a single or many variables the same as the 'create' function.
+    Creates a timeline for a single or many variables, the same as for the `create` function.
 
     One difference is that when an existing timeline is not specified,
     then it returns an anonymous function for use in function chaining,
     like the other main functions in this module.
 
-    The chaining can be effected by the `stack` function.
+    For such chaining, see the `stack` function.
 
-    When context is not specified for a given variable, it is taken to be the latest context in the timeline.
-    WARNING: this can lead to subtle bugs if the latest context is a special context
+    Like other functions, when `context` is not specified for a given variable, it is taken to be the latest context in the timeline.
+    WARNING: In this case, beware of accidentally putting timelines into special contexts.
     """
     if timeline is None:
         return lambda x: update(
             *vtvc,
             timeline=x,
-            context=context,
             t=t,
+            context=context,
+            origin=origin,
+            schema=schema,
             **vtvc_dict,
         )
 
@@ -164,36 +159,51 @@ def update(
         return create(
             *vtvc,
             timeline=timeline,
-            context=context,
             t=t,
+            context=context,
+            origin=origin,
+            schema=schema,
             **vtvc_dict,
         )
 
 
-def anchor(t, timeline=None, relativeTime=True, context=None):
+def anchor(
+    timeline=None,
+    t=None,
+    context=None,
+    origin=None,
+) -> wt_frame.CLASS | Callable:
     """
-    Sets the anchor, optionally relative to the previous anchor
+    Creates a special, non-physical `variable` (doesn't have a matching `connection`), that can be used for time references, particularly within individual `context`s.
+
+    This can be very convenient in the context of `ramp`s, where the starting and ending times are often built around a hypothetical point in time, due to physical switching speeds.
+
+    NB. Anchors are automatically numbered, for 'global' referencing, but these numbers are not necessary in normal use.
     """
-    # TODO: Anchors should be automatically numbered?
-    # Making them uniquely identifiable would be good for debugging.
+    # NOTE: Makes use of a global variable (LABEL__ANCHOR).
+
     if timeline is None:
-        return lambda x: anchor(
-            t=t, timeline=x, relativeTime=relativeTime, context=context
+        return lambda tline: anchor(
+            timeline=tline,
+            t=t,
+            context=context,
+            origin=origin,
         )
 
-    try:
-        return update(
-            "Anchor",
-            t,
-            0,
-            timeline=timeline,
-            context=context,
-            relativeTime=relativeTime,
-        )
-    except ValueError:
-        return update(
-            "Anchor", t, 0, timeline=timeline, context=context, relativeTime=False
-        )
+    num_anchors = (
+        timeline["variable"]
+        .loc[timeline["variable"].str.startswith(wt_config.LABEL__ANCHOR)]
+        .nunique()
+    )
+
+    return update(
+        "{}__{:03d}".format(wt_config.LABEL__ANCHOR, num_anchors + 1),
+        0,
+        timeline=timeline,
+        t=t,
+        context=context,
+        origin=origin,
+    )
 
 
 def ramp(
@@ -206,7 +216,7 @@ def ramp(
     fargs={},
     is_compact=True,
     **vtvc_dict,
-):
+) -> wt_frame.CLASS | Callable:
     """
     Convenient ways of defining two points and a function!
 
@@ -311,7 +321,7 @@ def ramp(
     # return wt_frame.concat([timeline] + frames)
 
 
-def stack(firstArgument, *fs: list[Callable]):
+def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
     """
     For stacking modifications to the timeline in a composable way.
 
@@ -337,7 +347,7 @@ def stack(firstArgument, *fs: list[Callable]):
         return funcy.compose(*fs[::-1], firstArgument)
 
 
-def expand(timeline, num__bounds=2, **function_args):
+def expand(timeline, num__bounds=2, **function_args) -> wt_frame.CLASS:
     """
     `num__bounds` refers to the number of points (and so rows) needed to define the ramp function in the first place. Currently, this is implicitly assumed to be two, i.e. that `ramp`s are simply defined by the origin, terminus and expansion function.
     """

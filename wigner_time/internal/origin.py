@@ -6,12 +6,13 @@ This is important for inferring what the user means when they want to add rows t
 """
 
 # TODO:
-# - "variable" flag (i.e. find the previous occurence of this particular variable)
 # - Rename this file (and relevant functions) to something to do with query/history?
 # - dictionary option for origin (i.e. different origin for different variables?)
 # - "context" (Should we support this?)
 
 from copy import deepcopy
+from wigner_time import config as wt_config
+from wigner_time.config import wtlog
 from wigner_time import util as wt_util
 from wigner_time.internal import dataframe as wt_frame
 from wigner_time.internal import origin as wt_origin
@@ -22,7 +23,6 @@ from wigner_time.internal import origin as wt_origin
 
 _ORIGINS = ["anchor", "last", "variable"]
 "These origin labels are reserved for interpretation by the package."
-_LABEL__ANCHOR = "ANCHOR"
 
 error__unsupported_option = ValueError(
     "Unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. \n\n If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
@@ -78,7 +78,7 @@ def sanitize_origin(timeline, orig):
 def find(
     timeline,
     origin=None,
-    label__anchor=_LABEL__ANCHOR,
+    label__anchor=wt_config.LABEL__ANCHOR,
 ):
     """
     Returns a time-value pair, according to the choice of origin.
@@ -96,6 +96,8 @@ def find(
     _is_available__anchor = (
         (timeline["variable"] == label__anchor).any() if timeline is not None else False
     )
+
+    wtlog.info(f"origin: {origin}")
 
     def _is_available__variable(var):
         return (
