@@ -146,7 +146,7 @@ def replace_column__filtered(
         dff[column__filter]
         .map(dict__replacement)
         .fillna(dff[column__change])
-        .astype(df["time"].dtype)
+        .astype(df[column__change].dtype)
     )
 
     return dff
