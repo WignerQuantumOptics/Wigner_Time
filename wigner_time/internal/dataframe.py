@@ -62,7 +62,8 @@ def row_from_max_column(df, column="time"):
     """
     Finds the maximum value of the column and returns the corresponding row.
     """
-    return df.loc[df[column].idxmax()]
+    # The reversal is necessary to ensure that the highest index maximum is returned. This avoids subtle bugs in choosing the previous context etc.
+    return df.loc[df[column][::-1].idxmax()]
 
 
 def increment_selected_rows(

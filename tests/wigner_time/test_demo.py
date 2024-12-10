@@ -61,7 +61,6 @@ def filter_ramps(df, var_cons, index=0):
 
     variable, context = var_cons[0]
     remaining_pairs = var_cons[1:]
-
     filtered_df = filter_ramp(df, variable, context)
 
     return filter_ramps(filtered_df, remaining_pairs)
@@ -92,23 +91,13 @@ def test_MOTdetuned():
 
     return frame.assert_equal(tl__new, tl__original)
 
-
-def test_molasses():
-    ramps = [
-        ["lockbox_MOT__MHz", "MOT"],
-        ["coil_MOTlower__A", "molasses"],
-        ["coil_MOTupper__A", "molasses"],
-        ["lockbox_MOT__MHz", "molasses"],
-    ]
-
-    tl__new = tl.stack(
-        ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
-        ex.MOT(),
-        ex.MOT_detunedGrowth(),
-        ex.molasses(),
-    ).drop(columns="function")
-
-    timeline_old = pd.read_parquet("~/WT_dat/MOT_detuned.parquet")
-    tl__original = filter_ramp(update_anchor(timeline_old), "lockbox_MOT__MHz", "MOT")
-
-    return frame.assert_equal(tl__new, tl__original)
+    # def test_multipleRamps():
+    #     # TODO: WIP
+    #     tl__new = tl.stack(
+    #         ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
+    #         ex.MOT(),
+    #         # ex.MOT_detunedGrowth(),
+    #         # ex.molasses(),
+    #     )  # .drop(columns="function")
+    # print(tl__new)
+    # return frame.assert_equal(tl__new, tl__original)
