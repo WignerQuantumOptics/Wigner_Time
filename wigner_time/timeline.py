@@ -170,8 +170,8 @@ def update(
 
 
 def anchor(
-    timeline=None,
     t=None,
+    timeline=None,
     context=None,
     origin=None,
 ) -> wt_frame.CLASS | Callable:
@@ -191,6 +191,8 @@ def anchor(
             context=context,
             origin=origin,
         )
+
+    print("t: {t}")
 
     num_anchors = (
         timeline["variable"]
@@ -322,10 +324,16 @@ def ramp(
 
 
 def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
+    # TODO: Alternative names:
+    # - chain
+    # - cascade
+    # - domino
+    # - generate (too similar to `create`: will cocnfuse the user)
+    # - abstract
     """
-    For stacking modifications to the timeline in a composable way.
+    For chaining modifications to the timeline in a composable way.
 
-    If the bottom of the stack is a timeline, the result is also timeline
+    If the bottom of the stack is a timeline, the result is also a timeline
     e.g.:
     stack(
         timeline,

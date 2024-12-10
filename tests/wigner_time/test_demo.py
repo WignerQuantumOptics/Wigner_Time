@@ -7,8 +7,12 @@ from wigner_time.internal import dataframe as frame
 import pathlib as pl
 import sys
 
+import importlib
+
 sys.path.append(str(pl.Path.home() / "projects/Wigner_Time/doc"))
 import experiment as ex
+
+importlib.reload(ex)
 
 
 def replace_anchor_symbol(df, symbol__old="Anchor", symbol__new="⚓"):
@@ -29,21 +33,26 @@ def label_anchors(df):
 
 
 def update_anchor(df):
-    return label_anchors(replace_anchor_symbol(timeline_old))
+    return label_anchors(replace_anchor_symbol(df))
 
 
-timeline_old = pd.read_parquet("~/WT_dat/MOT.parquet")
-tl__original = update_anchor(timeline_old)
+def test_MOT():
 
+    tl__new = tl.stack(
+        ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
+        ex.MOT(),
+        # ex.MOT_detunedGrowth(),
+        # ex.molasses(),
+        # ex.OP(),
+        # ex.magneticTrapping(),
+        # ex.finish(wait=2,MOT_ON=True,
+        #           shutter_imaging=0,AOM_imaging=1,trigger_camera=0
+        #           ),
+    )
 
-tl.stack(
-    ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
-    ex.MOT(),
-    # ex.MOT_detunedGrowth(),
-    # ex.molasses(),
-    # ex.OP(),
-    # ex.magneticTrapping(),
-    # ex.finish(wait=2,MOT_ON=True,
-    #           shutter_imaging=0,AOM_imaging=1,trigger_camera=0
-    #           ),
-)
+    timeline_old = pd.read_parquet("~/WT_dat/MOT.parquet")
+    tl__original = update_anchor(timeline_old)
+
+    print(tl__original)
+    print(tl__new)
+    return frame.assert_equal(tl__new, tl__original)

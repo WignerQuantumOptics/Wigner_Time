@@ -93,7 +93,7 @@ def init(**kwargs):
             context="ADwin_LowInit",
             **kwargs,
         ),
-        tl.anchor(t=0.0, relativeTime=False, context="InitialAnchor"),
+        tl.anchor(t=0.0, context="InitialAnchor"),  # , relativeTime=False
     )
 
 
@@ -156,7 +156,15 @@ def MOT_detunedGrowth(duration=100e-3, durationRamp=10e-3, toMHz=-5, pt=3, **kwa
     )
 
 
-def molasses(duration=5e-3, durationCoilRamp=9e-4, durationLockboxRamp=1e-3, toMHz=-90, coil_pt=3, lockbox_pt=3, **kwargs):
+def molasses(
+    duration=5e-3,
+    durationCoilRamp=9e-4,
+    durationLockboxRamp=1e-3,
+    toMHz=-90,
+    coil_pt=3,
+    lockbox_pt=3,
+    **kwargs
+):
 
     return tl.stack(
         tl.ramp(

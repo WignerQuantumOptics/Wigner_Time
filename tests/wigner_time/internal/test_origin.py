@@ -11,7 +11,7 @@ def df_001():
         [
             ["thing2", 7.0, 5.0, "init"],
             ["thing", 0.0, 5.0, "init"],
-            ["ANCHOR", 4.5, 5.0, "MOT"],
+            ["⚓__001", 4.5, 5.0, "MOT"],
             ["thing3", 3.0, 5.0, "blah"],
         ],
         columns=["variable", "time", "value", "context"],

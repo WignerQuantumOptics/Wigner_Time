@@ -42,14 +42,16 @@ def test_ramp0(args):
     timeline = tl.create(
         [
             ["lockbox_MOT__V", 0.0, 0.0],
-            ["ANCHOR", 0.0, 0.0],
+            ["⚓__001", 0.0, 0.0],
         ],
         context="init",
     )
     tl_ramp = tl.ramp(timeline, **args)
     tl_check = tl.create(
-        ANCHOR=[0.0, 0.0, "init"],
-        lockbox_MOT__V=[[0.0, 0.0, "init"], [100e-3, 5, "init"]],
+        [
+            ["⚓__001", [0.0, 0.0, "init"]],
+            ["lockbox_MOT__V", [[0.0, 0.0, "init"], [100e-3, 5, "init"]]],
+        ],
     )
     tl_check.loc[tl_check["variable"] == "lockbox_MOT__V", "function"] = (
         ramp_function.tanh
@@ -68,7 +70,7 @@ def test_ramp0(args):
         ),
         Munch(
             lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
-            origins=[["ANCHOR", "variable"], ["variable"]],
+            origins=[["anchor", "variable"], ["variable"]],
         ),
         Munch(lockbox_MOT__V=[50e-3, 5], origins=[["last", "variable"], ["variable"]]),
         Munch(
@@ -78,22 +80,32 @@ def test_ramp0(args):
     ],
 )
 def test_ramp1(args):
-    timeline = tl.create(lockbox_MOT__V=[50e-3, 0.2], ANCHOR=[0.0, 0.0], context="init")
+    timeline = tl.create(
+        [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓__001", [0.0, 0.0]]], context="init"
+    )
 
     tl_ramp = tl.ramp(timeline, **args, context="init")
     tl_check = tl.create(
-        ANCHOR=[
-            0.0,
-            0.0,
-        ],
-        lockbox_MOT__V=[
+        [
             [
-                50.0e-3,
-                0.2,
+                "⚓__001",
+                [
+                    0.0,
+                    0.0,
+                ],
             ],
             [
-                100e-3,
-                5,
+                "lockbox_MOT__V",
+                [
+                    [
+                        50.0e-3,
+                        0.2,
+                    ],
+                    [
+                        100e-3,
+                        5,
+                    ],
+                ],
             ],
         ],
         context="init",
