@@ -48,10 +48,14 @@ def previous(
     """
     Returns a row from the previous timeline. By default, this is done by finding the highest value for time and returning that row. If `sort_by` is specified (e.g. 'time'), then the dataframe is sorted and then the row indexed by `index` is returned.
 
+    Anchors are a special case, where an exact match on the symbol is not required.
+
     Raises ValueError if the specified variable, or timeline, doesn't exist.
     """
     if variable is not None:
-        tl__filtered = timeline[timeline[column].str.startswith(variable)]
+        tl__filtered = timeline[timeline[column] == variable]
+        if tl__filtered.empty and (variable == wt_config.LABEL__ANCHOR):
+            tl__filtered = timeline[timeline[column].str.startswith(variable)]
         if tl__filtered.empty:
             raise ValueError("Previous {} not found".format(variable))
     else:
