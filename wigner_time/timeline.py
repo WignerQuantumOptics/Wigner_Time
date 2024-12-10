@@ -174,13 +174,16 @@ def anchor(
     timeline=None,
     context=None,
     origin=None,
+    origin__default="anchor",
 ) -> wt_frame.CLASS | Callable:
     """
     Creates a special, non-physical `variable` (doesn't have a matching `connection`), that can be used for time references, particularly within individual `context`s.
 
     This can be very convenient in the context of `ramp`s, where the starting and ending times are often built around a hypothetical point in time, due to physical switching speeds.
 
-    NB. Anchors are automatically numbered, for 'global' referencing, but these numbers are not necessary in normal use.
+    NB.
+    - By default, the `origin` of `anchor` is `'anchor'` when available; `None` otherwise. This is for convenience.
+    - Anchors are automatically numbered, for 'global' referencing, but these numbers are not necessary in normal use.
     """
     # NOTE: Makes use of a global variable (LABEL__ANCHOR).
 
@@ -197,6 +200,14 @@ def anchor(
         .loc[timeline["variable"].str.startswith(wt_config.LABEL__ANCHOR)]
         .nunique()
     )
+
+    # Check if anchor is desired and available
+    if (
+        (origin is None)
+        and (origin__default is not None)
+        and ((timeline["variable"].str.startswith(wt_config.LABEL__ANCHOR)).any())
+    ):
+        origin = origin__default
 
     return update(
         "{}__{:03d}".format(wt_config.LABEL__ANCHOR, num_anchors + 1),
