@@ -75,6 +75,7 @@ def test_MOT():
 
     timeline_old = pd.read_parquet("~/WT_dat/MOT.parquet")
     tl__original = update_anchor(timeline_old)
+    tl__original.loc[tl__original["variable"] == "⚓__002", "context"] = "MOT"
 
     return frame.assert_equal(tl__new, tl__original)
 
@@ -88,6 +89,7 @@ def test_MOTdetuned():
 
     timeline_old = pd.read_parquet("~/WT_dat/MOT_detuned.parquet")
     tl__original = filter_ramp(update_anchor(timeline_old), "lockbox_MOT__MHz", "MOT")
+    tl__original.loc[tl__original["variable"] == "⚓__002", "context"] = "MOT"
 
     return frame.assert_equal(tl__new, tl__original)
 
