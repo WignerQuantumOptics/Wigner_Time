@@ -77,7 +77,7 @@ def sanitize_origin(timeline, orig):
 
 
 def find(
-    timeline,
+    timeline=None,
     origin=None,
     label__anchor=wt_config.LABEL__ANCHOR,
 ):
@@ -94,6 +94,14 @@ def find(
     - "last" (The row highest in time)
     - "AOM_shutter" (A variable name that is present in the dataframe)
     """
+
+    # TODO:
+    # - More meaningful error if anchor is not available
+
+    o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))
+    if o == [None, None]:
+        return [None, None]
+
     _is_available__anchor = (
         (timeline["variable"].str.startswith(label__anchor)).any()
         if timeline is not None
@@ -129,17 +137,6 @@ def find(
         else:
             raise error__unsupported_option
 
-    """
-    Falls back to last time entry if anchor is not available.
-    TODO:
-    - More meaningful error if anchor is not available
-    """
-    if (origin is None) or (origin == [None, None]):
-        if _is_available__anchor:
-            origin = "anchor"
-        else:
-            origin = "last"
-
     o = sanitize_origin(timeline, origin)
     match o:
         case [float(), float()] | [float(), None] | [None, float()] as lst:
@@ -168,6 +165,11 @@ def update(
     timeline__past: wt_frame.CLASS | None,
     origin=None,
 ) -> wt_frame.CLASS:
+
+    o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))
+    if o == [None, None]:
+        return timeline__present
+
     timeline__future = deepcopy(timeline__present)
 
     def _update_future(tlfuture, t0, v0, variable=None):
@@ -201,14 +203,11 @@ def update(
             )
 
     if timeline__past is not None:
-        o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))
         find_every_origin(timeline__past, timeline__future, o)
 
     else:
-        if origin is not None:
-            _t0, _v0 = wt_origin.find(None, origin=origin)
-        else:
-            _t0, _v0 = [None, None]
+        print(f"origin: {origin}")
+        _t0, _v0 = wt_origin.find(origin=origin)
 
         _update_future(timeline__future, _t0, _v0, variable=None)
 

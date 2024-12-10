@@ -30,10 +30,13 @@ def df_002():
     )
 
 
+def test_originFailSafely(df_001):
+    assert origin.find(df_001) == [None, None]
+
+
 @pytest.mark.parametrize(
     "input",
     [
-        lambda df: origin.find(df),
         lambda df: origin.find(df, "anchor"),
     ],
 )
@@ -55,7 +58,6 @@ def test_originSpecificVariable(input, df_001):
     "input",
     [
         lambda df: origin.find(df, "last"),
-        lambda df: origin.find(df),
     ],
 )
 def test_originTime(input, df_002):

@@ -192,8 +192,6 @@ def anchor(
             origin=origin,
         )
 
-    print("t: {t}")
-
     num_anchors = (
         timeline["variable"]
         .loc[timeline["variable"].str.startswith(wt_config.LABEL__ANCHOR)]

@@ -27,7 +27,7 @@ def label_anchors(df):
     indices = list(timeline[timeline["variable"] == "⚓"].index)
 
     for i, ind in enumerate(indices):
-        timeline.loc[ind, "variable"] = "⚓__{:03}".format(i)
+        timeline.loc[ind, "variable"] = "⚓__{:03}".format(i + 1)
 
     return timeline
 
