@@ -38,6 +38,40 @@ def test_anchor__basic():
     ] = ramp_function.tanh
     tl_check.sort_values(["time", "context"], inplace=True, ignore_index=True)
 
-    print(tl_check)
-    print(tl_anchor)
     return wt_frame.assert_equal(tl_check, tl_anchor)
+
+
+@pytest.fixture
+def df_context1():
+    return wt_frame.new(
+        [
+            ["thing2", 1.0, 5.0, "init"],
+            ["thing", 0.0, 5.0, "init"],
+            ["thing", 5.0, 5.0, "MOT"],
+            ["⚓__001", 4.5, 5.0, "MOT"],
+            ["thing3", 3.0, 5.0, "blah"],
+        ],
+        columns=["variable", "time", "value", "context"],
+    )
+
+
+def test_anchorContext(df_context1):
+    return wt_frame.assert_equal(
+        tl.create(
+            lockbox_MOT__MHz=[1.0, 10.0],
+            timeline=df_context1,
+            context="ramp",
+            origin="MOT",
+        ),
+        wt_frame.new(
+            [
+                ["thing2", 1.0, 5.0, "init"],
+                ["thing", 0.0, 5.0, "init"],
+                ["thing", 5.0, 5.0, "MOT"],
+                ["⚓__001", 4.5, 5.0, "MOT"],
+                ["thing3", 3.0, 5.0, "blah"],
+                ["lockbox_MOT__MHz", 5.5, 10.0, "ramp"],
+            ],
+            columns=["variable", "time", "value", "context"],
+        ),
+    )

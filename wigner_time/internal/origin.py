@@ -238,7 +238,6 @@ def update(
         find_every_origin(timeline__past, timeline__future, o)
 
     else:
-        print(f"origin: {origin}")
         _t0, _v0 = wt_origin.find(origin=origin)
 
         _update_future(timeline__future, _t0, _v0, variable=None)
