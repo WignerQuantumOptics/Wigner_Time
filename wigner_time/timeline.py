@@ -226,12 +226,12 @@ def ramp(
     origins=[["anchor", "variable"], ["variable"]],
     schema=_SCHEMA,
     function=wt_ramp_function.tanh,
-    fargs={},
-    is_compact=True,
     **vtvc_dict,
 ) -> wt_frame.CLASS | Callable:
     """
     Convenient ways of defining two points and a function!
+
+    A `ramp` defines ranges of values across time from a beginning time-value pair to an ending time-value pair, for each variable.
 
     Take care with the differences from the `create` function. Ramps are naturally defined relative to other starting points and so the interface is slightly different.
 
@@ -303,33 +303,9 @@ def ramp(
 
     # TODO: Should we sort the new timelines before returning them?
 
-    if is_compact:
-        return wt_frame.drop_duplicates(
-            wt_frame.concat([timeline, new1, new2]), subset=["variable", "time"]
-        )
-    else:
-        raise ValueError("Non-compact ramps are not currently implemented.")
-
-    # frames = []
-
-    #         frames.append(
-    #             create(
-    #                 variable,
-    #                 function(
-    #                     point_start,
-    #                     wt_ramp_function.to_point_end(
-    #                         point_start,
-    #                         t,
-    #                         value,
-    #                         relative=list(relative.values()),
-    #                     ),
-    #                     **fargs,
-    #                 ),
-    #                 context=context,
-    #             )
-    #         )
-
-    # return wt_frame.concat([timeline] + frames)
+    return wt_frame.drop_duplicates(
+        wt_frame.concat([timeline, new1, new2]), subset=["variable", "time"]
+    )
 
 
 def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
@@ -368,7 +344,6 @@ def expand(timeline, num__bounds=2, **function_args) -> wt_frame.CLASS:
     """
     `num__bounds` refers to the number of points (and so rows) needed to define the ramp function in the first place. Currently, this is implicitly assumed to be two, i.e. that `ramp`s are simply defined by the origin, terminus and expansion function.
     """
-    # TODO: Make these variables 'private'
     _mask_fs = timeline["function"].notna()
     _dff = timeline[_mask_fs]
 
@@ -497,21 +472,3 @@ def sanitize(timeline):
             },
         ),
     )(timeline)
-
-
-def time_from_anchor_to_context(timeline, t=None, anchorToContext=None):
-    if anchorToContext is not None:
-        s = timeline.loc[
-            (timeline["variable"] == "Anchor")
-            & (timeline["context"] == anchorToContext),
-            "time",
-        ]
-        if s.empty and t is None:
-            raise ValueError(
-                "Anchor in context {} not found, and absolute time is not supplied".format(
-                    anchorToContext
-                )
-            )
-        t = (s.max() if not s.empty else 0.0) + (t if t is not None else 0.0)
-
-    return t
