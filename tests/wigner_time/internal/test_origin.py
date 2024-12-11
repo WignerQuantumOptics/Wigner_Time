@@ -93,3 +93,25 @@ def test_originNumbers(input, df_001):
 )
 def test_originNumbers2(input, df_001):
     assert input(df_001) == [None, -10.0]
+
+
+@pytest.fixture
+def df_context1():
+    return frame.new(
+        [
+            ["thing2", 7.0, 5.0, "init"],
+            ["thing", 0.0, 5.0, "init"],
+            ["thing", 5.0, 5.0, "MOT"],
+            ["⚓__001", 4.5, 5.0, "MOT"],
+            ["thing3", 3.0, 5.0, "blah"],
+        ],
+        columns=["variable", "time", "value", "context"],
+    )
+
+
+def test_originContext(df_context1):
+    assert origin.find(df_context1, "init") == [7.0, None]
+
+
+def test_originContextAnchor(df_context1):
+    assert origin.find(df_context1, "MOT") == [4.5, None]

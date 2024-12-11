@@ -8,7 +8,6 @@ This is important for inferring what the user means when they want to add rows t
 # TODO:
 # - Rename this file (and relevant functions) to something to do with query/history?
 # - dictionary option for origin (i.e. different origin for different variables?)
-# - "context" (Should we support this?)
 
 from copy import deepcopy
 from wigner_time import config as wt_config
@@ -90,6 +89,8 @@ def find(
 
     Often, `None` will be returned for a value as it would be presumptuous to assume the same value origin for all devices.
 
+    N.B. `variable` strings take precedence over `context`s and `context`s are special. For convenience, using a `context` as an `origin` will default to picking out an `anchor`, if available. If not, then the 'last' value of the context will be used.
+
     Example origins:
     - [0.0,0.0]
     - 0.0
@@ -97,6 +98,7 @@ def find(
     - ["anchor", 0.0]
     - "last" (The row highest in time)
     - "AOM_shutter" (A variable name that is present in the dataframe)
+    - "init" (A context name that is present in the dataframe)
     """
 
     # TODO:
@@ -106,11 +108,22 @@ def find(
     if o == [None, None]:
         return [None, None]
 
-    _is_available__anchor = (
-        (timeline["variable"].str.startswith(label__anchor)).any()
-        if timeline is not None
-        else False
-    )
+    def _available__anchor(timeline, context=None):
+        """
+        The last anchor variable available, optionally filtered by context.
+        """
+        if timeline is None:
+            return None
+
+        df_con = (
+            timeline if context is None else timeline[timeline["context"] == context]
+        )
+        df_filt = df_con[df_con["variable"].str.startswith(label__anchor)]
+
+        if not df_filt.empty:
+            return df_filt.loc[df_filt["time"][::-1].idxmax(), "variable"]
+        else:
+            return None  # Or any default value you prefer
 
     def _is_available__variable(var):
         return (
@@ -119,25 +132,35 @@ def find(
             else None
         )
 
-    def _previous_vt(timeline, var=None, get="time"):
+    def _is_available__context(var):
+        return (
+            (timeline["context"] == var).any()
+            if (timeline is not None) and (var is not None)
+            else None
+        )
+
+    def _previous_vt(timeline, get="time", col__fil="variable", var=None):
         """
         `get` is one of ['time', 'value', 'BOTH']
         """
         match get:
-            case "time":
-                return previous(timeline, variable=var).at["time"]
-            case "value":
-                return previous(timeline, variable=var).at["value"]
+            case "time" | "value":
+                return previous(timeline, column=col__fil, variable=var).at[get]
             case "both":
-                return previous(timeline, variable=var)[["time", "value"]].values
+                return previous(timeline, column=col__fil, variable=var)[
+                    ["time", "value"]
+                ].values
 
-    def _label_to_var(label):
-        if label == "anchor" and _is_available__anchor:
-            return label__anchor
+    def _to_col_var(timeline, label):
+        if label == "anchor" and (_available__anchor(timeline) is not None):
+            return ["variable", label__anchor]
         elif label == "last":
-            return None
+            return ["variable", None]
         elif _is_available__variable(label):
-            return label
+            return ["variable", label]
+        elif _is_available__context(label):
+            anchor = _available__anchor(timeline, context=label)
+            return ["variable", anchor] if (anchor is not None) else ["context", label]
         else:
             raise error__unsupported_option
 
@@ -147,16 +170,21 @@ def find(
             tv = lst
 
         case [str(s1), None | float() as n1]:
-            tv = [_previous_vt(timeline, _label_to_var(s1), "time"), n1]
+            tv = [
+                _previous_vt(*([timeline, "time"] + _to_col_var(timeline, s1))),
+                n1,
+            ]
         case [None | float() as n1, str(s1)]:
-            tv = [n1, _previous_vt(timeline, _label_to_var(s1), "value")]
-
+            tv = [
+                n1,
+                _previous_vt(*([timeline, "value"] + _to_col_var(timeline, s1))),
+            ]
         case [str(s1), str(s2)] if (s1 == s2):
-            tv = _previous_vt(timeline, _label_to_var(s1), "both")
+            tv = _previous_vt(*([timeline, "both"] + _to_col_var(timeline, s1)))
         case [str(s1), str(s2)]:
             tv = [
-                _previous_vt(timeline, _label_to_var(s1), "time"),
-                _previous_vt(timeline, _label_to_var(s2), "value"),
+                _previous_vt(*([timeline, "time"] + _to_col_var(timeline, s1))),
+                _previous_vt(*([timeline, "value"] + _to_col_var(timeline, s2))),
             ]
 
         case _:
