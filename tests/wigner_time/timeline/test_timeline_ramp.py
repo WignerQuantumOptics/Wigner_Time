@@ -26,6 +26,7 @@ def dfseq():
     [
         Munch(lockbox_MOT__V=5, duration=100e-3, context="init"),
         Munch(lockbox_MOT__V=[100e-3, 5], context="init"),
+        Munch(lockbox_MOT__V=[100e-3, 5, "init"]),
         Munch(
             lockbox_MOT__V=[100e-3, 5],
             context="init",
@@ -144,12 +145,23 @@ def test_ramp_combined():
         tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
         tl.ramp(
             lockbox_MOT__V=[[5.0, 0.0], [1.0, 10.0]],
-            fargs={"time_resolution": 0.2},
             origins=[["lockbox_MOT__V", "lockbox_MOT__V"], ["variable"]],
-            is_compact=True,
         ),
     )
     return wt_frame.assert_equal(tl_check, tl_ramp)
+
+
+# def test_ramp_start():
+# TODO: WIP
+# timeline = tl.create(
+#     [
+#         ["lockbox_MOT__V", 0.0, 0.0],
+#         ["⚓__001", 0.0, 0.0],
+#     ],
+#     context="init",
+# )
+# tl_ramp = tl.ramp(timeline, **args)
+# return wt_frame.assert_equal(tl_ramp, tl_check)
 
 
 def test_ramp_expand():
@@ -157,9 +169,7 @@ def test_ramp_expand():
         tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
         tl.ramp(
             lockbox_MOT__V=[1.0, 10.0],
-            fargs={"time_resolution": 0.2},
             origins=[["lockbox_MOT__V", "lockbox_MOT__V"], ["variable"]],
-            is_compact=True,
         ),
         lambda tline: tl.expand(tline, time_resolution=0.2),
     )

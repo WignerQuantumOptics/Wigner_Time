@@ -10,7 +10,7 @@ import sys
 
 import importlib
 
-sys.path.append(str(pl.Path.home() / "projects/Wigner_Time/doc"))
+sys.path.append(str(pl.Path.cwd() / "doc"))
 import experiment as ex
 
 importlib.reload(ex)
@@ -151,14 +151,3 @@ def test_MOTdetuned():
         columns=["time", "variable", "value", "context"],
     )
     return frame.assert_equal(tl__new, tl__original)
-
-    # def test_multipleRamps():
-    #     # TODO: WIP
-    #     tl__new = tl.stack(
-    #         ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
-    #         ex.MOT(),
-    #         # ex.MOT_detunedGrowth(),
-    #         # ex.molasses(),
-    #     )  # .drop(columns="function")
-    # print(tl__new)
-    # return frame.assert_equal(tl__new, tl__original)

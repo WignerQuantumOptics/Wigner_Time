@@ -229,21 +229,42 @@ def ramp(
     **vtvc_dict,
 ) -> wt_frame.CLASS | Callable:
     """
-    Convenient ways of defining two points and a function!
+    Convenient ways of defining pairs of points and a function!
 
-    A `ramp` defines ranges of values across time from a beginning time-value pair to an ending time-value pair, for each variable.
+    A `ramp` defines ranges of values for each variable across time from a beginning time-value pair to an ending time-value pair. Primarily, for the sake of switching analogue devices on and off in a controllable way. Although a `ramp` can be as simple as a linear `value` progression from start to end, the default function for a `timeline` is hyperbolic tan. This allows the user to soften the value gradient at the beginning and end of the function.
 
-    Take care with the differences from the `create` function. Ramps are naturally defined relative to other starting points and so the interface is slightly different.
+    `ramp` has a slightly different interface to `create` and `update`. `**vtvc_dict` follows that of `create`, but it is assumed that `*vtvc` is not necessary, as if you wanted to specify the points manually (in big lists), you should use `create` or `update`. Also, ramps are defined in terms of the groups of points needed for the accompanying function. Usually, this will be starting and ending points. Supplying a different number of points will result in an error.
 
-    It is assumed that `*vtvc` is not necessary, as if you wanted to specify the points manually (in a big list), you should just use `create` or `update`.
+    *Examples of calling ramp*
+    Normally, it will look something like
+    `
+    tl.stack(
+        timeline,
+        tl.ramp(
+            coil_compensationX__A=0.0,
+            coil_compensationY__A=0.0,
+            coil_MOTlowerPlus__A=0.0,
+            coil_MOTupperPlus__A=0.0,
 
-    `**vtvc_dict` follows that of 'create', but with the difference that it can be used to specify only one or two points (this may be extended in the future to allow for more complicated ramps). The default behaviour is simply to provide a [variable, value] pair and this will be taken to define the end point of the ramp. In many circumstances, e.g. as outlined in `demonstration.py`, this and the collective definition of the ramp duration is enough to define the ramp.
+            duration=duration,
+            context="final_ramps"))
+    `
+    The variables are given end values independently and other options collectively. By default, the starting time is also inferred from the previous timeline and so chains of operations can be built up conveniently.
+
+    For simpler ramps, it can still be easier, like in `create`, to supply everything in a list, e.g.
+    `tl.ramp(lockbox_MOT__MHz=[500e-3,0.0])`
+    or
+    `tl.ramp(lockbox_MOT__MHz=[500e-3, 0.0, "final_ramps"])` - if you want a new `context`.
+    This works because by default the ending time is relative to the starting time (see the `origin` keyword argument), such that 't_end' and 'duration' are the same.
+
+    This will cover the vast majority of use cases, but sometimes there might be a need to specify the start of a ramp, e.g.
+
+    lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
+
+
     """
     # TODO:
     # - check for ramps with 0 duration (shouldn't do anything)
-    # - Should fargs be a dictionary?
-    # - Maybe not. List (with the option of a dictionary) would be most flexible.
-    # - Making it a dictionary maximizes the readability though.
     if timeline is None:
         return lambda x: ramp(
             timeline=x,
@@ -251,7 +272,6 @@ def ramp(
             context=context,
             origins=origins,
             function=function,
-            fargs=fargs,
             **vtvc_dict,
         )
     else:
@@ -289,6 +309,7 @@ def ramp(
     # Prepare the starting points and then basically do two (shorcut-ed) `create`s. One depending on the previous timeline and one depending on the previous `create`.
 
     df_1 = wt_frame.new(rows1, columns=schema.keys()).astype(schema)
+    print(f"rows2: {rows2}")
     df_2 = wt_frame.new(rows2, columns=schema.keys()).astype(schema)
 
     df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])]
@@ -310,6 +331,7 @@ def ramp(
 
 def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
     # TODO: Alternative names:
+    # - sequence
     # - chain
     # - cascade
     # - domino
