@@ -20,6 +20,7 @@ from wigner_time import input as wt_input
 from wigner_time import ramp_function as wt_ramp_function
 from wigner_time.internal import dataframe as wt_frame, origin
 from wigner_time.internal import origin as wt_origin
+from wigner_time import util as wt_util
 
 ###############################################################################
 #                   Constants                                                 #
@@ -257,7 +258,7 @@ def ramp(
     `tl.ramp(lockbox_MOT__MHz=[500e-3, 0.0, "final_ramps"])` - if you want a new `context`.
     This works because by default the ending time is relative to the starting time (see the `origin` keyword argument), such that 't_end' and 'duration' are the same.
 
-    This will cover the vast majority of use cases, but sometimes there might be a need to specify the start of a ramp, e.g.
+    This will cover the vast majority of use cases, but sometimes there might be a need to delay the start of a ramp, even with respect to the `origin`, e.g.
 
     lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
 
@@ -279,9 +280,15 @@ def ramp(
             context = previous(timeline)["context"]
 
     # Check vtvc for two separate points
-    _vtvcs = {k: np.asarray(v) for k, v in vtvc_dict.items()}
-    max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
+    # TODO: Trying to simplify the options for the starting point
+    # - inhomogenity doesn't work in this case
+    _vtvcs = {k: np.array(v, dtype=object) for k, v in vtvc_dict.items()}
 
+    # max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
+    max_ndim = max([max(wt_util.shape(a)) for a in _vtvcs.values()])
+
+    print(vtvc_dict)
+    print(f"max_ndim: {max_ndim}")
     match max_ndim:
         case 0 | 1:
             rows1 = None
@@ -290,6 +297,7 @@ def ramp(
             )
 
         case 2:
+            print("case 2")
             _vtvc_1d = {k: v for k, v in _vtvcs.items() if v.ndim != 2}
             _vtvc_2d_0 = {k: v[0] for k, v in _vtvcs.items() if v.ndim == 2}
             _vtvc_2d_1 = {k: v[1] for k, v in _vtvcs.items() if v.ndim == 2}
@@ -308,8 +316,8 @@ def ramp(
 
     # Prepare the starting points and then basically do two (shorcut-ed) `create`s. One depending on the previous timeline and one depending on the previous `create`.
 
+    print(f"rows1: {rows1}")
     df_1 = wt_frame.new(rows1, columns=schema.keys()).astype(schema)
-    print(f"rows2: {rows2}")
     df_2 = wt_frame.new(rows2, columns=schema.keys()).astype(schema)
 
     df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])]

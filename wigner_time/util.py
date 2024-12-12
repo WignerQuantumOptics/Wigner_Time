@@ -17,6 +17,16 @@ def is_sequence(x, is_string=False):
         return isinstance(x, Sequence)
 
 
+def shape(obj):
+    """
+    Recursively determine the maximum dimensions of a nested list or array.
+    Works independently of whether the input is a NumPy array or a Python list.
+    """
+    if isinstance(obj, (list, np.ndarray)) and len(obj) > 0:
+        return [len(obj)] + shape(obj[0])
+    return []
+
+
 def ensure_iterable(x, is_string=False):
     """
     'x' if iterable, [x] otherwise.

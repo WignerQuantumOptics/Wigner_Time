@@ -1,5 +1,6 @@
 import pytest
 from munch import Munch
+import numpy as np
 
 from wigner_time import ramp_function, timeline as tl
 from wigner_time.internal import dataframe as wt_frame
@@ -151,17 +152,37 @@ def test_ramp_combined():
     return wt_frame.assert_equal(tl_check, tl_ramp)
 
 
-# def test_ramp_start():
-# TODO: WIP
-# timeline = tl.create(
-#     [
-#         ["lockbox_MOT__V", 0.0, 0.0],
-#         ["⚓__001", 0.0, 0.0],
-#     ],
-#     context="init",
-# )
-# tl_ramp = tl.ramp(timeline, **args)
-# return wt_frame.assert_equal(tl_ramp, tl_check)
+@pytest.mark.parametrize(
+    "args",
+    [
+        [[0.05, 0.0], [0.05, 5]],
+        # TODO: Want to make the starting point as flexible as the ending point
+        # [0.05, [0.05, 5]],   [[0.05], [0.05, 5]], [0.05, [0.05, 5]]
+    ],
+)
+def test_ramp_start(args):
+    timeline = tl.create(
+        [
+            ["lockbox_MOT__V", 0.0],
+            ["⚓__001", 0.0],
+        ],
+        t=0.0,
+        context="init",
+    )
+    tl_ramp = tl.ramp(timeline, lockbox_MOT__V=args)
+
+    tl_check = tl.create(
+        [
+            ["lockbox_MOT__V", [0.0, 0.0, "init"]],
+            ["⚓__001", [0.0, 0.0, "init"]],
+            [
+                "lockbox_MOT__V",
+                [[0.05, 0.0, "init"], [0.1, 5, "init"]],
+            ],
+        ],
+    )
+    tl_check["function"] = [np.nan, np.nan, ramp_function.tanh, ramp_function.tanh]
+    return wt_frame.assert_equal(tl_ramp, tl_check)
 
 
 def test_ramp_expand():
