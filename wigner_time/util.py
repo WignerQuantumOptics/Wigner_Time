@@ -5,6 +5,8 @@ from collections.abc import Iterable, Sequence
 import numpy as np
 import math
 
+from wigner_time.config import wtlog
+
 
 def is_sequence(x, is_string=False):
     """
@@ -17,14 +19,22 @@ def is_sequence(x, is_string=False):
         return isinstance(x, Sequence)
 
 
-def shape(obj):
+def shape(coll):
     """
     Recursively determine the maximum dimensions of a nested list or array.
     Works independently of whether the input is a NumPy array or a Python list.
     """
-    if isinstance(obj, (list, np.ndarray)) and len(obj) > 0:
-        return [len(obj)] + shape(obj[0])
+    if isinstance(coll, (list, np.ndarray)) and len(coll) > 0:
+        return [len(coll)] + shape(coll[0])
     return []
+
+
+def max_dimension(coll):
+    """
+    Following on from `shape`, returns the highest dimension in a potentially heterogeneous shape.
+    """
+    wtlog.debug(coll)
+    return max([max(shape(a)) for a in coll])
 
 
 def ensure_iterable(x, is_string=False):

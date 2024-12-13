@@ -22,6 +22,18 @@ def dfseq():
     )
 
 
+@pytest.fixture
+def tl_anchor():
+    return tl.create(
+        [
+            ["lockbox_MOT__V", 0.0],
+            ["⚓__001", 0.0],
+        ],
+        t=0.0,
+        context="init",
+    )
+
+
 @pytest.mark.parametrize(
     "args",
     [
@@ -154,22 +166,10 @@ def test_ramp_combined():
 
 @pytest.mark.parametrize(
     "args",
-    [
-        [[0.05, 0.0], [0.05, 5]],
-        # TODO: Want to make the starting point as flexible as the ending point
-        # [0.05, [0.05, 5]],   [[0.05], [0.05, 5]], [0.05, [0.05, 5]]
-    ],
+    [[[0.05, 0.0], [0.05, 5]]],
 )
-def test_ramp_start(args):
-    timeline = tl.create(
-        [
-            ["lockbox_MOT__V", 0.0],
-            ["⚓__001", 0.0],
-        ],
-        t=0.0,
-        context="init",
-    )
-    tl_ramp = tl.ramp(timeline, lockbox_MOT__V=args)
+def test_ramp_start(tl_anchor, args):
+    tl_ramp = tl.ramp(tl_anchor, lockbox_MOT__V=args, duration=100e-3)
 
     tl_check = tl.create(
         [
@@ -183,6 +183,28 @@ def test_ramp_start(args):
     )
     tl_check["function"] = [np.nan, np.nan, ramp_function.tanh, ramp_function.tanh]
     return wt_frame.assert_equal(tl_ramp, tl_check)
+
+
+# === Heterogeneous input is probably a bad idea
+# @pytest.mark.parametrize(
+#     "args",
+#     [[[0.05], [0.05, 5]], [0.05, [0.05, 5]]],
+# )
+# def test_ramp_start2(tl_anchor, args):
+#     tl_ramp = tl.ramp(tl_anchor, lockbox_MOT__V=args, duration=0.0)
+
+#     tl_check = tl.create(
+#         [
+#             ["lockbox_MOT__V", [0.0, 0.0, "init"]],
+#             ["⚓__001", [0.0, 0.0, "init"]],
+#             [
+#                 "lockbox_MOT__V",
+#                 [[0.00, 0.05, "init"], [0.1, 5, "init"]],
+#             ],
+#         ],
+#     )
+#     tl_check["function"] = [np.nan, np.nan, ramp_function.tanh, ramp_function.tanh]
+#     return wt_frame.assert_equal(tl_ramp, tl_check)
 
 
 def test_ramp_expand():
