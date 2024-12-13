@@ -126,6 +126,7 @@ def update(
     t=0.0,
     context=None,
     origin=None,
+    origin__default="anchor",
     schema=_SCHEMA,
     **vtvc_dict,
 ):
@@ -153,6 +154,15 @@ def update(
         )
 
     else:
+        # Check if anchor is desired and available
+        # TODO: Implement a fallback to 'last', if there's no anchor available
+        if (
+            (origin is None)
+            and (origin__default is not None)
+            and wt_anchor.is_available(timeline)
+        ):
+            origin = origin__default
+
         if context is None:
             context = previous(timeline)["context"]
 
@@ -195,7 +205,7 @@ def anchor(
 
     num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
 
-    # Check if anchor is desired and available
+    # Check if anchor origin is desired and available
     if (
         (origin is None)
         and (origin__default is not None)
