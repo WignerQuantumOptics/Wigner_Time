@@ -26,9 +26,6 @@ from wigner_time import util as wt_util
 #                   Constants                                                 #
 ###############################################################################
 
-ANALOG_SUFFIXES = {"Voltage": "__V", "Current": "__A", "Frequency": "__MHz"}
-# TODO: Should be deleted, but currently needed by display
-
 _SCHEMA = {"time": float, "variable": str, "value": float, "context": str}
 _COLUMN_NAMES__RESERVED = list(_SCHEMA.keys()) + [
     "unit_range",
@@ -261,8 +258,6 @@ def ramp(
     This will cover the vast majority of use cases, but sometimes there might be a need to control the start of a ramp explicitly, even with respect to the `origin`. This can be done similarly,  e.g.
     `lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]]`,
     but with the condition that the lists are not inhomogenous.
-
-
     """
     # TODO:
     # - check for ramps with 0 duration (shouldn't do anything)
