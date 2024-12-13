@@ -15,12 +15,12 @@ from typing import Callable
 import funcy
 import numpy as np
 
+from wigner_time import anchor as wt_anchor
 from wigner_time import config as wt_config
 from wigner_time import input as wt_input
 from wigner_time import ramp_function as wt_ramp_function
-from wigner_time.internal import dataframe as wt_frame, origin
+from wigner_time.internal import dataframe as wt_frame
 from wigner_time.internal import origin as wt_origin
-from wigner_time import util as wt_util
 
 ###############################################################################
 #                   Constants                                                 #
@@ -53,7 +53,7 @@ def previous(
     # DEPRECATED:
     # TODO: Delete this in favour of the implementation in origin?
     # Can be exposed through the package API
-    return origin.previous(
+    return wt_origin.previous(
         timeline=timeline,
         variable=variable,
         column=column,
@@ -193,18 +193,10 @@ def anchor(
             origin=origin,
         )
 
-    num_anchors = (
-        timeline["variable"]
-        .loc[timeline["variable"].str.startswith(wt_config.LABEL__ANCHOR)]
-        .nunique()
-    )
+    num_anchors = timeline["variable"].loc[mask(timeline)].nunique()
 
     # Check if anchor is desired and available
-    if (
-        (origin is None)
-        and (origin__default is not None)
-        and ((timeline["variable"].str.startswith(wt_config.LABEL__ANCHOR)).any())
-    ):
+    if (origin is None) and (origin__default is not None) and is_available(timeline):
         origin = origin__default
 
     return update(
