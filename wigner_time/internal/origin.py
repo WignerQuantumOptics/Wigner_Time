@@ -13,6 +13,7 @@ from copy import deepcopy
 from wigner_time import config as wt_config
 from wigner_time.config import wtlog
 from wigner_time import util as wt_util
+from wigner_time import anchor as wt_anchor
 from wigner_time.internal import dataframe as wt_frame
 from wigner_time.internal import origin as wt_origin
 
@@ -108,23 +109,6 @@ def find(
     if o == [None, None]:
         return [None, None]
 
-    def _available__anchor(timeline, context=None):
-        """
-        The last anchor variable available, optionally filtered by context.
-        """
-        if timeline is None:
-            return None
-
-        df_con = (
-            timeline if context is None else timeline[timeline["context"] == context]
-        )
-        df_filt = df_con[df_con["variable"].str.startswith(label__anchor)]
-
-        if not df_filt.empty:
-            return df_filt.loc[df_filt["time"][::-1].idxmax(), "variable"]
-        else:
-            return None  # Or any default value you prefer
-
     def _is_available__variable(var):
         return (
             (timeline["variable"] == var).any()
@@ -152,14 +136,14 @@ def find(
                 ].values
 
     def _to_col_var(timeline, label):
-        if label == "anchor" and (_available__anchor(timeline) is not None):
+        if label == "anchor" and wt_anchor.is_available(timeline):
             return ["variable", label__anchor]
         elif label == "last":
             return ["variable", None]
         elif _is_available__variable(label):
             return ["variable", label]
         elif _is_available__context(label):
-            anchor = _available__anchor(timeline, context=label)
+            anchor = wt_anchor.last(timeline, context=label)
             return ["variable", anchor] if (anchor is not None) else ["context", label]
         else:
             raise error__unsupported_option

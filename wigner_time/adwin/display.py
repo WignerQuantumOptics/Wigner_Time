@@ -9,7 +9,7 @@ if not importlib.util.find_spec("matplotlib"):
 # Normal imports
 import matplotlib.pyplot as plt
 
-from wigner_time import adwin as adwin
+from wigner_time.adwin import core as adwin
 
 
 def channels(

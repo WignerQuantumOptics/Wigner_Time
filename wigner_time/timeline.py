@@ -193,10 +193,14 @@ def anchor(
             origin=origin,
         )
 
-    num_anchors = timeline["variable"].loc[mask(timeline)].nunique()
+    num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
 
     # Check if anchor is desired and available
-    if (origin is None) and (origin__default is not None) and is_available(timeline):
+    if (
+        (origin is None)
+        and (origin__default is not None)
+        and wt_anchor.is_available(timeline)
+    ):
         origin = origin__default
 
     return update(

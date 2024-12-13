@@ -2,7 +2,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from wigner_time import adwin as adwin
+from wigner_time.adwin import core as adwin
 from wigner_time import connection as con
 from wigner_time import device as device
 from wigner_time.internal import dataframe as frame
