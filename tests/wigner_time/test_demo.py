@@ -164,7 +164,7 @@ def testInitToFinish():
         ex.MOT_detunedGrowth(),
         ex.molasses(),
         ex.OP(),
-        # ex.magneticTrapping(),
+        ex.magneticTrapping(),
         # ex.finish(
         #     wait=2, MOT_ON=True, shutter_imaging=0, AOM_imaging=1, trigger_camera=0
         # ),

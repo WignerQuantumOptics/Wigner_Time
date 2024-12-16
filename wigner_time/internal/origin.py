@@ -25,12 +25,15 @@ from wigner_time.internal import origin as wt_origin
 _ORIGINS = ["anchor", "last", "variable"]
 "These origin labels are reserved for interpretation by the package. Other origin strings will be interpreted as`variable`s."
 
-error__unsupported_option = ValueError(
-    "Unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. \n\n If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
-)
-error__timeline = ValueError(
-    "Timeline not specified, but necessary for this type of origin."
-)
+
+def error__unsupported_option(origin):
+    return ValueError(
+        f"{origin} is an unsupported option for 'origin' in `wigner_time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. \n\n If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
+    )
+
+
+def error__timeline(origin):
+    return ValueError(f"Timeline not specified, but necessary for origin={origin}.")
 
 
 #############################################################################
@@ -74,9 +77,9 @@ def previous(
 def sanitize_origin(timeline, orig):
     o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(orig))
     if len(o) != 2:
-        raise error__unsupported_option
+        raise error__unsupported_option(orig)
     if any(isinstance(e, str) for e in o) and timeline is None:
-        raise error__timeline
+        raise error__timeline(orig)
     return o
 
 
@@ -146,7 +149,7 @@ def find(
             anchor = wt_anchor.last(timeline, context=label)
             return ["variable", anchor] if (anchor is not None) else ["context", label]
         else:
-            raise error__unsupported_option
+            raise error__unsupported_option(label)
 
     o = sanitize_origin(timeline, origin)
     match o:
@@ -172,7 +175,7 @@ def find(
             ]
 
         case _:
-            raise error__unsupported_option
+            raise error__unsupported_option(o)
     return tv
 
 
