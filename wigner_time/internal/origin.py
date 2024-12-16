@@ -207,7 +207,7 @@ def update(
         """
         input is an origin, but where `variable` is a general placeholder: can be [var, None], [None, var], [var, var], [a,var], [var,a], [num,var], [var, num], where `var` is a specific variable reference.
         """
-        for var in timeline__future["variable"]:
+        for var in timeline__future["variable"].unique():
             _t0, _v0 = wt_origin.find(
                 timeline__past, origin=[var if e == "variable" else e for e in input]
             )

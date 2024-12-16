@@ -1,6 +1,5 @@
 from copy import deepcopy
 import pandas as pd
-from pandas._libs.lib import tuples_to_object_array
 
 from wigner_time import timeline as tl
 from wigner_time.internal import dataframe as frame
@@ -14,6 +13,7 @@ sys.path.append(str(pl.Path.cwd() / "doc"))
 import experiment as ex
 
 importlib.reload(ex)
+from wigner_time.adwin import display as adwin_display
 
 
 def replace_anchor_symbol(df, symbol__old="Anchor", symbol__new="⚓"):
@@ -151,3 +151,29 @@ def test_MOTdetuned():
         columns=["time", "variable", "value", "context"],
     )
     return frame.assert_equal(tl__new, tl__original)
+
+
+def testInitToFinish():
+    # TODO: Problems:
+    # shutter_op1
+    # shutter_op2
+    # AOM_op
+    tl__new = tl.stack(
+        ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
+        ex.MOT(),
+        ex.MOT_detunedGrowth(),
+        ex.molasses(),
+        ex.OP(),
+        # ex.magneticTrapping(),
+        # ex.finish(
+        #     wait=2, MOT_ON=True, shutter_imaging=0, AOM_imaging=1, trigger_camera=0
+        # ),
+    )
+    adwin_display.channels(tl__new)
+
+    tl__old = pd.read_parquet("resources/timeline__init-to-finish.parquet")
+
+    # adwin_display.channels(tl__old)
+
+    # print(tl__new)
+    assert False
