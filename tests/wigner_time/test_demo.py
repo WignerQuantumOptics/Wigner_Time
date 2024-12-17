@@ -187,18 +187,25 @@ def remove_anchors(timeline):
 
 def testInitToFinish():
 
-    tl__new = remove_anchors(
-        tl.stack(
-            ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
-            ex.MOT(),
-            ex.MOT_detunedGrowth(),
-            ex.molasses(),
-            ex.OP(),
-            ex.magneticTrapping(),
-            ex.finish(
-                wait=2, MOT_ON=True, shutter_imaging=0, AOM_imaging=1, trigger_camera=0
-            ),
-        )
+    tl__new = remove_rows_within_time(
+        remove_anchors(
+            tl.stack(
+                ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
+                ex.MOT(),
+                ex.MOT_detunedGrowth(),
+                ex.molasses(),
+                ex.OP(),
+                ex.magneticTrapping(),
+                ex.finish(
+                    wait=2,
+                    MOT_ON=True,
+                    shutter_imaging=0,
+                    AOM_imaging=1,
+                    trigger_camera=0,
+                ),
+            )
+        ),
+        0.05,
     )
 
     tl__old = remove_rows_within_time(
@@ -217,4 +224,5 @@ def testInitToFinish():
 
     adwin_display.channels(tl__old)
     adwin_display.channels(tl__new)
-    assert False
+    tl__new.drop(columns="function", inplace=True)
+    return frame.assert_equal(tl__new, tl__old)
