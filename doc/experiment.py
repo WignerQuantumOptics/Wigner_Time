@@ -240,6 +240,6 @@ def magneticTrapping(
 ):
     return tl.stack(
         pull_coils(durationInitial, li, ui, context="magneticTrapping", **kwargs),
-        pull_coils(durationStrengthen, ls, us, t=durationInitial),
+        pull_coils(durationStrengthen, ls, us, t1=durationInitial),
         tl.anchor(durationInitial + durationStrengthen, context="magneticTrapping"),
     )

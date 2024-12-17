@@ -227,12 +227,21 @@ def anchor(
 def ramp(
     timeline=None,
     duration=None,
+    t1=None,
     context=None,
     origins=[["anchor", "variable"], ["variable"]],
     schema=_SCHEMA,
     function=wt_ramp_function.tanh,
     **vtvc_dict,
 ) -> wt_frame.CLASS | Callable:
+    # TODO: Decide on arguments
+    # - t = [0.0, 2.0]
+    # - origins = [[,], [,]]
+    #
+    # - t1 = 0.0; duration=2.0
+    # - t1 = 0.0; t2=2.0
+    # - origin1=...;origin2=...
+    #
     """
     Convenient ways of defining pairs of points and a function!
 
@@ -297,7 +306,7 @@ def ramp(
             _vtvc_2d_1 = {k: v[1] for k, v in _vtvcs.items() if v.ndim == 2}
 
             rows1 = wt_input.rows_from_arguments(
-                *[], time=duration, context=context, **_vtvc_2d_0
+                *[], time=t1, context=context, **_vtvc_2d_0
             )
             rows2 = wt_input.rows_from_arguments(
                 *[], time=duration, context=context, **(_vtvc_1d | _vtvc_2d_1)
@@ -314,7 +323,11 @@ def ramp(
     df_2 = wt_frame.new(rows2, columns=schema.keys()).astype(schema)
 
     df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])]
-    df__no_start_points.loc[:, ["time", "value"]] = 0.0
+    if t1 is None:
+        df__no_start_points.loc[:, ["time", "value"]] = 0.0
+    else:
+        df__no_start_points.loc[:, "time"] = t1
+        df__no_start_points.loc[:, "value"] = 0.0
 
     new1 = wt_origin.update(
         wt_frame.concat([df_1, df__no_start_points]), timeline, origin=origins[0]
@@ -324,7 +337,6 @@ def ramp(
     new2["function"] = function
 
     # TODO: Should we sort the new timelines before returning them?
-
     return wt_frame.drop_duplicates(
         wt_frame.concat([timeline, new1, new2]), subset=["variable", "time"]
     )

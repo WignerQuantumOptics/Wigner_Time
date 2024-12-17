@@ -2,6 +2,7 @@ from copy import deepcopy
 import pandas as pd
 
 from wigner_time import timeline as tl
+from wigner_time import anchor as anchor
 from wigner_time.internal import dataframe as frame
 
 import pathlib as pl
@@ -153,27 +154,67 @@ def test_MOTdetuned():
     return frame.assert_equal(tl__new, tl__original)
 
 
+def remove_rows_within_time(df, time_threshold):
+    """
+    Removes all rows (except the first and last) where 'variable' is the same
+    and 'time' values differ by less than 'time_threshold'.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame with 'time' and 'variable' columns.
+        time_threshold (float): Threshold for time differences to define blocks.
+
+    Returns:
+        pd.DataFrame: Filtered DataFrame retaining only the first and last rows of each block.
+    """
+    df = df.sort_values(by=["variable", "time"]).reset_index(drop=True)
+
+    def filter_blocks(group):
+        group["block"] = (
+            group["time"].diff().fillna(float("inf")) > time_threshold
+        ).cumsum()
+
+        return group.groupby("block", group_keys=False).apply(lambda x: x.iloc[[0, -1]])
+
+    result = df.groupby("variable", group_keys=False).apply(filter_blocks)
+
+    return result.drop(columns=["block"])
+
+
+def remove_anchors(timeline):
+    df = timeline[~anchor.mask(timeline)]
+    return df
+
+
 def testInitToFinish():
-    # TODO: Problems:
-    # shutter_op1
-    # shutter_op2
-    # AOM_op
-    tl__new = tl.stack(
-        ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
-        ex.MOT(),
-        ex.MOT_detunedGrowth(),
-        ex.molasses(),
-        ex.OP(),
-        ex.magneticTrapping(),
-        # ex.finish(
-        #     wait=2, MOT_ON=True, shutter_imaging=0, AOM_imaging=1, trigger_camera=0
-        # ),
+
+    tl__new = remove_anchors(
+        tl.stack(
+            ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
+            ex.MOT(),
+            ex.MOT_detunedGrowth(),
+            ex.molasses(),
+            ex.OP(),
+            ex.magneticTrapping(),
+            ex.finish(
+                wait=2, MOT_ON=True, shutter_imaging=0, AOM_imaging=1, trigger_camera=0
+            ),
+        )
     )
-    adwin_display.channels(tl__new)
 
-    tl__old = pd.read_parquet("resources/timeline__init-to-finish.parquet")
+    tl__old = remove_rows_within_time(
+        pd.read_parquet("resources/test_data/timeline__init-to-finish.parquet"),
+        0.05,
+    )
 
-    # adwin_display.channels(tl__old)
+    variables__drop = tl__old[~tl__old["variable"].isin(tl__new["variable"])][
+        "variable"
+    ].unique()
 
+    tl__old = tl__old[~tl__old["variable"].isin(variables__drop)]
+
+    # print((tl__old))
     # print(tl__new)
+
+    adwin_display.channels(tl__old)
+    adwin_display.channels(tl__new)
     assert False
