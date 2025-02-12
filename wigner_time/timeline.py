@@ -377,17 +377,21 @@ def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
 
 def expand(timeline, num__bounds=2, **function_args) -> wt_frame.CLASS:
     """
+    Converts the functions marked in the timeline into individual rows, i.e. applies the functions to the given data.
+
+    This is generally a one-way operation and so should only be carried out before the timeline is implemented on a device.
+
     `num__bounds` refers to the number of points (and so rows) needed to define the ramp function in the first place. Currently, this is implicitly assumed to be two, i.e. that `ramp`s are simply defined by the origin, terminus and expansion function.
     """
+    # NOTE: Not implemented for `num__bounds` != 2
+    #
     _mask_fs = timeline["function"].notna()
-    _dff = timeline[_mask_fs]
+    _dff = timeline[_mask_fs].sort_values(by=['variable','time'])
+
 
     # Work out where the ramps start
     _indices_drop = _dff.index
-    _inds = np.asarray(_indices_drop)
-    _diff = np.diff(_inds)
-    _inds__split = np.where(_diff > 1)[0] + 1
-    _inds__start = [a[0] for a in np.split(_inds, _inds__split)]
+    _inds__start = _dff.iloc[::num__bounds].index
 
     # Mark the beginning and end points (allowing for the number of points per ramp specification to increase in the future)
     _dff = _dff.reset_index(drop=True)
@@ -401,21 +405,28 @@ def expand(timeline, num__bounds=2, **function_args) -> wt_frame.CLASS:
         ["time", "value", "variable", "function", "ramp_group"]
     )
 
+    print(_dff[['time', 'variable', 'value', 'ramp_group']])
+    print("got to groups")
     for _, _group in _dff.groupby("ramp_group"):
         _pt_start, _pt_end = _group[["time", "value"]].values
+        print(_pt_start, _pt_end)
 
         # Apply the ramp function
         _dfs.append(
             create(
                 [
-                    _group["variable"][0],
-                    _group["function"][0](_pt_start, _pt_end, **function_args),
+                    _group["variable"].tolist()[0],
+                    _group["function"].tolist()[0](_pt_start, _pt_end, **function_args),
                 ],
             ).assign(**_group.iloc[0][_columns__keep].to_dict())
         )
 
     timeline.drop(index=_indices_drop, inplace=True)
     timeline.drop(columns=["function"], inplace=True)
+
+    print(len(_indices_drop))
+    print(len(_dfs))
+    print(len(_inds__start))
 
     # Add the values back into the main timeline
     return wt_frame.insert_dataframes(timeline, _inds__start, _dfs)

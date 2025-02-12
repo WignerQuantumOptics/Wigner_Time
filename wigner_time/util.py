@@ -107,5 +107,5 @@ def range__inclusive(start, stop, step):
     Adapting arange, by adding the step size, leads to awkward corner cases, so we use a modified `linspace` instead.
     """
     # Uses `math` because it returns an integer rather than a float.
-    num = math.ceil((stop - start) / step) + 1
+    num = np.abs(math.ceil((stop - start) / step) + 1)
     return np.linspace(start, stop, num=num)

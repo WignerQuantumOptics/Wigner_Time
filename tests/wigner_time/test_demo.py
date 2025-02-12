@@ -186,27 +186,45 @@ def remove_anchors(timeline):
 
 
 def testInitToFinish():
-
-    tl__new = remove_rows_within_time(
-        remove_anchors(
-            tl.stack(
-                ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
-                ex.MOT(),
-                ex.MOT_detunedGrowth(),
-                ex.molasses(),
-                ex.OP(),
-                ex.magneticTrapping(),
-                ex.finish(
-                    wait=2,
-                    MOT_ON=True,
-                    shutter_imaging=0,
-                    AOM_imaging=1,
-                    trigger_camera=0,
-                ),
-            )
-        ),
-        0.05,
+    tl__new = tl.expand(
+        tl.stack(
+            ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
+            ex.MOT(),
+            ex.MOT_detunedGrowth(),
+            ex.molasses(),
+            ex.OP(),
+            ex.magneticTrapping(),
+            ex.finish(
+                wait=2,
+                MOT_ON=True,
+                shutter_imaging=0,
+                AOM_imaging=1,
+                trigger_camera=0,
+            ),
+        )
     )
+    breakpoint()
+
+    # tl__new = remove_rows_within_time(
+    #     remove_anchors(
+    #         tl.stack(
+    #             ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
+    #             ex.MOT(),
+    #             ex.MOT_detunedGrowth(),
+    #             ex.molasses(),
+    #             ex.OP(),
+    #             ex.magneticTrapping(),
+    #             ex.finish(
+    #                 wait=2,
+    #                 MOT_ON=True,
+    #                 shutter_imaging=0,
+    #                 AOM_imaging=1,
+    #                 trigger_camera=0,
+    #             ),
+    #         )
+    #     ),
+    #     0.05,
+    # )
 
     tl__old = remove_rows_within_time(
         pd.read_parquet("resources/test_data/timeline__init-to-finish.parquet"),
