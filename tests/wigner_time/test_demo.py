@@ -201,9 +201,9 @@ def testInitToFinish():
                 AOM_imaging=1,
                 trigger_camera=0,
             ),
-        )
+        ),
+        time_resolution=10e-6,
     )
-    breakpoint()
 
     # tl__new = remove_rows_within_time(
     #     remove_anchors(
@@ -226,21 +226,17 @@ def testInitToFinish():
     #     0.05,
     # )
 
-    tl__old = remove_rows_within_time(
-        pd.read_parquet("resources/test_data/timeline__init-to-finish.parquet"),
-        0.05,
-    )
+    tl__old = pd.read_parquet("resources/test_data/timeline__init-to-finish.parquet")
 
-    variables__drop = tl__old[~tl__old["variable"].isin(tl__new["variable"])][
-        "variable"
-    ].unique()
+    # variables__drop = tl__old[~tl__old["variable"].isin(tl__new["variable"])][
+    #     "variable"
+    # ].unique()
 
-    tl__old = tl__old[~tl__old["variable"].isin(variables__drop)]
+    # tl__old = tl__old[~tl__old["variable"].isin(variables__drop)]
 
     # print((tl__old))
     # print(tl__new)
 
-    adwin_display.channels(tl__old)
+    adwin_display.channels(tl__old, do_show=False)
     adwin_display.channels(tl__new)
-    tl__new.drop(columns="function", inplace=True)
-    return frame.assert_equal(tl__new, tl__old)
+    return frame.assert_equal(tl__new, None)

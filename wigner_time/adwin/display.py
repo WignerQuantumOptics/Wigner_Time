@@ -3,6 +3,8 @@
 # Block module based on dependency
 import importlib.util
 
+from wigner_time.anchor import LABEL__ANCHOR
+
 if not importlib.util.find_spec("matplotlib"):
     raise ImportError("The `display` module requires `matplotlib` to be installed.")
 
@@ -16,6 +18,7 @@ def channels(
     timeline,
     variables=None,
     suffixes__analogue={"Voltage": "__V", "Current": "__A", "Frequency": "__MHz"},
+    do_show=True,
 ):
     timeline.sort_values("time", inplace=True, ignore_index=True)
 
@@ -47,9 +50,7 @@ def channels(
     # TODO: Anchor should be filtered before now (it's not connected to a variable)
     digital_variables = list(
         filter(
-            lambda s: s
-            not in [item for sublist in analog_variables.values() for item in sublist]
-            and s != "Anchor",
+            lambda s: (LABEL__ANCHOR not in s) and ("__" not in s),
             variables,
         )
     )
@@ -126,7 +127,8 @@ def channels(
     # Connect the sync function to the 'xlim_changed' event
     axes[0].callbacks.connect("xlim_changed", sync_axes)
 
-    plt.show()
+    if do_show:
+        plt.show()
 
     return fig, axes
 

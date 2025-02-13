@@ -109,6 +109,7 @@ def find(
     # - More meaningful error if anchor is not available
 
     o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))
+
     if o == [None, None]:
         return [None, None]
 

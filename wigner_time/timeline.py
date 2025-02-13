@@ -215,7 +215,7 @@ def anchor(
         origin = origin__default
 
     return update(
-        "{}__{:03d}".format(wt_config.LABEL__ANCHOR, num_anchors + 1),
+        "{}_{:03d}".format(wt_config.LABEL__ANCHOR, num_anchors + 1),
         0,
         timeline=timeline,
         t=t,
@@ -227,7 +227,7 @@ def anchor(
 def ramp(
     timeline=None,
     duration=None,
-    t1=None,
+    t=None,
     context=None,
     origins=[["anchor", "variable"], ["variable"]],
     schema=_SCHEMA,
@@ -236,7 +236,10 @@ def ramp(
 ) -> wt_frame.CLASS | Callable:
     # TODO: Decide on arguments
     # - t = [0.0, 2.0]
-    # - origins = [[,], [,]]
+    # - origin = [[,], [,]]
+    #
+    # t=...;t2=...
+    # origin=...; origin2=...
     #
     # - t1 = 0.0; duration=2.0
     # - t1 = 0.0; t2=2.0
@@ -306,7 +309,7 @@ def ramp(
             _vtvc_2d_1 = {k: v[1] for k, v in _vtvcs.items() if v.ndim == 2}
 
             rows1 = wt_input.rows_from_arguments(
-                *[], time=t1, context=context, **_vtvc_2d_0
+                *[], time=t, context=context, **_vtvc_2d_0
             )
             rows2 = wt_input.rows_from_arguments(
                 *[], time=duration, context=context, **(_vtvc_1d | _vtvc_2d_1)
@@ -323,10 +326,10 @@ def ramp(
     df_2 = wt_frame.new(rows2, columns=schema.keys()).astype(schema)
 
     df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])]
-    if t1 is None:
+    if t is None:
         df__no_start_points.loc[:, ["time", "value"]] = 0.0
     else:
-        df__no_start_points.loc[:, "time"] = t1
+        df__no_start_points.loc[:, "time"] = t
         df__no_start_points.loc[:, "value"] = 0.0
 
     new1 = wt_origin.update(
@@ -367,7 +370,7 @@ def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
         ramp(…)
     )
 
-    Otherwise, the result is a functional, which can be later be applied on an existing timeline.
+    Otherwise, the result is a functional, which can later be applied on an existing timeline.
     """
     if isinstance(firstArgument, wt_frame.CLASS):
         return funcy.compose(*fs[::-1])(firstArgument)
@@ -386,8 +389,7 @@ def expand(timeline, num__bounds=2, **function_args) -> wt_frame.CLASS:
     # NOTE: Not implemented for `num__bounds` != 2
     #
     _mask_fs = timeline["function"].notna()
-    _dff = timeline[_mask_fs].sort_values(by=['variable','time'])
-
+    _dff = timeline[_mask_fs].sort_values(by=["variable", "time"])
 
     # Work out where the ramps start
     _indices_drop = _dff.index
@@ -405,11 +407,8 @@ def expand(timeline, num__bounds=2, **function_args) -> wt_frame.CLASS:
         ["time", "value", "variable", "function", "ramp_group"]
     )
 
-    print(_dff[['time', 'variable', 'value', 'ramp_group']])
-    print("got to groups")
     for _, _group in _dff.groupby("ramp_group"):
         _pt_start, _pt_end = _group[["time", "value"]].values
-        print(_pt_start, _pt_end)
 
         # Apply the ramp function
         _dfs.append(
@@ -423,10 +422,6 @@ def expand(timeline, num__bounds=2, **function_args) -> wt_frame.CLASS:
 
     timeline.drop(index=_indices_drop, inplace=True)
     timeline.drop(columns=["function"], inplace=True)
-
-    print(len(_indices_drop))
-    print(len(_dfs))
-    print(len(_inds__start))
 
     # Add the values back into the main timeline
     return wt_frame.insert_dataframes(timeline, _inds__start, _dfs)
