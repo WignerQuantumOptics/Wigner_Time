@@ -228,8 +228,10 @@ def ramp(
     timeline=None,
     duration=None,
     t=None,
+    t2=None,
     context=None,
     origins=[["anchor", "variable"], ["variable"]],
+    origin2=["variable"],
     schema=_SCHEMA,
     function=wt_ramp_function.tanh,
     **vtvc_dict,
@@ -284,8 +286,12 @@ def ramp(
         return lambda x: ramp(
             timeline=x,
             duration=duration,
+    t=t,
+    t2=t2,
             context=context,
             origins=origins,
+            origin2=origin2,
+    schema=schema,
             function=function,
             **vtvc_dict,
         )
@@ -339,10 +345,11 @@ def ramp(
     new2 = wt_origin.update(df_2, new1, origin=origins[1])
     new2["function"] = function
 
-    # TODO: Should we sort the new timelines before returning them?
-    return wt_frame.drop_duplicates(
-        wt_frame.concat([timeline, new1, new2]), subset=["variable", "time"]
-    )
+
+
+    # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
+    return wt_frame.concat([timeline, new1, new2])
+
 
 
 def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
