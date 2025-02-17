@@ -10,6 +10,8 @@ This is important for inferring what the user means when they want to add rows t
 # - dictionary option for origin (i.e. different origin for different variables?)
 
 from copy import deepcopy
+import numpy as np
+
 from wigner_time import config as wt_config
 from wigner_time.config import wtlog
 from wigner_time import util as wt_util
@@ -72,6 +74,23 @@ def previous(
             return tl__filtered.iloc[index]
         else:
             return timeline.iloc[index]
+
+
+def auto(timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS):
+    """
+    NOTE: Assumes that origin__defaults is a list of pairs.
+    """
+    if (origin is None) and (origin__defaults is not None):
+        for od in origin__defaults:
+            if "anchor" in np.array(od).flatten():
+                if wt_anchor.is_available(timeline):
+                    return od
+                else:
+                    continue
+            else:
+                return od
+    else:
+        return origin
 
 
 def sanitize_origin(timeline, orig):

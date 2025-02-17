@@ -115,3 +115,18 @@ def test_originContext(df_context1):
 
 def test_originContextAnchor(df_context1):
     assert origin.find(df_context1, "MOT") == [4.5, None]
+
+
+def test_originAuto1(df_context1):
+    defaults = [["anchor", None], ["last", None]]
+    assert origin.auto(None, "anchor", origin__defaults=defaults) == "anchor"
+
+
+def test_originAuto2(df_context1):
+    defaults = [["anchor", None], ["last", None]]
+    assert origin.auto(None, None, origin__defaults=defaults) == ["last", None]
+
+
+def test_originAuto3(df_context1):
+    defaults = [["anchor", None], ["last", None]]
+    assert origin.auto(df_context1, None, origin__defaults=defaults) == ["anchor", None]

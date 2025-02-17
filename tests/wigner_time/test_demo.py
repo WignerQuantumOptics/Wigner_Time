@@ -107,6 +107,9 @@ def test_MOT():
         columns=["time", "variable", "value", "context"],
     )
 
+    # adwin_display.channels(tl__original, do_show=False)
+    # adwin_display.channels(tl__new)
+
     return frame.assert_equal(tl__new, tl__original)
 
 
@@ -242,7 +245,7 @@ def testInitToFinish():
     # print((tl__old))
     # print(tl__new)
 
-    # adwin_display.channels(tl__old, do_show=False)
-    # adwin_display.channels(tl__new)
+    adwin_display.channels(tl__old, do_show=False)
+    adwin_display.channels(tl__new)
     # return frame.assert_equal(tl__new, None)
     return True

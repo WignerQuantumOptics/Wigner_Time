@@ -24,6 +24,8 @@ def mask(timeline, context=None):
 
 
 def is_available(timeline, context=None) -> bool:
+    if timeline is None:
+        return False
     return (mask(timeline, context=context)).any()
 
 

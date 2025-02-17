@@ -93,7 +93,7 @@ def init(**kwargs):
             context="ADwin_LowInit",
             **kwargs,
         ),
-        tl.anchor(t=0.0, context="InitialAnchor"),  # , relativeTime=False
+        tl.anchor(t=0.0, origin=0.0, context="InitialAnchor"),
     )
 
 
@@ -132,7 +132,6 @@ def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
 def MOT(duration=15, lA=-1.0, uA=-0.98, **kwargs):
     return tl.stack(
         tl.update(
-            #           waitChannel = 0,
             shutter_MOT=1,
             shutter_repump=1,
             coil_MOTlower__A=lA,
@@ -165,7 +164,6 @@ def molasses(
     lockbox_pt=3,
     **kwargs
 ):
-
     return tl.stack(
         tl.ramp(
             coil_MOTlower__A=0,

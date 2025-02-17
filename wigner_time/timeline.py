@@ -22,6 +22,7 @@ from wigner_time import ramp_function as wt_ramp_function
 from wigner_time.internal import dataframe as wt_frame
 from wigner_time.internal import origin as wt_origin
 
+
 ###############################################################################
 #                   Constants                                                 #
 ###############################################################################
@@ -126,7 +127,6 @@ def update(
     t=0.0,
     context=None,
     origin=None,
-    origin__default="anchor",
     schema=_SCHEMA,
     **vtvc_dict,
 ):
@@ -149,20 +149,15 @@ def update(
             t=t,
             context=context,
             origin=origin,
-            origin__default=origin__default,
             schema=schema,
             **vtvc_dict,
         )
 
     else:
         # Check if anchor is desired and available
-        # TODO: Implement a fallback to 'last', if there's no anchor available
-        if (
-            (origin is None)
-            and (origin__default is not None)
-            and wt_anchor.is_available(timeline)
-        ):
-            origin = origin__default
+        origin = wt_origin.auto(
+            timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
+        )
 
         if context is None:
             context = previous(timeline)["context"]
@@ -183,7 +178,6 @@ def anchor(
     timeline=None,
     context=None,
     origin=None,
-    origin__default="anchor",
 ) -> wt_frame.CLASS | Callable:
     """
     Creates a special, non-physical `variable` (doesn't have a matching `connection`), that can be used for time references, particularly within individual `context`s.
@@ -206,13 +200,9 @@ def anchor(
 
     num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
 
-    # Check if anchor origin is desired and available
-    if (
-        (origin is None)
-        and (origin__default is not None)
-        and wt_anchor.is_available(timeline)
-    ):
-        origin = origin__default
+    origin = wt_origin.auto(
+        timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
+    )
 
     return update(
         "{}_{:03d}".format(wt_config.LABEL__ANCHOR, num_anchors + 1),
@@ -230,15 +220,14 @@ def ramp(
     t=None,
     t2=None,
     context=None,
-    origin=["anchor", "variable"],
+    origin=None,
     origin2=["variable"],
     schema=_SCHEMA,
     function=wt_ramp_function.tanh,
     **vtvc_dict,
 ) -> wt_frame.CLASS | Callable:
-    # TODO: Decide on arguments
-    # - origin2
-    # - t2
+    # TODO:
+    # - check for ramps with 0 duration (shouldn't do anything)
     """
     Convenient ways of defining pairs of points and a function!
 
@@ -271,9 +260,9 @@ def ramp(
     This will cover the vast majority of use cases, but sometimes there might be a need to control the start of a ramp explicitly, even with respect to the `origin`. This can be done similarly,  e.g.
     `lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]]`,
     but with the condition that the lists are not inhomogenous.
+
+    NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
-    # TODO:
-    # - check for ramps with 0 duration (shouldn't do anything)
     if timeline is None:
         return lambda x: ramp(
             timeline=x,
@@ -294,11 +283,14 @@ def ramp(
     _vtvcs = {k: np.array(v) for k, v in vtvc_dict.items()}
     max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
 
+    if t2 is None and duration is not None:
+        t2 = duration
+
     match max_ndim:
         case 0 | 1:
             rows1 = None
             rows2 = wt_input.rows_from_arguments(
-                *[], time=duration, context=context, **vtvc_dict
+                *[], time=t2, context=context, **vtvc_dict
             )
 
         case 2:
@@ -310,7 +302,7 @@ def ramp(
                 *[], time=t, context=context, **_vtvc_2d_0
             )
             rows2 = wt_input.rows_from_arguments(
-                *[], time=duration, context=context, **(_vtvc_1d | _vtvc_2d_1)
+                *[], time=t2, context=context, **(_vtvc_1d | _vtvc_2d_1)
             )
 
         case _:
@@ -329,6 +321,8 @@ def ramp(
     else:
         df__no_start_points.loc[:, "time"] = t
         df__no_start_points.loc[:, "value"] = 0.0
+
+    origin = wt_origin.auto(timeline, origin, origin__defaults=[["anchor", "variable"]])
 
     new1 = wt_origin.update(
         wt_frame.concat([df_1, df__no_start_points]), timeline, origin=origin
@@ -384,6 +378,10 @@ def expand(timeline, num__bounds=2, **function_args) -> wt_frame.CLASS:
     """
     # NOTE: Not implemented for `num__bounds` != 2
     #
+    if "function" not in timeline.columns:
+        # TODO: Add test for this 'feature'
+        return timeline
+
     _mask_fs = timeline["function"].notna()
     _dff = timeline[_mask_fs].sort_values(by=["variable", "time"])
 
