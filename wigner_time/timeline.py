@@ -230,23 +230,15 @@ def ramp(
     t=None,
     t2=None,
     context=None,
-    origins=[["anchor", "variable"], ["variable"]],
+    origin=["anchor", "variable"],
     origin2=["variable"],
     schema=_SCHEMA,
     function=wt_ramp_function.tanh,
     **vtvc_dict,
 ) -> wt_frame.CLASS | Callable:
     # TODO: Decide on arguments
-    # - t = [0.0, 2.0]
-    # - origin = [[,], [,]]
-    #
-    # t=...;t2=...
-    # origin=...; origin2=...
-    #
-    # - t1 = 0.0; duration=2.0
-    # - t1 = 0.0; t2=2.0
-    # - origin1=...;origin2=...
-    #
+    # - origin2
+    # - t2
     """
     Convenient ways of defining pairs of points and a function!
 
@@ -286,12 +278,12 @@ def ramp(
         return lambda x: ramp(
             timeline=x,
             duration=duration,
-    t=t,
-    t2=t2,
+            t=t,
+            t2=t2,
             context=context,
-            origins=origins,
+            origin=origin,
             origin2=origin2,
-    schema=schema,
+            schema=schema,
             function=function,
             **vtvc_dict,
         )
@@ -339,17 +331,14 @@ def ramp(
         df__no_start_points.loc[:, "value"] = 0.0
 
     new1 = wt_origin.update(
-        wt_frame.concat([df_1, df__no_start_points]), timeline, origin=origins[0]
+        wt_frame.concat([df_1, df__no_start_points]), timeline, origin=origin
     )
     new1["function"] = function
-    new2 = wt_origin.update(df_2, new1, origin=origins[1])
+    new2 = wt_origin.update(df_2, new1, origin=origin2)
     new2["function"] = function
-
-
 
     # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
     return wt_frame.concat([timeline, new1, new2])
-
 
 
 def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:

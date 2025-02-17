@@ -43,12 +43,14 @@ def tl_anchor():
         Munch(
             lockbox_MOT__V=[100e-3, 5],
             context="init",
-            origins=[["last", "variable"], ["variable"]],
+            origin=["last", "variable"],
+            origin2=["variable"],
         ),
         Munch(
             lockbox_MOT__V=[100e-3, 5],
             context="init",
-            origins=[["last", "variable"], ["variable", "variable"]],
+            origin=["last", "variable"],
+            origin2=["variable", "variable"],
         ),
     ],
 )
@@ -82,16 +84,21 @@ def test_ramp0(args):
         Munch(
             lockbox_MOT__V=5,
             duration=0.05,
-            origins=[[0.05, "variable"], ["variable"]],
+            origin=[0.05, "variable"],
+            origin2=["variable"],
         ),
         Munch(
             lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
-            origins=[["anchor", "variable"], ["variable"]],
+            origin=["anchor", "variable"],
+            origin2=["variable"],
         ),
-        Munch(lockbox_MOT__V=[50e-3, 5], origins=[["last", "variable"], ["variable"]]),
+        Munch(
+            lockbox_MOT__V=[50e-3, 5], origin=["last", "variable"], origin2=["variable"]
+        ),
         Munch(
             lockbox_MOT__V=[50e-3, 4.8],
-            origins=[["last", "variable"], ["variable", "variable"]],
+            origin=["last", "variable"],
+            origin2=["variable", "variable"],
         ),
     ],
 )
@@ -162,7 +169,8 @@ def test_ramp_combined():
         tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
         tl.ramp(
             lockbox_MOT__V=[[5.0, 0.0], [1.0, 10.0]],
-            origins=[["lockbox_MOT__V", "lockbox_MOT__V"], ["variable"]],
+            origin=["lockbox_MOT__V", "lockbox_MOT__V"],
+            origin2=["variable"],
         ),
     )
     return wt_frame.assert_equal(tl_check, tl_ramp)
@@ -216,7 +224,8 @@ def test_ramp_expand():
         tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
         tl.ramp(
             lockbox_MOT__V=[1.0, 10.0],
-            origins=[["lockbox_MOT__V", "lockbox_MOT__V"], ["variable"]],
+            origin=["lockbox_MOT__V", "lockbox_MOT__V"],
+            origin2=["variable"],
         ),
         lambda tline: tl.expand(tline, time_resolution=0.2),
     )
