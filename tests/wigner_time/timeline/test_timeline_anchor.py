@@ -26,7 +26,7 @@ def test_anchor__basic():
     )
 
     tl_check = tl.create(
-        ["⚓__001", [10.0, 0.0, "InitialAnchor"]],
+        ["⚓_001", [10.0, 0.0, "InitialAnchor"]],
         timeline=tl_check,
         context="InitialAnchor",
         origin=[0.0, 0.0],
@@ -48,7 +48,7 @@ def df_context1():
             ["thing2", 1.0, 5.0, "init"],
             ["thing", 0.0, 5.0, "init"],
             ["thing", 5.0, 5.0, "MOT"],
-            ["⚓__001", 4.5, 5.0, "MOT"],
+            ["⚓_001", 4.5, 5.0, "MOT"],
             ["thing3", 3.0, 5.0, "blah"],
         ],
         columns=["variable", "time", "value", "context"],
@@ -68,7 +68,7 @@ def test_anchorContext(df_context1):
                 ["thing2", 1.0, 5.0, "init"],
                 ["thing", 0.0, 5.0, "init"],
                 ["thing", 5.0, 5.0, "MOT"],
-                ["⚓__001", 4.5, 5.0, "MOT"],
+                ["⚓_001", 4.5, 5.0, "MOT"],
                 ["thing3", 3.0, 5.0, "blah"],
                 ["lockbox_MOT__MHz", 5.5, 10.0, "ramp"],
             ],

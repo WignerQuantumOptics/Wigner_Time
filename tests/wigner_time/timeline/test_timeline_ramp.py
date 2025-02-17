@@ -27,7 +27,7 @@ def tl_anchor():
     return tl.create(
         [
             ["lockbox_MOT__V", 0.0],
-            ["⚓__001", 0.0],
+            ["⚓_001", 0.0],
         ],
         t=0.0,
         context="init",
@@ -56,20 +56,22 @@ def test_ramp0(args):
     timeline = tl.create(
         [
             ["lockbox_MOT__V", 0.0, 0.0],
-            ["⚓__001", 0.0, 0.0],
+            ["⚓_001", 0.0, 0.0],
         ],
         context="init",
     )
     tl_ramp = tl.ramp(timeline, **args)
     tl_check = tl.create(
         [
-            ["⚓__001", [0.0, 0.0, "init"]],
+            ["lockbox_MOT__V", [0.0, 0.0, "init"]],
+            ["⚓_001", [0.0, 0.0, "init"]],
             ["lockbox_MOT__V", [[0.0, 0.0, "init"], [100e-3, 5, "init"]]],
         ],
     )
-    tl_check.loc[tl_check["variable"] == "lockbox_MOT__V", "function"] = (
-        ramp_function.tanh
-    )
+    tl_check.loc[
+        (tl_check["variable"] == "lockbox_MOT__V") & (tl_check.index != 0),
+        "function",
+    ] = ramp_function.tanh
 
     return wt_frame.assert_equal(tl_ramp, tl_check)
 
@@ -95,14 +97,15 @@ def test_ramp0(args):
 )
 def test_ramp1(args):
     timeline = tl.create(
-        [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓__001", [0.0, 0.0]]], context="init"
+        [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
     )
 
     tl_ramp = tl.ramp(timeline, **args, context="init")
     tl_check = tl.create(
         [
+            ["lockbox_MOT__V", [50e-3, 0.2]],
             [
-                "⚓__001",
+                "⚓_001",
                 [
                     0.0,
                     0.0,
@@ -124,9 +127,10 @@ def test_ramp1(args):
         ],
         context="init",
     )
-    tl_check.loc[tl_check["variable"] == "lockbox_MOT__V", "function"] = (
-        ramp_function.tanh
-    )
+    tl_check.loc[
+        (tl_check["variable"] == "lockbox_MOT__V") & (tl_check.index != 0),
+        "function",
+    ] = ramp_function.tanh
 
     return wt_frame.assert_equal(tl_ramp, tl_check)
 
@@ -174,7 +178,7 @@ def test_ramp_start(tl_anchor, args):
     tl_check = tl.create(
         [
             ["lockbox_MOT__V", [0.0, 0.0, "init"]],
-            ["⚓__001", [0.0, 0.0, "init"]],
+            ["⚓_001", [0.0, 0.0, "init"]],
             [
                 "lockbox_MOT__V",
                 [[0.05, 0.0, "init"], [0.1, 5, "init"]],
@@ -196,7 +200,7 @@ def test_ramp_start(tl_anchor, args):
 #     tl_check = tl.create(
 #         [
 #             ["lockbox_MOT__V", [0.0, 0.0, "init"]],
-#             ["⚓__001", [0.0, 0.0, "init"]],
+#             ["⚓_001", [0.0, 0.0, "init"]],
 #             [
 #                 "lockbox_MOT__V",
 #                 [[0.00, 0.05, "init"], [0.1, 5, "init"]],
@@ -218,6 +222,7 @@ def test_ramp_expand():
     )
     tl_check = wt_frame.new(
         [
+            [1.0, "lockbox_MOT__V", 1.0, "badger"],
             [1.0, "lockbox_MOT__V", 1.000000, "badger"],
             [1.2, "lockbox_MOT__V", 1.218198, "badger"],
             [1.4, "lockbox_MOT__V", 3.071266, "badger"],

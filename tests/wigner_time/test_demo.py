@@ -29,7 +29,7 @@ def label_anchors(df):
     indices = list(timeline[timeline["variable"] == "⚓"].index)
 
     for i, ind in enumerate(indices):
-        timeline.loc[ind, "variable"] = "⚓__{:03}".format(i + 1)
+        timeline.loc[ind, "variable"] = "⚓_{:03}".format(i + 1)
 
     return timeline
 
@@ -77,7 +77,7 @@ def test_MOT():
     # The data came from an old version
     # timeline_old = pd.read_parquet("~/WT_dat/MOT.parquet")
     # tl__original = update_anchor(timeline_old)
-    # tl__original.loc[tl__original["variable"] == "⚓__002", "context"] = "MOT"
+    # tl__original.loc[tl__original["variable"] == "⚓_002", "context"] = "MOT"
 
     tl__original = frame.new(
         data=[
@@ -97,12 +97,12 @@ def test_MOT():
             [-2.0, "shutter_imaging", 0.00, "ADwin_LowInit"],
             [-2.0, "AOM_imaging", 1.00, "ADwin_LowInit"],
             [-2.0, "trigger_camera", 0.00, "ADwin_LowInit"],
-            [0.0, "⚓__001", 0.00, "InitialAnchor"],
+            [0.0, "⚓_001", 0.00, "InitialAnchor"],
             [0.0, "shutter_MOT", 1.00, "MOT"],
             [0.0, "shutter_repump", 1.00, "MOT"],
             [0.0, "coil_MOTlower__A", -1.00, "MOT"],
             [0.0, "coil_MOTupper__A", -0.98, "MOT"],
-            [15.0, "⚓__002", 0.00, "MOT"],
+            [15.0, "⚓_002", 0.00, "MOT"],
         ],
         columns=["time", "variable", "value", "context"],
     )
@@ -119,7 +119,7 @@ def test_MOTdetuned():
 
     # timeline_old = pd.read_parquet("~/WT_dat/MOT_detuned.parquet")
     # tl__original = filter_ramp(update_anchor(timeline_old), "lockbox_MOT__MHz", "MOT")
-    # tl__original.loc[tl__original["variable"] == "⚓__002", "context"] = "MOT"
+    # tl__original.loc[tl__original["variable"] == "⚓_002", "context"] = "MOT"
 
     tl__original = frame.new(
         [
@@ -139,15 +139,15 @@ def test_MOTdetuned():
             [-2.000000, "shutter_imaging", 0.00, "ADwin_LowInit"],
             [-2.000000, "AOM_imaging", 1.00, "ADwin_LowInit"],
             [-2.000000, "trigger_camera", 0.00, "ADwin_LowInit"],
-            [0.000000, "⚓__001", 0.00, "InitialAnchor"],
+            [0.000000, "⚓_001", 0.00, "InitialAnchor"],
             [0.000000, "shutter_MOT", 1.00, "MOT"],
             [0.000000, "shutter_repump", 1.00, "MOT"],
             [0.000000, "coil_MOTlower__A", -1.00, "MOT"],
             [0.000000, "coil_MOTupper__A", -0.98, "MOT"],
-            [15.000000, "⚓__002", 0.00, "MOT"],
+            [15.000000, "⚓_002", 0.00, "MOT"],
             [15.000000, "lockbox_MOT__MHz", 0.00, "MOT"],
             [15.009999, "lockbox_MOT__MHz", -5.00, "MOT"],
-            [15.100000, "⚓__003", 0.00, "MOT"],
+            [15.100000, "⚓_003", 0.00, "MOT"],
         ],
         columns=["time", "variable", "value", "context"],
     )
