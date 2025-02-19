@@ -245,7 +245,8 @@ def testInitToFinish():
     # print((tl__old))
     # print(tl__new)
 
-    adwin_display.channels(tl__old, do_show=False)
+    # adwin_display.channels(tl__old, do_show=False)
     adwin_display.channels(tl__new)
+    #
     # return frame.assert_equal(tl__new, None)
-    return True
+    assert False

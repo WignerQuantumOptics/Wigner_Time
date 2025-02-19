@@ -9,18 +9,40 @@ if not importlib.util.find_spec("matplotlib"):
     raise ImportError("The `display` module requires `matplotlib` to be installed.")
 
 # Normal imports
+import matplotlib.axes as mpa
 import matplotlib.pyplot as plt
+import numpy as np
 
 from wigner_time.adwin import core as adwin
+from wigner_time import timeline as tl
+
+
+def _draw_context(axis: mpa.Axes, info__context, alpha=0.1):
+    ys = axis.get_ylim()
+
+    prop_cycle = plt.rcParams["axes.prop_cycle"]
+    colors = prop_cycle.by_key()["color"]
+
+    for con, col in zip(info__context.keys(), colors):
+        times = info__context[con]["times"]
+        axis.axvspan(times[0], times[1], color=col, alpha=alpha)
+        x__text = times[0]
+        y__text = ys[1]
+        axis.text(x__text, y__text, con)
+
+    return axis
 
 
 def channels(
     timeline,
     variables=None,
     suffixes__analogue={"Voltage": "__V", "Current": "__A", "Frequency": "__MHz"},
+    do_context=True,
     do_show=True,
 ):
     timeline.sort_values("time", inplace=True, ignore_index=True)
+
+    info__context = tl.context_info(timeline)
 
     max_time = timeline.loc[
         timeline["context"] != "ADwin_Finish", "time"
@@ -48,6 +70,7 @@ def channels(
     }
 
     # TODO: Anchor should be filtered before now (it's not connected to a variable)
+    # - Actually, not sure. Might be helpful to display anchors.
     digital_variables = list(
         filter(
             lambda s: (LABEL__ANCHOR not in s) and ("__" not in s),
@@ -73,6 +96,8 @@ def channels(
     analogLabels = []
     for key, axis in zip(analog_variables.keys(), axes[:-1]):
         axis.set_ylabel(key + " [{}]".format(suffixes__analogue[key][2:]))
+        if do_context:
+            _draw_context(axis, info__context)
         for variable, color in zip(analog_variables[key], colors):
             array = timeline[timeline["variable"] == variable]
             axis.plot(array["time"], array["value"], marker="o", ms=3)
@@ -81,9 +106,13 @@ def channels(
     divider = 1.5 * len(digital_variables)
     digitalLabels = []
     axes[-1].set_ylabel("Digital channels")
+
+    if do_context:
+        _draw_context(axes[-1], info__context)
     for variable, offset, color in zip(
         digital_variables, range(len(list(digital_variables))), colors
     ):
+
         baseline = offset / divider
         array = timeline[timeline["variable"] == variable]
         axes[-1].axhline(baseline, color=color, linestyle=":", alpha=0.5)

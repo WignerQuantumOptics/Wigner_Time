@@ -21,6 +21,7 @@ from wigner_time import input as wt_input
 from wigner_time import ramp_function as wt_ramp_function
 from wigner_time.internal import dataframe as wt_frame
 from wigner_time.internal import origin as wt_origin
+import pandas as pd
 
 
 ###############################################################################
@@ -507,3 +508,27 @@ def sanitize(timeline):
             },
         ),
     )(timeline)
+
+
+def context_info(timeline):
+    """
+    Useful data (currently 'variables' and 'times') concerning every context. The result is a dictionary, indexed by context.
+
+    e.g. To get the start and end times of the 'MOT' context, call `context_info(timeline)['MOT']['times]`.
+    """
+
+    if {"context", "time", "variable"}.issubset(timeline.columns):
+        tlg = timeline.groupby("context")
+        return {
+            k: {
+                "variables": tlg["variable"].agg(set).to_dict()[k],
+                "times": tlg["time"]
+                .agg(["first", "last"])
+                .apply(list, axis=1)
+                .to_dict()[k],
+            }
+            for k in tlg.groups.keys()
+        }
+
+    else:
+        return None
