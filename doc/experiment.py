@@ -162,8 +162,10 @@ def molasses(
     toMHz=-90,
     coil_pt=3,
     lockbox_pt=3,
+    delay=0,  # arbitrary delay to shutter for ad hoc compensation of small drifts
     **kwargs
 ):
+
     return tl.stack(
         tl.ramp(
             coil_MOTlower__A=0,
@@ -177,13 +179,22 @@ def molasses(
             duration=durationLockboxRamp,
         ),
         tl.update(
-            shutter_MOT=[duration - constants.lag_MOTshutter, 0], AOM_MOT=[duration, 0]
+            shutter_MOT=[duration - constants.lag_MOTshutter + delay, 0],
+            AOM_MOT=[duration, 0],
         ),
         tl.anchor(duration, context="molasses"),
     )
 
 
-def OP(durationExposition=80e-6, durationCoilRamp=50e-6, i=-0.12, pt=3, **kwargs):
+def OP(
+    durationExposition=80e-6,
+    durationCoilRamp=50e-6,
+    i=-0.12,
+    pt=3,
+    delay1=0,
+    delay2=0,  # arbitrary delays to shutters for ad hoc compensation of small drifts
+    **kwargs
+):
     fullDuration = durationExposition + durationCoilRamp
     return tl.stack(
         tl.ramp(
@@ -196,12 +207,15 @@ def OP(durationExposition=80e-6, durationCoilRamp=50e-6, i=-0.12, pt=3, **kwargs
         tl.update(AOM_OP=[[-0.1, 0], [durationCoilRamp, 1], [fullDuration, 0]]),
         tl.update(
             shutter_OP001=[
-                [durationCoilRamp - constants.OP.lag_shutter_on, 1],
+                [durationCoilRamp - constants.OP.lag_shutter_on + delay1, 1],
                 [0.1, 0],
             ]
         ),
         tl.update(
-            shutter_OP002=[[fullDuration - constants.OP.lag_shutter_off, 0], [0.1, 1]]
+            shutter_OP002=[
+                [fullDuration - constants.OP.lag_shutter_off + delay2, 0],
+                [0.1, 1],
+            ]
         ),
         tl.update(AOM_repump=0, shutter_repump=0, t=fullDuration),
         tl.anchor(fullDuration, context="OP"),
