@@ -17,7 +17,7 @@ These should be loaded by the ADwin system during initialization. The dictionary
 """
 SPECIFICATIONS__DEFAULT = {
     "device_001": {
-        "cycle_period__normal": 5e-6,
+        "cycle_period__normal__us": 5e-6,
         "module_001": {
             "bits": 16,
             "voltage_range": [-10.0, 10.0],
@@ -58,26 +58,29 @@ SCHEMA = {
 }
 
 
-def remove_unconnected_variables(df, connections):
+def remove_unconnected_variables(timeline, connections):
     """
     Purges the given timeline of any `variable`s that do not have a matching `connection`.
 
-    NOTE: Assumes df and connections are both pd.DataFrame-like things
+    NOTE: Assumes timeline and connections are both pd.DataFrame-like things
     """
+    # TODO: Shouldn't be here!!! More general
 
-    df = deepcopy(df)
+    timeline = deepcopy(timeline)
     _disconnections = [
-        v for v in df["variable"].unique() if v not in connections["variable"].unique()
+        v
+        for v in timeline["variable"].unique()
+        if v not in connections["variable"].unique()
     ]
 
     for v in _disconnections:
-        df.drop(df[df.variable == v].index, inplace=True)
+        timeline.drop(timeline[timeline.variable == v].index, inplace=True)
 
-    return df
+    return timeline
 
 
 def add_cycle(
-    df,
+    timeline,
     specifications=SPECIFICATIONS__DEFAULT,
     special_contexts=CONTEXTS__SPECIAL,
     device="device_001",
@@ -95,36 +98,39 @@ def add_cycle(
     - ValueError if required columns are missing or if cycle period is not found for specified device.
     """
     # Check if `time` column is present
-    if "time" not in df.columns:
+    if "time" not in timeline.columns:
         raise ValueError(
-            f"`time` column not found. Columns present: {list(df.columns)}"
+            f"`time` column not found. Columns present: {list(timeline.columns)}"
         )
 
     # Ensure device-specific cycle period is available
     try:
-        cycle_period = specifications[device]["cycle_period__normal"]
+        cycle_period = specifications[device]["cycle_period__normal__us"]
     except KeyError:
         raise ValueError(
             f"`cycle_period__normal` not found in specifications for {device}."
         )
 
     # Calculate cycles and handle special contexts
-    df["cycle"] = np.round(df["time"].values / cycle_period).astype(np.int32)
+    timeline["cycle"] = np.round(timeline["time"].values / cycle_period).astype(
+        np.int32
+    )
 
     # Apply special context cycles
-    df = wt_frame.replace_column__filtered(
-        df,
+    timeline = wt_frame.replace_column__filtered(
+        timeline,
         CONTEXTS__SPECIAL,
         column__change="cycle",
     )
 
-    return df
+    return timeline
 
 
 def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFAULT):
     """
-    NOTE: Stateful.
     General setup of the *system*, rather than the specific experimental project.
+
+    NOTE: Stateful.
     """
     # TODO:
     # - This would probably be easier if it accepted a dataframe
@@ -135,8 +141,8 @@ def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFA
     time_end__cycles = cycles[~np.isin(cycles, list(CONTEXTS__SPECIAL.values()))].max()
 
     print(
-        "time_end: {}s".format(
-            time_end__cycles * specifications["device_001"]["cycle_period__normal"]
+        "=== time_end: {}s ===".format(
+            time_end__cycles * specifications["device_001"]["cycle_period__normal__us"]
         )
     )
 
@@ -157,13 +163,12 @@ def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFA
     return machine__adwin
 
 
-def check_safety_range(df):
+def check_safety_range(timeline):
     """
     Checks whether the values sent to this device fall inside its safety range.
     """
-    for variable, group in df.groupby("variable"):
+    for variable, group in timeline.groupby("variable"):
         if group["safety_range"].any():
-            # print(group)
             if max(group["value"].values) > max(group["safety_range"].values[0]):
                 raise ValueError(
                     "{} was given a value of {}, which is higher than its maximum safe limit. Please provide values only inside it's safety range.".format(
@@ -180,13 +185,13 @@ def check_safety_range(df):
                 pass
 
 
-def add_linear_conversion(df, unit, separator="__", column__new="value__digits"):
+def add_linear_conversion(timeline, unit, separator="__", column__new="value__digits"):
     """
     Performs a linear conversion, according to the associated bounding values ('unit_range'), and adds the resulting values as another column, 'value__digits'.
 
     unit: string.
     """
-    dff = deepcopy(df)
+    dff = deepcopy(timeline)
     mask = dff["variable"].str.contains(separator + unit + "$")
 
     if mask.any():
@@ -198,7 +203,7 @@ def add_linear_conversion(df, unit, separator="__", column__new="value__digits")
     return dff
 
 
-def add(df, adwin_connections, devices, specifications=SPECIFICATIONS__DEFAULT):
+def add(timeline, adwin_connections, devices, specifications=SPECIFICATIONS__DEFAULT):
     """
     Takes an 'operational' layer timeline and inserts ADwin-specific columns, e.g. cycles and numbers for the module and channel etc.
 
@@ -210,7 +215,7 @@ def add(df, adwin_connections, devices, specifications=SPECIFICATIONS__DEFAULT):
     # TODO: Anything that is not voltage should be converted using a functor from the devices layer, which should be a set of conversion functors from units like A, MHz
     #       (this might actually be an overkill: as long as the device is linear, supplying unit_range is sufficient for the conversion, so the functor is necessary only for nonlinear devices)
 
-    dff = df.join(
+    dff = timeline.join(
         adwin_connections.set_index("variable"),
         on="variable",
     )
@@ -283,16 +288,16 @@ def modules_digital(specifications):
 
     # TODO: Check for modules (from dict) that have some characteristic (no voltage range etc?).
 
-    return [1]
+    return [int(1)]
 
 
-def to_tuples(df, cols=["cycle", "module", "channel", "value_digits"]):
-    return [tuple([np.int32(i) for i in x]) for x in df[cols].values]
+def to_tuples(timeline, cols=["cycle", "module", "channel", "value_digits"]):
+    return [tuple([np.int32(i) for i in x]) for x in timeline[cols].values]
 
 
-def output(df, specifications=SPECIFICATIONS__DEFAULT):
+def output(timeline, specifications=SPECIFICATIONS__DEFAULT):
     """
-    Takes a dataframe of the experimental run and converts the result to a PyADwin 'Output' class.
+    Takes a dataframe of the experimental run and converts the result to an 'Output' format that can be processed by ADwin.
 
 
     return [[(cycle, module, channel, value), ...],
@@ -302,30 +307,55 @@ def output(df, specifications=SPECIFICATIONS__DEFAULT):
     # TODO: sort table by cycle before export
     # TODO: use the same format for analogue and digital (requires change at the ADwin side)
 
+    if not ("module" in timeline.columns):
+        raise ValueError(
+            "No `module` listed in timeline. Remember to add ADwin specifications before ADwin export."
+        )
+
     mods_digital = modules_digital(specifications)
-    mods_analogue = [x for x in df["module"].unique() if x not in mods_digital]
+    mods_analogue = [
+        int(x) for x in timeline["module"].unique() if x not in mods_digital
+    ]
 
     return [
-        to_tuples(df.query("module in {}".format(mods_analogue))),
+        to_tuples(timeline.query("module in {}".format(mods_analogue))),
         to_tuples(
-            df.query("module in {}".format(mods_digital)),
-            cols=["cycle", "channel", "value_digits"],
+            timeline.query("module in {}".format(mods_digital)),
         ),
     ]
 
 
-def to_adwin(df, connections, devices, adwin_settings=SPECIFICATIONS__DEFAULT):
+def to_adbasic(
+    timeline,
+    connections,
+    devices,
+    adwin_settings=SPECIFICATIONS__DEFAULT,
+    time_resolution=None,
+):
     """
-    Convenience for converting a Wigner timeline (DataFrame) to an ADwin-compatible list of tuples.
+    Convenience for converting a Wigner timeline (DataFrame) to an ADbasic-compatible list of tuples.
 
     This takes an operation-layer timeline, adds the columns necessary for an ADwin conversion, based on the supplied or default specifications, and then converts the relevant columns according to `adwin.output`, i.e.  [[(cycle, module, channel, value), ...],
-    [(cycle, channel, value), ...]].
+    [(cycle, module, channel, value), ...]].
     """
 
-    return output(
-        add(df, connections, devices, specifications=SPECIFICATIONS__DEFAULT),
-        specifications=SPECIFICATIONS__DEFAULT,
-    )
+    if time_resolution is not None:
+        resolution = time_resolution
+    else:
+        resolution = adwin_settings["device_001"]["cycle_period__normal__us"]
+
+    return funcy.compose(
+        lambda tline: output(
+            tline,
+            specifications=adwin_settings,
+        ),
+        lambda tline: add(tline, connections, devices, specifications=adwin_settings),
+        lambda tline: tl.expand(
+            tline,
+            time_resolution=resolution,
+        ),
+        lambda tline: remove_unconnected_variables(tline, connections),
+    )(timeline)
 
 
 def sanitize_special_contexts(timeline, special_contexts=CONTEXTS__SPECIAL):

@@ -1,11 +1,16 @@
+import pathlib as pl
+import sys
 import pytest
 import pandas as pd
-import numpy as np
 
 from wigner_time.adwin import core as adwin
 from wigner_time import connection as con
-from wigner_time import device as device
+from wigner_time import device
+from wigner_time import timeline as tl
 from wigner_time.internal import dataframe as frame
+
+sys.path.append(str(pl.Path.cwd() / "doc"))
+import experiment as ex
 
 
 @pytest.fixture
@@ -209,3 +214,17 @@ def test_sanitize_success():
     return pd.testing.assert_frame_equal(
         adwin.sanitize(df_special3), df_special3__corrected
     )
+
+
+def test_to_adbasic():
+    tuples = adwin.to_adbasic(
+        tl.stack(
+            ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
+            ex.MOT(),
+            ex.MOT_detunedGrowth(),
+        ),
+        ex.connections,
+        ex.devices,
+    )
+
+    assert False
