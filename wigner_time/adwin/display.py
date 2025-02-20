@@ -18,7 +18,11 @@ from wigner_time import timeline as tl
 
 
 def _draw_context(axis: mpa.Axes, info__context, alpha=0.1):
+    print(axis)
     ys = axis.get_ylim()
+    print(f"ys: {ys}")
+    y__center = np.mean(ys)
+    print(f"y_center: {y__center}")
 
     prop_cycle = plt.rcParams["axes.prop_cycle"]
     colors = prop_cycle.by_key()["color"]
@@ -26,9 +30,16 @@ def _draw_context(axis: mpa.Axes, info__context, alpha=0.1):
     for con, col in zip(info__context.keys(), colors):
         times = info__context[con]["times"]
         axis.axvspan(times[0], times[1], color=col, alpha=alpha)
-        x__text = times[0]
-        y__text = ys[1]
-        axis.text(x__text, y__text, con)
+
+        axis.text(
+            np.mean(times),
+            y__center,
+            con,
+            va="center",
+            ha="center",
+            color=col,
+            alpha=0.5,
+        )
 
     return axis
 
@@ -96,19 +107,17 @@ def channels(
     analogLabels = []
     for key, axis in zip(analog_variables.keys(), axes[:-1]):
         axis.set_ylabel(key + " [{}]".format(suffixes__analogue[key][2:]))
-        if do_context:
-            _draw_context(axis, info__context)
         for variable, color in zip(analog_variables[key], colors):
             array = timeline[timeline["variable"] == variable]
             axis.plot(array["time"], array["value"], marker="o", ms=3)
             analogLabels.append(axis.text(0, array.iat[0, 2], variable, color=color))
+        if do_context:
+            _draw_context(axis, info__context)
 
     divider = 1.5 * len(digital_variables)
     digitalLabels = []
     axes[-1].set_ylabel("Digital channels")
 
-    if do_context:
-        _draw_context(axes[-1], info__context)
     for variable, offset, color in zip(
         digital_variables, range(len(list(digital_variables))), colors
     ):
@@ -131,6 +140,8 @@ def channels(
         )
     axes[-1].set_yticks([i / divider for i in range(len(list(digital_variables)))])
     axes[-1].set_yticklabels([])
+    if do_context:
+        _draw_context(axes[-1], info__context)
 
     # shade init and finish:
     for ax in axes:

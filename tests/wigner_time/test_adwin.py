@@ -252,7 +252,7 @@ def test_to_adbasic():
         )
     )
 
-    tuples = adwin.to_adbasic(
+    tuples = adwin.to_data(
         tl.stack(
             tl.create(
                 lockbox_MOT__MHz=0.0,

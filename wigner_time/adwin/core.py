@@ -378,7 +378,7 @@ def output(timeline, specifications=SPECIFICATIONS__DEFAULT):
     ]
 
 
-def to_adbasic(
+def to_data(
     timeline,
     connections,
     devices,
