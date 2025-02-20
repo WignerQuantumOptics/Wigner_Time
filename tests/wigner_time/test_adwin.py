@@ -230,6 +230,28 @@ def test_to_adbasic():
         ],
     )
 
+    print(
+        tl.stack(
+            tl.create(
+                lockbox_MOT__MHz=0.0,
+                shutter_MOT=0,
+                context="ADwin_LowInit",
+            ),
+            tl.anchor(t=0.0, origin=0.0, context="InitialAnchor"),
+            tl.update(
+                shutter_MOT=1,
+                context="MOT",
+            ),
+            tl.anchor(15),
+            tl.ramp(
+                lockbox_MOT__MHz=-5,
+                duration=10e-3,
+                context="MOT",
+            ),
+            tl.anchor(100e-3),
+        )
+    )
+
     tuples = adwin.to_adbasic(
         tl.stack(
             tl.create(
@@ -261,7 +283,11 @@ def test_to_adbasic():
             (3001000, 3, 8, 32358),
             (3002000, 3, 8, 31949),
         ],
-        [(0, 1, 11, 1)],
+        [
+            (-2, 1, 11, 0),
+            (0, 1, 11, 1),
+        ],
     ]
 
+    # assert False
     assert tuples == tuples__guess

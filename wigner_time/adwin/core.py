@@ -185,6 +185,59 @@ def check_safety_range(timeline):
                 pass
 
 
+def sanitize_special_contexts(timeline, special_contexts=CONTEXTS__SPECIAL):
+    """
+    Ensures that there isn't more than one entry for a given variable inside special contexts. This is necessary as there is no concept of 'time' inside the special contexts defined for ADwin.
+
+    Similarly, the time values are adjusted to avoid automatic removal later on.
+    """
+    df = timeline[timeline["context"].isin(special_contexts)]
+    df_N = df.groupby(["variable", "context"])["value"].count()
+    duplicates = df_N[df_N > 1].reset_index()
+    duplicates.columns = ["variable", "context", "variable_occurences"]
+
+    # Replace time values with those specified in CONTEXTS__SPECIAL
+    timeline = wt_frame.replace_column__filtered(timeline, CONTEXTS__SPECIAL)
+
+    if duplicates.empty:
+        return timeline
+    else:
+        raise ValueError(
+            "The same variable has more than one value inside a special context. This will not work as expected on export to ADwin as these special contexts have no concept of time. For details,  see the duplicate information: "
+            + str(duplicates)
+        )
+
+
+def sanitize_types(timeline, schema=SCHEMA):
+    return timeline.astype(schema)
+
+
+def sanitize__drop_duplicates(
+    timeline,
+    subset=["variable", "cycle"],
+    unless_context=list(CONTEXTS__SPECIAL.keys()),
+):
+    """
+    An alternative to that in timeline, to deal with ADwin-specific cases.
+
+    Drop rows where the columns specified in `subset` are both duplicated, except for in the specific `context`s listed.
+    """
+    mask__duplicates = wt_frame.duplicated(timeline, subset=subset)
+
+    return timeline[~mask__duplicates | (timeline["context"].isin(unless_context))]
+
+
+def sanitize(timeline):
+    """
+    Includes ADwin-specific methods ontop of the basic timeline sanitization for removing unnecessary points and raising errors on illogical input.
+    """
+    return funcy.compose(
+        sanitize__drop_duplicates,
+        sanitize_special_contexts,
+        sanitize_types,
+    )(timeline)
+
+
 def add_linear_conversion(timeline, unit, separator="__", column__new="value__digits"):
     """
     Performs a linear conversion, according to the associated bounding values ('unit_range'), and adds the resulting values as another column, 'value__digits'.
@@ -276,7 +329,7 @@ def add(timeline, adwin_connections, devices, specifications=SPECIFICATIONS__DEF
 
     check_safety_range(dff)
 
-    return tl.sanitize(add_cycle(dff, specifications))
+    return sanitize(add_cycle(dff, specifications))
 
 
 def modules_digital(specifications):
@@ -355,57 +408,4 @@ def to_adbasic(
             time_resolution=resolution,
         ),
         lambda tline: remove_unconnected_variables(tline, connections),
-    )(timeline)
-
-
-def sanitize_special_contexts(timeline, special_contexts=CONTEXTS__SPECIAL):
-    """
-    Ensures that there isn't more than one entry for a given variable inside special contexts. This is necessary as there is no concept of 'time' inside the special contexts defined for ADwin.
-
-    Similarly, the time values are adjusted to avoid automatic removal later on.
-    """
-    df = timeline[timeline["context"].isin(special_contexts)]
-    df_N = df.groupby(["variable", "context"])["value"].count()
-    duplicates = df_N[df_N > 1].reset_index()
-    duplicates.columns = ["variable", "context", "variable_occurences"]
-
-    # Replace time values with those specified in CONTEXTS__SPECIAL
-    timeline = wt_frame.replace_column__filtered(timeline, CONTEXTS__SPECIAL)
-
-    if duplicates.empty:
-        return timeline
-    else:
-        raise ValueError(
-            "The same variable has more than one value inside a special context. This will not work as expected on export to ADwin as these special contexts have no concept of time. For details,  see the duplicate information: "
-            + str(duplicates)
-        )
-
-
-def sanitize_types(timeline, schema=SCHEMA):
-    return timeline.astype(schema)
-
-
-def sanitize__drop_duplicates(
-    timeline,
-    subset=["variable", "cycle"],
-    unless_context=list(CONTEXTS__SPECIAL.keys()),
-):
-    """
-    An alternative to that in timeline, to deal with ADwin-specific cases.
-
-    Drop rows where the columns specified in `subset` are both duplicated, except for in the specific `context`s listed.
-    """
-    mask__duplicates = wt_frame.duplicated(timeline, subset=subset)
-
-    return timeline[~mask__duplicates | (timeline["context"].isin(unless_context))]
-
-
-def sanitize(timeline):
-    """
-    Includes ADwin-specific methods ontop of the basic timeline sanitization for removing unnecessary points and raising errors on illogical input.
-    """
-    return funcy.compose(
-        sanitize__drop_duplicates,
-        sanitize_special_contexts,
-        sanitize_types,
     )(timeline)
