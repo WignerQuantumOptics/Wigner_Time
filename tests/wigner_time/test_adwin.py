@@ -217,14 +217,51 @@ def test_sanitize_success():
 
 
 def test_to_adbasic():
-    tuples = adwin.to_adbasic(
-        tl.stack(
-            ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
-            ex.MOT(),
-            ex.MOT_detunedGrowth(),
-        ),
-        ex.connections,
-        ex.devices,
+    connections = con.connection(
+        ["shutter_MOT", 1, 11],
+        ["lockbox_MOT__MHz", 3, 8],
     )
 
-    assert False
+    devices = pd.DataFrame(
+        columns=["variable", "unit_range", "safety_range"],
+        data=[
+            ["lockbox_MOT__V", (-10, 10), (-10, 10)],
+            ["lockbox_MOT__MHz", (-200, 200), (-200, 200)],
+        ],
+    )
+
+    tuples = adwin.to_adbasic(
+        tl.stack(
+            tl.create(
+                lockbox_MOT__MHz=0.0,
+                shutter_MOT=0,
+                context="ADwin_LowInit",
+            ),
+            tl.anchor(t=0.0, origin=0.0, context="InitialAnchor"),
+            tl.update(
+                shutter_MOT=1,
+                context="MOT",
+            ),
+            tl.anchor(15),
+            tl.ramp(
+                lockbox_MOT__MHz=-5,
+                duration=10e-3,
+                context="MOT",
+            ),
+            tl.anchor(100e-3),
+        ),
+        connections,
+        devices,
+        time_resolution=5e-3,
+    )
+    tuples__guess = [
+        [
+            (-2, 3, 8, 32768),
+            (3000000, 3, 8, 32768),
+            (3001000, 3, 8, 32358),
+            (3002000, 3, 8, 31949),
+        ],
+        [(0, 1, 11, 1)],
+    ]
+
+    assert tuples == tuples__guess

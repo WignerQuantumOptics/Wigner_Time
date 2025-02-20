@@ -107,7 +107,6 @@ def create(
 
     NOTE: It seems to be the case that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
     """
-
     rows = wt_input.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
 
     df_rows = wt_frame.new(rows, columns=schema.keys()).astype(schema)
