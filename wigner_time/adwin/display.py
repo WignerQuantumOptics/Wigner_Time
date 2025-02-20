@@ -18,11 +18,8 @@ from wigner_time import timeline as tl
 
 
 def _draw_context(axis: mpa.Axes, info__context, alpha=0.1):
-    print(axis)
     ys = axis.get_ylim()
-    print(f"ys: {ys}")
     y__center = np.mean(ys)
-    print(f"y_center: {y__center}")
 
     prop_cycle = plt.rcParams["axes.prop_cycle"]
     colors = prop_cycle.by_key()["color"]
