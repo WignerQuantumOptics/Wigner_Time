@@ -4,7 +4,7 @@ import pytest
 import pandas as pd
 
 from wigner_time.adwin import core as adwin
-from wigner_time import connection as con
+from wigner_time.adwin import connection as con
 from wigner_time import device
 from wigner_time import timeline as tl
 from wigner_time.internal import dataframe as frame
@@ -28,7 +28,7 @@ def df_simple():
 
 @pytest.fixture
 def connections_simple():
-    return con.connection(
+    return con.new(
         ["AOM_imaging", 1, 1],
         ["AOM_imaging__V", 1, 2],
         ["AOM_repump", 2, 3],
@@ -217,7 +217,7 @@ def test_sanitize_success():
 
 
 def test_to_adbasic():
-    connections = con.connection(
+    connections = con.new(
         ["shutter_MOT", 1, 11],
         ["lockbox_MOT__MHz", 3, 8],
     )
