@@ -50,13 +50,12 @@ def test_remove_unconnected_variables(df_simple, connections_simple):
 
 
 def test_add_linear_conversion(df_simple):
-    df_devs = device.add_devices(
+    df_devs = device.add(
         df_simple,
-        pd.DataFrame(
-            columns=["variable", "unit_range", "safety_range"],
-            data=[
-                ["AOM_imaging__V", (-3, 3), (-3, 3)],
-            ],
+        device.new(
+            "AOM_imaging__V",
+            -3,
+            3,
         ),
     )
 
