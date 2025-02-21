@@ -32,23 +32,3 @@ def test_connectionMany():
             ]
         ),
     )
-
-
-def test_parse():
-    assert con.parse("AOM_imaging") == Munch(
-        {"context": "AOM", "equipment": "imaging", "unit": None}
-    )
-
-
-def test_parse002():
-    assert con.parse("AOM_imaging__V") == Munch(
-        {"context": "AOM", "equipment": "imaging", "unit": "V"}
-    )
-
-
-def test_is_valid():
-    assert con.is_valid("AOM_imaging__V") == True
-
-
-def test_is_valid002():
-    assert con.is_valid("AOMimaging__V") == False

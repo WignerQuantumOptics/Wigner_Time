@@ -7,7 +7,12 @@ import numpy as np
 
 from wigner_time import timeline as tl
 from wigner_time import conversion as conv
+from wigner_time import device
+from wigner_time import variable as wt_variable
 from wigner_time.internal import dataframe as wt_frame
+import wigner_time.adwin as wt_adwin
+from wigner_time.adwin import connection
+from wigner_time.adwin import validate as wt_validate
 
 
 """
@@ -42,47 +47,11 @@ SPECIFICATIONS__DEFAULT = {
 }
 # TODO: Rather than naming the above with numbers, this could be a list of dicts.
 
-CONTEXTS__SPECIAL = {"ADwin_LowInit": -2, "ADwin_Init": -1, "ADwin_Finish": 2**31 - 1}
-"""Used for passing information to the ADwin controller"""
-
-
-SCHEMA = {
-    "time": float,
-    "variable": str,
-    "value": float,
-    "context": str,
-    "module": int,
-    "channel": int,
-    "cycle": np.int32,
-    "value__digits": np.int32,
-}
-
-
-def remove_unconnected_variables(timeline, connections):
-    """
-    Purges the given timeline of any `variable`s that do not have a matching `connection`.
-
-    NOTE: Assumes timeline and connections are both pd.DataFrame-like things
-    """
-    # TODO: Shouldn't be here!!! More general
-
-    timeline = deepcopy(timeline)
-    _disconnections = [
-        v
-        for v in timeline["variable"].unique()
-        if v not in connections["variable"].unique()
-    ]
-
-    for v in _disconnections:
-        timeline.drop(timeline[timeline.variable == v].index, inplace=True)
-
-    return timeline
-
 
 def add_cycle(
     timeline,
     specifications=SPECIFICATIONS__DEFAULT,
-    special_contexts=CONTEXTS__SPECIAL,
+    special_contexts=wt_adwin.CONTEXTS__SPECIAL,
     device="device_001",
 ):
     """
@@ -119,7 +88,7 @@ def add_cycle(
     # Apply special context cycles
     timeline = wt_frame.replace_column__filtered(
         timeline,
-        CONTEXTS__SPECIAL,
+        special_contexts,
         column__change="cycle",
     )
 
@@ -138,7 +107,9 @@ def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFA
 
     cycles = np.array([np.array(output[i])[:, 0] for i in range(2)]).flatten()
     # Finds the maximum cycle value, discounting special contexts
-    time_end__cycles = cycles[~np.isin(cycles, list(CONTEXTS__SPECIAL.values()))].max()
+    time_end__cycles = cycles[
+        ~np.isin(cycles, list(wt_adwin.CONTEXTS__SPECIAL.values()))
+    ].max()
 
     print(
         "=== time_end: {}s ===".format(
@@ -163,191 +134,7 @@ def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFA
     return machine__adwin
 
 
-def check_safety_range(timeline):
-    """
-    Checks whether the values sent to this device fall inside its safety range.
-    """
-    for variable, group in timeline.groupby("variable"):
-        if group["safety__max"].any():
-            if max(group["value"].values) > group["safety__max"].values[0]:
-                raise ValueError(
-                    "{} was given a value of {}, which is higher than its maximum safe limit. Please provide values only inside it's safety range.".format(
-                        variable, max(group["value"].values)
-                    )
-                )
-            elif min(group["value"].values) < group["safety__min"].values[0]:
-                raise ValueError(
-                    "{} was given a value of {}, which is lower than its minimum safe limit. Please provide values only inside it's safety range.".format(
-                        variable, min(group["value"].values)
-                    )
-                )
-            else:
-                pass
-
-
-def sanitize_special_contexts(timeline, special_contexts=CONTEXTS__SPECIAL):
-    """
-    Ensures that there isn't more than one entry for a given variable inside special contexts. This is necessary as there is no concept of 'time' inside the special contexts defined for ADwin.
-
-    Similarly, the time values are adjusted to avoid automatic removal later on.
-    """
-    df = timeline[timeline["context"].isin(special_contexts)]
-    df_N = df.groupby(["variable", "context"])["value"].count()
-    duplicates = df_N[df_N > 1].reset_index()
-    duplicates.columns = ["variable", "context", "variable_occurences"]
-
-    # Replace time values with those specified in CONTEXTS__SPECIAL
-    timeline = wt_frame.replace_column__filtered(timeline, CONTEXTS__SPECIAL)
-
-    if duplicates.empty:
-        return timeline
-    else:
-        raise ValueError(
-            "The same variable has more than one value inside a special context. This will not work as expected on export to ADwin as these special contexts have no concept of time. For details,  see the duplicate information: "
-            + str(duplicates)
-        )
-
-
-def sanitize_types(timeline, schema=SCHEMA):
-    return timeline.astype(schema)
-
-
-def sanitize__drop_duplicates(
-    timeline,
-    subset=["variable", "cycle"],
-    unless_context=list(CONTEXTS__SPECIAL.keys()),
-):
-    """
-    An alternative to that in timeline, to deal with ADwin-specific cases.
-
-    Drop rows where the columns specified in `subset` are both duplicated, except for in the specific `context`s listed.
-    """
-    mask__duplicates = wt_frame.duplicated(timeline, subset=subset)
-
-    return timeline[~mask__duplicates | (timeline["context"].isin(unless_context))]
-
-
-def sanitize(timeline):
-    """
-    Includes ADwin-specific methods ontop of the basic timeline sanitization for removing unnecessary points and raising errors on illogical input.
-    """
-    return funcy.compose(
-        sanitize__drop_duplicates,
-        sanitize_special_contexts,
-        sanitize_types,
-    )(timeline)
-
-
-def add_linear_conversion(
-    timeline, unit, separator="__", column__new="value__digits", is_inplace=True
-):
-    """
-    Performs a linear conversion, according to the associated bounding values (`unit_range`), and adds the resulting values as another column, `value__digits`.
-
-    unit: string.
-    """
-    # TODO: Should use the current `variable` regex consistently. Maybe available centrally?
-    # - reconsider deepcopy
-
-    if is_inplace:
-        dff = timeline
-    else:
-        dff = deepcopy(timeline)
-
-    mask = dff["variable"].str.contains(separator + unit + "$")
-
-    if mask.any():
-        unit_range = dff.loc[mask, ["unit__min", "unit__max"]].iloc[0]
-
-        dff.loc[dff.index[mask], column__new] = conv.unit_to_digits(
-            dff.loc[mask, "value"], unit_range=unit_range
-        )
-    return dff
-
-
-def add(timeline, adwin_connections, devices, specifications=SPECIFICATIONS__DEFAULT):
-    """
-    Takes an 'operational' layer timeline and inserts ADwin-specific columns, e.g. cycles and numbers for the module and channel etc.
-
-    Digital: module 1
-    Analogue otherwise
-    """
-    # TODO: parameterize the column names
-    # TODO: Add vectorization to the python overview talk
-    # TODO: Anything that is not voltage should be converted using a functor from the devices layer, which should be a set of conversion functors from units like A, MHz
-    #       (this might actually be an overkill: as long as the device is linear, supplying unit_range is sufficient for the conversion, so the functor is necessary only for nonlinear devices)
-    # TODO: rename value__digits (add underscore)
-    # TODO: abstract out joins
-
-    dff = timeline.join(
-        adwin_connections.set_index("variable"),
-        on="variable",
-    )
-
-    dff = dff.join(
-        devices.set_index("variable"),
-        on="variable",
-    )
-
-    dff = dff.sort_values(by=["time"], ignore_index=True)
-
-    for variable, group in dff.groupby("variable"):
-        add_linear_conversion(dff, "A")
-        # if (dff["variable"].str.contains("__A", regex=False)).any():
-        #     mask_current = group["variable"].str.contains("__A", regex=False)
-
-        #     # Check if the variable contains "__A" in its name
-        #     if mask_current.any():
-        #         # Get the unit_range from the rows with "__A" in their name
-        #         unit_range = group.loc[mask_current, "unit_range"].iloc[0]
-
-        #         dff.loc[group.index[mask_current], "value__digits"] = (
-        #             conv.unit_to_digits(
-        #                 group.loc[mask_current, "value"], unit_range=unit_range
-        #             )
-        #         )
-
-        # if (dff["variable"].str.contains("__V", regex=False)).any():
-        #     mask_voltage = group["variable"].str.contains("__V", regex=False)
-
-        #     # Check if the variable contains "__V" in its name
-        #     if mask_voltage.any():
-        #         # Get the unit_range from the rows with "__V" in their name
-        #         unit_range = group.loc[mask_voltage, "unit_range"].iloc[0]
-
-        #         dff.loc[group.index[mask_voltage], "value__digits"] = (
-        #             conv.unit_to_digits(
-        #                 group.loc[mask_voltage, "value"], unit_range=unit_range
-        #             )
-        #         )
-
-        add_linear_conversion(dff, "V")
-
-        # if (dff["variable"].str.contains("__MHz", regex=False)).any():
-        #     mask_frequency = group["variable"].str.contains("__MHz", regex=False)
-
-        #     # Check if the variable contains "__MHz" in its name
-        #     if mask_frequency.any():
-        #         # Get the unit_range from the rows with "__MHz" in their name
-        #         unit_range = group.loc[mask_frequency, "unit_range"].iloc[0]
-
-        #         dff.loc[group.index[mask_frequency], "value__digits"] = (
-        #             conv.unit_to_digits(
-        #                 group.loc[mask_frequency, "value"], unit_range=unit_range
-        #             )
-        #         )
-        add_linear_conversion(dff, "MHz")
-
-    mask = dff["module"] != 1
-
-    dff.loc[~mask, "value__digits"] = round(dff["value"])
-
-    check_safety_range(dff)
-
-    return sanitize(add_cycle(dff, specifications))
-
-
-def modules_digital(specifications):
+def modules__digital(specifications):
     """
     The list of modules that govern digital connections.
 
@@ -359,7 +146,44 @@ def modules_digital(specifications):
     return [int(1)]
 
 
+def add(timeline, adwin_connections, devices, specifications=SPECIFICATIONS__DEFAULT):
+    """
+    Takes an 'operational' layer timeline and inserts ADwin-specific columns, e.g. cycles and numbers for the module and channel etc.
+
+    Digital: module 1
+    Analogue otherwise
+    """
+    # TODO: parameterize the column names
+    # TODO: Add vectorization to the python overview talk
+    #       (this might actually be an overkill: as long as the device is linear, supplying unit_range is sufficient for the conversion, so the functor is necessary only for nonlinear devices)
+
+    dff = wt_frame.join(timeline, adwin_connections)
+    dff = wt_frame.join(dff, devices)
+    dff = dff.sort_values(by=["time"], ignore_index=True)
+
+    units = wt_variable.units(dff)
+    for variable, group in dff.groupby("variable"):
+        for u in units:
+            conv.add_linear(dff, u)
+
+    # TODO: ^ This 'feels' inefficient?
+
+    mask__analogue = dff["module"] != 1
+    # TODO: fix this hardcoding
+
+    dff.loc[~mask__analogue, "value__digits"] = round(dff["value"])
+
+    device.check_safety_range(dff)
+
+    return wt_validate.all(add_cycle(dff, specifications))
+
+
 def to_tuples(timeline, cols=["cycle", "module", "channel", "value__digits"]):
+    """
+    A raw extraction of ADwin-relevant values from a `timeline`.
+
+    No validation is done here.
+    """
     return [tuple([np.int32(i) for i in x]) for x in timeline[cols].values]
 
 
@@ -380,7 +204,7 @@ def output(timeline, specifications=SPECIFICATIONS__DEFAULT):
             "No `module` listed in timeline. Remember to add ADwin specifications before ADwin export."
         )
 
-    mods_digital = modules_digital(specifications)
+    mods_digital = modules__digital(specifications)
     mods_analogue = [
         int(x) for x in timeline["module"].unique() if x not in mods_digital
     ]
@@ -422,5 +246,5 @@ def to_data(
             tline,
             time_resolution=resolution,
         ),
-        lambda tline: remove_unconnected_variables(tline, connections),
+        lambda tline: connection.remove_unconnected_variables(tline, connections),
     )(timeline)

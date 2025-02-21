@@ -6,8 +6,7 @@ The choice made here is to model our ADwin connections as little more than table
 
 What follows are simply convenience functions to make the creation easier.
 """
-import re
-from munch import Munch
+from copy import deepcopy
 import pandas as pd
 import numpy as np
 
@@ -18,24 +17,6 @@ from wigner_time.internal import dataframe as wt_frame
 # ======================================================================
 _SCHEMA = {"variable": str, "module": int, "channel": int}
 # ======================================================================
-
-
-def parse(variable: str) -> dict | None:
-    match = re.match(r"^([^_]+)_([^_]+)(?:__([^_]))?$", variable)
-
-    if match is not None:
-        e, c, u = match.groups()
-        return Munch(context=e, equipment=c, unit=u if u else None)
-    else:
-        return None
-
-
-def is_valid(variable: str) -> bool:
-    ecu = parse(variable)
-    if ecu is not None:
-        return True
-    else:
-        return False
 
 
 def new(*variable_module_channel) -> pd.DataFrame:
@@ -57,3 +38,22 @@ def new(*variable_module_channel) -> pd.DataFrame:
         return wt_frame.new_schema(np.atleast_2d(variable_module_channel), _SCHEMA)
     except:
         raise ValueError("=== Input to 'connection' not well formatted ===")
+
+
+def remove_unconnected_variables(timeline, connections):
+    """
+    Purges the given timeline of any `variable`s that do not have a matching `connection`.
+
+    NOTE: Assumes timeline and connections are both pd.DataFrame-like things
+    """
+    timeline = deepcopy(timeline)
+    _disconnections = [
+        v
+        for v in timeline["variable"].unique()
+        if v not in connections["variable"].unique()
+    ]
+
+    for v in _disconnections:
+        timeline.drop(timeline[timeline.variable == v].index, inplace=True)
+
+    return timeline

@@ -70,3 +70,25 @@ def add(timeline, devices):
     For connecting device information to a `timeline`.
     """
     return wt_frame.join(timeline, devices)
+
+
+def check_safety_range(timeline):
+    """
+    Checks whether the `timeline` `value`s fall inside device safety ranges.
+    """
+    for variable, group in timeline.groupby("variable"):
+        if group["safety__max"].any():
+            if max(group["value"].values) > group["safety__max"].values[0]:
+                raise ValueError(
+                    "{} was given a value of {}, which is higher than its maximum safe limit. Please provide values only inside it's safety range.".format(
+                        variable, max(group["value"].values)
+                    )
+                )
+            elif min(group["value"].values) < group["safety__min"].values[0]:
+                raise ValueError(
+                    "{} was given a value of {}, which is lower than its minimum safe limit. Please provide values only inside it's safety range.".format(
+                        variable, min(group["value"].values)
+                    )
+                )
+            else:
+                pass

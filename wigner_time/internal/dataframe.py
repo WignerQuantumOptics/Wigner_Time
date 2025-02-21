@@ -13,7 +13,7 @@ import pandas as pd
 CLASS = pd.DataFrame
 
 
-def new(data, columns: list):
+def new(data, columns: list | None = None):
     return pd.DataFrame(data, columns=columns)
 
 
