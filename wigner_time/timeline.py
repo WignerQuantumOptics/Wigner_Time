@@ -30,8 +30,10 @@ import pandas as pd
 
 _SCHEMA = {"time": float, "variable": str, "value": float, "context": str}
 _COLUMN_NAMES__RESERVED = list(_SCHEMA.keys()) + [
-    "unit_range",
-    "safety_range",
+    "unit__min",
+    "unit__max",
+    "safety__min",
+    "safety__max",
 ]
 """These column names are assumed to exist and are used in core functions. Be careful about editing them."""
 

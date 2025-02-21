@@ -54,7 +54,7 @@ SCHEMA = {
     "module": int,
     "channel": int,
     "cycle": np.int32,
-    "value_digits": np.int32,
+    "value__digits": np.int32,
 }
 
 
@@ -168,14 +168,14 @@ def check_safety_range(timeline):
     Checks whether the values sent to this device fall inside its safety range.
     """
     for variable, group in timeline.groupby("variable"):
-        if group["safety_range"].any():
-            if max(group["value"].values) > max(group["safety_range"].values[0]):
+        if group["safety__max"].any():
+            if max(group["value"].values) > group["safety__max"].values[0]:
                 raise ValueError(
                     "{} was given a value of {}, which is higher than its maximum safe limit. Please provide values only inside it's safety range.".format(
                         variable, max(group["value"].values)
                     )
                 )
-            elif min(group["value"].values) < min(group["safety_range"].values[0]):
+            elif min(group["value"].values) < group["safety__min"].values[0]:
                 raise ValueError(
                     "{} was given a value of {}, which is lower than its minimum safe limit. Please provide values only inside it's safety range.".format(
                         variable, min(group["value"].values)
@@ -238,17 +238,26 @@ def sanitize(timeline):
     )(timeline)
 
 
-def add_linear_conversion(timeline, unit, separator="__", column__new="value__digits"):
+def add_linear_conversion(
+    timeline, unit, separator="__", column__new="value__digits", is_inplace=True
+):
     """
-    Performs a linear conversion, according to the associated bounding values ('unit_range'), and adds the resulting values as another column, 'value__digits'.
+    Performs a linear conversion, according to the associated bounding values (`unit_range`), and adds the resulting values as another column, `value__digits`.
 
     unit: string.
     """
-    dff = deepcopy(timeline)
+    # TODO: Should use the current `variable` regex consistently. Maybe available centrally?
+    # - reconsider deepcopy
+
+    if is_inplace:
+        dff = timeline
+    else:
+        dff = deepcopy(timeline)
+
     mask = dff["variable"].str.contains(separator + unit + "$")
 
     if mask.any():
-        unit_range = dff.loc[mask, "unit_range"].iloc[0]
+        unit_range = dff.loc[mask, ["unit__min", "unit__max"]].iloc[0]
 
         dff.loc[dff.index[mask], column__new] = conv.unit_to_digits(
             dff.loc[mask, "value"], unit_range=unit_range
@@ -267,6 +276,8 @@ def add(timeline, adwin_connections, devices, specifications=SPECIFICATIONS__DEF
     # TODO: Add vectorization to the python overview talk
     # TODO: Anything that is not voltage should be converted using a functor from the devices layer, which should be a set of conversion functors from units like A, MHz
     #       (this might actually be an overkill: as long as the device is linear, supplying unit_range is sufficient for the conversion, so the functor is necessary only for nonlinear devices)
+    # TODO: rename value__digits (add underscore)
+    # TODO: abstract out joins
 
     dff = timeline.join(
         adwin_connections.set_index("variable"),
@@ -281,51 +292,55 @@ def add(timeline, adwin_connections, devices, specifications=SPECIFICATIONS__DEF
     dff = dff.sort_values(by=["time"], ignore_index=True)
 
     for variable, group in dff.groupby("variable"):
-        if (dff["variable"].str.contains("__A", regex=False)).any():
-            mask_current = group["variable"].str.contains("__A", regex=False)
+        add_linear_conversion(dff, "A")
+        # if (dff["variable"].str.contains("__A", regex=False)).any():
+        #     mask_current = group["variable"].str.contains("__A", regex=False)
 
-            # Check if the variable contains "__A" in its name
-            if mask_current.any():
-                # Get the unit_range from the rows with "__A" in their name
-                unit_range = group.loc[mask_current, "unit_range"].iloc[0]
+        #     # Check if the variable contains "__A" in its name
+        #     if mask_current.any():
+        #         # Get the unit_range from the rows with "__A" in their name
+        #         unit_range = group.loc[mask_current, "unit_range"].iloc[0]
 
-                dff.loc[group.index[mask_current], "value_digits"] = (
-                    conv.unit_to_digits(
-                        group.loc[mask_current, "value"], unit_range=unit_range
-                    )
-                )
+        #         dff.loc[group.index[mask_current], "value__digits"] = (
+        #             conv.unit_to_digits(
+        #                 group.loc[mask_current, "value"], unit_range=unit_range
+        #             )
+        #         )
 
-        if (dff["variable"].str.contains("__V", regex=False)).any():
-            mask_voltage = group["variable"].str.contains("__V", regex=False)
+        # if (dff["variable"].str.contains("__V", regex=False)).any():
+        #     mask_voltage = group["variable"].str.contains("__V", regex=False)
 
-            # Check if the variable contains "__V" in its name
-            if mask_voltage.any():
-                # Get the unit_range from the rows with "__V" in their name
-                unit_range = group.loc[mask_voltage, "unit_range"].iloc[0]
+        #     # Check if the variable contains "__V" in its name
+        #     if mask_voltage.any():
+        #         # Get the unit_range from the rows with "__V" in their name
+        #         unit_range = group.loc[mask_voltage, "unit_range"].iloc[0]
 
-                dff.loc[group.index[mask_voltage], "value_digits"] = (
-                    conv.unit_to_digits(
-                        group.loc[mask_voltage, "value"], unit_range=unit_range
-                    )
-                )
+        #         dff.loc[group.index[mask_voltage], "value__digits"] = (
+        #             conv.unit_to_digits(
+        #                 group.loc[mask_voltage, "value"], unit_range=unit_range
+        #             )
+        #         )
 
-        if (dff["variable"].str.contains("__MHz", regex=False)).any():
-            mask_frequency = group["variable"].str.contains("__MHz", regex=False)
+        add_linear_conversion(dff, "V")
 
-            # Check if the variable contains "__MHz" in its name
-            if mask_frequency.any():
-                # Get the unit_range from the rows with "__MHz" in their name
-                unit_range = group.loc[mask_frequency, "unit_range"].iloc[0]
+        # if (dff["variable"].str.contains("__MHz", regex=False)).any():
+        #     mask_frequency = group["variable"].str.contains("__MHz", regex=False)
 
-                dff.loc[group.index[mask_frequency], "value_digits"] = (
-                    conv.unit_to_digits(
-                        group.loc[mask_frequency, "value"], unit_range=unit_range
-                    )
-                )
+        #     # Check if the variable contains "__MHz" in its name
+        #     if mask_frequency.any():
+        #         # Get the unit_range from the rows with "__MHz" in their name
+        #         unit_range = group.loc[mask_frequency, "unit_range"].iloc[0]
+
+        #         dff.loc[group.index[mask_frequency], "value__digits"] = (
+        #             conv.unit_to_digits(
+        #                 group.loc[mask_frequency, "value"], unit_range=unit_range
+        #             )
+        #         )
+        add_linear_conversion(dff, "MHz")
 
     mask = dff["module"] != 1
 
-    dff.loc[~mask, "value_digits"] = round(dff["value"])
+    dff.loc[~mask, "value__digits"] = round(dff["value"])
 
     check_safety_range(dff)
 
@@ -344,7 +359,7 @@ def modules_digital(specifications):
     return [int(1)]
 
 
-def to_tuples(timeline, cols=["cycle", "module", "channel", "value_digits"]):
+def to_tuples(timeline, cols=["cycle", "module", "channel", "value__digits"]):
     return [tuple([np.int32(i) for i in x]) for x in timeline[cols].values]
 
 

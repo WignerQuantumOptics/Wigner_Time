@@ -67,8 +67,10 @@ def test_add_linear_conversion(df_simple):
                 "variable": ["AOM_imaging", "AOM_imaging__V", "AOM_repump", "virtual"],
                 "value": [0.0, 2.0, 1.0, 1.0],
                 "context": ["init", "init", "init", "MOT"],
-                "unit_range": [None, (-3, 3), None, None],
-                "safety_range": [None, (-3, 3), None, None],
+                "unit__min": [None, -3, None, None],
+                "unit__max": [None, 3, None, None],
+                "safety__min": [None, -3, None, None],
+                "safety__max": [None, 3, None, None],
                 "value__digits": [None, 54613.0, None, None],
             }
         ),
@@ -163,7 +165,7 @@ df_special3 = frame.cast(
             "module",
             "channel",
             "cycle",
-            "value_digits",
+            "value__digits",
         ],
     ),
     adwin.SCHEMA,
@@ -186,7 +188,7 @@ df_special3__corrected = frame.cast(
             "module",
             "channel",
             "cycle",
-            "value_digits",
+            "value__digits",
         ],
     ),
     adwin.SCHEMA,
@@ -215,18 +217,15 @@ def test_sanitize_success():
     )
 
 
-def test_to_adbasic():
+def test_to_data():
     connections = con.new(
         ["shutter_MOT", 1, 11],
         ["lockbox_MOT__MHz", 3, 8],
     )
 
-    devices = pd.DataFrame(
-        columns=["variable", "unit_range", "safety_range"],
-        data=[
-            ["lockbox_MOT__V", (-10, 10), (-10, 10)],
-            ["lockbox_MOT__MHz", (-200, 200), (-200, 200)],
-        ],
+    devices = device.new(
+        ["lockbox_MOT__V", -10, 10],
+        ["lockbox_MOT__MHz", -200, 200],
     )
 
     print(

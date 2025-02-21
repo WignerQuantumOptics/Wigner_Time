@@ -1,5 +1,5 @@
 """
-A device is represented by a dataframe that contains a `unit_range` and (optionally) a `safety_range`.
+A device is represented by a dataframe that contains a unit range and (optionally) a safety range.
 
 The unit range is used for conversion and the saftey range is for sanity checking the output.
 """
