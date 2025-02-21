@@ -18,41 +18,43 @@ from wigner_time.adwin import validate as wt_validate
 """
 Represents the key ADwin settings for the given machine.
 
-These should be loaded by the ADwin system during initialization. The dictionary of settings should grow as large as possible (to encompass all of the internal ADwin features) for maximum reproducibility.
+These should be loaded by the ADwin system during initialization. The settings should grow as large as possible (to encompass all of the internal ADwin features) for maximum reproducibility.
+
+The specifications have the form of a list of 'ADwin device' dictionaries, with the modules represented as a list of dictionaries.
 """
-SPECIFICATIONS__DEFAULT = {
-    "device_001": {
+SPECIFICATIONS__DEFAULT = [
+    {
         "cycle_period__normal__us": 5e-6,
-        "module_001": {
-            "bits": 16,
-            "voltage_range": [-10.0, 10.0],
-            "gain": 1,
-        },
-        "module_002": {
-            "bits": 16,
-            "voltage_range": [-10.0, 10.0],
-            "gain": 1,
-        },
-        "module_003": {
-            "bits": 16,
-            "voltage_range": [-10.0, 10.0],
-            "gain": 1,
-        },
-        "module_004": {
-            "bits": 16,
-            "voltage_range": [-10.0, 10.0],
-            "gain": 1,
-        },
+        "modules": [
+            {
+                "voltage_range": [0.0, 5.0],
+                "gain": 1,
+                "digital": True,
+            },
+            {
+                "bits": 16,
+                "voltage_range": [-10.0, 10.0],
+                "gain": 1,
+            },
+            {
+                "bits": 16,
+                "voltage_range": [-10.0, 10.0],
+                "gain": 1,
+            },
+            {
+                "bits": 16,
+                "voltage_range": [-10.0, 10.0],
+                "gain": 1,
+            },
+        ],
     },
-}
-# TODO: Rather than naming the above with numbers, this could be a list of dicts.
+]
 
 
 def add_cycle(
     timeline,
-    specifications=SPECIFICATIONS__DEFAULT,
+    adwin_device=SPECIFICATIONS__DEFAULT[0],
     special_contexts=wt_adwin.CONTEXTS__SPECIAL,
-    device="device_001",
 ):
     """
     Inserts a new `cycle` column into the timeline as a conversion of the `time` column into 'number of cycles'.
@@ -74,7 +76,7 @@ def add_cycle(
 
     # Ensure device-specific cycle period is available
     try:
-        cycle_period = specifications[device]["cycle_period__normal__us"]
+        cycle_period = adwin_device["cycle_period__normal__us"]
     except KeyError:
         raise ValueError(
             f"`cycle_period__normal` not found in specifications for {device}."
@@ -95,7 +97,9 @@ def add_cycle(
     return timeline
 
 
-def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFAULT):
+def initialize(
+    machine__adwin, output, adwin_device=SPECIFICATIONS__DEFAULT[0]
+) -> object:
     """
     General setup of the *system*, rather than the specific experimental project.
 
@@ -113,7 +117,7 @@ def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFA
 
     print(
         "=== time_end: {}s ===".format(
-            time_end__cycles * specifications["device_001"]["cycle_period__normal__us"]
+            time_end__cycles * adwin_device["cycle_period__normal__us"]
         )
     )
 
@@ -134,7 +138,7 @@ def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFA
     return machine__adwin
 
 
-def modules__digital(specifications):
+def modules__digital(adwin_device):
     """
     The list of modules that govern digital connections.
 
@@ -146,36 +150,33 @@ def modules__digital(specifications):
     return [int(1)]
 
 
-def add(timeline, adwin_connections, devices, specifications=SPECIFICATIONS__DEFAULT):
+def add(timeline, connections, devices, adwin_device=SPECIFICATIONS__DEFAULT[0]):
     """
     Takes an 'operational' layer timeline and inserts ADwin-specific columns, e.g. cycles and numbers for the module and channel etc.
 
     Digital: module 1
     Analogue otherwise
     """
-    # TODO: parameterize the column names
-    # TODO: Add vectorization to the python overview talk
-    #       (this might actually be an overkill: as long as the device is linear, supplying unit_range is sufficient for the conversion, so the functor is necessary only for nonlinear devices)
+    # TODO: deal with nonlinear conversions
 
-    dff = wt_frame.join(timeline, adwin_connections)
+    dff = wt_frame.join(timeline, connections)
     dff = wt_frame.join(dff, devices)
     dff = dff.sort_values(by=["time"], ignore_index=True)
 
     units = wt_variable.units(dff)
     for variable, group in dff.groupby("variable"):
+        # TODO: should dff below be group?
         for u in units:
             conv.add_linear(dff, u)
+    # TODO: ^ This 'feels' inefficient/wrong?
 
-    # TODO: ^ This 'feels' inefficient?
+    mask__digital = dff["module"].isin(modules__digital(adwin_device))
 
-    mask__analogue = dff["module"] != 1
-    # TODO: fix this hardcoding
-
-    dff.loc[~mask__analogue, "value__digits"] = round(dff["value"])
+    dff.loc[mask__digital, "value__digits"] = round(dff["value"])
+    # TODO: Shouldn't all of value__digits be rounded?
 
     device.check_safety_range(dff)
-
-    return wt_validate.all(add_cycle(dff, specifications))
+    return wt_validate.all(add_cycle(dff, adwin_device))
 
 
 def to_tuples(timeline, cols=["cycle", "module", "channel", "value__digits"]):
@@ -187,7 +188,7 @@ def to_tuples(timeline, cols=["cycle", "module", "channel", "value__digits"]):
     return [tuple([np.int32(i) for i in x]) for x in timeline[cols].values]
 
 
-def output(timeline, specifications=SPECIFICATIONS__DEFAULT):
+def output(timeline, adwin_device=SPECIFICATIONS__DEFAULT):
     """
     Takes a dataframe of the experimental run and converts the result to an 'Output' format that can be processed by ADwin.
 
@@ -204,7 +205,7 @@ def output(timeline, specifications=SPECIFICATIONS__DEFAULT):
             "No `module` listed in timeline. Remember to add ADwin specifications before ADwin export."
         )
 
-    mods_digital = modules__digital(specifications)
+    mods_digital = modules__digital(adwin_device)
     mods_analogue = [
         int(x) for x in timeline["module"].unique() if x not in mods_digital
     ]
@@ -221,7 +222,7 @@ def to_data(
     timeline,
     connections,
     devices,
-    adwin_settings=SPECIFICATIONS__DEFAULT,
+    adwin_device=SPECIFICATIONS__DEFAULT[0],
     time_resolution=None,
 ):
     """
@@ -234,14 +235,14 @@ def to_data(
     if time_resolution is not None:
         resolution = time_resolution
     else:
-        resolution = adwin_settings["device_001"]["cycle_period__normal__us"]
+        resolution = adwin_device["cycle_period__normal__us"]
 
     return funcy.compose(
         lambda tline: output(
             tline,
-            specifications=adwin_settings,
+            adwin_device=adwin_device,
         ),
-        lambda tline: add(tline, connections, devices, specifications=adwin_settings),
+        lambda tline: add(tline, connections, devices, adwin_device=adwin_device),
         lambda tline: tl.expand(
             tline,
             time_resolution=resolution,

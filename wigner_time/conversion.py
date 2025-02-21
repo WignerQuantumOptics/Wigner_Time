@@ -4,6 +4,7 @@ import numpy as np
 from copy import deepcopy
 
 # TODO: This is ADwin-dependent in practice and so should be moved.
+# TODO: Should deal with module by module conversion
 
 
 def unit_to_digits(unit, unit_range, num_bits=16, gain=8):
