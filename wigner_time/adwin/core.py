@@ -1,7 +1,5 @@
 # Copyright Thomas W. Clark & András Vukics 2024. Distributed under the Boost Software License, Version 1.0. (See accompanying file LICENSE.txt)
 
-from copy import deepcopy
-
 import funcy
 import numpy as np
 
@@ -21,6 +19,8 @@ Represents the key ADwin settings for the given machine.
 These should be loaded by the ADwin system during initialization. The settings should grow as large as possible (to encompass all of the internal ADwin features) for maximum reproducibility.
 
 The specifications have the form of a list of 'ADwin device' dictionaries, with the modules represented as a list of dictionaries.
+
+# TODO: is there an implicit way of reliably checking if a module is digital or not?
 """
 SPECIFICATIONS__DEFAULT = [
     {
@@ -143,11 +143,13 @@ def modules__digital(adwin_device):
     The list of modules that govern digital connections.
 
     Currently, this just returns a static list, based on a specific lab setup.
+
+    NOTE: Modules are numbered from 1 (unlike Python lists).
     """
 
-    # TODO: Check for modules (from dict) that have some characteristic (no voltage range etc?).
-
-    return [int(1)]
+    return [
+        i + 1 for i, m in enumerate(adwin_device["modules"]) if m.get("digital", False)
+    ]
 
 
 def add(timeline, connections, devices, adwin_device=SPECIFICATIONS__DEFAULT[0]):
@@ -181,24 +183,22 @@ def add(timeline, connections, devices, adwin_device=SPECIFICATIONS__DEFAULT[0])
 
 def to_tuples(timeline, cols=["cycle", "module", "channel", "value__digits"]):
     """
-    A raw extraction of ADwin-relevant values from a `timeline`.
+    A raw extraction of ADwin-relevant values from a `timeline`, regardless of whether or not the module is digital or not.
 
-    No validation is done here.
+    NOTE: No validation is done here.
     """
     return [tuple([np.int32(i) for i in x]) for x in timeline[cols].values]
 
 
 def output(timeline, adwin_device=SPECIFICATIONS__DEFAULT):
     """
-    Takes a dataframe of the experimental run and converts the result to an 'Output' format that can be processed by ADwin.
-
+    Takes a dataframe of the experimental run and converts the result to an 'Output' format that can be processed by ADwin, separating analogue and digital outputs.
 
     return [[(cycle, module, channel, value), ...],
-    [(cycle, channel, value), ...]]
+    [(cycle, module, channel, value), ...]]
     """
-    # TODO: ensure digital outputs are integers
-    # TODO: sort table by cycle before export
-    # TODO: use the same format for analogue and digital (requires change at the ADwin side)
+    if not timeline["cycle"].is_monotonic_increasing:
+        timeline = timeline.sort_values(by=["cycle"], ignore_index=True)
 
     if not ("module" in timeline.columns):
         raise ValueError(
