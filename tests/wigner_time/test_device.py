@@ -110,3 +110,8 @@ def test_connectionMultiple(input):
 def test_SafetyOverUnit(input):
     with pytest.raises(ValueError):
         dev.new(*input)
+
+
+def test_nonlinearConversion():
+    # TODO:
+    return

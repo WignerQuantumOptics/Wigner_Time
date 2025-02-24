@@ -6,6 +6,7 @@ The unit range is used for conversion and the saftey range is for sanity checkin
 
 import numpy as np
 from wigner_time.internal import dataframe as wt_frame
+from collections.abc import Callable
 
 
 # ======================================================================
@@ -15,6 +16,13 @@ _SCHEMA = {
     "unit__max": float,
     "safety__min": float,
     "safety__max": float,
+}
+
+_SCHEMA2 = {
+    "variable": str,
+    "range__min": float,
+    "range__max": float,
+    "volts_per_unit": float | Callable,
 }
 # ======================================================================
 
@@ -33,6 +41,32 @@ def _check_ranges(devices):
         return devices
     else:
         raise ValueError(f"Safety values out of range: {devices[~mask]}")
+
+
+def new2(*variable_factor_safety) -> wt_frame.CLASS:
+    """
+    NOTE: WIP!!!
+
+    IDEA:
+    - factor can replace unit range (i.e. Volts/Unit)?
+    - factor can be a nonlinear function? (conversion branches on this)
+    - possible for there to be no safety range (clipped at the ADwin-side)
+    - will this interfere with `ramp`s? (probably not, if we use a separate column, i.e. 'conversion' or something)
+
+    - all device conversions to voltages? The conversion from voltage to ADC digits can then be done on everything in batch (using the ADwin/backend layer)?
+    """
+
+    input5 = [
+        np.concatenate([sub, sub[-2:]]) if len(sub) == 3 else sub
+        for sub in np.atleast_2d(variable_factor_safety)
+    ]
+
+    try:
+        new = wt_frame.new_schema(input5, _SCHEMA)
+    except:
+        raise ValueError("=== Input to 'device' not well formatted ===")
+
+    return _check_ranges(new)
 
 
 def new(*variable_unit_safety) -> wt_frame.CLASS:

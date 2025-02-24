@@ -8,6 +8,7 @@ import pandas as pd
 from munch import Munch
 from wigner_time.adwin import connection as con
 from wigner_time import timeline as tl
+from wigner_time import device
 
 
 connections = con.new(
@@ -28,15 +29,14 @@ connections = con.new(
     ["lockbox_MOT__MHz", 3, 8],
 )
 
-devices = pd.DataFrame(
-    columns=["variable", "unit_range", "safety_range"],
-    data=[
-        ["coil_compensationX__A", (-3, 3), (-3, 3)],
-        ["coil_compensationY__A", (-3, 3), (-3, 3)],
-        ["coil_MOTlower__A", (-5, 5), (-5, 5)],
-        ["coil_MOTupper__A", (-5, 5), (-5, 5)],
-        ["coil_MOTlowerPlus__A", (-5, 5), (-5, 5)],
-        ["coil_MOTupperPlus__A", (-5, 5), (-5, 5)],
+devices = device.new(
+    [
+        ["coil_compensationX__A", (-3, 3)],
+        ["coil_compensationY__A", (-3, 3)],
+        ["coil_MOTlower__A", (-5, 5)],
+        ["coil_MOTupper__A", (-5, 5)],
+        ["coil_MOTlowerPlus__A", (-5, 5)],
+        ["coil_MOTupperPlus__A", (-5, 5)],
         # ["lockbox_MOT__V", (-10, 10)],
         ["lockbox_MOT__MHz", (-200, 200)],
     ],
