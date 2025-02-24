@@ -19,7 +19,7 @@ _SCHEMA = {
 # ======================================================================
 
 
-def check_ranges(devices):
+def _check_ranges(devices):
     """
     Takes a dataframe of devices (value ranges) and checks whether or not the safety range is 'inside' the value range. If so, return `devices` unchanged; if not, raise an error.
     """
@@ -62,7 +62,7 @@ def new(*variable_unit_safety) -> wt_frame.CLASS:
     except:
         raise ValueError("=== Input to 'device' not well formatted ===")
 
-    return check_ranges(new)
+    return _check_ranges(new)
 
 
 def add(timeline, devices):

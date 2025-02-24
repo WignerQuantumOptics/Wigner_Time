@@ -11,12 +11,24 @@ import pandas as pd
 import numpy as np
 
 from wigner_time.internal import dataframe as wt_frame
-
-# TODO: check connection names are valid on creation
+import wigner_time.variable as variable
 
 # ======================================================================
 _SCHEMA = {"variable": str, "module": int, "channel": int}
 # ======================================================================
+
+
+def is_valid_name(timeline):
+    return timeline.variable.str.match(variable.REGEX).all()
+
+
+def _ensure_valid_names(timeline):
+    if is_valid_name(timeline):
+        return timeline
+    else:
+        raise ValueError(
+            "Connection name is not valid. Connection names should follow the REGEX specified in the `variable` module."
+        )
 
 
 def new(*variable_module_channel) -> pd.DataFrame:
@@ -35,7 +47,9 @@ def new(*variable_module_channel) -> pd.DataFrame:
     """
 
     try:
-        return wt_frame.new_schema(np.atleast_2d(variable_module_channel), _SCHEMA)
+        return _ensure_valid_names(
+            wt_frame.new_schema(np.atleast_2d(variable_module_channel), _SCHEMA)
+        )
     except:
         raise ValueError("=== Input to 'connection' not well formatted ===")
 

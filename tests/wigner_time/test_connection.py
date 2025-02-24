@@ -2,6 +2,8 @@ import pytest
 import pandas as pd
 from munch import Munch
 
+from wigner_time import timeline as tl
+from wigner_time import variable
 from wigner_time.adwin import connection as con
 
 
@@ -32,3 +34,50 @@ def test_connectionMany():
             ]
         ),
     )
+
+
+def test_connectionName():
+    assert (
+        con.new(
+            ["shutter_MOT", 1, 11],
+            ["shutter_repump", 1, 12],
+            ["shutter_imaging", 1, 13],
+        )
+        .variable.str.match(variable.REGEX)
+        .all()
+    )
+
+
+def test_connectionName002():
+    assert con.is_valid_name(
+        con.new(
+            ["shutter_MOT", 1, 11],
+            ["shutter_repump", 1, 12],
+            ["shutter_imaging", 1, 13],
+        )
+    )
+
+
+def test_connectionName003():
+    assert (
+        con.is_valid_name(
+            tl.create(
+                ["shutter_MOT", 1, 11],
+                ["shutter__repump", 1, 12],
+                ["shutter_imaging", 1, 13],
+            )
+        )
+        == False
+    )
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        ("AOMMOT__V", 1, 1),
+        (["AOMMOT", 1, 1]),
+    ],
+)
+def test_connectionSingleInvalid(input):
+    with pytest.raises(ValueError):
+        con.new(*input)

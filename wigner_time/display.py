@@ -22,7 +22,8 @@ def display(
 ):
     # TODO:
     # - This should be ADwin-independent
-    # -
+    # - Branch based on whether ADwin is installed??
+    # - Allow for expansion and time-resolution.
     # suffixes__analogue is temporarily part of the API until we understand what to replace it with
     return adwin_display.channels(timeline, variables, suffixes__analogue)
 

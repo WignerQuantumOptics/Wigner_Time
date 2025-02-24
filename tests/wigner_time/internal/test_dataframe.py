@@ -1,7 +1,4 @@
 import pytest
-import pandas as pd
-
-# TODO: This should be abstracted
 
 from wigner_time.internal import dataframe as frame
 
@@ -77,7 +74,6 @@ def test_drop_duplicatesSubset(input_value):
     )
 
 
-# TODO: FIx this merge
 @pytest.mark.parametrize("input", [df_duplicate1])
 def test_increment_selected_rows(input):
     return frame.assert_equal(
@@ -130,9 +126,19 @@ def test_replace_column__filtered():
     )
 
 
-if __name__ == "__main__":
-    import importlib
-
-    importlib.reload(frame)
-
-    print(frame.row_from_max_column(df_simple2))
+@pytest.mark.parametrize("input", [df_simple1])
+def test_insert_dataframes(input):
+    frame.assert_equal(
+        frame.insert_dataframes(input, [1], [df_simple1]),
+        frame.new(
+            [
+                ["thing2", 7.0, 5.0, "init"],
+                ["thing2", 7.0, 5.0, "init"],
+                ["thing", 0.0, 5.0, "init"],
+                ["thing3", 3.0, 5.0, "blah"],
+                ["thing", 0.0, 5.0, "init"],
+                ["thing3", 3.0, 5.0, "blah"],
+            ],
+            columns=["variable", "time", "value", "context"],
+        ),
+    )

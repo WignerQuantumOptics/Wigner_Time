@@ -138,7 +138,9 @@ def rows_from_input(input):
     """
     Takes input, where every variable has its own list, and converts the output to a list of length-4 lists.
     """
-    # TODO: profiling suggests that this is very slow.
+    # TODO:
+    # - profiling suggests that this is very slow.
+    # - is this even necessary??
     # rows = []
     # for row in input:
     #     for rowv in row[1]:

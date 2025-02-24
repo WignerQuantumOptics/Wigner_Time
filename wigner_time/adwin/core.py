@@ -60,7 +60,7 @@ def add_cycle(
     Inserts a new `cycle` column into the timeline as a conversion of the `time` column into 'number of cycles'.
 
     Parameters:
-    - df: DataFrame containing the experimental data.
+    - timeline: DataFrame containing the experimental data.
     - specifications: Dictionary with device-specific configuration, must contain cycle period.
     - special_contexts: Dictionary with context-specific overrides for cycle values.
     - device: Device name to use for cycle period in specifications.

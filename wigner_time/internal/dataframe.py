@@ -85,11 +85,10 @@ def drop_duplicates(df, subset=None, keep="last"):
     return df.drop_duplicates(subset=subset, keep=keep, ignore_index=True).copy()
 
 
-def insert_dataframes(df, indices, dfs):
+def insert_dataframes(df: CLASS, indices: list[int], dfs: list[CLASS]) -> CLASS:
     """
     Inserts multiple DataFrames (`dfs`) into an existing DataFrame (`df`) at specified `indices`.
     """
-    # TODO: Currently doesn't have tests
     # Sort the insertions by index to ensure correct order of insertion
     if len(indices) != len(dfs):
         raise ValueError("`indices` and `dfs` are different lengths.")

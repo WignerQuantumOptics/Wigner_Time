@@ -17,44 +17,46 @@ def test_rows_from_arguments():
     ]
 
 
-# TODO: Move examples to proper tests
-# __convert_input(
-#     [
-#         ["AOM_imaging__V", [[2, 0.0], [3, 0.0]]],
-#         ["AOM_imaging__A", [[2, 0.0], [3, 0.0]]],
-#     ],
-#     context="init",
-# )
-
-# __convert_input(
-#     ["AOM_imaging__V", [[2, 0.0], [3, 0.0]]],
-#     ["AOM_imaging__A", [[2, 0.0], [3, 0.0]]],
-#     context="init",
-# )
-
-# __convert_input(
-#     ["AOM_imaging__V", 0.0],
-#     ["AOM_imaging__A", 0.0],
-#     context="init",
-#     t=0.0,
-# )
-
-# __convert_input(
-#     ["AOM_imaging__V", 2],
-#     context="init",
-#     t=0.0,
-# )
+def test_convert_input():
+    assert input.convert(
+        [
+            ["AOM_imaging__V", [[2, 0.0], [3, 0.0]]],
+            ["AOM_imaging__A", [[2, 0.0], [3, 0.0]]],
+        ],
+        context="init",
+    ) == [
+        ["AOM_imaging__V", [[2, 0.0, "init"], [3, 0.0, "init"]]],
+        ["AOM_imaging__A", [[2, 0.0, "init"], [3, 0.0, "init"]]],
+    ]
 
 
-# __convert_input(
-#     "AOM_imaging__V",
-#     2,
-#     context="init",
-#     t=0.0,
-# )
+def test_convert_input002():
+    assert input.convert(
+        ["AOM_imaging__V", 0.0],
+        ["AOM_imaging__A", 0.0],
+        context="init",
+        time=0.0,
+    ) == [
+        ["AOM_imaging__V", [[0.0, 0.0, "init"]]],
+        ["AOM_imaging__A", [[0.0, 0.0, "init"]]],
+    ]
 
-# __convert_input(
-#     context="init",
-#     AOM_imaging__V=[[2, 0.0], [3, 0.0]],
-#     AOM_imaging__A=[[2, 0.0], [3, 0.0]],
-# )
+
+def test_convert_input003():
+    assert input.convert(
+        "AOM_imaging__V",
+        2,
+        context="init",
+        time=0.0,
+    ) == [["AOM_imaging__V", [[0.0, 2, "init"]]]]
+
+
+def test_convert_input004():
+    assert input.convert(
+        context="init",
+        AOM_imaging__V=[[2, 0.0], [3, 0.0]],
+        AOM_imaging__A=[[2, 0.0], [3, 0.0]],
+    ) == [
+        ["AOM_imaging__V", [[2, 0.0, "init"], [3, 0.0, "init"]]],
+        ["AOM_imaging__A", [[2, 0.0, "init"], [3, 0.0, "init"]]],
+    ]
