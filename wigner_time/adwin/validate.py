@@ -3,8 +3,6 @@ import funcy
 import wigner_time.adwin as wt_adwin
 from wigner_time.internal import dataframe as wt_frame
 
-# TODO: rename 'sanitize' to validate etc.
-
 
 def special_contexts(timeline, special_contexts=wt_adwin.CONTEXTS__SPECIAL):
     """

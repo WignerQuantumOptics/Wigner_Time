@@ -17,7 +17,7 @@ connections = con.new(
     ["shutter_OP002", 1, 15],
     ["AOM_MOT", 1, 1],
     ["AOM_repump", 1, 2],
-    ["AOM_OP_aux", 1, 30],  # should be set to 0 always
+    ["AOM_OPaux", 1, 30],  # should be set to 0 always
     ["AOM_OP", 1, 31],
     ["coil_compensationX__A", 4, 7],
     ["coil_compensationY__A", 3, 2],
@@ -84,7 +84,7 @@ def init(**kwargs):
             coil_MOTupperPlus__A=constants.Compensation.Z__A,
             AOM_MOT=1,
             AOM_repump=1,
-            AOM_OP_aux=0,  # TODO: USB-controlled AOMs should be treated on a higher level
+            AOM_OPaux=0,  # TODO: USB-controlled AOMs should be treated on a higher level
             AOM_OP=1,
             shutter_MOT=0,
             shutter_repump=0,
@@ -116,7 +116,7 @@ def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
         tl.update(
             AOM_MOT=1,
             AOM_repump=1,
-            AOM_OP_aux=0,  # TODO: USB-controlled AOMs should be treated on a higher level
+            AOM_OPaux=0,  # TODO: USB-controlled AOMs should be treated on a higher level
             AOM_OP=1,
             shutter_MOT=int(MOT_ON),
             shutter_repump=int(MOT_ON),

@@ -1,24 +1,20 @@
 # Copyright Thomas W. Clark & András Vukics 2024. Distributed under the Boost Software License, Version 1.0. (See accompanying file LICENSE.txt)
+import pathlib as pl
 
 import numpy as np
+from scipy.interpolate import interp1d
+
+import pandas as pd
 from copy import deepcopy
 
-# TODO: This is ADwin-dependent in practice and so should be moved.
-# TODO: Should deal with module by module conversion
 
-
-def unit_to_digits(unit, unit_range, num_bits=16, gain=8):
+def unit_to_digits(unit, unit_range=[-10.0, 10.0], num_bits: int = 16, gain: int = 1):
     """
     Transforms any unit range linearly to ADC digits.
     """
-    # TODO: implement gain
-    # TODO: read out the corresponding bit, range and gain values from adwin.specifications!!!
-
-    num_vals = 2**num_bits
-    min_unit, max_unit = unit_range
-    unit_range_interval = max_unit - min_unit
+    unit_min, unit_max = np.asarray(unit_range) / gain
     return np.round(
-        unit * (num_vals / unit_range_interval) + 2 ** (num_bits - 1)
+        ((unit - unit_min) / (unit_max - unit_min)) * (2**num_bits - 1)
     ).astype(int)
 
 
@@ -50,3 +46,32 @@ def add_linear(
             dff.loc[mask, "value"], unit_range=unit_range
         )
     return dff
+
+
+def function_from_file(
+    path,
+    method="cubic",
+    fill_value="extrapolate",
+    indices__column=[0, 1],
+    **read_csv__args
+):
+    """
+    An interpolation function drawn from *two columns* of a CSV-like calibration file.
+
+    NOTE: If you would like to invert the interpolation then just specify the columns backwards, e.g. indices__column=[1,0]
+
+    e.g.
+    function_from_file(
+        "resources/calibration/aom_calibration.dat",
+        names=["voltage", "transparency"],
+        'sep=r"\s+"',
+    ),
+    """
+    df = pd.read_csv(path, **read_csv__args).dropna()
+
+    return interp1d(
+        df.iloc[:, indices__column[0]],
+        df.iloc[:, indices__column[1]],
+        kind=method,
+        fill_value=fill_value,
+    )

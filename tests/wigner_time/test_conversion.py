@@ -18,6 +18,22 @@ def df_simple():
     )
 
 
+@pytest.mark.parametrize(
+    "gain",
+    [1, 2, 4, 8],
+)
+def test_unit_to_digits(gain):
+    assert conv.unit_to_digits(0, [-10, 10], gain=gain) == 2**15
+
+
+@pytest.mark.parametrize(
+    "input",
+    list(zip([10, 5, 2.5, 1.25], [1, 2, 4, 8])),
+)
+def test_unit_to_digits002(input):
+    assert conv.unit_to_digits(input[0], [-10, 10], gain=input[1]) == 2**16 - 1
+
+
 def test_add_linear_conversion(df_simple):
     df_devs = device.add(
         df_simple,
@@ -41,7 +57,7 @@ def test_add_linear_conversion(df_simple):
                 "unit__max": [None, 3, None, None],
                 "safety__min": [None, -3, None, None],
                 "safety__max": [None, 3, None, None],
-                "value__digits": [None, 54613.0, None, None],
+                "value__digits": [None, 54612, None, None],
             }
         ),
     )

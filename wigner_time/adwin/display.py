@@ -77,8 +77,6 @@ def channels(
         if value
     }
 
-    # TODO: Anchor should be filtered before now (it's not connected to a variable)
-    # - Actually, not sure. Might be helpful to display anchors.
     digital_variables = list(
         filter(
             lambda s: (LABEL__ANCHOR not in s) and ("__" not in s),
