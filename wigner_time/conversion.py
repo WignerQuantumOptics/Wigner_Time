@@ -31,6 +31,7 @@ def add_linear(
     # TODO: Should use the current `variable` regex consistently. Maybe available centrally?
     # - reconsider deepcopy
     # - link to ADwin specifications
+    # - do all non-function conversions together
 
     if is_inplace:
         dff = timeline
@@ -44,7 +45,7 @@ def add_linear(
 
         dff.loc[dff.index[mask], column__new] = unit_to_digits(
             dff.loc[mask, "value"] * factor
-        )
+        ).astype("Int32")
     return dff
 
 

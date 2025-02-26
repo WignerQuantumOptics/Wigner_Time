@@ -69,8 +69,7 @@ def test_add_linear_conversion(df_simple):
                 "to_V": float,
                 "value__min": float,
                 "value__max": float,
-                "value__digits": "Int64",
+                "value__digits": "Int32",
             }
         ),
-        check_dtype=False,
     )
