@@ -30,16 +30,13 @@ connections = con.new(
 )
 
 devices = device.new(
-    [
-        ["coil_compensationX__A", (-3, 3)],
-        ["coil_compensationY__A", (-3, 3)],
-        ["coil_MOTlower__A", (-5, 5)],
-        ["coil_MOTupper__A", (-5, 5)],
-        ["coil_MOTlowerPlus__A", (-5, 5)],
-        ["coil_MOTupperPlus__A", (-5, 5)],
-        # ["lockbox_MOT__V", (-10, 10)],
-        ["lockbox_MOT__MHz", (-200, 200)],
-    ],
+    ["coil_compensationX__A", 3.0 / 10.0],
+    ["coil_compensationY__A", 3.0 / 10.0],
+    ["coil_MOTlower__A", 5 / 10.0],
+    ["coil_MOTupper__A", 5 / 10.0],
+    ["coil_MOTlowerPlus__A", 5 / 10.0],
+    ["coil_MOTupperPlus__A", 5 / 10.0],
+    ["lockbox_MOT__MHz", 0.05],
 )
 
 

@@ -12,10 +12,9 @@ def unit_to_digits(unit, unit_range=[-10.0, 10.0], num_bits: int = 16, gain: int
     """
     Transforms any unit range linearly to ADC digits.
     """
+    # TODO: change to volts to digits
     unit_min, unit_max = np.asarray(unit_range) / gain
-    return np.round(
-        ((unit - unit_min) / (unit_max - unit_min)) * (2**num_bits - 1)
-    ).astype(int)
+    return np.round(((unit - unit_min) / (unit_max - unit_min)) * (2**num_bits - 1))
 
 
 def add_linear(
@@ -26,11 +25,12 @@ def add_linear(
     is_inplace: bool = True,
 ):
     """
-    Performs a linear conversion, according to the associated bounding values (`unit__min` and `unit__max`), and adds the resulting values as another column, `value__digits`.
+    Performs a linear conversion, according to the associated conversion factor, and adds the resulting values as another column, `value__digits`.
 
     """
     # TODO: Should use the current `variable` regex consistently. Maybe available centrally?
     # - reconsider deepcopy
+    # - link to ADwin specifications
 
     if is_inplace:
         dff = timeline
@@ -40,10 +40,10 @@ def add_linear(
     mask = dff["variable"].str.contains(separator + unit + "$")
 
     if mask.any():
-        unit_range = dff.loc[mask, ["unit__min", "unit__max"]].iloc[0]
+        factor = dff.loc[mask, ["to_V"]].values[0][0]
 
         dff.loc[dff.index[mask], column__new] = unit_to_digits(
-            dff.loc[mask, "value"], unit_range=unit_range
+            dff.loc[mask, "value"] * factor
         )
     return dff
 
@@ -53,7 +53,7 @@ def function_from_file(
     method="cubic",
     fill_value="extrapolate",
     indices__column=[0, 1],
-    **read_csv__args
+    **read_csv__args,
 ):
     """
     An interpolation function drawn from *two columns* of a CSV-like calibration file.

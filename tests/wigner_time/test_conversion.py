@@ -39,25 +39,38 @@ def test_add_linear_conversion(df_simple):
         df_simple,
         device.new(
             "AOM_imaging__V",
+            1.0,
             -3,
             3,
         ),
     )
-    print(df_devs)
+
+    df_added = conv.add_linear(df_devs, "V")
 
     return pd.testing.assert_frame_equal(
-        conv.add_linear(df_devs, "V"),
+        df_added,
         wt_frame.new(
             {
                 "time": [0.0, 0.0, 0.0, 0.0],
                 "variable": ["AOM_imaging", "AOM_imaging__V", "AOM_repump", "virtual"],
                 "value": [0.0, 2.0, 1.0, 1.0],
                 "context": ["init", "init", "init", "MOT"],
-                "unit__min": [None, -3, None, None],
-                "unit__max": [None, 3, None, None],
-                "safety__min": [None, -3, None, None],
-                "safety__max": [None, 3, None, None],
-                "value__digits": [None, 54612, None, None],
+                "to_V": [None, 1.0, None, None],
+                "value__min": [None, -3, None, None],
+                "value__max": [None, 3, None, None],
+                "value__digits": [None, 39321, None, None],
+            }
+        ).astype(
+            {
+                "time": float,
+                "variable": str,
+                "value": float,
+                "context": str,
+                "to_V": float,
+                "value__min": float,
+                "value__max": float,
+                "value__digits": "Int64",
             }
         ),
+        check_dtype=False,
     )

@@ -199,8 +199,8 @@ def test_to_data():
     )
 
     devices = device.new(
-        ["lockbox_MOT__V", -10, 10],
-        ["lockbox_MOT__MHz", -200, 200],
+        ["lockbox_MOT__V", 1.0],
+        ["lockbox_MOT__MHz", 0.05],
     )
 
     tuples = adwin.to_data(

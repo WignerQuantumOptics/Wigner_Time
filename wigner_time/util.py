@@ -83,6 +83,15 @@ def ensure_pair(l: list):
             raise ValueError(f"Unexpected argument to `ensure_pair`.")
 
 
+def ensure_2d(input_data):
+    """Ensure the input is converted to a 2D list."""
+    if isinstance(input_data, (list, tuple)):
+        if len(input_data) > 0 and isinstance(input_data[0], (list, tuple)):
+            return input_data
+        return [input_data]
+    return [[input_data]]
+
+
 def is_collection(x, is_string=False):
     """
     Checks if x is a non-string sequence or numpy array by default. Strings can be included using the 'is_string' flag.
