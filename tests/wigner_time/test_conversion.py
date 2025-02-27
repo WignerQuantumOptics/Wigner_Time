@@ -45,7 +45,7 @@ def test_add_linear_conversion(df_simple):
         ),
     )
 
-    df_added = conv.add_linear(df_devs, "V")
+    df_added = conv._add_linear(df_devs)
 
     return pd.testing.assert_frame_equal(
         df_added,
@@ -73,3 +73,26 @@ def test_add_linear_conversion(df_simple):
             }
         ),
     )
+
+
+def test_add():
+    df_devs = device.add(
+        tl.create(
+            AOM_imaging=[0.0, 0.0, "init"],
+            AOM_imaging__transparency=[0.0, 0.5, "init"],
+            coil_MOT__A=[0.0, 1.0, "init"],
+            virtual=[0.0, 1.0, "MOT"],
+        ),
+        device.new(
+            [
+                "AOM_imaging__transparency",
+                lambda x: x + 10,
+                0.0,
+                1.0,
+            ],
+            ["coil_MOT__A", 0.333, -5.0, 5.0],
+        ),
+    )
+
+    print(conv.add(df_devs))
+    assert False

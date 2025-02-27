@@ -39,6 +39,7 @@ devices = device.new(
     ["lockbox_MOT__MHz", 0.05],
 )
 
+# TODO:  Should connections and devices be merged?
 
 # OP1 ON delay: 1.48ms (OFF: 2.6); OP2 OFF delay: 1.78ms (ON: 2.42) measured on Nov 7, 2024
 # OP AOM ON delay: ~20us, not negligible compared to the length of the OP phase
