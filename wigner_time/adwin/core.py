@@ -157,8 +157,9 @@ def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFA
     machine__adwin.SetData_Long([a[3] for a in output[0]], 13, 1, len(output[0]))
 
     machine__adwin.SetData_Long([d[0] for d in output[1]], 20, 1, len(output[1]))
-    machine__adwin.SetData_Long([d[1] for d in output[1]], 22, 1, len(output[1]))
-    machine__adwin.SetData_Long([d[2] for d in output[1]], 23, 1, len(output[1]))
+    machine__adwin.SetData_Long([d[1] for d in output[1]], 21, 1, len(output[1]))
+    machine__adwin.SetData_Long([d[2] for d in output[1]], 22, 1, len(output[1]))
+    machine__adwin.SetData_Long([d[3] for d in output[1]], 23, 1, len(output[1]))
 
     return machine__adwin
 
