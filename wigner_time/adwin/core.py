@@ -127,9 +127,16 @@ def initialize(
     machine.SetData_Long([a[2] for a in output[0]], 12, 1, len(output[0]))
     machine.SetData_Long([a[3] for a in output[0]], 13, 1, len(output[0]))
 
+<<<<<<< HEAD
     machine.SetData_Long([d[0] for d in output[1]], 20, 1, len(output[1]))
     machine.SetData_Long([d[1] for d in output[1]], 22, 1, len(output[1]))
     machine.SetData_Long([d[2] for d in output[1]], 23, 1, len(output[1]))
+=======
+    machine__adwin.SetData_Long([d[0] for d in output[1]], 20, 1, len(output[1]))
+    machine__adwin.SetData_Long([d[1] for d in output[1]], 21, 1, len(output[1]))
+    machine__adwin.SetData_Long([d[2] for d in output[1]], 22, 1, len(output[1]))
+    machine__adwin.SetData_Long([d[3] for d in output[1]], 23, 1, len(output[1]))
+>>>>>>> 8f0168b52e654d8ae50383f07a7e27191606b075
 
     return machine
 
