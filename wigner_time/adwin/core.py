@@ -164,13 +164,13 @@ def add(timeline, connections, devices, machine_specifications=SPECIFICATIONS__D
     dff = wt_frame.join(dff, devices)
     dff = dff.sort_values(by=["time"], ignore_index=True)
 
-    units = wt_variable.units(dff)
-    for variable, group in dff.groupby("variable"):
-        # TODO: should dff below be group?
-        for u in units:
-            conv.add_linear(dff, u)
+    dff = conv.add(dff)
+    # for variable, group in dff.groupby("variable"):
+    # TODO: should dff below be group?
+    # conv.add(dff)
     # TODO: ^ This 'feels' inefficient/wrong?
 
+    print(dff.columns)
     mask__digital = dff["module"].isin(modules__digital(machine_specifications))
 
     dff.loc[mask__digital, "value__digits"] = round(dff["value"])

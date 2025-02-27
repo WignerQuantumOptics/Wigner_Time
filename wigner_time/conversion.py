@@ -38,8 +38,7 @@ def _add_linear(
 
         dff.loc[mask, column__new] = unit_to_digits(
             dff.loc[mask, "value"] * dff.loc[mask, column__conversion]
-        )  # .astype("Int32")
-        print(dff)
+        )
 
         return dff
     else:
@@ -63,8 +62,10 @@ def _add_function(
             dff = deepcopy(timeline)
 
         dff.loc[mask, column__new] = unit_to_digits(
-            dff.loc[mask, "value"].map(dff[column__conversion])
-        ).astype("Int32")
+            dff.loc[mask].apply(
+                lambda row: row[column__conversion](row["value"]), axis=1
+            )
+        )
 
         return dff
     else:
@@ -77,12 +78,9 @@ def add(
     column__new: str = "value__digits",
 ) -> wt_frame.CLASS:
     if column__conversion in timeline.columns:
-        print("got to conversion")
-
         dff = _add_linear(
             timeline, column__conversion=column__conversion, column__new=column__new
         )
-        print(f"dff: {dff}")
         return _add_function(
             dff, column__conversion=column__conversion, column__new=column__new
         )

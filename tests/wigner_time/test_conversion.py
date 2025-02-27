@@ -1,6 +1,7 @@
 import pytest
 import pandas as pd
 from munch import Munch
+import numpy as np
 
 from wigner_time.internal import dataframe as wt_frame
 from wigner_time import timeline as tl
@@ -69,14 +70,19 @@ def test_add_linear_conversion(df_simple):
                 "to_V": float,
                 "value__min": float,
                 "value__max": float,
-                "value__digits": "Int32",
+                "value__digits": float,
             }
         ),
     )
 
 
-def test_add():
-    df_devs = device.add(
+def func(x):
+    return x + 10
+
+
+@pytest.fixture
+def df_devs():
+    return device.add(
         tl.create(
             AOM_imaging=[0.0, 0.0, "init"],
             AOM_imaging__transparency=[0.0, 0.5, "init"],
@@ -86,7 +92,7 @@ def test_add():
         device.new(
             [
                 "AOM_imaging__transparency",
-                lambda x: x + 10,
+                func,
                 0.0,
                 1.0,
             ],
@@ -94,5 +100,43 @@ def test_add():
         ),
     )
 
-    print(conv.add(df_devs))
-    assert False
+
+def test_add_function(df_devs):
+    wt_frame.assert_equal(
+        conv._add_function(df_devs)[["value", "to_V", "value__digits"]],
+        wt_frame.new(
+            [
+                [
+                    0.0,
+                    np.nan,
+                    np.nan,
+                ],
+                [0.5, func, 67173.0],
+                [1.0, 0.333, np.nan],
+                [1.0, np.nan, np.nan],
+            ],
+            columns=["value", "to_V", "value__digits"],
+        ),
+    )
+
+
+def test_add(df_devs):
+
+    calc = conv.add(df_devs)[["value", "to_V", "value__digits"]]
+    guess = wt_frame.new(
+        [
+            [
+                0.0,
+                np.nan,
+                np.nan,
+            ],
+            [0.5, func, 67173.0],
+            [1.0, 0.333, 33858.65775],
+            [1.0, np.nan, np.nan],
+        ],
+        columns=["value", "to_V", "value__digits"],
+    )
+    print(calc["value__digits"])
+    # print(guess)
+
+    return wt_frame.assert_equal(calc.astype({"value__digits": float}), guess)
