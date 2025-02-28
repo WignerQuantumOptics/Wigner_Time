@@ -160,9 +160,6 @@ def quantities(
     for variable, offset, color in zip(
         variables__digital, range(len(list(variables__digital))), colors
     ):
-
-        print(variables__digital)
-        print(variable)
         baseline = offset / divider
         array = tline[tline["variable"] == variable]
         axes[-1].axhline(baseline, color=color, linestyle=":", alpha=0.5)
