@@ -249,5 +249,5 @@ def testInitToFinish():
     adwin_display.quantities(tl__new)
     #
     # return frame.assert_equal(tl__new, None)
-    # assert False
+    assert False
     assert True

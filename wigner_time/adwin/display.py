@@ -4,24 +4,24 @@
 # Block module based on dependency
 import importlib.util
 
-from wigner_time import anchor
+from wigner_time import adwin, anchor
 
 if not importlib.util.find_spec("matplotlib"):
     raise ImportError("The `display` module requires `matplotlib` to be installed.")
 
 # ============================================================
 # Normal imports
+# ============================================================
+from copy import deepcopy
+
 import matplotlib.axes as mpa
 import matplotlib.pyplot as plt
 import numpy as np
-import wigner_time.variable as wt_variable
-
-# ^^^ TODO: will use for special contexts
-from wigner_time import timeline as tl
-from wigner_time.adwin import core as wt_adwin
 import wigner_time.anchor as anchor
+import wigner_time.util as wt_util
+import wigner_time.variable as wt_variable
+from wigner_time import timeline as tl
 from wigner_time.anchor import LABEL__ANCHOR
-
 from wigner_time.internal import dataframe as wt_frame
 
 # ============================================================
@@ -44,14 +44,14 @@ SYMBOL_QUANTITY = {
 }
 
 
-def _draw_context(axis: mpa.Axes, info__context, alpha=0.1):
+def _draw_context(axis: mpa.Axes, info__context, alpha=0.1, cmap__context="magma"):
     ys = axis.get_ylim()
     y__center = np.mean(ys)
 
-    prop_cycle = plt.rcParams["axes.prop_cycle"]
-    colors = prop_cycle.by_key()["color"]
-
-    for con, col in zip(info__context.keys(), colors):
+    theme_colors = plt.get_cmap(cmap__context).colors
+    for con, col in zip(
+        info__context.keys(), wt_util.sample(theme_colors, len(info__context))
+    ):
         times = info__context[con]["times"]
         axis.axvspan(times[0], times[1], color=col, alpha=alpha)
 
@@ -74,49 +74,53 @@ def quantities(
     do_context: bool = True,
     do_show: bool = True,
     symbol_quantities: dict = SYMBOL_QUANTITY,
+    cmap__context="magma",
 ):
     """
     Displays the given `tline`, filtered by `variable`, in terms of different quantites, i.e. by common `unit`. The mapping between `unit` and 'quantity' can be provided as a dictionary.
+
+    NOTE: Unit and quantity terminology taken from SI conventions.
     """
     # TODO:
     # - Separate style and content
-    # - abstract out ADwin-only things
+    # - offer filtering by `context`
     if variables:
         tline = wt_frame.subframe(timeline, "variable", variables)
     else:
         tline = timeline
     tline.sort_values("time", inplace=True, ignore_index=True)
 
-    info__context = tl.context_info(tline)
-
-    max_time = tline.loc[
-        tline["context"] != "ADwin_Finish", "time"
-    ].max()  # apart from the finish section
-
-    # TODO: This shouldn't be necessary once the tline is verified
-
-    tline.loc[tline["context"] == "ADwin_LowInit", "time"] = -0.5
-    tline.loc[tline["context"] == "ADwin_Init", "time"] = -0.25
-
-    tline.loc[tline["context"] == "ADwin_Finish", "time"] = max_time + 0.25
+    # =====================================================================
+    # ADwin
+    # =====================================================================
+    # To make the special contexts (where there is no time) visible
+    if do_context:
+        info__context = tl.context_info(tline)
+        for label in adwin.CONTEXTS__SPECIAL:
+            if label in info__context.keys():
+                d = deepcopy(info__context[label]["times"])
+                if "Init" in label:
+                    info__context[label]["times"] = [d[0], d[1] + 0.5]
+                if "Finish" in label:
+                    info__context[label]["times"] = [d[0] - 0.5, d[1]]
+    # =====================================================================
 
     if variables is None:
         variables = tline["variable"].unique()
 
     units = wt_variable.units(tline)
-
     unit_variables__analog = {
         u: [v for v in variables if wt_variable.unit(v) == u]
         for u in units
         if u not in ["digital", LABEL__ANCHOR]
     }
-    unit_variables__digital = {
-        u: [v for v in variables if wt_variable.unit(v) == u]
-        for u in units
-        if u in ["digital"]
-    }
+    variables__digital = [v for v in variables if wt_variable.unit(v) == "digital"]
+
     tline__anchors = tline[anchor.mask(tline)]
 
+    # =====================================================================
+    # ANALOGUE
+    # =====================================================================
     prop_cycle = plt.rcParams["axes.prop_cycle"]
     colors = prop_cycle.by_key()["color"]
 
@@ -144,16 +148,21 @@ def quantities(
             axis.plot(array["time"], array["value"], marker="o", ms=3)
             analogLabels.append(axis.text(0, array.iat[0, 2], variable, color=color))
         if do_context:
-            _draw_context(axis, info__context)
-
-    divider = 1.5 * len(unit_variables__digital)
+            _draw_context(axis, info__context, cmap__context=cmap__context)
+    #
+    # =====================================================================
+    # DIGITAL
+    # =====================================================================
+    divider = 1.5 * len(variables__digital)
     digitalLabels = []
-    axes[-1].set_ylabel("Digital channels")
+    axes[-1].set_ylabel("Digital")
 
     for variable, offset, color in zip(
-        unit_variables__digital, range(len(list(unit_variables__digital))), colors
+        variables__digital, range(len(list(variables__digital))), colors
     ):
 
+        print(variables__digital)
+        print(variable)
         baseline = offset / divider
         array = tline[tline["variable"] == variable]
         axes[-1].axhline(baseline, color=color, linestyle=":", alpha=0.5)
@@ -170,17 +179,10 @@ def quantities(
         digitalLabels.append(
             axes[-1].text(0, baseline + 1, variable + "_ON", color=color)
         )
-    axes[-1].set_yticks(
-        [i / divider for i in range(len(list(unit_variables__digital)))]
-    )
+    axes[-1].set_yticks([i / divider for i in range(len(list(variables__digital)))])
     axes[-1].set_yticklabels([])
     if do_context:
-        _draw_context(axes[-1], info__context)
-
-    # shade init and finish:
-    for ax in axes:
-        ax.axvspan(-0.75, 0, color="gray", alpha=0.3)
-        ax.axvspan(max_time, max_time + 0.5, color="gray", alpha=0.3)
+        _draw_context(axes[-1], info__context, cmap__context=cmap__context)
 
     for anchorTime in tline__anchors["time"]:
         for axis in axes:
@@ -191,29 +193,16 @@ def quantities(
     ax2.set_xticks(list(tline__anchors["time"]))  # Set ticks at the specified x-values
     ax2.set_xticklabels(list(tline__anchors["context"]))
 
-    def sync_axes(event):
+    def _sync_axes(event):
         xlim = axes[0].get_xlim()
         ax2.set_xlim(xlim)
         for label in analogLabels + digitalLabels:
             label.set_position((0.9 * xlim[0] + 0.1 * xlim[1], label.get_position()[1]))
 
     # Connect the sync function to the 'xlim_changed' event
-    axes[0].callbacks.connect("xlim_changed", sync_axes)
+    axes[0].callbacks.connect("xlim_changed", _sync_axes)
 
     if do_show:
         plt.show()
 
     return fig, axes
-
-
-if __name__ == "__main__":
-
-    import pathlib as pl
-    import sys
-
-    sys.path.append(str(pl.Path.cwd() / "doc"))
-    import experiment as ex
-    from wigner_time import timeline as tl
-
-    tline = tl.stack(ex.init(), ex.MOT(), ex.MOT_detunedGrowth())
-    quantities(tline)

@@ -118,3 +118,11 @@ def range__inclusive(start, stop, step):
     # Uses `math` because it returns an integer rather than a float.
     num = np.abs(math.ceil((stop - start) / step) + 1)
     return np.linspace(start, stop, num=num)
+
+
+def sample(lst: list, N: int):
+    """
+    Retrive `N`, equally and maximally spaced, elements from the `list`.
+    """
+    indices = np.linspace(0, len(lst) - 1, N, dtype=int)
+    return [lst[i] for i in indices]
