@@ -13,7 +13,6 @@ def __find_depth(vtvc):
     """
     Returns the necessary level of nesting to reach the data. This is complicated by the fact that the array input can be inhomogenously shaped (which is convenient for the user, if not for the programming!).
     """
-    # TODO: Check that first element is actually a string.
 
     if WTutil.is_collection(vtvc[0]):
         if WTutil.is_collection(vtvc[0][0]):
@@ -102,7 +101,7 @@ def convert(
     This was abstracted from `create`... to simplify (well, we tried) the logic.
     """
     # TODO: could probably still be simplified
-    # TODO: make consistent: sometimes a tuple and sometimes a list
+    # - make consistent: sometimes a tuple and sometimes a list
 
     shape = np.array(vtvc, dtype=object).shape
 
@@ -110,6 +109,7 @@ def convert(
         return __correct_variable_list(vtvc_dict.items(), time, context)
     else:
         depth = __find_depth(vtvc)
+        # TODO: Check that first element is actually a string.
 
         match depth:
             case 3:

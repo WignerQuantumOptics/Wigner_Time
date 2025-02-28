@@ -47,8 +47,6 @@ def new(*variable_factor_min_max) -> wt_frame.CLASS:
         ["coil_MOTlower__A", <function>, -5, 5],
         ["coil_MOTupper__A", lambda x: x - 100,-5, 5],
     """
-    # TODO:
-    # - allow for automatic conversion for Voltages?
 
     def process_input(args):
         l = len(args)

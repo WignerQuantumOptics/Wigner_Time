@@ -142,3 +142,33 @@ def test_insert_dataframes(input):
             columns=["variable", "time", "value", "context"],
         ),
     )
+
+
+@pytest.mark.parametrize("input", [df_simple1])
+def test_subframe(input):
+    return frame.assert_equal(
+        frame.subframe(input, "variable", ["thing2"]),
+        frame.new(
+            [
+                ["thing2", 7.0, 5.0, "init"],
+            ],
+            columns=["variable", "time", "value", "context"],
+        ),
+    )
+
+
+@pytest.mark.parametrize("input", [df_simple1])
+def test_subframe002(input):
+    calc = frame.subframe(input, "variable", [5], func=len)
+    new = frame.new(
+        [
+            ["thing", 0.0, 5.0, "init"],
+        ],
+        columns=["variable", "time", "value", "context"],
+    )
+    # print(calc)
+    # print(new)
+    return frame.assert_equal(
+        calc,
+        new,
+    )

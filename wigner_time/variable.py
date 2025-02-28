@@ -5,6 +5,7 @@ Outlines the conventions for variables  and provides some convenience functions 
 import re
 from munch import Munch
 from wigner_time.internal import dataframe as wt_frame
+from wigner_time.anchor import LABEL__ANCHOR
 
 REGEX = re.compile(r"^([^_]+)_([^_]+)(?:__([^_]+))?$")
 
@@ -20,7 +21,14 @@ def parse(variable: str) -> dict:
 
     if match is not None:
         e, c, u = match.groups()
-        return Munch(equipment=e, context=c, unit=u if u else "digital")
+        if u:
+            unit = u
+        elif LABEL__ANCHOR in e:
+            unit = LABEL__ANCHOR
+        else:
+            unit = "digital"
+
+        return Munch(equipment=e, context=c, unit=unit)
     else:
         raise ValueError(
             f"Variable {variable} doesn't meet the current naming convention."
@@ -39,7 +47,7 @@ def unit(variable):
     return parse(variable)["unit"]
 
 
-def units(timeline: wt_frame.CLASS, do_digital=True):
+def units(timeline: wt_frame.CLASS, do_digital: bool = True):
     """
     Returns a set of different timeline units (strs).
     """

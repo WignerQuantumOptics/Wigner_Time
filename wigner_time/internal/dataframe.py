@@ -4,11 +4,13 @@ This namespace is for abstracting out the implementation of dataframe manipulati
 Particularly relevant for the pandas to polars upgrade.
 """
 
+from collections.abc import Callable
+
 # In the medium term, this should have a polars counterpart namespace so that we can switch between the two easily.
-
 from copy import deepcopy
-import pandas as pd
 
+import pandas as pd
+from numpy import identity
 
 CLASS = pd.DataFrame
 
@@ -56,6 +58,16 @@ def isnull(o):
     Detect missing values for an array-like object.
     """
     return pd.isnull(o)
+
+
+def subframe(df: CLASS, column: str, values: list, func: Callable | None = None):
+    """
+    Returns a filtered df, where func(`column`) has values in `values`.
+    """
+    if func:
+        return df[df[column].map(func).isin(values)].reset_index(drop=True)
+
+    return df[df[column].isin(values)].reset_index(drop=True)
 
 
 def row_from_max_column(df, column="time"):
