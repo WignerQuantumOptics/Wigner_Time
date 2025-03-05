@@ -1,11 +1,16 @@
+import pathlib as pl
+import sys
 import pytest
 import pandas as pd
-import numpy as np
 
-from wigner_time import adwin as adwin
+from wigner_time.adwin import core as adwin
 from wigner_time import connection as con
-from wigner_time import device as device
+from wigner_time import device
+from wigner_time import timeline as tl
 from wigner_time.internal import dataframe as frame
+
+sys.path.append(str(pl.Path.cwd() / "doc"))
+import experiment as ex
 
 
 @pytest.fixture
@@ -209,3 +214,80 @@ def test_sanitize_success():
     return pd.testing.assert_frame_equal(
         adwin.sanitize(df_special3), df_special3__corrected
     )
+
+
+def test_to_adbasic():
+    connections = con.connection(
+        ["shutter_MOT", 1, 11],
+        ["lockbox_MOT__MHz", 3, 8],
+    )
+
+    devices = pd.DataFrame(
+        columns=["variable", "unit_range", "safety_range"],
+        data=[
+            ["lockbox_MOT__V", (-10, 10), (-10, 10)],
+            ["lockbox_MOT__MHz", (-200, 200), (-200, 200)],
+        ],
+    )
+
+    print(
+        tl.stack(
+            tl.create(
+                lockbox_MOT__MHz=0.0,
+                shutter_MOT=0,
+                context="ADwin_LowInit",
+            ),
+            tl.anchor(t=0.0, origin=0.0, context="InitialAnchor"),
+            tl.update(
+                shutter_MOT=1,
+                context="MOT",
+            ),
+            tl.anchor(15),
+            tl.ramp(
+                lockbox_MOT__MHz=-5,
+                duration=10e-3,
+                context="MOT",
+            ),
+            tl.anchor(100e-3),
+        )
+    )
+
+    tuples = adwin.to_data(
+        tl.stack(
+            tl.create(
+                lockbox_MOT__MHz=0.0,
+                shutter_MOT=0,
+                context="ADwin_LowInit",
+            ),
+            tl.anchor(t=0.0, origin=0.0, context="InitialAnchor"),
+            tl.update(
+                shutter_MOT=1,
+                context="MOT",
+            ),
+            tl.anchor(15),
+            tl.ramp(
+                lockbox_MOT__MHz=-5,
+                duration=10e-3,
+                context="MOT",
+            ),
+            tl.anchor(100e-3),
+        ),
+        connections,
+        devices,
+        time_resolution=5e-3,
+    )
+    tuples__guess = [
+        [
+            (-2, 3, 8, 32768),
+            (3000000, 3, 8, 32768),
+            (3001000, 3, 8, 32358),
+            (3002000, 3, 8, 31949),
+        ],
+        [
+            (-2, 1, 11, 0),
+            (0, 1, 11, 1),
+        ],
+    ]
+
+    # assert False
+    assert tuples == tuples__guess

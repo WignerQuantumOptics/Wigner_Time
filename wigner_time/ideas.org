@@ -14,7 +14,7 @@ This in the end will be used to define an array that ADwin can read and process.
 ** layers
 - operational (time sequence: probe-on, probe-off etc.)
 - variable (time sequence of independent degrees of freedom: AOM_probe_power 5V)
-- ADwin (ADwin-specific details )
+- output (ADwin-specific details )
 
 Practical consequence is that conversion from time and voltage to cycle time and digits shouldn't happen until the end. Therefore, processing functions like ramps etc. shouldn't worry about the digital effect until necessary.
 ** variables

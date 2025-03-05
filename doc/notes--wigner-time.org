@@ -62,8 +62,6 @@ This in the end will be used to define an array that ADwin can read and process.
 The default object should be a pandas DataFrame or, when there would never be multiple rows, a dictionary.
 
 Assuming the ‘table’ as the fundamental unit, then the column names become important. Here, the idea is that we should use as few as possible. Hence, there is only one ‘value’ column, where the type indicates whether or not it’s an input or an output. There is an ‘is_digital’ column because although this could be inferred from the outputs, it can not (currently) be inferred from the inputs. This line of reasoning could be reconsidered however if it causes storage problems.
-* Questions
-** device_context__unit or context_device__unit?
-** why does Vukics' demo case have so much repetition?
+
 * Random notes (to be categorized later)
 ** conversion functions can be generalized and stored collectively

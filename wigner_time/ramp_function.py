@@ -1,6 +1,7 @@
 # Copyright Thomas W. Clark & András Vukics 2024. Distributed under the Boost Software License, Version 1.0. (See accompanying file LICENSE.txt)
 
 import numpy as np
+from wigner_time import util as wt_util
 
 TIME_RESOLUTION = 1e-6
 # default meaningful gap between specified times
@@ -42,6 +43,6 @@ def tanh(origin, terminus, time_resolution=TIME_RESOLUTION, ti=3):
 
     t1, v1 = origin
     t2, v2 = terminus
-    cc = np.arange(t1, t2, time_resolution)
+    cc = wt_util.range__inclusive(t1, t2, time_resolution)
 
     return np.array([cc, nonlinear(v1, v2, tanhFactor(cc, ti))]).transpose()

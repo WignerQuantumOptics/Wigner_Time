@@ -13,25 +13,23 @@ from copy import deepcopy
 from typing import Callable
 
 import funcy
+import numpy as np
 
-from wigner_time import input as wtinput
-from wigner_time import ramp_function as ramp_function
-from wigner_time.internal import dataframe as frame
-from wigner_time import util as util
+from wigner_time import anchor as wt_anchor
+from wigner_time import config as wt_config
+from wigner_time import input as wt_input
+from wigner_time import ramp_function as wt_ramp_function
+from wigner_time.internal import dataframe as wt_frame
+from wigner_time.internal import origin as wt_origin
+import pandas as pd
+
 
 ###############################################################################
 #                   Constants                                                 #
 ###############################################################################
 
-TIME_RESOLUTION = 1.0e-6
-
-ANALOG_SUFFIXES = {"Voltage": "__V", "Current": "__A", "Frequency": "__MHz"}
-
-COLUMN_NAMES__SPECIAL = [
-    "variable",
-    "time",
-    "value",
-    "context",
+_SCHEMA = {"time": float, "variable": str, "value": float, "context": str}
+_COLUMN_NAMES__RESERVED = list(_SCHEMA.keys()) + [
     "unit_range",
     "safety_range",
 ]
@@ -43,7 +41,7 @@ COLUMN_NAMES__SPECIAL = [
 
 
 def previous(
-    timeline: frame.CLASS,
+    timeline: wt_frame.CLASS,
     variable=None,
     column="variable",
     sort_by=None,
@@ -52,24 +50,18 @@ def previous(
     """
     Returns a row from the previous timeline. By default, this is done by finding the highest value for time and returning that row. If `sort_by` is specified (e.g. 'time'), then the dataframe is sorted and then the row indexed by `index` is returned.
 
-
     Raises ValueError if the specified variable, or timeline, doesn't exist.
     """
-    if variable is not None:
-        tl__filtered = timeline[timeline[column] == variable]
-        if tl__filtered.empty:
-            raise ValueError("Previous {} not found".format(variable))
-    else:
-        tl__filtered = timeline
-
-    if sort_by is None:
-        return frame.row_from_max_column(tl__filtered)
-    else:
-        if not timeline[sort_by].is_monotonic_increasing:
-            tl__filtered.sort_values(sort_by, inplace=True)
-            return tl__filtered.iloc[index]
-        else:
-            return timeline.iloc[index]
+    # DEPRECATED:
+    # TODO: Delete this in favour of the implementation in origin?
+    # Can be exposed through the package API
+    return wt_origin.previous(
+        timeline=timeline,
+        variable=variable,
+        column=column,
+        sort_by=sort_by,
+        index=index,
+    )
 
 
 ###############################################################################
@@ -77,26 +69,25 @@ def previous(
 ###############################################################################
 def create(
     *vtvc,
-    timeline=None,
-    context=None,
+    timeline: wt_frame.CLASS | None = None,
     t=0.0,
-    relativeTime=False,
-    relativeValue=False,
+    context=None,
+    origin=None,
+    schema=_SCHEMA,
     **vtvc_dict,
-):
+) -> wt_frame.CLASS:
     """
-    Establishes a new timeline according to the given (flexible) input collection.
-    If 'timeline' is also specified, then it concatenates the new creation with the existing one.
+    Does what it says on the tin: establishes a new timeline according to the given (flexible) input collection. If 'timeline' is also specified, then it concatenates the new creation with the existing one.
+
 
     Accepts programmatic and manual input.
 
-    TODO: implement relative value
-    TODO: document the possible combinations of arguments ordered according to usecases
+    TODO:
+    - document the possible combinations of arguments ordered according to usecases
+    - change from default `t` to default `origin`?
 
     variable_time_values (*vtvc) has the form:
     variable, time, value, context
-    OR
-    variable=value
     OR
     variable, [[time, value],...]
     OR
@@ -104,188 +95,258 @@ def create(
     OR
     [['variable', [time, value]]]
     OR
-    [['variable', [[time, value],[time002,value002],...]]]
+    [['variable', [[time, value],
+                  [time002,value002],
+                  ...]]]
+
     but when unspecified, is replaced by the dictionary form (**vtvc_dict)
 
-    When either time or context is not specified for a given variable, it is taken from the common `t` or `context` argument.
+    The [time,value] list can also be replaced with [time,value,context] if you would like to specify data-specific context.
 
-    NOTE: It seems to be the case (on the internet) that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
+    If you supply an additional timeline, the result will be concatenated with this and the new timeline (if one isn't specified) will inherit the old context.
+
+    NOTE: It seems to be the case that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
     """
+    rows = wt_input.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
 
-    schema = {"time": float, "variable": str, "value": float, "context": str}
-    rows = wtinput.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
+    df_rows = wt_frame.new(rows, columns=schema.keys()).astype(schema)
+    new = wt_origin.update(df_rows, timeline, origin=origin)
 
-    if (len(rows[0]) != 4) and (context is not None):
-        schema.pop("context")
+    if timeline is not None:
+        if context is None:
+            new["context"] = previous(timeline)["context"]
 
-    new = frame.new(rows, columns=schema.keys()).astype(schema)
+        return wt_frame.concat([timeline, new])
 
-    if timeline is not None and relativeTime:
-        new["time"] += previous(timeline, variable="Anchor")["time"]
-
-    result = frame.concat([timeline, new]) if timeline is not None else new
-    return result
+    return new
 
 
 def update(
     *vtvc,
-    timeline=None,
-    context=None,
+    timeline: wt_frame.CLASS | None = None,
     t=0.0,
-    relativeTime=True,
-    relativeValue=False,
+    context=None,
+    origin=None,
+    schema=_SCHEMA,
     **vtvc_dict,
 ):
     """
-    Creates a timeline for a single or many variables the same as the 'create' function.
+    Creates a timeline for a single or many variables, the same as for the `create` function.
 
     One difference is that when an existing timeline is not specified,
     then it returns an anonymous function for use in function chaining,
     like the other main functions in this module.
 
-    The chaining can be effected by the `stack` function.
+    For such chaining, see the `stack` function.
 
-    When context is not specified for a given variable, it is taken to be the latest context in the timeline.
-    WARNING: this can lead to subtle bugs if the latest context is a special context
-    TODO: this case could be protected against, but at the moment we don’t have info on special contexts in timeline.py
+    Like other functions, when `context` is not specified for a given variable, it is taken to be the latest context in the timeline.
+    WARNING: In this case, beware of accidentally putting timelines into special contexts.
     """
     if timeline is None:
         return lambda x: update(
             *vtvc,
             timeline=x,
-            context=context,
             t=t,
-            relativeTime=relativeTime,
-            relativeValue=relativeValue,
+            context=context,
+            origin=origin,
+            schema=schema,
             **vtvc_dict,
         )
 
     else:
+        # Check if anchor is desired and available
+        origin = wt_origin.auto(
+            timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
+        )
+
         if context is None:
             context = previous(timeline)["context"]
 
         return create(
             *vtvc,
             timeline=timeline,
-            context=context,
             t=t,
-            relativeTime=relativeTime,
-            relativeValue=relativeValue,
+            context=context,
+            origin=origin,
+            schema=schema,
             **vtvc_dict,
         )
 
 
-def anchor(t, timeline=None, relativeTime=True, context=None):
+def anchor(
+    t=None,
+    timeline=None,
+    context=None,
+    origin=None,
+) -> wt_frame.CLASS | Callable:
     """
-    Sets the anchor, optionally relative to the previous anchor
+    Creates a special, non-physical `variable` (doesn't have a matching `connection`), that can be used for time references, particularly within individual `context`s.
+
+    This can be very convenient in the context of `ramp`s, where the starting and ending times are often built around a hypothetical point in time, due to physical switching speeds.
+
+    NB.
+    - By default, the `origin` of `anchor` is `'anchor'` when available; `None` otherwise. This is for convenience.
+    - Anchors are automatically numbered, for 'global' referencing, but these numbers are not necessary in normal use.
     """
+    # NOTE: Makes use of a global variable (LABEL__ANCHOR).
+
     if timeline is None:
-        return lambda x: anchor(
-            t=t, timeline=x, relativeTime=relativeTime, context=context
+        return lambda tline: anchor(
+            timeline=tline,
+            t=t,
+            context=context,
+            origin=origin,
         )
 
-    try:
-        return update(
-            "Anchor",
-            t,
-            0,
-            timeline=timeline,
-            context=context,
-            relativeTime=relativeTime,
-        )
-    except ValueError:
-        return update(
-            "Anchor", t, 0, timeline=timeline, context=context, relativeTime=False
-        )
+    num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
+
+    origin = wt_origin.auto(
+        timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
+    )
+
+    return update(
+        "{}_{:03d}".format(wt_config.LABEL__ANCHOR, num_anchors + 1),
+        0,
+        timeline=timeline,
+        t=t,
+        context=context,
+        origin=origin,
+    )
 
 
 def ramp(
-    *vtvc,
     timeline=None,
-    context=None,
-    t=0.0,
-    relativeTime=True,
-    relativeValue=False,
     duration=None,
-    function=ramp_function.tanh,
-    fargs={},
+    t=None,
+    t2=None,
+    context=None,
+    origin=None,
+    origin2=["variable"],
+    schema=_SCHEMA,
+    function=wt_ramp_function.tanh,
     **vtvc_dict,
-):
+) -> wt_frame.CLASS | Callable:
+    # TODO:
+    # - check for ramps with 0 duration (shouldn't do anything)
     """
-    vtvc is variable,t,value,context (the argument passing follows the same logic as with 'create')
+    Convenient ways of defining pairs of points and a function!
 
-    `t` is starting time, which is relative to the previous anchor if `relativeTime=True`
+    A `ramp` defines ranges of values for each variable across time from a beginning time-value pair to an ending time-value pair. Primarily, for the sake of switching analogue devices on and off in a controllable way. Although a `ramp` can be as simple as a linear `value` progression from start to end, the default function for a `timeline` is hyperbolic tan. This allows the user to soften the value gradient at the beginning and end of the function.
 
-    The starting value of the ramp is the previous value of the variable. If that doesn’t exist, an exception is thrown.
+    `ramp` has a slightly different interface to `create` and `update`. `**vtvc_dict` follows that of `create`, but it is assumed that `*vtvc` is not necessary, as if you wanted to specify the points manually (in big lists), you should use `create` or `update`. Also, ramps are defined in terms of the groups of points needed for the accompanying function. Usually, this will be starting and ending points. Supplying a different number of points will result in an error.
 
+    *Examples of calling ramp*
+    Normally, it will look something like
+    `
+    tl.stack(
+        timeline,
+        tl.ramp(
+            coil_compensationX__A=0.0,
+            coil_compensationY__A=0.0,
+            coil_MOTlowerPlus__A=0.0,
+            coil_MOTupperPlus__A=0.0,
+
+            duration=duration,
+            context="final_ramps"))
+    `
+    The variables are given end values independently and other options collectively. By default, the starting time is also inferred from the previous timeline and so chains of operations can be built up conveniently.
+
+    For simpler ramps, it can still be easier, like in `create`, to supply everything in a list, e.g.
+    `tl.ramp(lockbox_MOT__MHz=[500e-3,0.0])`
+    or
+    `tl.ramp(lockbox_MOT__MHz=[500e-3, 0.0, "final_ramps"])` - if you want a new `context`.
+    This works because by default the ending time is relative to the starting time (see the `origin` keyword argument), such that 't_end' and 'duration' are the same.
+
+    This will cover the vast majority of use cases, but sometimes there might be a need to control the start of a ramp explicitly, even with respect to the `origin`. This can be done similarly,  e.g.
+    `lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]]`,
+    but with the condition that the lists are not inhomogenous.
+
+    NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
-
     if timeline is None:
         return lambda x: ramp(
-            *vtvc,
             timeline=x,
-            context=context,
-            t=t,  # starting time
-            relativeTime=relativeTime,
-            relativeValue=relativeValue,
             duration=duration,
+            t=t,
+            t2=t2,
+            context=context,
+            origin=origin,
+            origin2=origin2,
+            schema=schema,
             function=function,
-            fargs=fargs,
             **vtvc_dict,
         )
-    input_data = wtinput.convert(*vtvc, time=t, context=context, **vtvc_dict)
+    else:
+        if context is None:
+            context = previous(timeline)["context"]
 
-    frames = []
+    _vtvcs = {k: np.array(v) for k, v in vtvc_dict.items()}
+    max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
 
-    if input_data is not None:
-        try:
-            tAnchor = previous(timeline, variable="Anchor")["time"]
-        except ValueError:
-            tAnchor = 0.0
+    if t2 is None and duration is not None:
+        t2 = duration
 
-        for variable, values in input_data:
-            if len(values) > 1:
-                raise ValueError(
-                    "Badly formatted input to 'ramp'. There should only be one collection of t and value per variable."
-                )
-
-            t, value = values[0][:2]
-
-            if relativeTime:
-                t += tAnchor
-
-            prev = previous(timeline, variable)
-
-            if prev is None:
-                raise ValueError(
-                    "Tried to use 'ramp' without previous value for variable {}".format(
-                        variable
-                    )
-                )
-
-            if context is None:
-                context = prev["context"]
-            if relativeValue:
-                value += prev["value"]
-
-            point_start = [t, prev["value"]]
-
-            frames.append(
-                create(
-                    variable,
-                    function(point_start, [t + duration, value], **fargs),
-                    context=context,
-                )
+    match max_ndim:
+        case 0 | 1:
+            rows1 = None
+            rows2 = wt_input.rows_from_arguments(
+                *[], time=t2, context=context, **vtvc_dict
             )
 
-    return frame.concat([timeline] + frames)
+        case 2:
+            _vtvc_1d = {k: v for k, v in _vtvcs.items() if v.ndim != 2}
+            _vtvc_2d_0 = {k: v[0] for k, v in _vtvcs.items() if v.ndim == 2}
+            _vtvc_2d_1 = {k: v[1] for k, v in _vtvcs.items() if v.ndim == 2}
+
+            rows1 = wt_input.rows_from_arguments(
+                *[], time=t, context=context, **_vtvc_2d_0
+            )
+            rows2 = wt_input.rows_from_arguments(
+                *[], time=t2, context=context, **(_vtvc_1d | _vtvc_2d_1)
+            )
+
+        case _:
+            raise ValueError(
+                "Unsupported input to the `ramp` function. Only one or two tuples can be processed per variable."
+            )
+
+    # Prepare the starting points and then basically do two (shorcut-ed) `create`s. One depending on the previous timeline and one depending on the previous `create`.
+
+    df_1 = wt_frame.new(rows1, columns=schema.keys()).astype(schema)
+    df_2 = wt_frame.new(rows2, columns=schema.keys()).astype(schema)
+
+    df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])]
+    if t is None:
+        df__no_start_points.loc[:, ["time", "value"]] = 0.0
+    else:
+        df__no_start_points.loc[:, "time"] = t
+        df__no_start_points.loc[:, "value"] = 0.0
+
+    origin = wt_origin.auto(timeline, origin, origin__defaults=[["anchor", "variable"]])
+
+    new1 = wt_origin.update(
+        wt_frame.concat([df_1, df__no_start_points]), timeline, origin=origin
+    )
+    new1["function"] = function
+    new2 = wt_origin.update(df_2, new1, origin=origin2)
+    new2["function"] = function
+
+    # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
+    return wt_frame.concat([timeline, new1, new2])
 
 
-def stack(firstArgument, *fs: list[Callable]):
+def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
+    # TODO: Alternative names:
+    # - sequence
+    # - chain
+    # - cascade
+    # - domino
+    # - generate (too similar to `create`: will cocnfuse the user)
+    # - abstract
     """
-    For stacking modifications to the timeline in a composable way.
+    For chaining modifications to the timeline in a composable way.
 
-    If the bottom of the stack is a timeline, the result is also timeline
+    If the bottom of the stack is a timeline, the result is also a timeline
     e.g.:
     stack(
         timeline,
@@ -299,16 +360,70 @@ def stack(firstArgument, *fs: list[Callable]):
         ramp(…)
     )
 
-    Otherwise, the result is a functional, which can be later be applied on an existing timeline.
+    Otherwise, the result is a functional, which can later be applied on an existing timeline.
     """
-    if isinstance(firstArgument, frame.CLASS):
+    if isinstance(firstArgument, wt_frame.CLASS):
         return funcy.compose(*fs[::-1])(firstArgument)
     else:
         return funcy.compose(*fs[::-1], firstArgument)
 
 
+def expand(timeline, num__bounds=2, **function_args) -> wt_frame.CLASS:
+    """
+    Converts the functions marked in the timeline into individual rows, i.e. applies the functions to the given data.
+
+    This is generally a one-way operation and so should only be carried out before the timeline is implemented on a device.
+
+    `num__bounds` refers to the number of points (and so rows) needed to define the ramp function in the first place. Currently, this is implicitly assumed to be two, i.e. that `ramp`s are simply defined by the origin, terminus and expansion function.
+    """
+    # NOTE: Not implemented for `num__bounds` != 2
+    #
+    if "function" not in timeline.columns:
+        # TODO: Add test for this 'feature'
+        return timeline
+
+    _mask_fs = timeline["function"].notna()
+    _dff = timeline[_mask_fs].sort_values(by=["variable", "time"])
+
+    # Work out where the ramps start
+    _indices_drop = _dff.index
+    _inds__start = _dff.iloc[::num__bounds].index
+
+    # Mark the beginning and end points (allowing for the number of points per ramp specification to increase in the future)
+    _dff = _dff.reset_index(drop=True)
+    _dff["ramp_group"] = _dff.index // num__bounds
+
+    # Fill out the values
+    _dfs = []
+
+    # For adding back in the value of other columns, based on the first row, like `context` etc. Written this way to allow for more, unknown columns to continue.
+    _columns__keep = _dff.columns.drop(
+        ["time", "value", "variable", "function", "ramp_group"]
+    )
+
+    for _, _group in _dff.groupby("ramp_group"):
+        _pt_start, _pt_end = _group[["time", "value"]].values
+
+        # Apply the ramp function
+        _dfs.append(
+            create(
+                [
+                    _group["variable"].tolist()[0],
+                    _group["function"].tolist()[0](_pt_start, _pt_end, **function_args),
+                ],
+            ).assign(**_group.iloc[0][_columns__keep].to_dict())
+        )
+
+    timeline.drop(index=_indices_drop, inplace=True)
+    timeline.drop(columns=["function"], inplace=True)
+
+    # Add the values back into the main timeline
+    return wt_frame.insert_dataframes(timeline, _inds__start, _dfs)
+
+
 def is_value_within_range(value, unit_range):
-    if frame.isnull(unit_range):
+    # TODO: Shouldn't be here - internal function
+    if wt_frame.isnull(unit_range):
         # If unit_range is NaN, consider it as within range
         return True
     else:
@@ -359,7 +474,7 @@ def sanitize__drop_duplicates(timeline, subset=["variable", "time"]):
     """
     Drop duplicate rows and drop rows where the variable and time are duplicated.
     """
-    return frame.drop_duplicates(timeline, subset=subset)
+    return wt_frame.drop_duplicates(timeline, subset=subset)
 
 
 def sanitize__round_value(timeline, num_decimal_places=6):
@@ -377,11 +492,12 @@ def sanitize(timeline):
 
     `sanitize__round_value` is not by default because this might be unexpected by the user.
     """
+    # TODO: Add check for negative times in the 'final' databases.
 
     return funcy.compose(
         sanitize__drop_duplicates,
         sanitize_values,
-        lambda df: frame.cast(
+        lambda df: wt_frame.cast(
             df,
             {
                 "variable": str,
@@ -393,19 +509,25 @@ def sanitize(timeline):
     )(timeline)
 
 
-def time_from_anchor_to_context(timeline, t=None, anchorToContext=None):
-    if anchorToContext is not None:
-        s = timeline.loc[
-            (timeline["variable"] == "Anchor")
-            & (timeline["context"] == anchorToContext),
-            "time",
-        ]
-        if s.empty and t is None:
-            raise ValueError(
-                "Anchor in context {} not found, and absolute time is not supplied".format(
-                    anchorToContext
-                )
-            )
-        t = (s.max() if not s.empty else 0.0) + (t if t is not None else 0.0)
+def context_info(timeline):
+    """
+    Useful data (currently 'variables' and 'times') concerning every context. The result is a dictionary, indexed by context.
 
-    return t
+    e.g. To get the start and end times of the 'MOT' context, call `context_info(timeline)['MOT']['times]`.
+    """
+
+    if {"context", "time", "variable"}.issubset(timeline.columns):
+        tlg = timeline.groupby("context")
+        return {
+            k: {
+                "variables": tlg["variable"].agg(set).to_dict()[k],
+                "times": tlg["time"]
+                .agg(["first", "last"])
+                .apply(list, axis=1)
+                .to_dict()[k],
+            }
+            for k in tlg.groups.keys()
+        }
+
+    else:
+        return None

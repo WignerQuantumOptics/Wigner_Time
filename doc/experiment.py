@@ -93,7 +93,7 @@ def init(**kwargs):
             context="ADwin_LowInit",
             **kwargs,
         ),
-        tl.anchor(t=0.0, relativeTime=False, context="InitialAnchor"),
+        tl.anchor(t=0.0, origin=0.0, context="InitialAnchor"),
     )
 
 
@@ -109,6 +109,7 @@ def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
             coil_compensationY__A=constants.Compensation.Y__A,
             coil_MOTlowerPlus__A=-constants.Compensation.Z__A,
             coil_MOTupperPlus__A=constants.Compensation.Z__A,
+            #
             duration=duration,
             context="finalRamps",
         ),
@@ -131,7 +132,6 @@ def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
 def MOT(duration=15, lA=-1.0, uA=-0.98, **kwargs):
     return tl.stack(
         tl.update(
-            #           waitChannel = 0,
             shutter_MOT=1,
             shutter_repump=1,
             coil_MOTlower__A=lA,
@@ -148,7 +148,6 @@ def MOT_detunedGrowth(duration=100e-3, durationRamp=10e-3, toMHz=-5, pt=3, **kwa
         tl.ramp(
             lockbox_MOT__MHz=toMHz,
             duration=durationRamp,
-            fargs={"ti": pt},
             context="MOT",
             **kwargs,
         ),
@@ -156,41 +155,52 @@ def MOT_detunedGrowth(duration=100e-3, durationRamp=10e-3, toMHz=-5, pt=3, **kwa
     )
 
 
-def molasses(duration=5e-3, durationCoilRamp=9e-4, durationLockboxRamp=1e-3, toMHz=-90, coil_pt=3, lockbox_pt=3,
-             delay=0, # arbitrary delay to shutter for ad hoc compensation of small drifts
-             **kwargs):
+def molasses(
+    duration=5e-3,
+    durationCoilRamp=9e-4,
+    durationLockboxRamp=1e-3,
+    toMHz=-90,
+    coil_pt=3,
+    lockbox_pt=3,
+    delay=0,  # arbitrary delay to shutter for ad hoc compensation of small drifts
+    **kwargs
+):
 
     return tl.stack(
         tl.ramp(
             coil_MOTlower__A=0,
             coil_MOTupper__A=0,  # TODO: can these be other than 0 (e.g. for more perfect compensaton?)
             duration=durationCoilRamp,
-            fargs={"ti": coil_pt},
             context="molasses",
             **kwargs,
         ),
         tl.ramp(
             lockbox_MOT__MHz=toMHz,
             duration=durationLockboxRamp,
-            fargs={"ti": lockbox_pt},
         ),
         tl.update(
-            shutter_MOT=[duration - constants.lag_MOTshutter + delay, 0], AOM_MOT=[duration, 0]
+            shutter_MOT=[duration - constants.lag_MOTshutter + delay, 0],
+            AOM_MOT=[duration, 0],
         ),
         tl.anchor(duration, context="molasses"),
     )
 
 
-def OP(durationExposition=80e-6, durationCoilRamp=50e-6, i=-0.12, pt=3,
-       delay1=0, delay2=0, # arbitrary delays to shutters for ad hoc compensation of small drifts
-       **kwargs):
+def OP(
+    durationExposition=80e-6,
+    durationCoilRamp=50e-6,
+    i=-0.12,
+    pt=3,
+    delay1=0,
+    delay2=0,  # arbitrary delays to shutters for ad hoc compensation of small drifts
+    **kwargs
+):
     fullDuration = durationExposition + durationCoilRamp
     return tl.stack(
         tl.ramp(
             coil_MOTlower__A=i,
             coil_MOTupper__A=-i,
             duration=durationCoilRamp,
-            fargs={"ti": pt},
             context="OP",
             **kwargs,
         ),
@@ -202,7 +212,10 @@ def OP(durationExposition=80e-6, durationCoilRamp=50e-6, i=-0.12, pt=3,
             ]
         ),
         tl.update(
-            shutter_OP002=[[fullDuration - constants.OP.lag_shutter_off + delay2, 0], [0.1, 1]]
+            shutter_OP002=[
+                [fullDuration - constants.OP.lag_shutter_off + delay2, 0],
+                [0.1, 1],
+            ]
         ),
         tl.update(AOM_repump=0, shutter_repump=0, t=fullDuration),
         tl.anchor(fullDuration, context="OP"),
@@ -223,7 +236,6 @@ def pull_coils(
         coil_MOTupper__A=u,
         coil_MOTlowerPlus__A=lp,
         coil_MOTupperPlus__A=up,
-        fargs={"ti": pt},
         duration=duration,
         **kwargs,
     )
