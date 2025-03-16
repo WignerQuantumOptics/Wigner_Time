@@ -7,7 +7,7 @@ from munch import Munch
 from wigner_time import connection as con
 from wigner_time import timeline as tl
 
-import experiment as ex
+import experimentDemo as ex
 
 # Note: make context explicit everywhere, otherwise there is a danger of squashing everything into the Finish context
 # due to previous_context when appending to an already `finish`ed timeline

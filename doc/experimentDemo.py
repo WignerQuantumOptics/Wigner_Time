@@ -4,8 +4,7 @@ An example implementation of a real Wigner Time timeline.
 As well as providing conveniences, the functions can be used to document the intention and meaning of each stage.
 """
 
-
-sys.path.append("..")
+import sys; sys.path.append("..")
 
 import pandas as pd
 
