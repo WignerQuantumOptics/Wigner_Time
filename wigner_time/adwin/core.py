@@ -126,7 +126,7 @@ def add_cycle(
     return timeline
 
 
-def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFAULT):
+def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFAULT, printDiagnostics=False):
     """
     General setup of the *system*, rather than the specific experimental project.
 
@@ -140,11 +140,12 @@ def initialize_ADwin(machine__adwin, output, specifications=SPECIFICATIONS__DEFA
     # Finds the maximum cycle value, discounting special contexts
     time_end__cycles = cycles[~np.isin(cycles, list(CONTEXTS__SPECIAL.values()))].max()
 
-    print(
-        "=== time_end: {}s ===".format(
-            time_end__cycles * specifications["device_001"]["cycle_period__normal__us"]
+    if (printDiagnostics) :
+        print(
+            "=== time_end: {}s ===".format(
+                time_end__cycles * specifications["device_001"]["cycle_period__normal__us"]
+            )
         )
-    )
 
     # TODO: What's happening below should be explained here
     machine__adwin.Set_Par(1, int(time_end__cycles))
