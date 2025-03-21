@@ -96,7 +96,7 @@ lowinit:
   ' configuring ADC burst mode
   ADC_DataAmount=1000000*ADC_Duration/ADC_TimeInterval
   If (ADC_DataAmount > ADC_MaxDataAmount) Then ADC_DataAmount = ADC_MaxDataAmount
-  startADC=ADC_ON_Time*1.0e6/ClockInterval+1
+  startADC=ADC_ON_Time*1.0e6/ClockInterval
   endADC=startADC+ADC_Duration*1.0e6/ClockInterval
   ADC_ChannelPattern=Shift_Left(1,ADC_Card-1)
   
