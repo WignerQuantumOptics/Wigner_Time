@@ -10,7 +10,7 @@ from wigner_time import timeline as tl
 from wigner_time.internal import dataframe as frame
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
-import experiment as ex
+import experimentDemo as ex
 
 
 @pytest.fixture

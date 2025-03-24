@@ -11,7 +11,7 @@ import sys
 import importlib
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
-import experiment as ex
+import experimentDemo as ex
 
 importlib.reload(ex)
 from wigner_time.adwin import display as adwin_display

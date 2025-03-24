@@ -64,6 +64,15 @@ def previous(
     )
 
 
+def _mask__no_context(timeline):
+    if "context" in timeline.columns:
+        mask = timeline["context"] == ""
+    else:
+        mask = pd.Series(True, index=timeline.index)
+
+    return mask
+
+
 ###############################################################################
 #                   Main functions
 ###############################################################################
@@ -112,10 +121,8 @@ def create(
     df_rows = wt_frame.new(rows, columns=schema.keys()).astype(schema)
     new = wt_origin.update(df_rows, timeline, origin=origin)
 
-    if timeline is not None:
-        if context is None:
-            new["context"] = previous(timeline)["context"]
-
+    if (timeline is not None) and (context is None):
+        new[_mask__no_context]["context"] = previous(timeline)["context"]
         return wt_frame.concat([timeline, new])
 
     return new

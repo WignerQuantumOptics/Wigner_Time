@@ -34,7 +34,7 @@ def __ensure_time_context(collection, time, context=None, context__default=""):
     # TODO: Make more efficient
 
     shape_c = np.shape(collection)
-    # print('shape_c: {}'.format(shape_c))
+    # print("shape_c: {}".format(shape_c))
 
     match len(shape_c):
         case 0:
@@ -48,6 +48,10 @@ def __ensure_time_context(collection, time, context=None, context__default=""):
                 "Problem with the structure of values in __ensure_time_context."
             )
 
+    print(f"coll[0] shape[-1]: {np.shape(coll[0])[-1]}")
+    print(f"coll: {coll}")
+    print(f"time: {time}")
+    print(f"context: {context}")
     match np.shape(coll[0])[-1]:
         case 3:
             return coll

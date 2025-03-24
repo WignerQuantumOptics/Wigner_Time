@@ -78,6 +78,61 @@ def test_createDifferent(input, df):
     return wt_frame.assert_equal(input, df)
 
 
+df_previous = wt_frame.new(
+    [
+        [0.0, "AOM_imaging", 0, "init"],
+        [0.0, "AOM_imaging__V", 2.0, "init"],
+        [0.0, "AOM_repump", 1, "init"],
+    ],
+    columns=["time", "variable", "value", "context"],
+)
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        tl.create(AOM_repump=[10.0, 0.0, "important"], timeline=df_previous),
+        tl.create("AOM_repump", 10.0, 0.0, "important", timeline=df_previous),
+        tl.create(["AOM_repump", 10.0, 0.0, "important"], timeline=df_previous),
+        tl.create(["AOM_repump", [10.0, 0.0, "important"]], timeline=df_previous),
+    ],
+)
+def test_createPrevious(input, df):
+    print(input)
+    df_check = wt_frame.new(
+        [
+            [0.0, "AOM_imaging", 0, "init"],
+            [0.0, "AOM_imaging__V", 2.0, "init"],
+            [0.0, "AOM_repump", 1, "init"],
+            [10.0, "AOM_repump", 0, "important"],
+        ],
+        columns=["time", "variable", "value", "context"],
+    )
+
+    return wt_frame.assert_equal(input, df_check)
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        tl.create(
+            AOM_imaging=[0.0, 0, "init"],
+            AOM_imaging__V=[0.0, 2.0, "init"],
+            AOM_repump=[0.0, 1, "init"],
+        ),
+        tl.create(
+            ["AOM_imaging", 0.0, 0, "init"],
+            ["AOM_imaging__V", 0.0, 2.0, "init"],
+            ["AOM_repump", 0.0, 1, "init"],
+        ),
+    ],
+)
+def test_createContext(input, df):
+    print(input)
+    print(df)
+    return wt_frame.assert_equal(input, df)
+
+
 ###############################################################################
 #                             Playing with origin                             #
 ###############################################################################

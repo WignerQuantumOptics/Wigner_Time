@@ -3,6 +3,7 @@ from munch import Munch
 import numpy as np
 
 from wigner_time import ramp_function, timeline as tl
+from wigner_time.adwin import display
 from wigner_time.internal import dataframe as wt_frame
 
 
@@ -242,6 +243,25 @@ def test_ramp_expand():
         columns=["time", "variable", "value", "context"],
     )
     return wt_frame.assert_equal(tl_ramp, tl_check)
+
+
+def test_random_ramp():
+    tl_ramp = tl.stack(
+        tl.create(
+            ["device_pump", 0.0, 0.0, "ADwin_Init"],
+            ["lockbox_MOT__V", 1.0, 00.0, "ADwin_Init"],
+            ["lockbox_MOT__V", 2.0, 10.0, "blah"],
+            ["⚓_001", 2.5, 0.0, "blah"],
+            ["device_pump", 3.0, 4.0, "something_important"],
+            ["⚓_002", 3.5, 0.0, "something_important"],
+            ["lockbox_MOT__V", 6.0, 5.0, "something_important"],
+            ["device_pump", 7.0, 0.0, "ADwin_Finish"],
+            ["lockbox_MOT__V", 7.0, 0.0, "ADwin_Finish"],
+        ),
+        tl.ramp(lockbox_MOT__V=11.0, duration=1.0, origin="blah"),
+    )
+    display.channels(tl_ramp)
+    assert False
 
 
 if __name__ == "__main__":

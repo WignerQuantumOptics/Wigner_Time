@@ -80,6 +80,9 @@ def auto(timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS):
     """
     NOTE: Assumes that origin__defaults is a list of pairs.
     """
+    print(f"origin: {origin}")
+    print(timeline)
+
     if (origin is None) and (origin__defaults is not None):
         for od in origin__defaults:
             if "anchor" in np.array(od).flatten():
