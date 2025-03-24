@@ -121,6 +121,11 @@ def test_createPrevious(input, df):
             AOM_repump=[0.0, 1, "init"],
         ),
         tl.create(
+            ["AOM_imaging", [0.0, 0, "init"]],
+            ["AOM_imaging__V", [0.0, 2.0, "init"]],
+            ["AOM_repump", [0.0, 1, "init"]],
+        ),
+        tl.create(
             ["AOM_imaging", 0.0, 0, "init"],
             ["AOM_imaging__V", 0.0, 2.0, "init"],
             ["AOM_repump", 0.0, 1, "init"],
