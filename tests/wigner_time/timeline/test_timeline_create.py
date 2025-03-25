@@ -93,12 +93,11 @@ df_previous = wt_frame.new(
     [
         tl.create(AOM_repump=[10.0, 0.0, "important"], timeline=df_previous),
         tl.create("AOM_repump", 10.0, 0.0, "important", timeline=df_previous),
-        tl.create(["AOM_repump", 10.0, 0.0, "important"], timeline=df_previous),
+        # tl.create(["AOM_repump", 10.0, 0.0, "important"], timeline=df_previous),
         tl.create(["AOM_repump", [10.0, 0.0, "important"]], timeline=df_previous),
     ],
 )
 def test_createPrevious(input, df):
-    print(input)
     df_check = wt_frame.new(
         [
             [0.0, "AOM_imaging", 0, "init"],

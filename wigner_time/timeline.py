@@ -184,9 +184,6 @@ def update(
             timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
         )
 
-        if context is None:
-            context = previous(timeline)["context"]
-
         return create(
             *vtvc,
             timeline=timeline,
@@ -353,22 +350,14 @@ def ramp(
     new2 = wt_origin.update(df_2, new1, origin=origin2)
     new2["function"] = function
 
-    if (timeline is not None) and (context is None):
-        blah
-        new[_mask__no_context]["context"] = previous(timeline)["context"]
+    inherit_context(new1, timeline, context=context)
+    inherit_context(new2, timeline, context=context)
 
     # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
     return wt_frame.concat([timeline, new1, new2])
 
 
 def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
-    # TODO: Alternative names:
-    # - sequence
-    # - chain
-    # - cascade
-    # - domino
-    # - generate (too similar to `create`: will cocnfuse the user)
-    # - abstract
     """
     For chaining modifications to the timeline in a composable way.
 

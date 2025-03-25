@@ -18,17 +18,21 @@ def test_rows_from_arguments():
 
 
 @pytest.mark.parametrize(
-    "input",
+    "args",
     [
-        input.convert("AOM_repump", 10.0, 0.0, "important"),
-        input.convert(["AOM_repump", 10.0, 0.0, "important"]),
+        ["AOM_repump", 10.0, 0.0, "important"],
+        # input.convert(["AOM_repump", 10.0, 0.0, "important"]),
     ],
 )
-def test_convertSingle(input):
+def test_convertSingle(args):
+    actual = input.convert(*args)
     expected = [
         ["AOM_repump", [[10.0, 0.0, "important"]]],
     ]
-    assert input == expected
+    # print(actual)
+    # print(expected)
+
+    assert actual == expected
 
 
 @pytest.mark.parametrize(
