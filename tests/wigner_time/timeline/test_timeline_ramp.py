@@ -246,22 +246,31 @@ def test_ramp_expand():
 
 
 def test_random_ramp():
+    def thing(x):
+        print("got to ramp")
+        return x
+
     tl_ramp = tl.stack(
         tl.create(
-            ["device_pump", 0.0, 0.0, "ADwin_Init"],
-            ["lockbox_MOT__V", 1.0, 00.0, "ADwin_Init"],
-            ["lockbox_MOT__V", 2.0, 10.0, "blah"],
-            ["⚓_001", 2.5, 0.0, "blah"],
-            ["device_pump", 3.0, 4.0, "something_important"],
-            ["⚓_002", 3.5, 0.0, "something_important"],
-            ["lockbox_MOT__V", 6.0, 5.0, "something_important"],
-            ["device_pump", 7.0, 0.0, "ADwin_Finish"],
-            ["lockbox_MOT__V", 7.0, 0.0, "ADwin_Finish"],
+            ["device_pump", [0.0, 0.0, "ADwin_Init"]],
+            ["lockbox_MOT__V", [1.0, 00.0, "ADwin_Init"]],
+            ["lockbox_MOT__V", [2.0, 10.0, "blah"]],
+            ["⚓_001", [2.5, 0.0, "blah"]],
+            ["device_pump", [3.0, 4.0, "something_important"]],
+            ["⚓_002", [3.5, 0.0, "something_important"]],
+            ["lockbox_MOT__V", [6.0, 5.0, "something_important"]],
+            ["device_pump", [7.0, 0.0, "ADwin_Finish"]],
+            ["lockbox_MOT__V", [7.0, 0.0, "ADwin_Finish"]],
         ),
-        tl.ramp(lockbox_MOT__V=11.0, duration=1.0, origin="blah"),
+        thing,
+        tl.ramp(lockbox_MOT__V=11.0, duration=1.0, origin=["blah", "variable"]),
     )
-    display.channels(tl_ramp)
+    print(tl_ramp[["variable", "time", "value", "context"]])
+    # display.channels(tl_ramp)
     assert False
+
+    # - Fix context inheritance
+    # - Limit previous to smaller time values
 
 
 if __name__ == "__main__":

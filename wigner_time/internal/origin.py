@@ -78,10 +78,12 @@ def previous(
 
 def auto(timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS):
     """
+    For choosing an origin, based on user input and defaults.
+
+
     NOTE: Assumes that origin__defaults is a list of pairs.
     """
-    print(f"origin: {origin}")
-    print(timeline)
+    # TODO: Rename to be clearer
 
     if (origin is None) and (origin__defaults is not None):
         for od in origin__defaults:
@@ -212,6 +214,7 @@ def update(
     if o == [None, None]:
         return timeline__present
 
+    print(f"o: {o}")
     timeline__future = deepcopy(timeline__present)
 
     def _update_future(tlfuture, t0, v0, variable=None):

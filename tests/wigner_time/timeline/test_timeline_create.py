@@ -126,15 +126,22 @@ def test_createPrevious(input, df):
             ["AOM_repump", [0.0, 1, "init"]],
         ),
         tl.create(
-            ["AOM_imaging", 0.0, 0, "init"],
-            ["AOM_imaging__V", 0.0, 2.0, "init"],
-            ["AOM_repump", 0.0, 1, "init"],
+            ["AOM_imaging__V", [0.0, 2.0]],
+            ["AOM_repump", [0.0, 1]],
+            timeline=tl.create(
+                ["AOM_imaging", [0.0, 0, "init"]],
+            ),
         ),
+        # tl.create(
+        #     ["AOM_imaging", 0.0, 0, "init"],
+        #     ["AOM_imaging__V", 0.0, 2.0, "init"],
+        #     ["AOM_repump", 0.0, 1, "init"],
+        # ),
     ],
 )
 def test_createContext(input, df):
-    print(input)
-    print(df)
+    # print(input)
+    # print(df)
     return wt_frame.assert_equal(input, df)
 
 

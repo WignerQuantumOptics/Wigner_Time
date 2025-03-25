@@ -73,6 +73,24 @@ def _mask__no_context(timeline):
     return mask
 
 
+def inherit_context(timeline, timeline__previous, context=None, is_inPlace=True):
+    """
+    Updates the context, where unspecified.
+    """
+    if (timeline__previous is not None) and (context is None):
+        if is_inPlace:
+            df = timeline
+        else:
+            df = deepcopy(timeline)
+
+        df.loc[_mask__no_context(timeline), "context"] = previous(timeline__previous)[
+            "context"
+        ]
+        return df
+    else:
+        return timeline
+
+
 ###############################################################################
 #                   Main functions
 ###############################################################################
@@ -121,8 +139,8 @@ def create(
     df_rows = wt_frame.new(rows, columns=schema.keys()).astype(schema)
     new = wt_origin.update(df_rows, timeline, origin=origin)
 
-    if (timeline is not None) and (context is None):
-        new[_mask__no_context]["context"] = previous(timeline)["context"]
+    if timeline is not None:
+        inherit_context(new, timeline, context=context)
         return wt_frame.concat([timeline, new])
 
     return new
@@ -234,7 +252,7 @@ def ramp(
     **vtvc_dict,
 ) -> wt_frame.CLASS | Callable:
     # TODO:
-    # - check for ramps with 0 duration (shouldn't do anything)
+    # - check for ramps with 0 duration or 0 change in value (shouldn't do anything - shortcut the function)
     """
     Convenient ways of defining pairs of points and a function!
 
@@ -283,9 +301,6 @@ def ramp(
             function=function,
             **vtvc_dict,
         )
-    else:
-        if context is None:
-            context = previous(timeline)["context"]
 
     _vtvcs = {k: np.array(v) for k, v in vtvc_dict.items()}
     max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
@@ -337,6 +352,10 @@ def ramp(
     new1["function"] = function
     new2 = wt_origin.update(df_2, new1, origin=origin2)
     new2["function"] = function
+
+    if (timeline is not None) and (context is None):
+        blah
+        new[_mask__no_context]["context"] = previous(timeline)["context"]
 
     # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
     return wt_frame.concat([timeline, new1, new2])
