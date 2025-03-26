@@ -257,8 +257,6 @@ def ramp(
     function=wt_ramp_function.tanh,
     **vtvc_dict,
 ) -> wt_frame.CLASS | Callable:
-    # TODO:
-    # - check for ramps with 0 duration or 0 change in value (shouldn't do anything - shortcut the function)
     """
     Convenient ways of defining pairs of points and a function!
 
@@ -361,6 +359,16 @@ def ramp(
     new2 = wt_origin.update(df_2, new1, origin=origin2)
     new2["function"] = function
     new2["context"] = new1["context"]
+
+    if ((new2["time"] - new1["time"]) < 1e-15).any():
+        raise ValueError(
+            "Ramp duration that less than a femtosecond detected. We assume that you don't want this!"
+        )
+
+    if ((new2["value"] - new1["value"]) < 1e-15).any():
+        raise ValueError(
+            "Ramp value less than 1e-15 detected. We assume that you don't want this!"
+        )
 
     # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
     return wt_frame.concat([timeline, new1, new2])
