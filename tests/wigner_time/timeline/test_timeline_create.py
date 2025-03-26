@@ -27,6 +27,18 @@ def df():
     )
 
 
+@pytest.fixture
+def df__mixed():
+    return wt_frame.new(
+        [
+            [0.0, "AOM_imaging", 0, "init"],
+            [2.0, "AOM_imaging__V", 2.0, "blah"],
+            [10.0, "AOM_repump", 1, "stuff"],
+        ],
+        columns=["time", "variable", "value", "context"],
+    )
+
+
 @pytest.mark.parametrize(
     "input",
     [
@@ -139,9 +151,27 @@ def test_createPrevious(input, df):
     ],
 )
 def test_createContext(input, df):
-    # print(input)
-    # print(df)
     return wt_frame.assert_equal(input, df)
+
+
+def test_createInheritContext(df__mixed):
+    return wt_frame.assert_equal(
+        tl.create(
+            ["AOM_imaging__V", [2.2, 3.0]],
+            ["EOM_imaging__V", [2.3, 5.0]],
+            timeline=df__mixed,
+        ),
+        wt_frame.new(
+            [
+                [0.0, "AOM_imaging", 0, "init"],
+                [2.0, "AOM_imaging__V", 2.0, "blah"],
+                [10.0, "AOM_repump", 1, "stuff"],
+                [2.2, "AOM_imaging__V", 3.0, "blah"],
+                [2.3, "EOM_imaging__V", 5.0, "blah"],
+            ],
+            columns=["time", "variable", "value", "context"],
+        ),
+    )
 
 
 ###############################################################################

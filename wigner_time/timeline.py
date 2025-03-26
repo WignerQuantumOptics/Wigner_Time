@@ -43,6 +43,7 @@ _COLUMN_NAMES__RESERVED = list(_SCHEMA.keys()) + [
 def previous(
     timeline: wt_frame.CLASS,
     variable=None,
+    time__max=None,
     column="variable",
     sort_by=None,
     index=-1,
@@ -58,6 +59,7 @@ def previous(
     return wt_origin.previous(
         timeline=timeline,
         variable=variable,
+        time__max=time__max,
         column=column,
         sort_by=sort_by,
         index=index,
@@ -75,18 +77,25 @@ def _mask__no_context(timeline):
 
 def inherit_context(timeline, timeline__previous, context=None, is_inPlace=True):
     """
-    Updates the context, where unspecified.
-    """
-    if (timeline__previous is not None) and (context is None):
-        if is_inPlace:
-            df = timeline
-        else:
-            df = deepcopy(timeline)
+    Updates the context, taken from previous values where unspecified.
 
-        df.loc[_mask__no_context(timeline), "context"] = previous(timeline__previous)[
-            "context"
-        ]
+    Allows for situations where the new timelines are inserted at earlier times.
+    """
+    if is_inPlace:
+        df = timeline
+    else:
+        df = deepcopy(timeline)
+
+    if (timeline__previous is not None) and (context is None):
+
+        df.loc[_mask__no_context(timeline), "context"] = previous(
+            timeline__previous, time__max=timeline["time"].min()
+        )["context"]
         return df
+
+    elif (timeline__previous is None) and (context is not None):
+        df.loc[_mask__no_context(timeline), "context"] = context
+
     else:
         return timeline
 
@@ -347,11 +356,11 @@ def ramp(
         wt_frame.concat([df_1, df__no_start_points]), timeline, origin=origin
     )
     new1["function"] = function
+    inherit_context(new1, timeline, context=context)
+
     new2 = wt_origin.update(df_2, new1, origin=origin2)
     new2["function"] = function
-
-    inherit_context(new1, timeline, context=context)
-    inherit_context(new2, timeline, context=context)
+    new2["context"] = new1["context"]
 
     # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
     return wt_frame.concat([timeline, new1, new2])
