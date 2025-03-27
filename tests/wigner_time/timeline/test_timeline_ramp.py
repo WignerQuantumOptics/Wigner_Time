@@ -367,15 +367,18 @@ def test_rampReal2():
     return wt_frame.assert_equal(timeline__simplified, expected)
 
 
-def test_rampDoesNotRaise(tl_anchor):
+# Check that no-ops don't cause failures
+def test_rampDoesNotRaise1(tl_anchor):
     tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=1.0))
 
 
-def test_rampMeaningfulDuration(tl_anchor):
-    with pytest.raises(ValueError):
-        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=0.0))
+def test_rampDoesNotRaise2(tl_anchor):
+    return wt_frame.assert_equal(
+        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=0.0)), tl_anchor
+    )
 
 
-def test_rampMeaningfulValueChange(tl_anchor):
-    with pytest.raises(ValueError):
-        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=0.0, duration=1.0))
+def test_rampDoesNotRaise3(tl_anchor):
+    return wt_frame.assert_equal(
+        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=0.0, duration=1.0)), tl_anchor
+    )

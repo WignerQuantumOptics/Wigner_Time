@@ -360,18 +360,11 @@ def ramp(
     new2["function"] = function
     new2["context"] = new1["context"]
 
-    print(f"args: \n origin: {origin} ")
-
-    if ((new2["time"] - new1["time"]) < 1e-15).any():
-        raise ValueError(
-            "Ramp duration less than a femtosecond detected. We assume that you don't want this!"
-        )
-
-    if (np.abs(new2["value"] - new1["value"]) < 1e-15).any():
-        print(f'terminus: {new2["value"]}\norigin: {new1["value"]}')
-        raise ValueError(
-            "Ramp value change less than 1e-15 detected. We assume that you don't want this!"
-        )
+    if (((new2["time"] - new1["time"]) < 1e-15).any()) or (
+        np.abs(new2["value"] - new1["value"]) < 1e-15
+    ).any():
+        # TODO: It would be more efficient to do these checks earlier on (but more complicated).
+        return timeline
 
     # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
     return wt_frame.concat([timeline, new1, new2])
