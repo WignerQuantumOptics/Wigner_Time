@@ -8,12 +8,12 @@ from wigner_time.internal import dataframe as frame
 import pathlib as pl
 import sys
 
-import importlib
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
 import experimentDemo as ex
 
-importlib.reload(ex)
+# import importlib
+# importlib.reload(ex)
 # from wigner_time.adwin import display as adwin_display
 
 
