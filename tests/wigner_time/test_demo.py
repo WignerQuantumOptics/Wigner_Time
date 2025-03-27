@@ -234,11 +234,6 @@ def test_MOTdetuned():
         ex.MOT_detunedGrowth(),
     ).drop(columns="function")
 
-    adwin_display.quantities(tl__new, variables=["shutter_MOT"])
-    adwin_display.quantities(tl__new, variables=["lockbox_MOT__MHz"])
-    adwin_display.quantities(tl__new, variables=["lockbox_MOT__MHz", "shutter_MOT"])
-    assert False
-
     tl__original = pd.DataFrame(
         [
             [-1e-06, "lockbox_MOT__MHz", 0.0, "ADwin_LowInit"],
