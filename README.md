@@ -12,3 +12,9 @@ We will release the first stable version soon.
  - `performance_and_export` (Recommended): Installs `pyarrow` for memory management, sharing between systems and export to `parquet`.
  - `display`: Installs `matplotlib` and `pyqt` for visualization.
  - `parallel_processing`: Installs `polars` for parallel dataframe manipulation. (WARNING: This is currently not used, but will be in the future)
+
+## Developer Notes
+Tests can be run from the root folder with
+```bash
+poetry run pytest
+```
