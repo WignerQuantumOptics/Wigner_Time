@@ -365,9 +365,9 @@ def ramp(
             "Ramp duration that less than a femtosecond detected. We assume that you don't want this!"
         )
 
-    if ((new2["value"] - new1["value"]) < 1e-15).any():
+    if (np.abs(new2["value"] - new1["value"]) < 1e-15).any():
         raise ValueError(
-            "Ramp value less than 1e-15 detected. We assume that you don't want this!"
+            "Ramp value change less than 1e-15 detected. We assume that you don't want this!"
         )
 
     # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.

@@ -6,6 +6,12 @@ from wigner_time import ramp_function, timeline as tl
 from wigner_time.adwin import display
 from wigner_time.internal import dataframe as wt_frame
 
+import pathlib as pl
+import sys
+
+sys.path.append(str(pl.Path.cwd() / "doc"))
+import experimentDemo as ex
+
 
 @pytest.fixture
 def dfseq():
@@ -282,5 +288,40 @@ def test_random_ramp():
     )
 
 
-if __name__ == "__main__":
-    print("the end")
+def test_rampReal():
+    timeline = tl.stack(
+        ex.init(),
+        ex.MOT(duration=1),
+        ex.MOT_detunedGrowth(),
+        tl.ramp(t=1, duration=0.1, lockbox_MOT__MHz=-2),
+        tl.ramp(t=0.5, duration=0.1, lockbox_MOT__MHz=-1),
+    )
+    timeline__simplified = timeline[timeline["time"] >= 0.0][
+        ["variable", "time", "value"]
+    ].reset_index(drop=True)
+
+    expected = wt_frame.new(
+        [
+            ["shutter_MOT", 0.00, 1.00],
+            ["shutter_repump", 0.00, 1.00],
+            ["coil_MOTlower__A", 0.00, -1.00],
+            ["coil_MOTupper__A", 0.00, -0.98],
+            ["⚓_001", 1.00, 0.0],
+            ["lockbox_MOT__MHz", 1.00, 0.00],
+            ["lockbox_MOT__MHz", 1.01, -5.00],
+            ["⚓_002", 1.10, 0.0],
+            ["lockbox_MOT__MHz", 2.10, -5.00],
+            ["lockbox_MOT__MHz", 2.20, -2.00],
+            ["lockbox_MOT__MHz", 1.60, -5.00],
+            ["lockbox_MOT__MHz", 1.70, -1.00],
+        ],
+        columns=["variable", "time", "value"],
+    )
+
+    # print(timeline__simplified)
+    # print(expected)
+    # display.channels(timeline, variables=["lockbox_MOT__MHz"])
+    return wt_frame.assert_equal(
+        timeline__simplified,
+        expected,
+    )
