@@ -111,6 +111,7 @@ def initialize(
         ~np.isin(cycles, list(wt_adwin.CONTEXTS__SPECIAL.values()))
     ].max()
 
+    # TODO: make this a log instead of a print statement
     print(
         "=== time_end: {}s ===".format(
             time_end__cycles * machine_specifications["cycle_period__normal__us"]

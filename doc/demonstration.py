@@ -1,7 +1,9 @@
 """
 An example implementation of a real Wigner Time timeline.
-
 As well as providing conveniences, the functions can be used to document the intention and meaning of each stage.
+
+EXPERIMENTAL!!! real usecases can be found in experimentDemo.py, diagnosticsDemo.py, and demo.ipynb
+
 """
 
 # TODO: Change shutter convention! 1 should mean closed and 0 should mean open: this comes from 1->True;0->False and also from the visual symbolism of 0.

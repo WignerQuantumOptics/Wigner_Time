@@ -1,7 +1,6 @@
 # Copyright Thomas W. Clark & András Vukics 2024. Distributed under the Boost Software License, Version 1.0. (See accompanying file LICENSE.txt)
 
 import numpy as np
-import wigner_time.config as wt_config
 from wigner_time import util as wt_util
 
 

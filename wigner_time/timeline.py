@@ -45,6 +45,7 @@ _COLUMN_NAMES__RESERVED = list(_SCHEMA.keys()) + [
 def previous(
     timeline: wt_frame.CLASS,
     variable=None,
+    time__max=None,
     column="variable",
     sort_by=None,
     index=-1,
@@ -60,10 +61,45 @@ def previous(
     return wt_origin.previous(
         timeline=timeline,
         variable=variable,
+        time__max=time__max,
         column=column,
         sort_by=sort_by,
         index=index,
     )
+
+
+def _mask__no_context(timeline):
+    if "context" in timeline.columns:
+        mask = timeline["context"] == ""
+    else:
+        mask = pd.Series(True, index=timeline.index)
+
+    return mask
+
+
+def inherit_context(timeline, timeline__previous, context=None, is_inPlace=True):
+    """
+    Updates the context, taken from previous values where unspecified.
+
+    Allows for situations where the new timelines are inserted at earlier times.
+    """
+    if is_inPlace:
+        df = timeline
+    else:
+        df = deepcopy(timeline)
+
+    if (timeline__previous is not None) and (context is None):
+
+        df.loc[_mask__no_context(timeline), "context"] = previous(
+            timeline__previous, time__max=timeline["time"].min()
+        )["context"]
+        return df
+
+    elif (timeline__previous is None) and (context is not None):
+        df.loc[_mask__no_context(timeline), "context"] = context
+
+    else:
+        return timeline
 
 
 ###############################################################################
@@ -115,9 +151,7 @@ def create(
     new = wt_origin.update(df_rows, timeline, origin=origin)
 
     if timeline is not None:
-        if context is None:
-            new["context"] = previous(timeline)["context"]
-
+        inherit_context(new, timeline, context=context)
         return wt_frame.concat([timeline, new])
 
     return new
@@ -160,9 +194,6 @@ def update(
         origin = wt_origin.auto(
             timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
         )
-
-        if context is None:
-            context = previous(timeline)["context"]
 
         return create(
             *vtvc,
@@ -228,8 +259,6 @@ def ramp(
     function=wt_ramp_function.tanh,
     **vtvc_dict,
 ) -> wt_frame.CLASS | Callable:
-    # TODO:
-    # - check for ramps with 0 duration (shouldn't do anything)
     """
     Convenient ways of defining pairs of points and a function!
 
@@ -278,9 +307,6 @@ def ramp(
             function=function,
             **vtvc_dict,
         )
-    else:
-        if context is None:
-            context = previous(timeline)["context"]
 
     _vtvcs = {k: np.array(v) for k, v in vtvc_dict.items()}
     max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
@@ -330,21 +356,23 @@ def ramp(
         wt_frame.concat([df_1, df__no_start_points]), timeline, origin=origin
     )
     new1["function"] = function
+    inherit_context(new1, timeline, context=context)
+
     new2 = wt_origin.update(df_2, new1, origin=origin2)
     new2["function"] = function
+    new2["context"] = new1["context"]
+
+    if (((new2["time"] - new1["time"]) < 1e-15).any()) or (
+        np.abs(new2["value"] - new1["value"]) < 1e-15
+    ).any():
+        # TODO: It would be more efficient to do these checks earlier on (but more complicated).
+        return timeline
 
     # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
     return wt_frame.concat([timeline, new1, new2])
 
 
 def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
-    # TODO: Alternative names:
-    # - sequence
-    # - chain
-    # - cascade
-    # - domino
-    # - generate (too similar to `create`: will cocnfuse the user)
-    # - abstract
     """
     For chaining modifications to the timeline in a composable way.
 
@@ -437,6 +465,7 @@ def sanitize_values(timeline):
     """
     Ensures that the given timeline doesn't contain values outside of the given unit or safety range.
     """
+    # TODO: SHOULDN'T BE HERE - internal
     # TODO: Check for efficiency
     #
     if ("unit_range" in timeline.columns) or ("safety_range" in timeline.columns):

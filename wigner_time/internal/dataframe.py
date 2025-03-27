@@ -164,6 +164,20 @@ def replace_column__filtered(
     return dff
 
 
+def for_input(df):
+    """
+    For printing frames in a format that can be pasted as an input.
+    """
+    rows = df.values.tolist()
+    col_names = df.columns.tolist()
+
+    source = f"pd.DataFrame([\n"
+    for row in rows:
+        source += f"    {row},\n"
+    source += f"], columns={col_names})"
+    return source
+
+
 # ============================================================
 # TESTS
 # ============================================================

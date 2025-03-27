@@ -8,13 +8,13 @@ from wigner_time.internal import dataframe as frame
 import pathlib as pl
 import sys
 
-import importlib
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
-import experiment as ex
+import experimentDemo as ex
 
-importlib.reload(ex)
-from wigner_time.adwin import display as adwin_display
+# import importlib
+# importlib.reload(ex)
+# from wigner_time.adwin import display as adwin_display
 
 
 def replace_anchor_symbol(df, symbol__old="Anchor", symbol__new="⚓"):
@@ -70,43 +70,157 @@ def filter_ramps(df, var_cons, index=0):
 
 def test_MOT():
     tl__new = tl.stack(
-        ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
+        ex.init(shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
         ex.MOT(),
     )
 
-    # The data came from an old version
-    # timeline_old = pd.read_parquet("~/WT_dat/MOT.parquet")
-    # tl__original = update_anchor(timeline_old)
-    # tl__original.loc[tl__original["variable"] == "⚓_002", "context"] = "MOT"
-
-    tl__original = frame.new(
-        data=[
-            [-2.0, "lockbox_MOT__MHz", 0.00, "ADwin_LowInit"],
-            [-2.0, "coil_compensationX__A", 0.25, "ADwin_LowInit"],
-            [-2.0, "coil_compensationY__A", 1.50, "ADwin_LowInit"],
-            [-2.0, "coil_MOTlowerPlus__A", 0.10, "ADwin_LowInit"],
-            [-2.0, "coil_MOTupperPlus__A", -0.10, "ADwin_LowInit"],
-            [-2.0, "AOM_MOT", 1.00, "ADwin_LowInit"],
-            [-2.0, "AOM_repump", 1.00, "ADwin_LowInit"],
-            [-2.0, "AOM_OPaux", 0.00, "ADwin_LowInit"],
-            [-2.0, "AOM_OP", 1.00, "ADwin_LowInit"],
-            [-2.0, "shutter_MOT", 0.00, "ADwin_LowInit"],
-            [-2.0, "shutter_repump", 0.00, "ADwin_LowInit"],
-            [-2.0, "shutter_OP001", 0.00, "ADwin_LowInit"],
-            [-2.0, "shutter_OP002", 1.00, "ADwin_LowInit"],
-            [-2.0, "shutter_imaging", 0.00, "ADwin_LowInit"],
-            [-2.0, "AOM_imaging", 1.00, "ADwin_LowInit"],
-            [-2.0, "trigger_camera", 0.00, "ADwin_LowInit"],
-            [0.0, "⚓_001", 0.00, "InitialAnchor"],
-            [0.0, "shutter_MOT", 1.00, "MOT"],
-            [0.0, "shutter_repump", 1.00, "MOT"],
-            [0.0, "coil_MOTlower__A", -1.00, "MOT"],
-            [0.0, "coil_MOTupper__A", -0.98, "MOT"],
-            [15.0, "⚓_002", 0.00, "MOT"],
-        ],
-        columns=["time", "variable", "value", "context"],
+    tl__original = pd.DataFrame(
+        [
+            {
+                "time": -1e-06,
+                "variable": "lockbox_MOT__MHz",
+                "value": 0.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "coil_compensationX__A",
+                "value": 0.25,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "coil_compensationY__A",
+                "value": 1.5,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "coil_MOTlowerPlus__A",
+                "value": 0.1,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "coil_MOTupperPlus__A",
+                "value": -0.1,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "AOM_MOT",
+                "value": 1.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "AOM_repump",
+                "value": 1.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "AOM_OP_aux",
+                "value": 0.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "AOM_OP",
+                "value": 1.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "AOM_science",
+                "value": 1.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "shutter_MOT",
+                "value": 0.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "shutter_repump",
+                "value": 0.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "shutter_OP001",
+                "value": 0.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "shutter_OP002",
+                "value": 1.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "shutter_science",
+                "value": 0.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "shutter_transversePump",
+                "value": 0.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "AOM_science__V",
+                "value": 5.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "trigger_TC__V",
+                "value": 0.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "shutter_imaging",
+                "value": 0.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "AOM_imaging",
+                "value": 1.0,
+                "context": "ADwin_LowInit",
+            },
+            {
+                "time": -1e-06,
+                "variable": "trigger_camera",
+                "value": 0.0,
+                "context": "ADwin_LowInit",
+            },
+            {"time": 0.0, "variable": "shutter_MOT", "value": 1.0, "context": "MOT"},
+            {"time": 0.0, "variable": "shutter_repump", "value": 1.0, "context": "MOT"},
+            {
+                "time": 0.0,
+                "variable": "coil_MOTlower__A",
+                "value": -1.0,
+                "context": "MOT",
+            },
+            {
+                "time": 0.0,
+                "variable": "coil_MOTupper__A",
+                "value": -0.98,
+                "context": "MOT",
+            },
+            {"time": 15.0, "variable": "⚓_001", "value": 0.0, "context": "MOT"},
+        ]
     )
-
+    # print(tl__new)
+    # print(tl__original)
     # adwin_display.channels(tl__original, do_show=False)
     # adwin_display.channels(tl__new)
 
@@ -115,42 +229,42 @@ def test_MOT():
 
 def test_MOTdetuned():
     tl__new = tl.stack(
-        ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
+        ex.init(shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
         ex.MOT(),
         ex.MOT_detunedGrowth(),
     ).drop(columns="function")
 
-    # timeline_old = pd.read_parquet("~/WT_dat/MOT_detuned.parquet")
-    # tl__original = filter_ramp(update_anchor(timeline_old), "lockbox_MOT__MHz", "MOT")
-    # tl__original.loc[tl__original["variable"] == "⚓_002", "context"] = "MOT"
-
-    tl__original = frame.new(
+    tl__original = pd.DataFrame(
         [
-            [-2.000000, "lockbox_MOT__MHz", 0.00, "ADwin_LowInit"],
-            [-2.000000, "coil_compensationX__A", 0.25, "ADwin_LowInit"],
-            [-2.000000, "coil_compensationY__A", 1.50, "ADwin_LowInit"],
-            [-2.000000, "coil_MOTlowerPlus__A", 0.10, "ADwin_LowInit"],
-            [-2.000000, "coil_MOTupperPlus__A", -0.10, "ADwin_LowInit"],
-            [-2.000000, "AOM_MOT", 1.00, "ADwin_LowInit"],
-            [-2.000000, "AOM_repump", 1.00, "ADwin_LowInit"],
-            [-2.000000, "AOM_OPaux", 0.00, "ADwin_LowInit"],
-            [-2.000000, "AOM_OP", 1.00, "ADwin_LowInit"],
-            [-2.000000, "shutter_MOT", 0.00, "ADwin_LowInit"],
-            [-2.000000, "shutter_repump", 0.00, "ADwin_LowInit"],
-            [-2.000000, "shutter_OP001", 0.00, "ADwin_LowInit"],
-            [-2.000000, "shutter_OP002", 1.00, "ADwin_LowInit"],
-            [-2.000000, "shutter_imaging", 0.00, "ADwin_LowInit"],
-            [-2.000000, "AOM_imaging", 1.00, "ADwin_LowInit"],
-            [-2.000000, "trigger_camera", 0.00, "ADwin_LowInit"],
-            [0.000000, "⚓_001", 0.00, "InitialAnchor"],
-            [0.000000, "shutter_MOT", 1.00, "MOT"],
-            [0.000000, "shutter_repump", 1.00, "MOT"],
-            [0.000000, "coil_MOTlower__A", -1.00, "MOT"],
-            [0.000000, "coil_MOTupper__A", -0.98, "MOT"],
-            [15.000000, "⚓_002", 0.00, "MOT"],
-            [15.000000, "lockbox_MOT__MHz", 0.00, "MOT"],
-            [15.009999, "lockbox_MOT__MHz", -5.00, "MOT"],
-            [15.100000, "⚓_003", 0.00, "MOT"],
+            [-1e-06, "lockbox_MOT__MHz", 0.0, "ADwin_LowInit"],
+            [-1e-06, "coil_compensationX__A", 0.25, "ADwin_LowInit"],
+            [-1e-06, "coil_compensationY__A", 1.5, "ADwin_LowInit"],
+            [-1e-06, "coil_MOTlowerPlus__A", 0.1, "ADwin_LowInit"],
+            [-1e-06, "coil_MOTupperPlus__A", -0.1, "ADwin_LowInit"],
+            [-1e-06, "AOM_MOT", 1.0, "ADwin_LowInit"],
+            [-1e-06, "AOM_repump", 1.0, "ADwin_LowInit"],
+            [-1e-06, "AOM_OP_aux", 0.0, "ADwin_LowInit"],
+            [-1e-06, "AOM_OP", 1.0, "ADwin_LowInit"],
+            [-1e-06, "AOM_science", 1.0, "ADwin_LowInit"],
+            [-1e-06, "shutter_MOT", 0.0, "ADwin_LowInit"],
+            [-1e-06, "shutter_repump", 0.0, "ADwin_LowInit"],
+            [-1e-06, "shutter_OP001", 0.0, "ADwin_LowInit"],
+            [-1e-06, "shutter_OP002", 1.0, "ADwin_LowInit"],
+            [-1e-06, "shutter_science", 0.0, "ADwin_LowInit"],
+            [-1e-06, "shutter_transversePump", 0.0, "ADwin_LowInit"],
+            [-1e-06, "AOM_science__V", 5.0, "ADwin_LowInit"],
+            [-1e-06, "trigger_TC__V", 0.0, "ADwin_LowInit"],
+            [-1e-06, "shutter_imaging", 0.0, "ADwin_LowInit"],
+            [-1e-06, "AOM_imaging", 1.0, "ADwin_LowInit"],
+            [-1e-06, "trigger_camera", 0.0, "ADwin_LowInit"],
+            [0.0, "shutter_MOT", 1.0, "MOT"],
+            [0.0, "shutter_repump", 1.0, "MOT"],
+            [0.0, "coil_MOTlower__A", -1.0, "MOT"],
+            [0.0, "coil_MOTupper__A", -0.98, "MOT"],
+            [15.0, "⚓_001", 0.0, "MOT"],
+            [15.0, "lockbox_MOT__MHz", 0.0, "MOT"],
+            [15.01, "lockbox_MOT__MHz", -5.0, "MOT"],
+            [15.1, "⚓_002", 0.0, "MOT"],
         ],
         columns=["time", "variable", "value", "context"],
     )
@@ -186,68 +300,3 @@ def remove_rows_within_time(df, time_threshold):
 def remove_anchors(timeline):
     df = timeline[~anchor.mask(timeline)]
     return df
-
-
-def testInitToFinish():
-    """
-        TODO: Not a real test because of differing variables and resolutions.
-
-    Could potentially fix this at a later point.
-    """
-    tl__new = tl.expand(
-        tl.stack(
-            ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
-            ex.MOT(),
-            ex.MOT_detunedGrowth(),
-            ex.molasses(),
-            ex.OP(),
-            ex.magneticTrapping(),
-            ex.finish(
-                wait=2,
-                MOT_ON=True,
-                shutter_imaging=0,
-                AOM_imaging=1,
-                trigger_camera=0,
-            ),
-        ),
-        time_resolution=10e-6,
-    )
-
-    # tl__new = remove_rows_within_time(
-    #     remove_anchors(
-    #         tl.stack(
-    #             ex.init(t=-2, shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
-    #             ex.MOT(),
-    #             ex.MOT_detunedGrowth(),
-    #             ex.molasses(),
-    #             ex.OP(),
-    #             ex.magneticTrapping(),
-    #             ex.finish(
-    #                 wait=2,
-    #                 MOT_ON=True,
-    #                 shutter_imaging=0,
-    #                 AOM_imaging=1,
-    #                 trigger_camera=0,
-    #             ),
-    #         )
-    #     ),
-    #     0.05,
-    # )
-
-    tl__old = pd.read_parquet("resources/test_data/timeline__init-to-finish.parquet")
-
-    # variables__drop = tl__old[~tl__old["variable"].isin(tl__new["variable"])][
-    #     "variable"
-    # ].unique()
-
-    # tl__old = tl__old[~tl__old["variable"].isin(variables__drop)]
-
-    # print((tl__old))
-    # print(tl__new)
-
-    # adwin_display.channels(tl__old, do_show=False)
-    adwin_display.quantities(tl__new)
-    #
-    # return frame.assert_equal(tl__new, None)
-    assert False
-    assert True
