@@ -47,39 +47,50 @@ def previous(
     timeline: wt_frame.CLASS,
     variable=None,
     column="variable",
+    time__max=None,
     sort_by=None,
     index=-1,
 ):
     """
-    Returns a row from the previous timeline. By default, this is done by finding the highest value for time and returning that row. If `sort_by` is specified (e.g. 'time'), then the dataframe is sorted and then the row indexed by `index` is returned.
+    Returns a row from the timeline. By default, this is done by finding the highest value for time and returning that row. If `sort_by` is specified (e.g. 'time'), then the dataframe is sorted and then the row indexed by `index` is returned.
 
     Anchors are a special case, where an exact match on the symbol is not required.
 
     Raises ValueError if the specified variable, or timeline, doesn't exist.
     """
+    if time__max is not None:
+        tline = timeline[timeline["time"] <= time__max]
+    else:
+        tline = timeline
+
     if variable is not None:
-        tl__filtered = timeline[timeline[column] == variable]
+        tl__filtered = tline[tline[column] == variable]
         if tl__filtered.empty and (variable == wt_config.LABEL__ANCHOR):
-            tl__filtered = timeline[timeline[column].str.startswith(variable)]
+            tl__filtered = tline[tline[column].str.startswith(variable)]
         if tl__filtered.empty:
             raise ValueError("Previous {} not found".format(variable))
     else:
-        tl__filtered = timeline
+        tl__filtered = tline
 
     if sort_by is None:
         return wt_frame.row_from_max_column(tl__filtered)
     else:
-        if not timeline[sort_by].is_monotonic_increasing:
+        if not tl__filtered[sort_by].is_monotonic_increasing:
             tl__filtered.sort_values(sort_by, inplace=True)
             return tl__filtered.iloc[index]
         else:
-            return timeline.iloc[index]
+            return tl__filtered.iloc[index]
 
 
 def auto(timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS):
     """
+    For choosing an origin, based on user input and defaults.
+
+
     NOTE: Assumes that origin__defaults is a list of pairs.
     """
+    # TODO: Rename to be clearer
+
     if (origin is None) and (origin__defaults is not None):
         for od in origin__defaults:
             if "anchor" in np.array(od).flatten():
@@ -106,6 +117,7 @@ def find(
     timeline=None,
     origin=None,
     label__anchor=wt_config.LABEL__ANCHOR,
+    time__max__relative=None,
 ):
     """
     Returns a time-value pair, according to the choice of origin.
@@ -113,6 +125,8 @@ def find(
     Often, `None` will be returned for a value as it would be presumptuous to assume the same value origin for all devices.
 
     N.B. `variable` strings take precedence over `context`s and `context`s are special. For convenience, using a `context` as an `origin` will default to picking out an `anchor`, if available. If not, then the 'last' value of the context will be used.
+
+    `time__max` is the (non origin-corrected) maximum time that should be considered when trying to find previous values.
 
     Example origins:
     - [0.0,0.0]
@@ -146,17 +160,21 @@ def find(
             else None
         )
 
-    def _previous_vt(timeline, get="time", col__fil="variable", var=None):
+    def _previous_vt(
+        timeline, get="time", col__fil="variable", var=None, time__max=None
+    ):
         """
         `get` is one of ['time', 'value', 'BOTH']
         """
         match get:
             case "time" | "value":
-                return previous(timeline, column=col__fil, variable=var).at[get]
+                return previous(
+                    timeline, column=col__fil, variable=var, time__max=time__max
+                ).at[get]
             case "both":
-                return previous(timeline, column=col__fil, variable=var)[
-                    ["time", "value"]
-                ].values
+                return previous(
+                    timeline, column=col__fil, variable=var, time__max=time__max
+                )[["time", "value"]].values
 
     def _to_col_var(timeline, label):
         if label == "anchor" and wt_anchor.is_available(timeline):
@@ -184,14 +202,21 @@ def find(
         case [None | float() as n1, str(s1)]:
             tv = [
                 n1,
-                _previous_vt(*([timeline, "value"] + _to_col_var(timeline, s1))),
+                _previous_vt(
+                    *([timeline, "value"] + _to_col_var(timeline, s1)),
+                    time__max=n1 + time__max__relative,
+                ),
             ]
         case [str(s1), str(s2)] if (s1 == s2):
             tv = _previous_vt(*([timeline, "both"] + _to_col_var(timeline, s1)))
         case [str(s1), str(s2)]:
+            t = _previous_vt(*([timeline, "time"] + _to_col_var(timeline, s1)))
             tv = [
-                _previous_vt(*([timeline, "time"] + _to_col_var(timeline, s1))),
-                _previous_vt(*([timeline, "value"] + _to_col_var(timeline, s2))),
+                t,
+                _previous_vt(
+                    *([timeline, "value"] + _to_col_var(timeline, s2)),
+                    time__max=t + time__max__relative,
+                ),
             ]
 
         case _:
@@ -204,6 +229,9 @@ def update(
     timeline__past: wt_frame.CLASS | None,
     origin=None,
 ) -> wt_frame.CLASS:
+    """
+    Returns a new timeline, changed according to the 'new' starting time and value.
+    """
 
     o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))
     if o == [None, None]:
@@ -229,10 +257,16 @@ def update(
     def find_every_origin(timeline__past, timeline__future, input):
         """
         input is an origin, but where `variable` is a general placeholder: can be [var, None], [None, var], [var, var], [a,var], [var,a], [num,var], [var, num], where `var` is a specific variable reference.
+
+        Now allows for `timeline__future` to deal with values 'inside' `timeline__past`.
         """
+
         for var in timeline__future["variable"].unique():
+
             _t0, _v0 = wt_origin.find(
-                timeline__past, origin=[var if e == "variable" else e for e in input]
+                timeline__past,
+                origin=[var if e == "variable" else e for e in input],
+                time__max__relative=timeline__future["time"].min(),
             )
             timeline__future = _update_future(
                 timeline__future,

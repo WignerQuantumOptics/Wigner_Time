@@ -1,3 +1,5 @@
+![Test Status](https://github.com/WignerQuantumOptics/Wigner_Time/actions/workflows/tests.yml/badge.svg)
+
 # Wigner_Time
 Timeline creation and management for open-loop control in AMO experiments and beyond.
 

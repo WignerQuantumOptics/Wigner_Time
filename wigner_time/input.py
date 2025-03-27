@@ -34,7 +34,7 @@ def __ensure_time_context(collection, time, context=None, context__default=""):
     # TODO: Make more efficient
 
     shape_c = np.shape(collection)
-    # print('shape_c: {}'.format(shape_c))
+    # print("shape_c: {}".format(shape_c))
 
     match len(shape_c):
         case 0:
@@ -48,6 +48,10 @@ def __ensure_time_context(collection, time, context=None, context__default=""):
                 "Problem with the structure of values in __ensure_time_context."
             )
 
+    # print(f"coll[0] shape[-1]: {np.shape(coll[0])[-1]}")
+    # print(f"coll: {coll}")
+    # print(f"time: {time}")
+    # print(f"context: {context}")
     match np.shape(coll[0])[-1]:
         case 3:
             return coll
@@ -110,7 +114,8 @@ def convert(
         return __correct_variable_list(vtvc_dict.items(), time, context)
     else:
         depth = __find_depth(vtvc)
-
+        # print(f"depth: {depth}")
+        #
         match depth:
             case 3:
                 temp = __correct_variable_list(vtvc[0], time, context)
@@ -123,6 +128,7 @@ def convert(
                 return __correct_variable_list(vtvc, time, context)
             case 1:
                 # print("depth 1: ")
+                vtvc = list(vtvc)
 
                 vals = (
                     __ensure_time_context(vtvc[1], time, context)

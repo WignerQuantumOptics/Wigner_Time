@@ -175,7 +175,7 @@ if __name__ == "__main__":
     import pathlib as pl
 
     sys.path.append(str(pl.Path.cwd() / "doc"))
-    import experiment as ex
+    import experimentDemo as ex
     from wigner_time import timeline as tl
 
     tline = tl.stack(ex.init(), ex.MOT(), ex.MOT_detunedGrowth())
