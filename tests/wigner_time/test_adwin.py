@@ -4,6 +4,8 @@ import pytest
 import pandas as pd
 
 import wigner_time.adwin as wt_adwin
+
+from wigner_time import config as wt_config
 from wigner_time.adwin import core as adwin
 from wigner_time.adwin import connection as con
 from wigner_time.adwin import validate as wt_validate
