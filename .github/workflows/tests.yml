@@ -1,4 +1,4 @@
-name: Run Python tests with Poetry
+name: Tests
 
 on:
   push:
