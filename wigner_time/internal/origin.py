@@ -117,6 +117,7 @@ def find(
     timeline=None,
     origin=None,
     label__anchor=wt_config.LABEL__ANCHOR,
+    time__max__relative=None,
 ):
     """
     Returns a time-value pair, according to the choice of origin.
@@ -124,6 +125,8 @@ def find(
     Often, `None` will be returned for a value as it would be presumptuous to assume the same value origin for all devices.
 
     N.B. `variable` strings take precedence over `context`s and `context`s are special. For convenience, using a `context` as an `origin` will default to picking out an `anchor`, if available. If not, then the 'last' value of the context will be used.
+
+    `time__max` is the (non origin-corrected) maximum time that should be considered when trying to find previous values.
 
     Example origins:
     - [0.0,0.0]
@@ -200,7 +203,8 @@ def find(
             tv = [
                 n1,
                 _previous_vt(
-                    *([timeline, "value"] + _to_col_var(timeline, s1)), time__max=n1
+                    *([timeline, "value"] + _to_col_var(timeline, s1)),
+                    time__max=n1 + time__max__relative,
                 ),
             ]
         case [str(s1), str(s2)] if (s1 == s2):
@@ -210,7 +214,8 @@ def find(
             tv = [
                 t,
                 _previous_vt(
-                    *([timeline, "value"] + _to_col_var(timeline, s2)), time__max=t
+                    *([timeline, "value"] + _to_col_var(timeline, s2)),
+                    time__max=t + time__max__relative,
                 ),
             ]
 
@@ -257,8 +262,11 @@ def update(
         """
 
         for var in timeline__future["variable"].unique():
+
             _t0, _v0 = wt_origin.find(
-                timeline__past, origin=[var if e == "variable" else e for e in input]
+                timeline__past,
+                origin=[var if e == "variable" else e for e in input],
+                time__max__relative=timeline__future["time"].min(),
             )
             timeline__future = _update_future(
                 timeline__future,

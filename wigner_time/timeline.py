@@ -360,12 +360,15 @@ def ramp(
     new2["function"] = function
     new2["context"] = new1["context"]
 
+    print(f"args: \n origin: {origin} ")
+
     if ((new2["time"] - new1["time"]) < 1e-15).any():
         raise ValueError(
-            "Ramp duration that less than a femtosecond detected. We assume that you don't want this!"
+            "Ramp duration less than a femtosecond detected. We assume that you don't want this!"
         )
 
     if (np.abs(new2["value"] - new1["value"]) < 1e-15).any():
+        print(f'terminus: {new2["value"]}\norigin: {new1["value"]}')
         raise ValueError(
             "Ramp value change less than 1e-15 detected. We assume that you don't want this!"
         )

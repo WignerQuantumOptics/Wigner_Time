@@ -94,13 +94,11 @@ def test_ramp0(args):
             origin=[0.05, "variable"],
             origin2=["variable"],
         ),
-        # TODO: Decide whether or not this should raise an error.
-        # - Prevents the user from inheriting values that come after the origin.
-        # Munch(
-        #     lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
-        #     origin=["anchor", "variable"],
-        #     origin2=["variable"],
-        # ),
+        Munch(
+            lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
+            origin=["anchor", "variable"],
+            origin2=["variable"],
+        ),
         Munch(
             lockbox_MOT__V=[50e-3, 5], origin=["last", "variable"], origin2=["variable"]
         ),
@@ -327,6 +325,46 @@ def test_rampReal():
         timeline__simplified,
         expected,
     )
+
+
+def test_rampReal2():
+    timeline = tl.stack(
+        ex.init(),
+        ex.MOT(duration=1),
+        ex.MOT_detunedGrowth(),
+        tl.ramp(t=1, duration=0.1, lockbox_MOT__MHz=-2),
+        tl.ramp(t=0.5, duration=0.1, lockbox_MOT__MHz=-1),
+        tl.ramp(t=0.75, duration=0.1, lockbox_MOT__MHz=-5),
+    )
+    timeline__simplified = timeline[timeline["context"] == "MOT"][
+        ["variable", "time", "value", "context"]
+    ].reset_index(drop=True)
+
+    # print(
+    #     timeline[timeline["context"] == "MOT"][["variable", "time", "value", "context"]]
+    # )
+
+    expected = wt_frame.new(
+        [
+            ["shutter_MOT", 0.0, 1.0, "MOT"],
+            ["shutter_repump", 0.0, 1.0, "MOT"],
+            ["coil_MOTlower__A", 0.0, -1.0, "MOT"],
+            ["coil_MOTupper__A", 0.0, -0.98, "MOT"],
+            ["⚓_001", 1.0, 0.0, "MOT"],
+            ["lockbox_MOT__MHz", 1.0, 0.0, "MOT"],
+            ["lockbox_MOT__MHz", 1.01, -5.0, "MOT"],
+            ["⚓_002", 1.1, 0.0, "MOT"],
+            ["lockbox_MOT__MHz", 2.1, -5.0, "MOT"],
+            ["lockbox_MOT__MHz", 2.2, -2.0, "MOT"],
+            ["lockbox_MOT__MHz", 1.6, -5.0, "MOT"],
+            ["lockbox_MOT__MHz", 1.7000000000000002, -1.0, "MOT"],
+            ["lockbox_MOT__MHz", 1.85, -1.0, "MOT"],
+            ["lockbox_MOT__MHz", 1.9500000000000002, -5.0, "MOT"],
+        ],
+        columns=["variable", "time", "value", "context"],
+    )
+
+    return wt_frame.assert_equal(timeline__simplified, expected)
 
 
 def test_rampDoesNotRaise(tl_anchor):
