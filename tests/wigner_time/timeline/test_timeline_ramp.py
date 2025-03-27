@@ -94,11 +94,13 @@ def test_ramp0(args):
             origin=[0.05, "variable"],
             origin2=["variable"],
         ),
-        Munch(
-            lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
-            origin=["anchor", "variable"],
-            origin2=["variable"],
-        ),
+        # TODO: Decide whether or not this should raise an error.
+        # - Prevents the user from inheriting values that come after the origin.
+        # Munch(
+        #     lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
+        #     origin=["anchor", "variable"],
+        #     origin2=["variable"],
+        # ),
         Munch(
             lockbox_MOT__V=[50e-3, 5], origin=["last", "variable"], origin2=["variable"]
         ),
@@ -325,3 +327,17 @@ def test_rampReal():
         timeline__simplified,
         expected,
     )
+
+
+def test_rampDoesNotRaise(tl_anchor):
+    tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=1.0))
+
+
+def test_rampMeaningfulDuration(tl_anchor):
+    with pytest.raises(ValueError):
+        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=0.0))
+
+
+def test_rampMeaningfulValueChange(tl_anchor):
+    with pytest.raises(ValueError):
+        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=0.0, duration=1.0))
