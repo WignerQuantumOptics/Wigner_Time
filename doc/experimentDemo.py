@@ -125,7 +125,7 @@ def saneState(f=tl.create, MOT_ON=True, **kwargs):
         coil_MOTupperPlus__A=constants.Compensation.Z__A,
         AOM_MOT=1,
         AOM_repump=1,
-        AOM_OP_aux=0,  # TODO: USB-controlled AOMs should be treated on a higher level
+        AOM_OPaux=0,  # TODO: USB-controlled AOMs should be treated on a higher level
         AOM_OP=1,
         AOM_science=1,
         shutter_MOT=int(MOT_ON),

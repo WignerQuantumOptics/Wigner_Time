@@ -108,6 +108,9 @@ def quantities(
     if variables is None:
         variables = tline["variable"].unique()
 
+    if variables is None:
+        return None
+
     units = wt_variable.units(tline)
     unit_variables__analog = {
         u: [v for v in variables if wt_variable.unit(v) == u]
@@ -118,68 +121,75 @@ def quantities(
 
     tline__anchors = tline[anchor.mask(tline)]
 
-    # =====================================================================
-    # ANALOGUE
-    # =====================================================================
     prop_cycle = plt.rcParams["axes.prop_cycle"]
     colors = prop_cycle.by_key()["color"]
 
-    analogPanels = len(unit_variables__analog)
+    num_analog_panels = len(unit_variables__analog)
+    num_digital_panels = 1 if variables__digital else 0
+    num_panels = num_analog_panels + num_digital_panels
+    # =====================================================================
+    # ANALOGUE
+    # =====================================================================
     fig, axes = plt.subplots(
-        analogPanels + 1,
+        num_analog_panels + num_digital_panels,
         sharex=True,
         figsize=(7.5, 7.5),
-        height_ratios=[1] * analogPanels + [2],
+        height_ratios=num_digital_panels * [1] * num_analog_panels + [2],
     )
-    if analogPanels == 0:
+    if num_panels == 1:
         axes = [axes]
-
     fig.tight_layout()
 
     analogLabels = []
-    for key, axis in zip(unit_variables__analog.keys(), axes[:-1]):
-        (
-            axis.set_ylabel(symbol_quantities[key] + " [{}]".format(key))
-            if key in symbol_quantities
-            else key
-        )
-        for variable, color in zip(unit_variables__analog[key], colors):
-            array = tline[tline["variable"] == variable]
-            axis.plot(array["time"], array["value"], marker="o", ms=3)
-            analogLabels.append(axis.text(0, array.iat[0, 2], variable, color=color))
-        if do_context:
-            _draw_context(axis, info__context, cmap__context=cmap__context)
+    if num_analog_panels > 0:
+        for key, axis in zip(unit_variables__analog.keys(), axes[:-1]):
+            (
+                axis.set_ylabel(symbol_quantities[key] + " [{}]".format(key))
+                if key in symbol_quantities
+                else key
+            )
+            for variable, color in zip(unit_variables__analog[key], colors):
+                array = tline[tline["variable"] == variable]
+                axis.plot(array["time"], array["value"], marker="o", ms=3)
+                analogLabels.append(
+                    axis.text(0, array.iat[0, 2], variable, color=color)
+                )
+            if do_context:
+                _draw_context(axis, info__context, cmap__context=cmap__context)
     #
     # =====================================================================
     # DIGITAL
     # =====================================================================
-    divider = 1.5 * len(variables__digital)
     digitalLabels = []
-    axes[-1].set_ylabel("Digital")
+    if num_digital_panels > 0:
+        divider = 1.5 * len(variables__digital)
+        axes[-1].set_ylabel("Digital")
 
-    for variable, offset, color in zip(
-        variables__digital, range(len(list(variables__digital))), colors
-    ):
-        baseline = offset / divider
-        array = tline[tline["variable"] == variable]
-        axes[-1].axhline(baseline, color=color, linestyle=":", alpha=0.5)
-        axes[-1].axhline(baseline + 1, color=color, linestyle=":", alpha=0.5)
-        axes[-1].step(
-            array["time"],
-            array["value"] + baseline,
-            where="post",
-            color=color,
-            marker="o",
-            ms=3,
-        )
-        digitalLabels.append(axes[-1].text(0, baseline, variable + "_OFF", color=color))
-        digitalLabels.append(
-            axes[-1].text(0, baseline + 1, variable + "_ON", color=color)
-        )
-    axes[-1].set_yticks([i / divider for i in range(len(list(variables__digital)))])
-    axes[-1].set_yticklabels([])
-    if do_context:
-        _draw_context(axes[-1], info__context, cmap__context=cmap__context)
+        for variable, offset, color in zip(
+            variables__digital, range(len(list(variables__digital))), colors
+        ):
+            baseline = offset / divider
+            array = tline[tline["variable"] == variable]
+            axes[-1].axhline(baseline, color=color, linestyle=":", alpha=0.5)
+            axes[-1].axhline(baseline + 1, color=color, linestyle=":", alpha=0.5)
+            axes[-1].step(
+                array["time"],
+                array["value"] + baseline,
+                where="post",
+                color=color,
+                marker="o",
+                ms=3,
+            )
+            digitalLabels.append(
+                axes[-1].text(0, baseline, variable + "_OFF", color=color)
+            )
+            digitalLabels.append(
+                axes[-1].text(0, baseline + 1, variable + "_ON", color=color)
+            )
+        axes[-1].set_yticks([i / divider for i in range(len(list(variables__digital)))])
+        axes[-1].set_yticklabels([])
+        if do_context:
+            _draw_context(axes[-1], info__context, cmap__context=cmap__context)
 
     for anchorTime in tline__anchors["time"]:
         for axis in axes:

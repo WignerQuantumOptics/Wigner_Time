@@ -14,7 +14,7 @@ import experimentDemo as ex
 
 # import importlib
 # importlib.reload(ex)
-# from wigner_time.adwin import display as adwin_display
+from wigner_time.adwin import display as adwin_display
 
 
 def replace_anchor_symbol(df, symbol__old="Anchor", symbol__new="⚓"):
@@ -120,7 +120,7 @@ def test_MOT():
             },
             {
                 "time": -1e-06,
-                "variable": "AOM_OP_aux",
+                "variable": "AOM_OPaux",
                 "value": 0.0,
                 "context": "ADwin_LowInit",
             },
@@ -222,7 +222,7 @@ def test_MOT():
     # print(tl__new)
     # print(tl__original)
     # adwin_display.channels(tl__original, do_show=False)
-    # adwin_display.channels(tl__new)
+    # adwin_display.quantities(tl__new)
 
     return frame.assert_equal(tl__new, tl__original)
 
@@ -234,6 +234,10 @@ def test_MOTdetuned():
         ex.MOT_detunedGrowth(),
     ).drop(columns="function")
 
+    adwin_display.quantities(tl__new, variables=["lockbox_MOT__MHz"])
+    # adwin_display.quantities(tl__new, variables=["lockbox_MOT__MHz", "AOM_MOT"])
+    assert False
+
     tl__original = pd.DataFrame(
         [
             [-1e-06, "lockbox_MOT__MHz", 0.0, "ADwin_LowInit"],
@@ -243,7 +247,7 @@ def test_MOTdetuned():
             [-1e-06, "coil_MOTupperPlus__A", -0.1, "ADwin_LowInit"],
             [-1e-06, "AOM_MOT", 1.0, "ADwin_LowInit"],
             [-1e-06, "AOM_repump", 1.0, "ADwin_LowInit"],
-            [-1e-06, "AOM_OP_aux", 0.0, "ADwin_LowInit"],
+            [-1e-06, "AOM_OPaux", 0.0, "ADwin_LowInit"],
             [-1e-06, "AOM_OP", 1.0, "ADwin_LowInit"],
             [-1e-06, "AOM_science", 1.0, "ADwin_LowInit"],
             [-1e-06, "shutter_MOT", 0.0, "ADwin_LowInit"],
