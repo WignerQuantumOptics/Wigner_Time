@@ -127,22 +127,24 @@ def quantities(
     num_analog_panels = len(unit_variables__analog)
     num_digital_panels = 1 if variables__digital else 0
     num_panels = num_analog_panels + num_digital_panels
-    # =====================================================================
-    # ANALOGUE
-    # =====================================================================
+
     fig, axes = plt.subplots(
         num_analog_panels + num_digital_panels,
         sharex=True,
         figsize=(7.5, 7.5),
-        height_ratios=num_digital_panels * [1] * num_analog_panels + [2],
+        height_ratios=[1] * num_analog_panels + num_digital_panels * [2],
     )
     if num_panels == 1:
         axes = [axes]
     fig.tight_layout()
+    # =====================================================================
+    # ANALOGUE
+    # =====================================================================
 
     analogLabels = []
     if num_analog_panels > 0:
-        for key, axis in zip(unit_variables__analog.keys(), axes[:-1]):
+        axes__analogue = axes[:-num_digital_panels] if num_digital_panels != 0 else axes
+        for key, axis in zip(unit_variables__analog.keys(), axes__analogue):
             (
                 axis.set_ylabel(symbol_quantities[key] + " [{}]".format(key))
                 if key in symbol_quantities
