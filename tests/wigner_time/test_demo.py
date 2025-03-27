@@ -14,7 +14,7 @@ sys.path.append(str(pl.Path.cwd() / "doc"))
 import experimentDemo as ex
 
 importlib.reload(ex)
-from wigner_time.adwin import display as adwin_display
+# from wigner_time.adwin import display as adwin_display
 
 
 def replace_anchor_symbol(df, symbol__old="Anchor", symbol__new="⚓"):
