@@ -1,47 +1,53 @@
 """
-An example implementation of a real Wigner Time timeline.
+An example implementation of a real experiment, using 'Wigner Time' timelines.
+
 As well as providing conveniences, the functions can be used to document the intention and meaning of each stage.
-
-EXPERIMENTAL!!! real usecases can be found in experimentDemo.py, diagnosticsDemo.py, and demo.ipynb
-
 """
 
-# TODO: Change shutter convention! 1 should mean closed and 0 should mean open: this comes from 1->True;0->False and also from the visual symbolism of 0.
-
-import importlib
-import pathlib as pl
+# TODO: WIP!!!
 
 import pandas as pd
-import numpy as np
+
 from munch import Munch
-from wigner_time import constructor as construct
-from wigner_time import connection as con
+from wigner_time.adwin import connection as adcon
 from wigner_time import timeline as tl
-from wigner_time import adwin as adwin
-from wigner_time import util as u
+from wigner_time import device
+from wigner_time import conversion as conv
+from wigner_time import ramp_function
+from enum import IntEnum
 
-from copy import deepcopy
-
-
-importlib.reload(tl)
-importlib.reload(construct)
-# ^^^ Reloads are for development purposes only
 
 ###########################################################################
 #                       Constants and Helpers                             #
 ###########################################################################
 
-# TODO: These ↓ (connections, devices and constants) should maybe be read from a separate file (they won't change much).
-connections = con.connection(
+# TODO: What exactly is a stage, do we need the Enum and should it be in the example file?
+
+# Stages, connections, devices and constants can be read from a separate file(s) (they won't change much). They are all collected together here for demonstration purposes only.
+Stage = IntEnum(
+    "Stage",
+    [
+        ("MOT", 1),
+        ("MOT_Delta", 2),
+        ("molasses", 3),
+        ("OP", 4),
+        ("MT", 5),
+    ],
+)
+
+"""
+'connections' allows us to label physical links (inputs and outputs) between devices and the timing system. By using labels that follow a particular regex, defined within the `variable` module, we can separate out the design and the implementation of our experiment.
+"""
+connections = adcon.new(
     ["shutter_MOT", 1, 11],
     ["shutter_repump", 1, 12],
-    ["shutter_imaging", 1, 13],
     ["shutter_OP001", 1, 14],
     ["shutter_OP002", 1, 15],
+    ["shutter_science", 1, 10],
+    ["shutter_transversePump", 1, 9],
     ["AOM_MOT", 1, 1],
     ["AOM_repump", 1, 2],
-    ["AOM_imaging", 1, 5],
-    ["AOM_OP_aux", 1, 30],  # should be set to 0 always
+    ["AOM_OPaux", 1, 30],  # should be set to 0 always
     ["AOM_OP", 1, 31],
     ["coil_compensationX__A", 4, 7],
     ["coil_compensationY__A", 3, 2],
@@ -49,106 +55,59 @@ connections = con.connection(
     ["coil_MOTupper__A", 4, 3],
     ["coil_MOTlowerPlus__A", 4, 2],
     ["coil_MOTupperPlus__A", 4, 4],
-    ["lockbox_MOT__V", 3, 8],
+    ["lockbox_MOT__MHz", 3, 8],
+    ["trigger_TC__V", 3, 1],
+    ["AOM_science", 1, 4],
+    ["AOM_science__V", 4, 8],
 )
 
-# TODO: This could be a set of conversion functions/lambdas from units like A, MHz
-devices = pd.DataFrame(
-    columns=["variable", "unit_range", "safety_range"],
-    data=[
-        ["coil_compensationX__A", (-3, 3), (-3, 3)],
-        ["coil_compensationY__A", (-3, 3), (-3, 3)],
-        ["coil_MOTlower__A", (-5, 5), (-5, 5)],
-        ["coil_MOTupper__A", (-5, 5), (-5, 5)],
-        ["coil_MOTlowerPlus__A", (-5, 5), (-5, 5)],
-        ["coil_MOTupperPlus__A", (-5, 5), (-5, 5)],
-        ["lockbox_MOT__V", (-10, 10)],
+"""
+'devices' stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable.
+"""
+devices = device.new(
+    ["coil_compensationX__A", 1 / 3.0, (-3, 3)],
+    ["coil_compensationY__A", 1 / 3.0, (-3, 3)],
+    ["coil_MOTlower__A", 1 / 2.0, (-5, 5)],
+    ["coil_MOTupper__A", 1 / 2.0, (-5, 5)],
+    ["coil_MOTlowerPlus__A", 1 / 2.0, (-5, 5)],
+    ["coil_MOTupperPlus__A", 1 / 2.0, (-5, 5)],
+    ["lockbox_MOT__MHz", 0.05, (-200, 200)],
+    ["trigger_TC__V", 1.0, (-10, 10)],
+    [
+        "AOM_science__trans",
+        conv.function_from_file(
+            "resources/calibration/aom_calibration.dat",
+            sep=r"\s+",
+        ),
+        (0.0, 1.0),
     ],
 )
 
-# TODO:
-# I dislike global variables but, unfortunately, a reference will probably still need to be available in the same namespace as these functions for convenience.
+
+"""
+'constants' allows us to store site-specific details that help define our exeriment.
+"""
 constants = Munch(
     safety_factor=1.1,
-    factor__VpMHz=0.05,
-    Bfield_compensation_Z__A=-0.1,
-    Bfield_compensation_Y__A=1.5,
-    Bfield_compensation_X__A=0.25,
-    lag_MOTshutter=2.48e-3,
+    #    factor__VpMHz=0.05,
+    lag_MOTshutter=2.3e-3,
+    lag_repump_shutter=0,  # Earlier value, yet unverified: 2.3e-3,
+    Compensation=Munch(
+        Z__A=-0.1,
+        Y__A=1.5,
+        X__A=0.25,
+    ),
     OP=Munch(
         lag_AOM_on=15e-6,
-        lag_shutter_on=1.5e-3,
-        lag_shutter_off=1.5e-3,
+        lag_shutter_on=1.48e-3,
+        lag_shutter_off=1.78e-3,
         duration_shutter_on=140e-6,
         duration_shutter_off=600e-6,
     ),
-)
-
-
-# TODO: Move device conversions out of here?
-# Idea would be to make ...__A, __MHz etc. variables at the 'top' level of timeline conversion and then we could run the conversion functions later.
-class lock_box:
-    def to_V(MHz):
-        return constants.factor__VpMHz * MHz
-
-
-# TODO: Should all of the context-creating function arguments be abstracted here?
-defaults = Munch()
-
-# NOTE: MOTplus coils are part of the compensation and so should default to the compensation values.
-defaults.MOT = Munch(
-    lockbox_MOT__V=0.0,
-    shutter_MOT=1,  # TODO: why the shutter values here?
-    shutter_repump=1,
-    coil_MOTlower__A=-1.0,
-    coil_MOTupper__A=-0.98,
-)
-
-defaults.molasses = Munch(
-    duration_cooling=5e-3,
-    duration_ramp=1e-3,
-    shift__MHz=-80,
-    fraction_ramp_duration=0.9,
-    coil_MOTlower__A=0.0,
-    coil_MOTupper__A=0.0,
-)
-
-defaults.magnetic = Munch(
-    delay=1e-3,
-    quadrupole=Munch(duration_ramp=50e-6, coil_MOTlower__A=-1.8, coil_MOTupper__A=-1.7),
-    strong=Munch(duration_ramp=3e-3, coil_MOTlower__A=-4.8, coil_MOTupper__A=-4.7),
-)
-
-defaults.finish = Munch(update={}, ramp={})
-defaults.finish.update = Munch(
-    AOM_MOT=1,
-    AOM_repump=1,
-    AOM_repump__V=5,
-    AOM_imaging=1,
-    AOM_OP_aux=0,
-    AOM_OP=1,
-    AOM_science=1,
-    AOM_science__V=0.0,
-    AOM_ref=1,
-    shutter_MOT=1,
-    shutter_repump=1,
-    shutter_imaging=0,
-    shutter_OP001=0,
-    shutter_OP002=1,
-    shutter_science=1,
-    shutter_transversePump=0,
-    shutter_coupling=0,
-    trigger_TC__V=0,
-    photodiode__V=0,
-)
-defaults.finish.ramp = Munch(
-    coil_MOTlower__A=0.0,
-    coil_MOTupper__A=0.0,
-    coil_MOTlowerPlus__A=-constants.Bfield_compensation_Z__A,
-    coil_MOTupperPlus__A=constants.Bfield_compensation_Z__A,
-    coil_compensationX__A=constants.Bfield_compensation_X__A,
-    coil_compensationY__A=constants.Bfield_compensation_Y__A,
-    lockbox_MOT__V=lock_box.to_V(0.0),
+    AI=Munch(
+        lag_shutter_on=2.2e-3,
+        lag_shutter_off=1.9e-3,
+    ),
 )
 
 
@@ -158,334 +117,315 @@ defaults.finish.ramp = Munch(
 # NOTE: The idea behind the function wrapping is that we enclose what will likely never change and expose just those attributes that we are likely to want to vary.
 
 
-def init():
+def saneState(f=tl.create, MOT_ON=True, **kwargs):
     """
-    Creates an experimental timeline for the initialization of every relevant variable.
+    Starts/leaves the system in a sane state that is appropriate for starting a new timeline
+
+    As a general rule AOMs are kept on as long as possible to keep them is thermal equilibrium.
+    When we need to switch with them, we turn them off shortly before the opening of the shutter.
     """
-    return tl.create(
-        lockbox_MOT__V=0.0,
-        coil_compensationX__A=constants.Bfield_compensation_X__A,
-        coil_compensationY__A=constants.Bfield_compensation_Y__A,
-        coil_MOTlowerPlus__A=-constants.Bfield_compensation_Z__A,
-        coil_MOTupperPlus__A=constants.Bfield_compensation_Z__A,
+    return f(
+        lockbox_MOT__MHz=0.0,
+        coil_compensationX__A=constants.Compensation.X__A,
+        coil_compensationY__A=constants.Compensation.Y__A,
+        coil_MOTlowerPlus__A=-constants.Compensation.Z__A,
+        coil_MOTupperPlus__A=constants.Compensation.Z__A,
         AOM_MOT=1,
         AOM_repump=1,
-        AOM_OP_aux=0,
+        AOM_OPaux=0,  # TODO: USB-controlled AOMs should be treated on a higher level
         AOM_OP=1,
-        shutter_MOT=0,
-        shutter_repump=0,
+        AOM_science=1,
+        shutter_MOT=int(MOT_ON),
+        shutter_repump=int(MOT_ON),
         shutter_OP001=0,
         shutter_OP002=1,
+        shutter_science=0,
+        shutter_transversePump=0,
+        AOM_science__V=5.0,
+        trigger_TC__V=0.0,
+        **kwargs,
+    )
+
+
+def init(MOT_ON=False, **kwargs):
+    return saneState(
+        t=-1e-6,  # time is just fictive here, the important thing is the context
         context="ADwin_LowInit",
+        MOT_ON=MOT_ON,
+        **kwargs,
     )
 
 
-# TODO: in the true ADwin finish section, nothing time dependent can be done! Another context, called “finish”, which could have special handling also
-def finish(
-    timeline,
-    duration_ramp=1e-3,
-    time_start=None,
-    vars_set=None,
-    vars_ramp=None,
-    defaults_set=defaults.finish.set,
-    defaults_ramp=defaults.finish.ramp,
-    #    context="ADwin_Finish",
-):
+def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
     """
-    Safely winds down the system. Doing this within the ADwin_Finish environment, means that this will still happen when the process is interrupted.
+    Safely winds down the system, continuously ramping the analog variables to the “sane state”.
 
-    Here, a previous timeline is not optional.
+    The ADwin_Finish environment means that the “sane state” will be actuated even when the process is interrupted.
     """
-
-    _vars_set = construct.arguments(vars_set, defaults_set)
-    _vars_ramp = construct.arguments(vars_ramp, defaults_ramp)
-
+    duration = 1e-2
     return tl.stack(
-        tl.next(**_vars_ramp, t=duration_ramp, timeline=timeline, context="Finish"),
-        tl.update(**_vars_set, context="ADwin_Finish"),
+        tl.anchor(wait, context="finalRamps"),
+        tl.ramp(
+            lockbox_MOT__MHz=0.0,
+            coil_MOTlower__A=lA,
+            coil_MOTupper__A=uA,
+            coil_compensationX__A=constants.Compensation.X__A,
+            coil_compensationY__A=constants.Compensation.Y__A,
+            coil_MOTlowerPlus__A=-constants.Compensation.Z__A,
+            coil_MOTupperPlus__A=constants.Compensation.Z__A,
+            duration=duration,
+            context="finalRamps",
+        ),
+        saneState(
+            f=tl.update,
+            t=duration
+            + 1e-6,  # time is just fictive here, the important thing is the context
+            context="ADwin_Finish",
+            MOT_ON=MOT_ON,
+            **kwargs,
+        ),
     )
 
 
-# TODO: Should all of these functions simply take a timeline and params?
-def MOT(
-    detuning__MHz=3,
-    duration=10.0,
-    # ===
-    time_start=None,
-    variables: Munch | None = None,
-    variables_default=defaults.MOT,
-    timeline=init(),
-    context="MOT",
-):
+def MOT(duration=15, lA=-1.0, uA=-0.98, **kwargs):
     """
     Creates a Magneto-Optical Trap.
 
     """
-    _time_start, _variables = construct.time_and_arguments(
-        time_start, variables, variables_default, timeline
+    return tl.stack(
+        tl.update(
+            shutter_MOT=1,
+            shutter_repump=1,
+            coil_MOTlower__A=lA,
+            coil_MOTupper__A=uA,
+            context="MOT",
+            origin=0.0,
+            **kwargs,
+        ),
+        tl.anchor(duration, origin=0.0, context="MOT"),
     )
 
+
+def MOT_detunedGrowth(duration=100e-3, durationRamp=10e-3, toMHz=-5, **kwargs):  # pt=3,
+    """
+    Final stage of MOT collection with detuned MOT beams for increased capture range.
+
+    """
     return tl.stack(
-        tl.create(
-            shutter_MOT=_variables.shutter_MOT,
-            shutter_repump=_variables.shutter_repump,
-            coil_MOTlower__A=_variables.coil_MOTlower__A,
-            coil_MOTupper__A=_variables.coil_MOTupper__A,
-            # ===
-            timeline=timeline,
-            context=context,
+        tl.ramp(
+            lockbox_MOT__MHz=toMHz,
+            duration=durationRamp,
+            #            fargs={"ti": pt},
+            context="MOT",
+            **kwargs,
         ),
-        tl.next(
-            lockbox_MOT__V=lock_box.to_V(detuning__MHz), t=duration, context="MOT_grow"
-        ),
+        tl.anchor(duration),
     )
 
 
 def molasses(
-    duration_cooling=5e-3,
-    duration_ramp=1e-3,
-    detuning__MHz=-80,
-    # ===
-    # Specific values above ↑
-    # Repeated values below ↓
-    # ===
-    time_start=None,
-    variables: Munch | None = None,
-    variables_default=defaults.molasses,
-    timeline=MOT(),
-    context="molasses",
+    duration=5e-3,
+    durationCoilRamp=9e-4,
+    durationLockboxRamp=1e-3,
+    toMHz=-90,  # coil_pt=3, lockbox_pt=3,
+    delay=0,  # arbitrary delay to shutter for ad hoc compensation of small drifts
+    **kwargs
 ):
-    _time_start, _variables = construct.time_and_arguments(
-        time_start, variables, variables_default, timeline
-    )
-
-    if duration_ramp >= duration_cooling:
-        raise ValueError("duration_ramp should be smaller than duration_cooling!")
 
     return tl.stack(
-        tl.create(
-            AOM_MOT=[_time_start + duration_cooling, 0],
-            shutter_MOT=[_time_start + duration_cooling - constants.lag_MOTshutter, 0],
-            timeline=timeline,
-            context=context,
+        tl.ramp(
+            coil_MOTlower__A=0,
+            coil_MOTupper__A=0,  # TODO: can these be other than 0 (e.g. for more perfect compensaton?)
+            duration=durationCoilRamp,
+            #            fargs={"ti": coil_pt},
+            context="molasses",
+            **kwargs,
         ),
-        tl.next(
-            coil_MOTlower__A=_variables.coil_MOTlower__A,
-            coil_MOTupper__A=_variables.coil_MOTupper__A,
-            t=duration_ramp,
+        tl.ramp(
+            lockbox_MOT__MHz=toMHz,
+            duration=durationLockboxRamp,
+            #            fargs={"ti": lockbox_pt},
         ),
-        tl.next(lockbox_MOT__V=lock_box.to_V(detuning__MHz), t=duration_ramp),
+        tl.update(
+            shutter_MOT=[duration - constants.lag_MOTshutter + delay, 0],
+            AOM_MOT=[duration, 0],
+        ),
+        tl.anchor(duration, context="molasses"),
     )
 
 
-def switch_laser(
-    var__AOM,
-    var__shutter,
-    state="ON",
-    params=Munch(
-        lag_AOM_on=15e-6,
-        lag_shutter_on=1.5e-3,
-        duration_shutter_on=140e-6,
-        safety_factor=1.1,
-    ),
-    time_start=None,
-    timeline=None,
-    context=None,
-):
-    """
-    Combines the action of turning off the AOM and turning on the shutter or vice versa, such that a laser beam is changed `ON` or `OFF` according to the given state ENUM.
-
-    """
-    # TODO: I live in hope that the shutter convention will be changed!
-    #
-    _time__AOM = time_start - params.lag_AOM_on - params.lag_shutter_on
-    _time__shutter = (
-        time_start
-        - params.lag_AOM_on
-        - params.safety_factor * (params.lag_shutter_on + params.duration_shutter_on)
-    )
-    _value__AOM = 0 if state == "ON" else 1
-    _value__shutter = 1 if state == "ON" else 0
-
-    return tl.update(
-        context=context,
-        timeline=timeline,
-        **{
-            var__AOM: [_time__AOM, _value__AOM],
-            var__shutter: [
-                _time__shutter,
-                _value__shutter,
-            ],
-        },
-    )
-
-
-def flash_laser():
-    """
-    Switches the laser on and off, for a given duration.
-    """
-    # TODO: fill in the blank!
-    return
-
-
-def optical_pumping(
-    duration_exposure=80e-6,
-    duration_ramp=500e-6,
-    B_field_homogenous__A=-0.12,
-    # ===
-    # Specific values above ^
-    # Repeated values below ↓
-    # ===
-    time_start=None,
-    variables: Munch | None = None,
-    variables_default={},
-    timeline=molasses(),
-    context="optical_pumping",
+def OP(
+    durationExposition=80e-6,
+    durationCoilRamp=50e-6,
+    i=-0.12,  # pt=3,
+    delay1=0,
+    delay2=0,
+    delayRepump=0,  # arbitrary delays to shutters for ad hoc compensation of small drifts
+    **kwargs
 ):
     """
     Creates an experimental timeline for optical pumping.
 
     NOTE:
-    The AOM is switched off close to, but before, the opening of the first shutter, but taking care not to flash too soon.
+    The AOM is switched off close to, but before, the opening of the first shutter
+
+    TODO:
+    Shutters are reinitialized so that additional optical pumping stages can be added later.
+    However, this should probably be factorized out.
+
     """
-    # TODO:
-    # - Mysterious constants should be investigated and named!
-    # ===
-    constant__mysterious_001 = 9.5e-6
-    constant__mysterious_002 = 0.5e-6
 
-    _time_start, _variables = construct.time_and_arguments(
-        time_start, variables, variables_default, timeline
-    )
-
+    fullDuration = durationExposition + durationCoilRamp
     return tl.stack(
-        switch_laser(
-            "AOM_OP",
-            "shutter_OP001",
-            "OFF",
-            time_start=_time_start,
-            timeline=timeline,
-            context=context,
+        tl.ramp(
+            coil_MOTlower__A=i,
+            coil_MOTupper__A=-i,
+            duration=durationCoilRamp,
+            #            fargs={"ti": pt},
+            context="OP",
+            **kwargs,
+        ),
+        tl.update(AOM_OP=[[-0.1, 0], [durationCoilRamp, 1], [fullDuration, 0]]),
+        tl.update(
+            shutter_OP001=[
+                [durationCoilRamp - constants.OP.lag_shutter_on + delay1, 1],
+                [0.1, 0],
+            ]
         ),
         tl.update(
-            AOM_OP=[
-                _time_start - constants.OP.lag_AOM_on + constant__mysterious_001,
-                1,
-            ],
             shutter_OP002=[
-                _time_start
-                + duration_exposure
-                - (2 - constants.safety_factor) * constants.OP.lag_shutter_off,
-                0,
-            ],
+                [fullDuration - constants.OP.lag_shutter_off + delay2, 0],
+                [0.1, 1],
+            ]
         ),
-        # Shutters switched back, to reinitialize them before any additional optical pumpings later.
         tl.update(
-            AOM_OP=[_time_start + duration_exposure + constant__mysterious_002, 0],
-            AOM_repump=[_time_start + duration_exposure, 0],
-            shutter_repump=[_time_start + duration_exposure, 0],
-            shutter_OP001=[_time_start + duration_exposure, 0],
-            shutter_OP002=[
-                _time_start
-                + duration_exposure
-                + constants.safety_factor
-                * (constants.OP.lag_shutter_on + constants.OP.duration_shutter_on),
-                1,
-            ],
+            shutter_repump=0,
+            t=fullDuration - constants.lag_repump_shutter + delayRepump,
         ),
-        tl.next(
-            coil_MOTlower__A=B_field_homogenous__A,
-            coil_MOTupper__A=-B_field_homogenous__A,
-            time_start=_time_start - duration_ramp,
-            t=duration_ramp,
-            context=context,
+        tl.update(AOM_repump=0, t=fullDuration),
+        tl.anchor(fullDuration, context="OP"),
+    )
+
+
+def pull_coils(duration, l, u, lp=0, up=0, pt=3, **kwargs):
+    return tl.ramp(
+        coil_MOTlower__A=l,
+        coil_MOTupper__A=u,
+        coil_MOTlowerPlus__A=lp - constants.Compensation.Z__A,
+        coil_MOTupperPlus__A=up + constants.Compensation.Z__A,
+        function=lambda origin, terminus, time_resolution: ramp_function.tanh(
+            origin, terminus, time_resolution, pt
         ),
+        duration=duration,
+        **kwargs,
     )
 
 
-optical_pumping()
-
-
-def ramp_magnetic_coils(
-    timeline=None,
-    # ===
-    time_start=None,
-    params: Munch = Munch(
-        duration_ramp=150e-3,
-        coil_MOTlower__A=0.0,
-        coil_MOTupper__A=0.0,
-        coil_MOTlowerPlus__A=-constants.Bfield_compensation_Z__A,
-        coil_MOTupperPlus__A=constants.Bfield_compensation_Z__A,
-    ),
-    context=None,
-):
-    """
-    By default, lowers the coil values to safe 'starting' values.
-    """
-    _time_start = construct.time(time_start, timeline)
-    _variables = u.filter_dict(
-        params,
-        [
-            "coil_MOTlower__A",
-            "coil_MOTupper__A",
-            "coil_MOTlowerPlus__A",
-            "coil_MOTupperPlus__A",
-        ],
-    )
-
-    return tl.next(
-        **_variables,
-        time_start=_time_start,
-        t=params.duration_ramp,
-        timeline=timeline,
-        context=context,
-    )
-
-
-def make_and_strengthen_magnetic_trap(
-    timeline=optical_pumping(), params=defaults.magnetic, context="magnetic_trap"
+def magneticTrapping(
+    durationInitial=50e-6,
+    li=-1.8,
+    ui=-1.7,
+    durationStrengthen=3e-3,
+    ls=-4.8,
+    us=-4.7,
+    **kwargs
 ):
     return tl.stack(
-        ramp_magnetic_coils(
-            timeline=timeline,
-            params=params.quadrupole,
-            context=context,
-        ),
-        lambda t: ramp_magnetic_coils(
-            timeline=t,
-            params=params.strong,
-            context=context,
-        ),
+        pull_coils(durationInitial, li, ui, context="magneticTrapping", **kwargs),
+        pull_coils(durationStrengthen, ls, us, t=durationInitial),
+        tl.anchor(durationInitial + durationStrengthen, context="magneticTrapping"),
     )
 
 
-def prepare_atoms():
-    """
-    Convenience for setting up the cold atoms.
+# should probably not have `**kwargs` to avoid confusions
+def prepareSample(
+    stage=Stage.MT,
+    # init stage
+    initFunction=init,
+    init_MOT_ON=True,
+    # MOT stage
+    MOT_duration=15,
+    MOT_lA=-1.0,
+    MOT_uA=-0.98,
+    # MOT detuned stage
+    MOT_Delta_duration=0.1,
+    MOT_Delta_durationRamp=1e-2,
+    MOT_Delta_toMHz=-5,  # pt=3,
+    # molasses stage
+    molasses_duration=4.5e-3,
+    molasses_durationCoilRamp=9e-4,
+    molasses_durationLockboxRamp=1e-3,
+    molasses_toMHz=-90,
+    molasses_delay=-200e-6,
+    # OP stage
+    OP_durationExposition=80e-6,
+    OP_durationCoilRamp=500e-6,
+    OP_i=-0.12,
+    OP_delay1=-350e-6,
+    OP_delay2=450e-6,
+    OP_delayRepump=0,
+    OP_wait=1e-3,
+    # magnetic trapping stage
+    MT_durationInitial=50e-6,
+    MT_li=-1.8,
+    MT_ui=-1.7,
+    MT_durationStrengthen=3e-3,
+    MT_ls=-4.8,
+    MT_us=-4.7,
+    # finish stage
+    finishFunction=finish,
+    finish_MOT_ON=True,
+):
+    def _():
+        def MOT_off(**kwargs):
+            return tl.update(
+                shutter_MOT=0, AOM_MOT=0, shutter_repump=0, AOM_repump=0, **kwargs
+            )
 
-    NOTE: `tl.stack` can be used with any single-argument function, where the single argument is a (DataFrame-like) timeline.
-    """
-    # TODO: should really take the whole parameters dict as an input and use it intelligently.
-    return tl.stack(make_and_strengthen_magnetic_trap, finish)
+        timeline = MOT(
+            MOT_duration, MOT_lA, MOT_uA, timeline=initFunction(MOT_ON=init_MOT_ON)
+        )
+        if stage == Stage.MOT:
+            return MOT_off(timeline=timeline)
 
+        timeline = MOT_detunedGrowth(
+            MOT_Delta_duration,
+            MOT_Delta_durationRamp,
+            MOT_Delta_toMHz,
+            timeline=timeline,
+        )
+        if stage == Stage.MOT_Delta:
+            return MOT_off(timeline=timeline)
 
-###########################################################################
-#                                 SCRATCH                                 #
-###########################################################################
-duration_cooling = 1e-3
-timeline = init()
-context = "test"
+        timeline = molasses(
+            molasses_duration,
+            molasses_durationCoilRamp,
+            molasses_durationLockboxRamp,
+            molasses_toMHz,
+            molasses_delay,
+            timeline=timeline,
+        )
+        if stage == Stage.molasses:
+            return timeline  # MOT_off(timeline=timeline) should not be necessary in principle
 
+        timeline = OP(
+            OP_durationExposition,
+            OP_durationCoilRamp,
+            OP_i,
+            OP_delay1,
+            OP_delay2,
+            OP_delayRepump,
+            timeline=timeline,
+        )
+        if stage == Stage.OP:
+            return timeline
 
-# data = prepare_atoms()
-# print(data)
+        return tl.stack(
+            timeline,
+            tl.anchor(OP_wait, context="OP_wait"),
+            magneticTrapping(
+                MT_durationInitial, MT_li, MT_ui, MT_durationStrengthen, MT_ls, MT_us
+            ),
+        )
 
-
-init = init()
-
-from wigner_time import variable as var
-
-
-print("here")
-mask_current = init["variable"].str.contains("A" + "$")
-init
+    return tl.stack(_(), finishFunction(MOT_ON=finish_MOT_ON))

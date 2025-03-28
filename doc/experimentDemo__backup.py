@@ -4,15 +4,15 @@ An example implementation of a real Wigner Time timeline.
 As well as providing conveniences, the functions can be used to document the intention and meaning of each stage.
 """
 
-import sys
-
-sys.path.append("..")
+# TODO: WIP!!!
 
 import pandas as pd
 
 from munch import Munch
 from wigner_time.adwin import connection as con
 from wigner_time import timeline as tl
+from wigner_time import device
+from wigner_time import conversion as conv
 from wigner_time import ramp_function
 from enum import IntEnum
 
@@ -21,6 +21,7 @@ from enum import IntEnum
 #                       Constants and Helpers                             #
 ###########################################################################
 
+# TODO: What exactly is a stage, do we need the Enum and should it be in the example file?
 # TODO: These ↓ (stages, connections, devices and constants) should maybe be read from a separate file (they won't change much).
 Stage = IntEnum(
     "Stage",
@@ -44,7 +45,6 @@ connections = con.new(
     ["AOM_repump", 1, 2],
     ["AOM_OPaux", 1, 30],  # should be set to 0 always
     ["AOM_OP", 1, 31],
-    ["AOM_science", 1, 4],
     ["coil_compensationX__A", 4, 7],
     ["coil_compensationY__A", 3, 2],
     ["coil_MOTlower__A", 4, 1],
@@ -53,23 +53,26 @@ connections = con.new(
     ["coil_MOTupperPlus__A", 4, 4],
     ["lockbox_MOT__MHz", 3, 8],
     ["trigger_TC__V", 3, 1],
+    ["AOM_science", 1, 4],
     ["AOM_science__V", 4, 8],
 )
 
-# TODO: This could be a set of conversion functions/lambdas from units like A, MHz
-devices = pd.DataFrame(
-    columns=["variable", "unit_range", "safety_range"],
-    data=[
-        ["coil_compensationX__A", (-3, 3), (-3, 3)],
-        ["coil_compensationY__A", (-3, 3), (-3, 3)],
-        ["coil_MOTlower__A", (-5, 5), (-5, 5)],
-        ["coil_MOTupper__A", (-5, 5), (-5, 5)],
-        ["coil_MOTlowerPlus__A", (-5, 5), (-5, 5)],
-        ["coil_MOTupperPlus__A", (-5, 5), (-5, 5)],
-        # ["lockbox_MOT__V", (-10, 10)],
-        ["lockbox_MOT__MHz", (-200, 200)],
-        ["trigger_TC__V", (-10, 10)],
-        ["AOM_science__V", (-10, 10)],
+devices = device.new(
+    ["coil_compensationX__A", 1 / 3.0, (-3, 3)],
+    ["coil_compensationY__A", 1 / 3.0, (-3, 3)],
+    ["coil_MOTlower__A", 1 / 2.0, (-5, 5)],
+    ["coil_MOTupper__A", 1 / 2.0, (-5, 5)],
+    ["coil_MOTlowerPlus__A", 1 / 2.0, (-5, 5)],
+    ["coil_MOTupperPlus__A", 1 / 2.0, (-5, 5)],
+    ["lockbox_MOT__MHz", 0.05, (-200, 200)],
+    ["trigger_TC__V", 1.0, (-10, 10)],
+    [
+        "AOM_science__trans",
+        conv.function_from_file(
+            "resources/calibration/aom_calibration.dat",
+            sep=r"\s+",
+        ),
+        (0.0, 1.0),
     ],
 )
 
