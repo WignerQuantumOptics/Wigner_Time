@@ -15,7 +15,7 @@ def to_digits(voltage, voltage_range=[-10.0, 10.0], num_bits: int = 16, gain: in
     Transforms any voltage range linearly to analogue-digital-converter(ADC) digits.
     """
     v_min, v_max = np.asarray(voltage_range) / gain
-    return np.round(((voltage - v_min) / (v_max - v_min)) * (2**num_bits - 1))
+    return int(np.round(((voltage - v_min) / (v_max - v_min)) * (2**num_bits - 1)))
 
 
 def _add_linear(
@@ -118,11 +118,16 @@ def function_from_file(
         'sep=r"\s+"',
     ),
     """
+    # TODO: Include default 'sep' etc.
     df = pd.read_csv(path, **read_csv__args).dropna()
 
+    # Deal with possible x-duplicates
+    columns = df.columns
+    df_avg = df.groupby(columns[indices__column[0]], as_index=False).mean()
+
     return interp1d(
-        df.iloc[:, indices__column[0]],
-        df.iloc[:, indices__column[1]],
+        df_avg.iloc[:, 0],
+        df_avg.iloc[:, indices__column[1]],
         kind=method,
         fill_value=fill_value,
     )

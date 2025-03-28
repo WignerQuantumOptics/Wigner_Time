@@ -1,5 +1,5 @@
 """
-A device is represented by a dataframe that contains a unit range and (optionally) a safety range.
+A device is represented by a dataframe that contains a variable (with a given unit) and a means, scalar or function, to convert this quantity to a voltage. It also specifies a minimum and maximum value for the variable, to be used in validation.
 
 The unit range is used for conversion and the saftey range is for sanity checking the output.
 """
@@ -31,7 +31,7 @@ SCHEMA__expanded = {
 # ======================================================================
 
 
-def new(*variable_factor_min_max) -> wt_frame.CLASS:
+def new(*variable_toV_min_max) -> wt_frame.CLASS:
     """
     Convenience for creating a table that specifies the conversion and range of device values ('variable', 'to_V', 'value__min' and 'value__max' columns). 'to_V' specifies the conversion and can either be a floating point factor or a function that takes the output from the givin units to a Voltage. The min-max limits outline the range that a user is allowed to specify (and will be validated before output). This allows for error-checking before passing values to real devices.
 
@@ -61,9 +61,7 @@ def new(*variable_factor_min_max) -> wt_frame.CLASS:
                 f"Invalid list of devices {args}: the number of arguments should be less than 5."
             )
 
-    input4 = [
-        process_input(args) for args in wt_util.ensure_2d(variable_factor_min_max)
-    ]
+    input4 = [process_input(args) for args in wt_util.ensure_2d(variable_toV_min_max)]
 
     try:
         new = wt_frame.new_schema(input4, SCHEMA)

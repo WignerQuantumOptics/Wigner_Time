@@ -15,7 +15,7 @@ def df_simple():
         AOM_imaging=[0.0, 0.0, "init"],
         AOM_imaging__V=[0.0, 2.0, "init"],
         AOM_repump=[0.0, 1.0, "init"],
-        virtual=[0.0, 1.0, "MOT"],
+        AOM_science__trans=[0.0, 1.0, "MOT"],
     )
 
 
@@ -53,7 +53,12 @@ def test_add_linear_conversion(df_simple):
         wt_frame.new(
             {
                 "time": [0.0, 0.0, 0.0, 0.0],
-                "variable": ["AOM_imaging", "AOM_imaging__V", "AOM_repump", "virtual"],
+                "variable": [
+                    "AOM_imaging",
+                    "AOM_imaging__V",
+                    "AOM_repump",
+                    "AOM_science__trans",
+                ],
                 "value": [0.0, 2.0, 1.0, 1.0],
                 "context": ["init", "init", "init", "MOT"],
                 "to_V": [None, 1.0, None, None],
@@ -87,7 +92,7 @@ def df_devs():
             AOM_imaging=[0.0, 0.0, "init"],
             AOM_imaging__transparency=[0.0, 0.5, "init"],
             coil_MOT__A=[0.0, 1.0, "init"],
-            virtual=[0.0, 1.0, "MOT"],
+            AOM_science__trans=[0.0, 1.0, "MOT"],
         ),
         device.new(
             [
@@ -140,3 +145,28 @@ def test_add(df_devs):
     # print(guess)
 
     return wt_frame.assert_equal(calc.astype({"value__digits": float}), guess)
+
+
+def test_addReal(df_simple):
+    """
+    A realistic use of conversion function from file.
+    """
+    func__AOM = conv.function_from_file(
+        "resources/calibration/aom_calibration.dat",
+        names=["voltage", "transparency"],
+        sep=r"\s+",
+    )
+    df = device.add(df_simple, device.new("AOM_science__trans", func__AOM, 0.0, 1.0))
+
+    actual = conv.add(df)[["value", "to_V", "value__digits"]]
+    expected = pd.DataFrame(
+        [
+            [0.0, np.nan, np.nan],
+            [2.0, np.nan, np.nan],
+            [1.0, np.nan, np.nan],
+            [1.0, func__AOM, 49143],
+        ],
+        columns=["value", "to_V", "value__digits"],
+    )
+
+    return wt_frame.assert_equal(actual, expected)
