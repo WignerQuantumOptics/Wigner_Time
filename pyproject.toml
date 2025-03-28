@@ -11,6 +11,7 @@ python = ">=3.10"
 munch = "^3.0.0"
 funcy = "^2.0"
 pandas = "^2.2"
+scipy = "^1.14"
 
 pyarrow = {version="^19", optional=true}
 matplotlib = {version="^3.7.1", optional=true}
@@ -26,6 +27,8 @@ parallel_processing = ["polars"]
 jupyter = "^1.1.1"
 black = "^24.10.0"
 pytest = "^7.3.1"
+pyflakes = "^3.2.0"
+isort = "^6.0.1"
 
 [build-system]
 requires = ["poetry-core"]

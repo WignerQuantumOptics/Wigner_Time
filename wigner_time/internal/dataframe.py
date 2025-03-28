@@ -4,16 +4,18 @@ This namespace is for abstracting out the implementation of dataframe manipulati
 Particularly relevant for the pandas to polars upgrade.
 """
 
+from collections.abc import Callable
+
 # In the medium term, this should have a polars counterpart namespace so that we can switch between the two easily.
-
 from copy import deepcopy
-import pandas as pd
 
+import pandas as pd
+from numpy import identity
 
 CLASS = pd.DataFrame
 
 
-def new(data, columns: list):
+def new(data, columns: list | None = None):
     return pd.DataFrame(data, columns=columns)
 
 
@@ -58,6 +60,16 @@ def isnull(o):
     return pd.isnull(o)
 
 
+def subframe(df: CLASS, column: str, values: list, func: Callable | None = None):
+    """
+    Returns a filtered df, where func(`column`) has values in `values`.
+    """
+    if func:
+        return df[df[column].map(func).isin(values)].reset_index(drop=True)
+
+    return df[df[column].isin(values)].reset_index(drop=True)
+
+
 def row_from_max_column(df, column="time"):
     """
     Finds the maximum value of the column and returns the corresponding row.
@@ -85,11 +97,10 @@ def drop_duplicates(df, subset=None, keep="last"):
     return df.drop_duplicates(subset=subset, keep=keep, ignore_index=True).copy()
 
 
-def insert_dataframes(df, indices, dfs):
+def insert_dataframes(df: CLASS, indices: list[int], dfs: list[CLASS]) -> CLASS:
     """
     Inserts multiple DataFrames (`dfs`) into an existing DataFrame (`df`) at specified `indices`.
     """
-    # TODO: Currently doesn't have tests
     # Sort the insertions by index to ensure correct order of insertion
     if len(indices) != len(dfs):
         raise ValueError("`indices` and `dfs` are different lengths.")

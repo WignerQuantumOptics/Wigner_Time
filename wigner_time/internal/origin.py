@@ -5,10 +5,6 @@ This is important for inferring what the user means when they want to add rows t
 
 """
 
-# TODO:
-# - Rename this file (and relevant functions) to something to do with query/history?
-# - dictionary option for origin (i.e. different origin for different variables?)
-
 from copy import deepcopy
 import numpy as np
 
@@ -23,7 +19,6 @@ from wigner_time.internal import origin as wt_origin
 #                                  CONSTANTS                                   #
 ###############################################################################
 
-# TODO: These could be moved to the `config` module
 _ORIGINS = ["anchor", "last", "variable"]
 "These origin labels are reserved for interpretation by the package. Other origin strings will be interpreted as`variable`s."
 

@@ -31,9 +31,12 @@ As such, it is a very well developed platform for manipulating data and gives us
 Separation of concerns  .
 We should be careful not to transfer the ADwin logic to python. This is part of the point of the new system!
 
+Emphasize that by using cascading functions we can move up and down the layers of abstraction. New functions can be very 'easy' and high-level (MOT=on), but can also drop down to the bottom layer (5V at 6ms...).
+
 Using the cascading layer approach also allows for using a different hardware layer in the future i.e. National Instruments instead of ADwin.
 
 program intent: the what; not the how
+
 *** Operational (make a MOT)
 
 Types of parameters
