@@ -222,6 +222,7 @@ def anchor(
     - Anchors are automatically numbered, for 'global' referencing, but these numbers are not necessary in normal use.
     """
     # NOTE: Makes use of a global variable (LABEL__ANCHOR).
+    # TODO: Can include an example plot for illustration?
 
     if timeline is None:
         return lambda tline: anchor(

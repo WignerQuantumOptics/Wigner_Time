@@ -10,7 +10,7 @@ import sys
 
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
-import experimentDemo as ex
+import demonstration as ex
 
 # import importlib
 # importlib.reload(ex)

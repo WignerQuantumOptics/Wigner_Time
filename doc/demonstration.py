@@ -5,6 +5,8 @@ As well as providing conveniences, the functions can be used to document the int
 """
 
 # TODO: WIP!!!
+# TODO: We should use readable variable names (in general too, but this is a demo)
+
 
 import pandas as pd
 
@@ -65,21 +67,22 @@ connections = adcon.new(
 'devices' stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable.
 """
 devices = device.new(
-    ["coil_compensationX__A", 1 / 3.0, (-3, 3)],
-    ["coil_compensationY__A", 1 / 3.0, (-3, 3)],
-    ["coil_MOTlower__A", 1 / 2.0, (-5, 5)],
-    ["coil_MOTupper__A", 1 / 2.0, (-5, 5)],
-    ["coil_MOTlowerPlus__A", 1 / 2.0, (-5, 5)],
-    ["coil_MOTupperPlus__A", 1 / 2.0, (-5, 5)],
-    ["lockbox_MOT__MHz", 0.05, (-200, 200)],
-    ["trigger_TC__V", 1.0, (-10, 10)],
+    ["coil_compensationX__A", 1 / 3.0, -3, 3],
+    ["coil_compensationY__A", 1 / 3.0, -3, 3],
+    ["coil_MOTlower__A", 1 / 2.0, -5, 5],
+    ["coil_MOTupper__A", 1 / 2.0, -5, 5],
+    ["coil_MOTlowerPlus__A", 1 / 2.0, -5, 5],
+    ["coil_MOTupperPlus__A", 1 / 2.0, -5, 5],
+    ["lockbox_MOT__MHz", 0.05, -200, 200],
+    ["trigger_TC__V", 1.0, -10, 10],
     [
         "AOM_science__trans",
         conv.function_from_file(
             "resources/calibration/aom_calibration.dat",
             sep=r"\s+",
         ),
-        (0.0, 1.0),
+        0.0,
+        1.0,
     ],
 )
 
@@ -90,23 +93,23 @@ devices = device.new(
 constants = Munch(
     safety_factor=1.1,
     #    factor__VpMHz=0.05,
-    lag_MOTshutter=2.3e-3,
-    lag_repump_shutter=0,  # Earlier value, yet unverified: 2.3e-3,
+    lag__MOTshutter=2.3e-3,
+    lag__repump_shutter=0,  # Earlier value, yet unverified: 2.3e-3,
     Compensation=Munch(
         Z__A=-0.1,
         Y__A=1.5,
         X__A=0.25,
     ),
     OP=Munch(
-        lag_AOM_on=15e-6,
-        lag_shutter_on=1.48e-3,
-        lag_shutter_off=1.78e-3,
+        lag__AOM_on=15e-6,
+        lag__shutter_on=1.48e-3,
+        lag__shutter_off=1.78e-3,
         duration_shutter_on=140e-6,
         duration_shutter_off=600e-6,
     ),
     AI=Munch(
-        lag_shutter_on=2.2e-3,
-        lag_shutter_off=1.9e-3,
+        lag__shutter_on=2.2e-3,
+        lag__shutter_off=1.9e-3,
     ),
 )
 
@@ -114,15 +117,14 @@ constants = Munch(
 ###########################################################################
 #                   Experimental stages                                   #
 ###########################################################################
-# NOTE: The idea behind the function wrapping is that we enclose what will likely never change and expose just those attributes that we are likely to want to vary.
+# NOTE: The idea behind the function wrapping is that we enclose what will rarely change and expose just those attributes that we are likely to want to vary.
 
 
-def saneState(f=tl.create, MOT_ON=True, **kwargs):
+def default_state(f=tl.create, MOT_ON=True, **kwargs):
     """
-    Starts/leaves the system in a sane state that is appropriate for starting a new timeline
+    Starts/leaves the system in a sane state that is appropriate for creating a new timeline
 
-    As a general rule AOMs are kept on as long as possible to keep them is thermal equilibrium.
-    When we need to switch with them, we turn them off shortly before the opening of the shutter.
+    As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. When needed, we turn them off before the opening of the shutter.
     """
     return f(
         lockbox_MOT__MHz=0.0,
@@ -148,8 +150,8 @@ def saneState(f=tl.create, MOT_ON=True, **kwargs):
 
 
 def init(MOT_ON=False, **kwargs):
-    return saneState(
-        t=-1e-6,  # time is just fictive here, the important thing is the context
+    return default_state(
+        t=-1e-6,  # time is simply a placeholder here as 'ADwin_LowInit' is a 'special' context, that will be treated differently by the ADwin system.
         context="ADwin_LowInit",
         MOT_ON=MOT_ON,
         **kwargs,
@@ -158,11 +160,17 @@ def init(MOT_ON=False, **kwargs):
 
 def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
     """
-    Safely winds down the system, continuously ramping the analog variables to the “sane state”.
+    Safely winds down the system, 'ramping' the analog variables to the “default state” in a given duration by the default `ramp_function`.
 
-    The ADwin_Finish environment means that the “sane state” will be actuated even when the process is interrupted.
+    The `anchor` function is used to specify a key time instant, around which other times can be specified.
+
+    The ADwin_Finish environment means that the “default state” will be actuated even when the process is interrupted.
     """
     duration = 1e-2
+    # TODO:
+    # - The default_state function should be used to populate the ramp?
+    # - check if the second context is needed
+    # - check if the anchor is needed
     return tl.stack(
         tl.anchor(wait, context="finalRamps"),
         tl.ramp(
@@ -176,7 +184,7 @@ def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
             duration=duration,
             context="finalRamps",
         ),
-        saneState(
+        default_state(
             f=tl.update,
             t=duration
             + 1e-6,  # time is just fictive here, the important thing is the context
@@ -190,7 +198,6 @@ def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
 def MOT(duration=15, lA=-1.0, uA=-0.98, **kwargs):
     """
     Creates a Magneto-Optical Trap.
-
     """
     return tl.stack(
         tl.update(
@@ -209,7 +216,6 @@ def MOT(duration=15, lA=-1.0, uA=-0.98, **kwargs):
 def MOT_detunedGrowth(duration=100e-3, durationRamp=10e-3, toMHz=-5, **kwargs):  # pt=3,
     """
     Final stage of MOT collection with detuned MOT beams for increased capture range.
-
     """
     return tl.stack(
         tl.ramp(
@@ -247,7 +253,7 @@ def molasses(
             #            fargs={"ti": lockbox_pt},
         ),
         tl.update(
-            shutter_MOT=[duration - constants.lag_MOTshutter + delay, 0],
+            shutter_MOT=[duration - constants.lag__MOTshutter + delay, 0],
             AOM_MOT=[duration, 0],
         ),
         tl.anchor(duration, context="molasses"),
@@ -288,19 +294,19 @@ def OP(
         tl.update(AOM_OP=[[-0.1, 0], [durationCoilRamp, 1], [fullDuration, 0]]),
         tl.update(
             shutter_OP001=[
-                [durationCoilRamp - constants.OP.lag_shutter_on + delay1, 1],
+                [durationCoilRamp - constants.OP.lag__shutter_on + delay1, 1],
                 [0.1, 0],
             ]
         ),
         tl.update(
             shutter_OP002=[
-                [fullDuration - constants.OP.lag_shutter_off + delay2, 0],
+                [fullDuration - constants.OP.lag__shutter_off + delay2, 0],
                 [0.1, 1],
             ]
         ),
         tl.update(
             shutter_repump=0,
-            t=fullDuration - constants.lag_repump_shutter + delayRepump,
+            t=fullDuration - constants.lag__repump_shutter + delayRepump,
         ),
         tl.update(AOM_repump=0, t=fullDuration),
         tl.anchor(fullDuration, context="OP"),
@@ -338,7 +344,7 @@ def magneticTrapping(
 
 
 # should probably not have `**kwargs` to avoid confusions
-def prepareSample(
+def prepare_atoms(
     stage=Stage.MT,
     # init stage
     initFunction=init,
@@ -376,6 +382,27 @@ def prepareSample(
     finishFunction=finish,
     finish_MOT_ON=True,
 ):
+
+    # TODO: upgrade to a 'pipeline'
+    # def pipeline():
+    #     yield "init", init
+    #     yield "MOT", MOT
+    #     yield "MOT_delta", None
+    #     yield "molasses", None
+    #     yield "optical_pump", None
+    #     yield "magnetic_trap", None
+
+    # def run_pipeline(stage=None):
+    #     tline = None
+    #     for s, f in pipeline():
+    #         print(stage)
+    #         tline = f(timeline=tline)
+    #         if s == stage:
+    #             return tline
+    #     return tline
+
+    # run_pipeline("MOT")
+
     def _():
         def MOT_off(**kwargs):
             return tl.update(

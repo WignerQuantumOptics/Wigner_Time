@@ -4,14 +4,14 @@ from munch import Munch
 
 from wigner_time import timeline as tl
 from wigner_time import variable
-from wigner_time.adwin import connection as con
+from wigner_time.adwin import connection as adcon
 
 
 @pytest.mark.parametrize(
     "input",
     [
-        con.new("AOM_MOT__V", 1, 1),
-        con.new(["AOM_MOT__V", 1, 1]),
+        adcon.new("AOM_MOT__V", 1, 1),
+        adcon.new(["AOM_MOT__V", 1, 1]),
     ],
 )
 def test_connectionSingle(input):
@@ -21,7 +21,7 @@ def test_connectionSingle(input):
 
 
 def test_connectionMany():
-    tst = con.new(
+    tst = adcon.new(
         ["shutter_MOT", 1, 11], ["shutter_repump", 1, 12], ["shutter_imaging", 1, 13]
     )
     return pd.testing.assert_frame_equal(
@@ -38,7 +38,7 @@ def test_connectionMany():
 
 def test_connectionName():
     assert (
-        con.new(
+        adcon.new(
             ["shutter_MOT", 1, 11],
             ["shutter_repump", 1, 12],
             ["shutter_imaging", 1, 13],
@@ -49,8 +49,8 @@ def test_connectionName():
 
 
 def test_connectionName002():
-    assert con.is_valid_name(
-        con.new(
+    assert adcon.is_valid_name(
+        adcon.new(
             ["shutter_MOT", 1, 11],
             ["shutter_repump", 1, 12],
             ["shutter_imaging", 1, 13],
@@ -60,7 +60,7 @@ def test_connectionName002():
 
 def test_connectionName003():
     assert (
-        con.is_valid_name(
+        adcon.is_valid_name(
             tl.create(
                 ["shutter_MOT", 1, 11],
                 ["shutter__repump", 1, 12],
@@ -80,4 +80,4 @@ def test_connectionName003():
 )
 def test_connectionSingleInvalid(input):
     with pytest.raises(ValueError):
-        con.new(*input)
+        adcon.new(*input)

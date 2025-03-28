@@ -7,7 +7,7 @@ import wigner_time.adwin as wt_adwin
 
 from wigner_time import config as wt_config
 from wigner_time.adwin import core as adwin
-from wigner_time.adwin import connection as con
+from wigner_time.adwin import connection as adcon
 from wigner_time.adwin import validate as wt_validate
 from wigner_time import conversion as conv
 from wigner_time import device
@@ -15,7 +15,7 @@ from wigner_time import timeline as tl
 from wigner_time.internal import dataframe as frame
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
-import experimentDemo as ex
+import demonstration as ex
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def df_simple():
 
 @pytest.fixture
 def connections_simple():
-    return con.new(
+    return adcon.new(
         ["AOM_imaging", 1, 1],
         ["AOM_imaging__V", 1, 2],
         ["AOM_repump", 2, 3],
@@ -42,7 +42,7 @@ def connections_simple():
 
 def test_remove_unconnected_variables(df_simple, connections_simple):
     return pd.testing.assert_frame_equal(
-        con.remove_unconnected_variables(df_simple, connections_simple),
+        adcon.remove_unconnected_variables(df_simple, connections_simple),
         pd.DataFrame(
             {
                 "time": [0.0] * 3,
@@ -195,7 +195,7 @@ def test_sanitize_success():
 
 
 def test_to_data():
-    connections = con.new(
+    connections = adcon.new(
         ["shutter_MOT", 1, 11],
         ["lockbox_MOT__MHz", 3, 8],
     )

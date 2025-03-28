@@ -6,12 +6,12 @@ sys.path.append("..")
 import pandas as pd
 
 from munch import Munch
-from wigner_time.adwin import connection as con
+from wigner_time.adwin import connection as adcon
 from wigner_time import timeline as tl
 from wigner_time import device
 
 
-connections = con.new(
+connections = adcon.new(
     ["shutter_MOT", 1, 11],
     ["shutter_repump", 1, 12],
     ["shutter_OP001", 1, 14],

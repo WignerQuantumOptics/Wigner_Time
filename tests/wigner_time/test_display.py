@@ -5,7 +5,7 @@ import sys
 import pathlib as pl
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
-import experimentDemo as ex
+import demonstration as ex
 
 
 def test_displayIndividualTypes():
@@ -16,7 +16,7 @@ def test_displayIndividualTypes():
     ).drop(columns="function")
 
     adwin_display.quantities(
-        tl__new, variables=["lockbox_MOT__MHz"], do_show=True, range__x=[14.99, 15.02]
+        tl__new, variables=["lockbox_MOT__MHz"], do_show=False, range__x=[14.99, 15.02]
     )
     adwin_display.quantities(tl__new, variables=["shutter_MOT"], do_show=False)
     adwin_display.quantities(

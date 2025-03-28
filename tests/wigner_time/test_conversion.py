@@ -126,7 +126,6 @@ def test_add_function(df_devs):
 
 
 def test_add(df_devs):
-
     calc = conv.add(df_devs)[["value", "to_V", "value__digits"]]
     guess = wt_frame.new(
         [
