@@ -75,6 +75,7 @@ def quantities(
     do_show: bool = True,
     symbol_quantities: dict = SYMBOL_QUANTITY,
     cmap__context="magma",
+    range__x=None,
 ):
     """
     Displays the given `tline`, filtered by `variable`, in terms of different quantites, i.e. by common `unit`. The mapping between `unit` and 'quantity' can be provided as a dictionary.
@@ -137,6 +138,9 @@ def quantities(
     if num_panels == 1:
         axes = [axes]
     fig.tight_layout()
+
+    if range__x is not None:
+        axes[0].set_xlim(*range__x)
     # =====================================================================
     # ANALOGUE
     # =====================================================================
@@ -152,7 +156,16 @@ def quantities(
             )
             for variable, color in zip(unit_variables__analog[key], colors):
                 array = tline[tline["variable"] == variable]
-                axis.plot(array["time"], array["value"], marker="o", ms=3)
+                # axis.plot(array["time"], array["value"], marker="o", ms=3)
+                axis.step(
+                    array["time"],
+                    array["value"],
+                    where="post",
+                    # color=color,
+                    marker="o",
+                    ms=3,
+                )
+
                 analogLabels.append(
                     axis.text(0, array.iat[0, 2], variable, color=color)
                 )

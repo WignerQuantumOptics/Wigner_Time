@@ -15,8 +15,13 @@ def test_displayIndividualTypes():
         ex.MOT_detunedGrowth(),
     ).drop(columns="function")
 
-    adwin_display.quantities(tl__new, variables=["shutter_MOT"], do_show=False)
-    adwin_display.quantities(tl__new, variables=["lockbox_MOT__MHz"], do_show=False)
     adwin_display.quantities(
-        tl__new, variables=["lockbox_MOT__MHz", "shutter_MOT"], do_show=False
+        tl__new, variables=["lockbox_MOT__MHz"], do_show=True, range__x=[14.99, 15.02]
+    )
+    adwin_display.quantities(tl__new, variables=["shutter_MOT"], do_show=False)
+    adwin_display.quantities(
+        tl__new,
+        variables=["lockbox_MOT__MHz", "shutter_MOT"],
+        do_show=False,
+        range__x=[14.99, 15.02],
     )
