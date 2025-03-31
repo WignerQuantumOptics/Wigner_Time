@@ -9,6 +9,8 @@ Multiple layers of abstraction:
 It is a goal to be able to go up and down through the layers of abstraction.
 """
 
+# TODO: separate out sanitize functions
+
 from copy import deepcopy
 from typing import Callable
 
