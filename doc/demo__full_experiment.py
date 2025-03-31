@@ -28,6 +28,7 @@ from wigner_time import ramp_function
 """
 'connections' allows us to label physical links (inputs and outputs) between devices and the timing system. By using labels that follow a particular regex, defined within the `variable` module, we can separate out the design and the implementation of our experiment.
 """
+# TODO: Should all analogue variables be Voltages here?
 connections = adcon.new(
     ["shutter_MOT", 1, 11],
     ["shutter_repump", 1, 12],
@@ -204,7 +205,9 @@ def MOT(duration=15, lA=-1.0, uA=-0.98, **kwargs):
     )
 
 
-def MOT_detunedGrowth(duration=100e-3, durationRamp=10e-3, toMHz=-5, **kwargs):  # pt=3,
+def MOT__detuned_growth(
+    duration=100e-3, durationRamp=10e-3, toMHz=-5, **kwargs
+):  # pt=3,
     """
     Final stage of MOT collection with detuned MOT beams for increased capture range.
     """
@@ -251,8 +254,8 @@ def molasses(
     )
 
 
-def OP(
-    durationExposition=80e-6,
+def optical_pumping(
+    duration__exposition=80e-6,
     durationCoilRamp=50e-6,
     i=-0.12,  # pt=3,
     delay1=0,
@@ -272,7 +275,7 @@ def OP(
 
     """
 
-    fullDuration = durationExposition + durationCoilRamp
+    duration__full = duration__exposition + durationCoilRamp
     return tl.stack(
         tl.ramp(
             coil_MOTlower__A=i,
@@ -282,7 +285,7 @@ def OP(
             context="OP",
             **kwargs,
         ),
-        tl.update(AOM_OP=[[-0.1, 0], [durationCoilRamp, 1], [fullDuration, 0]]),
+        tl.update(AOM_OP=[[-0.1, 0], [durationCoilRamp, 1], [duration__full, 0]]),
         tl.update(
             shutter_OP001=[
                 [durationCoilRamp - constants.OP.lag__shutter_on + delay1, 1],
@@ -291,16 +294,16 @@ def OP(
         ),
         tl.update(
             shutter_OP002=[
-                [fullDuration - constants.OP.lag__shutter_off + delay2, 0],
+                [duration__full - constants.OP.lag__shutter_off + delay2, 0],
                 [0.1, 1],
             ]
         ),
         tl.update(
             shutter_repump=0,
-            t=fullDuration - constants.lag__repump_shutter + delayRepump,
+            t=duration__full - constants.lag__repump_shutter + delayRepump,
         ),
-        tl.update(AOM_repump=0, t=fullDuration),
-        tl.anchor(fullDuration, context="OP"),
+        tl.update(AOM_repump=0, t=duration__full),
+        tl.anchor(duration__full, context="OP"),
     )
 
 
@@ -318,7 +321,7 @@ def pull_coils(duration, l, u, lp=0, up=0, pt=3, **kwargs):
     )
 
 
-def magneticTrapping(
+def magnetic_trapping(
     durationInitial=50e-6,
     li=-1.8,
     ui=-1.7,
@@ -392,7 +395,7 @@ def prepare_atoms(
             molasses_toMHz,
             molasses_delay,
         )
-        yield "optical_pump", OP(
+        yield "optical_pump", optical_pumping(
             OP_durationExposition,
             OP_durationCoilRamp,
             OP_i,
@@ -402,7 +405,7 @@ def prepare_atoms(
         )
         yield "magnetic_trap", tl.stack(
             tl.anchor(OP_wait, context="OP_wait"),
-            magneticTrapping(
+            magnetic_trapping(
                 MT_durationInitial, MT_li, MT_ui, MT_durationStrengthen, MT_ls, MT_us
             ),
         )
