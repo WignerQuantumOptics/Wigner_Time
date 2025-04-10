@@ -5,7 +5,7 @@ import sys
 import pathlib as pl
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
-import demonstration as ex
+import demo__full_experiment as ex
 
 
 def test_displayIndividualTypes():

@@ -7,8 +7,12 @@ As well as providing conveniences, the functions can be used to document the int
 # TODO: WIP!!!
 # TODO: buzz words: extensibility. flexibility and composability
 # TODO: We should use readable variable names (in general too, but this is a demo)
+# TODO:
+# - Should probably have some imaging in here?
+# - Should go all the way to generating a full timeline (adding connections, devices etc.)
 
 
+from typing import Callable
 import pandas as pd
 
 from munch import Munch
@@ -206,15 +210,15 @@ def MOT(duration=15, lA=-1.0, uA=-0.98, **kwargs):
 
 
 def MOT__detuned_growth(
-    duration=100e-3, durationRamp=10e-3, toMHz=-5, **kwargs
+    duration=100e-3, duration__ramp=10e-3, detuning__MHz=-5, **kwargs
 ):  # pt=3,
     """
     Final stage of MOT collection with detuned MOT beams for increased capture range.
     """
     return tl.stack(
         tl.ramp(
-            lockbox_MOT__MHz=toMHz,
-            duration=durationRamp,
+            lockbox_MOT__MHz=detuning__MHz,
+            duration=duration__ramp,
             #            fargs={"ti": pt},
             context="MOT",
             **kwargs,
@@ -256,11 +260,11 @@ def molasses(
 
 def optical_pumping(
     duration__exposition=80e-6,
-    durationCoilRamp=50e-6,
+    duration__coil_ramp=50e-6,
     i=-0.12,  # pt=3,
     delay1=0,
     delay2=0,
-    delayRepump=0,  # arbitrary delays to shutters for ad hoc compensation of small drifts
+    delay__repump=0,  # arbitrary delays to shutters for ad hoc compensation of small drifts
     **kwargs
 ):
     """
@@ -275,20 +279,20 @@ def optical_pumping(
 
     """
 
-    duration__full = duration__exposition + durationCoilRamp
+    duration__full = duration__exposition + duration__coil_ramp
     return tl.stack(
         tl.ramp(
             coil_MOTlower__A=i,
             coil_MOTupper__A=-i,
-            duration=durationCoilRamp,
+            duration=duration__coil_ramp,
             #            fargs={"ti": pt},
             context="OP",
             **kwargs,
         ),
-        tl.update(AOM_OP=[[-0.1, 0], [durationCoilRamp, 1], [duration__full, 0]]),
+        tl.update(AOM_OP=[[-0.1, 0], [duration__coil_ramp, 1], [duration__full, 0]]),
         tl.update(
             shutter_OP001=[
-                [durationCoilRamp - constants.OP.lag__shutter_on + delay1, 1],
+                [duration__coil_ramp - constants.OP.lag__shutter_on + delay1, 1],
                 [0.1, 0],
             ]
         ),
@@ -300,7 +304,7 @@ def optical_pumping(
         ),
         tl.update(
             shutter_repump=0,
-            t=duration__full - constants.lag__repump_shutter + delayRepump,
+            t=duration__full - constants.lag__repump_shutter + delay__repump,
         ),
         tl.update(AOM_repump=0, t=duration__full),
         tl.anchor(duration__full, context="OP"),
@@ -322,18 +326,18 @@ def pull_coils(duration, l, u, lp=0, up=0, pt=3, **kwargs):
 
 
 def magnetic_trapping(
-    durationInitial=50e-6,
+    duration__initial=50e-6,
     li=-1.8,
     ui=-1.7,
-    durationStrengthen=3e-3,
+    duration__strengthen=3e-3,
     ls=-4.8,
     us=-4.7,
     **kwargs
 ):
     return tl.stack(
-        pull_coils(durationInitial, li, ui, context="magneticTrapping", **kwargs),
-        pull_coils(durationStrengthen, ls, us, t=durationInitial),
-        tl.anchor(durationInitial + durationStrengthen, context="magneticTrapping"),
+        pull_coils(duration__initial, li, ui, context="magneticTrapping", **kwargs),
+        pull_coils(duration__strengthen, ls, us, t=duration__initial),
+        tl.anchor(duration__initial + duration__strengthen, context="magneticTrapping"),
     )
 
 
@@ -341,12 +345,55 @@ def MOT_off(**kwargs):
     return tl.update(shutter_MOT=0, AOM_MOT=0, shutter_repump=0, AOM_repump=0, **kwargs)
 
 
-# should probably not have `**kwargs` to avoid confusion
+[
+    # MOT
+    Munch(
+        duration=15,
+        lA=-1.0,
+        uA=-0.98,
+    ),
+    # MOT detuned
+    Munch(
+        duration=0.1,
+        durationRamp=1e-2,
+        toMHz=-5,  # pt=3,
+    ),
+    # molasses
+    Munch(
+        duration=4.5e-3,
+        durationCoilRamp=9e-4,
+        durationLockboxRamp=1e-3,
+        toMHz=-90,
+        delay=-200e-6,
+    ),
+    # optical pumping
+    Munch(
+        durationExposition=80e-6,
+        durationCoilRamp=500e-6,
+        i=-0.12,
+        delay1=-350e-6,
+        delay2=450e-6,
+        delayRepump=0,
+        wait=1e-3,
+    ),
+    Munch(
+        durationInitial=50e-6,
+        li=-1.8,
+        ui=-1.7,
+        durationStrengthen=3e-3,
+        ls=-4.8,
+        us=-4.7,
+    ),
+]
+
+
 def prepare_atoms(
     stage="finish",
-    # init stage
-    init__function=init,
+    # Basic setup
+    init: Callable = init,
     init_MOT_ON=True,
+    finish: Callable = finish,
+    finish_MOT_ON=True,
     # MOT stage
     MOT_duration=15,
     MOT_lA=-1.0,
@@ -376,14 +423,11 @@ def prepare_atoms(
     MT_durationStrengthen=3e-3,
     MT_ls=-4.8,
     MT_us=-4.7,
-    # finish stage
-    finishFunction=finish,
-    finish_MOT_ON=True,
 ):
     def pipeline():
-        yield "init", init__function(MOT_ON=init_MOT_ON)
+        yield "init", init(MOT_ON=init_MOT_ON)
         yield "MOT", MOT(MOT_duration, MOT_lA, MOT_uA)
-        yield "MOT_delta", MOT_detunedGrowth(
+        yield "MOT_delta", MOT__detuned_growth(
             MOT_Delta_duration,
             MOT_Delta_durationRamp,
             MOT_Delta_toMHz,
@@ -409,7 +453,7 @@ def prepare_atoms(
                 MT_durationInitial, MT_li, MT_ui, MT_durationStrengthen, MT_ls, MT_us
             ),
         )
-        yield "finish", finishFunction(MOT_ON=finish_MOT_ON)
+        yield "finish", finish(MOT_ON=finish_MOT_ON)
 
     def run_pipeline(stage=None):
         tline = None
@@ -429,3 +473,18 @@ def prepare_atoms(
 
 
 print(prepare_atoms()[["variable", "value", "context"]])
+
+# TODO: (new idea)
+# Specify function and variable and the helper function will pass it on nicely?
+
+def blah(*fs, **kws):
+    names = [f.__name__ for f in fs]
+    f_k = [list(k.split("___"))+[kws[k]], for k in kws.keys()]
+
+    # Check that the given functions and arguments match
+    if f is not in names:
+        raise ValueError("Some keywords did not match a given function.")
+
+    # Match the given functions and kws
+
+    return 5

@@ -1,14 +1,11 @@
 import sys
-
-sys.path.append("..")
-
 import pandas as pd
-
 from munch import Munch
-from wigner_time import connection as con
+
+from wigner_time.adwin import connection as con
 from wigner_time import timeline as tl
 
-import demonstration as ex
+import demo__full_experiment as ex
 
 # Note: make context explicit everywhere, otherwise there is a danger of squashing everything into the Finish context
 # due to previous_context when appending to an already `finish`ed timeline
@@ -16,19 +13,19 @@ import demonstration as ex
 connections = pd.concat(
     [
         ex.connections,
-        con.connection(
+        con.new(
             ["shutter_imaging", 1, 13], ["AOM_imaging", 1, 5], ["trigger_camera", 1, 0]
         ),
     ]
 )
 
 
-# this is an upper estimate of the possible delay of the exposition of the IDS ueye camera:
-camera_exposition_margin = 100e-6
+# this is an upper estimate of the IDS ueye camera exposition delay
+DELAY__CAMERA_EXPOSITION = 100e-6
 
 
-def camera_exposition_from_AOM_exposition(AOM_exposition):
-    return AOM_exposition + 2 * camera_exposition_margin
+def camera_exposition(exposition__AOM, delay__camera=DELAY__CAMERA_EXPOSITION):
+    return exposition__AOM + 2 * delay__camera
 
 
 def init(**kwargs):
@@ -56,12 +53,12 @@ def trigger_camera(
 
 
 # From this point onwards, exposure is AOM_exposure (so that camera and shutter exposure must be larger)
-def flash_light(t, exposure, context, origin=None, **kwargs):
+def flash_light(t, exposure__AOM, context, origin=None, **kwargs):
     sf = ex.constants.safety_factor
     return tl.stack(
         tl.update(
             "AOM_imaging",
-            [[t, 1], [t + exposure, 0]],
+            [[t, 1], [t + exposure__AOM, 0]],
             context=context,
             origin=origin,
             **kwargs
@@ -69,76 +66,85 @@ def flash_light(t, exposure, context, origin=None, **kwargs):
         tl.update(
             "shutter_imaging",
             [
-                [t - exposure * (sf - 1) - ex.constants.AI.lag_shutter_on, 1],
-                [t + exposure * sf, 0],
+                [t - exposure__AOM * (sf - 1) - ex.constants.AI.lag__shutter_on, 1],
+                [t + exposure__AOM * sf, 0],
             ],
             context=context,
             origin=origin,
         ),
-        # TODO: what to write here exactly?
     )
 
 
-def expose_camera(t, exposure, context, origin=None, **kwargs):
+def expose_camera(
+    t,
+    exposure__AOM,
+    context,
+    origin=None,
+    delay__camera=DELAY__CAMERA_EXPOSITION,
+    **kwargs
+):
     return tl.stack(
-        flash_light(t, exposure, context, origin, **kwargs),
+        flash_light(t, exposure__AOM, context, origin, **kwargs),
         trigger_camera(
-            t - camera_exposition_margin,
-            exposure + 2 * camera_exposition_margin,
+            t - delay__camera,
+            exposure__AOM + 2 * delay__camera,
             context,
             origin,
         ),
     )
 
 
-def take_image_plus_Bg(t, exposure, delayBg, context, origin, **kwargs):
+def image_plus_background(
+    t, exposure__AOM, delay__background, context, origin, **kwargs
+):
     return tl.stack(
-        expose_camera(t, exposure, context, origin, **kwargs),  # taking At image
+        expose_camera(t, exposure__AOM, context, origin, **kwargs),  # taking At image
         trigger_camera(
-            t + delayBg,
-            camera_exposition_from_AOM_exposition(exposure),
+            t + delay__background,
+            camera_exposition(exposure__AOM),
             context,
             origin,
         ),  # taking Bg_At image
     )
 
 
-def imaging_absorption(
+def absorption_image(
     t,
-    exposure,
+    exposure__AOM,
     origin,
-    context="AI",
-    delayBg=50e-3,
-    delayLi=0.2,
-    AOM_offAdvance=0.1,
-    exposureBlow=1e-2,
+    delay__background=50e-3,
+    delay__beam=0.2,
+    advance__AOM_off=0.1,
+    exposure__blow=1e-2,
+    context="imaging__absorption",
     **kwargs
 ):
-    context = "imaging_absorption"
+    """
+    An atomic absorption image is constructed from an image of the imaging beam, an image of the atoms and associated background images.
+    """
+
     return tl.stack(
         tl.update(
             AOM_imaging=0,
-            t=t - AOM_offAdvance,
+            t=t - advance__AOM_off,
             context=context,
             origin=origin,
             **kwargs
         ),  # initializing the AOM
-        take_image_plus_Bg(
-            t, exposure, delayBg, context, origin
+        image_plus_background(
+            t, exposure__AOM, delay__background, context, origin
         ),  # taking At + Bg_At image
         (
-            flash_light(t + delayBg + delayLi / 2.0, exposureBlow, context, origin)
-            if exposureBlow is not None
+            flash_light(
+                t + delay__background + delay__beam / 2.0,
+                exposure__blow,
+                context,
+                origin,
+            )
+            if exposure__blow is not None
             else None
         ),  # blow out the atoms in between
-        take_image_plus_Bg(
-            t + delayLi, exposure, delayBg, context, origin
+        image_plus_background(
+            t + delay__beam, exposure__AOM, delay__background, context, origin
         ),  # taking Li + Bg_Li image
-        #        tl.anchor(t+delayLi+2*delayBg,context=context,origin=origin)
-    )
-
-
-def prepareSample(initFunction=init, finishFunction=finish, **kwargs):
-    return ex.prepare_atoms(
-        initFunction=initFunction, finishFunction=finishFunction, **kwargs
     )
