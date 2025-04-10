@@ -1,8 +1,14 @@
 """
+EXPERIMENTAL!!!
+
+TODO:
+This is the left-over of an attempt to 'simplify' a previous method for creating realistic timelines. It should be harvested for good ideas and then deleted.
+
+
+
 An example implementation of a real Wigner Time timeline.
 As well as providing conveniences, the functions can be used to document the intention and meaning of each stage.
 
-EXPERIMENTAL!!! real usecases can be found in experimentDemo.py, diagnosticsDemo.py, and demo.ipynb
 
 """
 

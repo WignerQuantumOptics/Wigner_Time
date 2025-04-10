@@ -9,6 +9,8 @@ Multiple layers of abstraction:
 It is a goal to be able to go up and down through the layers of abstraction.
 """
 
+# TODO: separate out sanitize functions
+
 from copy import deepcopy
 from typing import Callable
 
@@ -30,8 +32,10 @@ import pandas as pd
 
 _SCHEMA = {"time": float, "variable": str, "value": float, "context": str}
 _COLUMN_NAMES__RESERVED = list(_SCHEMA.keys()) + [
-    "unit_range",
-    "safety_range",
+    "unit__min",
+    "unit__max",
+    "safety__min",
+    "safety__max",
 ]
 """These column names are assumed to exist and are used in core functions. Be careful about editing them."""
 
@@ -220,6 +224,7 @@ def anchor(
     - Anchors are automatically numbered, for 'global' referencing, but these numbers are not necessary in normal use.
     """
     # NOTE: Makes use of a global variable (LABEL__ANCHOR).
+    # TODO: Can include an example plot for illustration?
 
     if timeline is None:
         return lambda tline: anchor(
@@ -463,6 +468,7 @@ def sanitize_values(timeline):
     """
     Ensures that the given timeline doesn't contain values outside of the given unit or safety range.
     """
+    # TODO: SHOULDN'T BE HERE - internal
     # TODO: Check for efficiency
     #
     if ("unit_range" in timeline.columns) or ("safety_range" in timeline.columns):

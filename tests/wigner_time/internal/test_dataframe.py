@@ -1,7 +1,4 @@
 import pytest
-import pandas as pd
-
-# TODO: This should be abstracted
 
 from wigner_time.internal import dataframe as frame
 
@@ -130,9 +127,49 @@ def test_replace_column__filtered():
     )
 
 
-if __name__ == "__main__":
-    import importlib
+@pytest.mark.parametrize("input", [df_simple1])
+def test_insert_dataframes(input):
+    frame.assert_equal(
+        frame.insert_dataframes(input, [1], [df_simple1]),
+        frame.new(
+            [
+                ["thing2", 7.0, 5.0, "init"],
+                ["thing2", 7.0, 5.0, "init"],
+                ["thing", 0.0, 5.0, "init"],
+                ["thing3", 3.0, 5.0, "blah"],
+                ["thing", 0.0, 5.0, "init"],
+                ["thing3", 3.0, 5.0, "blah"],
+            ],
+            columns=["variable", "time", "value", "context"],
+        ),
+    )
 
-    importlib.reload(frame)
 
-    print(frame.row_from_max_column(df_simple2))
+@pytest.mark.parametrize("input", [df_simple1])
+def test_subframe(input):
+    return frame.assert_equal(
+        frame.subframe(input, "variable", ["thing2"]),
+        frame.new(
+            [
+                ["thing2", 7.0, 5.0, "init"],
+            ],
+            columns=["variable", "time", "value", "context"],
+        ),
+    )
+
+
+@pytest.mark.parametrize("input", [df_simple1])
+def test_subframe002(input):
+    calc = frame.subframe(input, "variable", [5], func=len)
+    new = frame.new(
+        [
+            ["thing", 0.0, 5.0, "init"],
+        ],
+        columns=["variable", "time", "value", "context"],
+    )
+    # print(calc)
+    # print(new)
+    return frame.assert_equal(
+        calc,
+        new,
+    )

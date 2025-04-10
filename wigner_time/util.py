@@ -83,6 +83,15 @@ def ensure_pair(l: list):
             raise ValueError(f"Unexpected argument to `ensure_pair`.")
 
 
+def ensure_2d(input_data):
+    """Ensure the input is converted to a 2D list."""
+    if isinstance(input_data, (list, tuple)):
+        if len(input_data) > 0 and isinstance(input_data[0], (list, tuple)):
+            return input_data
+        return [input_data]
+    return [[input_data]]
+
+
 def is_collection(x, is_string=False):
     """
     Checks if x is a non-string sequence or numpy array by default. Strings can be included using the 'is_string' flag.
@@ -109,3 +118,11 @@ def range__inclusive(start, stop, step):
     # Uses `math` because it returns an integer rather than a float.
     num = np.abs(math.ceil((stop - start) / step) + 1)
     return np.linspace(start, stop, num=num)
+
+
+def sample(lst: list, N: int):
+    """
+    Retrive `N`, equally and maximally spaced, elements from the `list`.
+    """
+    indices = np.linspace(0, len(lst) - 1, N, dtype=int)
+    return [lst[i] for i in indices]

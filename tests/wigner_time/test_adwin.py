@@ -3,14 +3,19 @@ import sys
 import pytest
 import pandas as pd
 
+import wigner_time.adwin as wt_adwin
+
+from wigner_time import config as wt_config
 from wigner_time.adwin import core as adwin
-from wigner_time import connection as con
+from wigner_time.adwin import connection as adcon
+from wigner_time.adwin import validate as wt_validate
+from wigner_time import conversion as conv
 from wigner_time import device
 from wigner_time import timeline as tl
 from wigner_time.internal import dataframe as frame
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
-import experimentDemo as ex
+import demo__full_experiment as ex
 
 
 @pytest.fixture
@@ -28,7 +33,7 @@ def df_simple():
 
 @pytest.fixture
 def connections_simple():
-    return con.connection(
+    return adcon.new(
         ["AOM_imaging", 1, 1],
         ["AOM_imaging__V", 1, 2],
         ["AOM_repump", 2, 3],
@@ -37,7 +42,7 @@ def connections_simple():
 
 def test_remove_unconnected_variables(df_simple, connections_simple):
     return pd.testing.assert_frame_equal(
-        adwin.remove_unconnected_variables(df_simple, connections_simple),
+        adcon.remove_unconnected_variables(df_simple, connections_simple),
         pd.DataFrame(
             {
                 "time": [0.0] * 3,
@@ -49,39 +54,12 @@ def test_remove_unconnected_variables(df_simple, connections_simple):
     )
 
 
-def test_add_linear_conversion(df_simple):
-    df_devs = device.add_devices(
-        df_simple,
-        pd.DataFrame(
-            columns=["variable", "unit_range", "safety_range"],
-            data=[
-                ["AOM_imaging__V", (-3, 3), (-3, 3)],
-            ],
-        ),
-    )
-
-    return pd.testing.assert_frame_equal(
-        adwin.add_linear_conversion(df_devs, "V"),
-        pd.DataFrame(
-            {
-                "time": [0.0, 0.0, 0.0, 0.0],
-                "variable": ["AOM_imaging", "AOM_imaging__V", "AOM_repump", "virtual"],
-                "value": [0.0, 2.0, 1.0, 1.0],
-                "context": ["init", "init", "init", "MOT"],
-                "unit_range": [None, (-3, 3), None, None],
-                "safety_range": [None, (-3, 3), None, None],
-                "value__digits": [None, 54613.0, None, None],
-            }
-        ),
-    )
-
-
 def test_add_cycle():
     df = pd.DataFrame({"time": range(10), "value": range(11, 21)})
     df["context"] = (
         ["MOT"] * 4 + ["ADwin_LowInit"] * 3 + ["ADwin_Init"] * 2 + ["ADwin_Finish"]
     )
-    tst = frame.cast(adwin.add_cycle(df), adwin.SCHEMA)
+    tst = frame.cast(adwin.add_cycle(df), wt_adwin.SCHEMA)
 
     return pd.testing.assert_frame_equal(
         tst,
@@ -116,7 +94,7 @@ def test_add_cycle():
                     ],
                 }
             ),
-            adwin.SCHEMA,
+            wt_adwin.SCHEMA,
         ),
     )
 
@@ -164,10 +142,10 @@ df_special3 = frame.cast(
             "module",
             "channel",
             "cycle",
-            "value_digits",
+            "value__digits",
         ],
     ),
-    adwin.SCHEMA,
+    wt_adwin.SCHEMA,
 )
 
 
@@ -187,10 +165,10 @@ df_special3__corrected = frame.cast(
             "module",
             "channel",
             "cycle",
-            "value_digits",
+            "value__digits",
         ],
     ),
-    adwin.SCHEMA,
+    wt_adwin.SCHEMA,
 )
 
 
@@ -200,56 +178,31 @@ df_special4 = frame.new_schema(
         [0.0, "AOM_imaging__V", 2.0, "ADwin_Init", 1, 1, 0, 5],
         [0.0, "AOM_repump", 1.0, "init", 1, 1, 0, 5],
     ],
-    schema=adwin.SCHEMA,
+    schema=wt_adwin.SCHEMA,
 )
 
 
 @pytest.mark.parametrize("input_value", [df_special1, df_special2])
 def test_sanitize_raises(input_value):
     with pytest.raises(ValueError):
-        adwin.sanitize_special_contexts(input_value)
+        wt_validate.special_contexts(input_value)
 
 
 def test_sanitize_success():
     return pd.testing.assert_frame_equal(
-        adwin.sanitize(df_special3), df_special3__corrected
+        wt_validate.all(df_special3), df_special3__corrected
     )
 
 
-def test_to_adbasic():
-    connections = con.connection(
+def test_to_data():
+    connections = adcon.new(
         ["shutter_MOT", 1, 11],
         ["lockbox_MOT__MHz", 3, 8],
     )
 
-    devices = pd.DataFrame(
-        columns=["variable", "unit_range", "safety_range"],
-        data=[
-            ["lockbox_MOT__V", (-10, 10), (-10, 10)],
-            ["lockbox_MOT__MHz", (-200, 200), (-200, 200)],
-        ],
-    )
-
-    print(
-        tl.stack(
-            tl.create(
-                lockbox_MOT__MHz=0.0,
-                shutter_MOT=0,
-                context="ADwin_LowInit",
-            ),
-            tl.anchor(t=0.0, origin=0.0, context="InitialAnchor"),
-            tl.update(
-                shutter_MOT=1,
-                context="MOT",
-            ),
-            tl.anchor(15),
-            tl.ramp(
-                lockbox_MOT__MHz=-5,
-                duration=10e-3,
-                context="MOT",
-            ),
-            tl.anchor(100e-3),
-        )
+    devices = device.new(
+        ["lockbox_MOT__V", 1.0],
+        ["lockbox_MOT__MHz", 0.05],
     )
 
     tuples = adwin.to_data(
@@ -281,7 +234,7 @@ def test_to_adbasic():
             (-2, 3, 8, 32768),
             (3000000, 3, 8, 32768),
             (3001000, 3, 8, 32358),
-            (3002000, 3, 8, 31949),
+            (3002000, 3, 8, 31948),
         ],
         [
             (-2, 1, 11, 0),
@@ -289,5 +242,4 @@ def test_to_adbasic():
         ],
     ]
 
-    # assert False
     assert tuples == tuples__guess
