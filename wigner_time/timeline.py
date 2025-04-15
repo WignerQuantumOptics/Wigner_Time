@@ -10,6 +10,7 @@ It is a goal to be able to go up and down through the layers of abstraction.
 """
 
 from copy import deepcopy
+import inspect
 from typing import Callable
 
 import funcy
@@ -293,8 +294,7 @@ def ramp(
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
     if timeline is None:
-        return lambda x: ramp(
-            timeline=x,
+        kwargs = dict(
             duration=duration,
             t=t,
             t2=t2,
@@ -305,6 +305,7 @@ def ramp(
             function=function,
             **vtvc_dict,
         )
+        return lambda x, **kwargs__new: ramp(timeline=x, **{**kwargs, **kwargs__new})
 
     _vtvcs = {k: np.array(v) for k, v in vtvc_dict.items()}
     max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
@@ -370,42 +371,74 @@ def ramp(
     return wt_frame.concat([timeline, new1, new2])
 
 
-def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
+# def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
+#     if isinstance(firstArgument, wt_frame.CLASS):
+#         return funcy.compose(*fs[::-1])(firstArgument)
+#     else:
+#         return funcy.compose(*fs[::-1], firstArgument)
+
+
+def stack(
+    timeline_or_f: wt_frame.CLASS | Callable, *fs: list[Callable], **kws
+) -> Callable | wt_frame.CLASS:
     """
     For chaining modifications to the timeline in a composable way.
 
-    If the bottom of the stack is a timeline, the result is also a timeline
-    e.g.:
-    stack(
+    If the first argument is a timeline, the result is also a timeline; otherwise, the result is a functional, which can later be applied on an existing timeline, /e.g./
+
+    `stack(
         timeline,
         update(…),
         ramp(…)
-    )
-    the action of `update` and `ramp` is added to the existing `timeline` in this case.
-    Equivalently:
-    stack(
-        update(…,timeline=timeline),
-        ramp(…)
-    )
+    )`
 
-    Otherwise, the result is a functional, which can later be applied on an existing timeline.
+    returns a timeline equivalent to
+
+    `ramp(…, timeline=update(…, timeline=timeline))`.
+
+    Also, all key-word arguments that are passed to `stack` are passed through to the subsidiary functions. This is particularly convenient for creating shared 'contexts', e.g.
+
+    `stack(
+        timeline,
+        update(…),
+        ramp(…),
+
+        context='MOT'
+    )`
     """
-    if isinstance(firstArgument, wt_frame.CLASS):
-        return funcy.compose(*fs[::-1])(firstArgument)
+
+    fs__wrapped = [lambda x, f=f: f(x, **kws) for f in fs]
+    composed = funcy.compose(*reversed(fs__wrapped))
+
+    if isinstance(timeline_or_f, wt_frame.CLASS):
+        return composed(timeline_or_f)
+    elif callable(timeline_or_f):
+        wrapped_first = lambda x: timeline_or_f(x, **kws)
+        return funcy.compose(*reversed(fs__wrapped), wrapped_first)
     else:
-        return funcy.compose(*fs[::-1], firstArgument)
+        raise TypeError(
+            "timeline_or_f must be either an instance of wt_frame.CLASS or a function."
+        )
 
 
-def expand(timeline, num__bounds=2, **function_args) -> wt_frame.CLASS:
+def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Callable:
     """
     Converts the functions marked in the timeline into individual rows, i.e. applies the functions to the given data.
 
-    This is generally a one-way operation and so should only be carried out before the timeline is implemented on a device.
+    This is generally a 'one-way' operation and so should only be carried out before the timeline is implemented on a device.
 
     `num__bounds` refers to the number of points (and so rows) needed to define the ramp function in the first place. Currently, this is implicitly assumed to be two, i.e. that `ramp`s are simply defined by the origin, terminus and expansion function.
-    """
+
     # NOTE: Not implemented for `num__bounds` != 2
-    #
+    """
+
+    if timeline is None:
+        kwargs = dict(
+            num__bounds=num__bounds,
+            **function_args,
+        )
+        return lambda x, **kwargs__new: expand(timeline=x, **{**kwargs, **kwargs__new})
+
     if "function" not in timeline.columns:
         # TODO: Add test for this 'feature'
         return timeline
@@ -433,11 +466,35 @@ def expand(timeline, num__bounds=2, **function_args) -> wt_frame.CLASS:
         _pt_start, _pt_end = _group[["time", "value"]].values
 
         # Apply the ramp function
+        # - Only pass on the kwargs that the function accepts
+        func = _group["function"].tolist()[0]
+
+        # ===
+        # TODO: abstract out inspection
+        def safe_func(f, **kws):
+            sig = inspect.signature(func)
+            accepts_var_kwargs = any(
+                p.kind == p.VAR_KEYWORD for p in sig.parameters.values()
+            )
+            if accepts_var_kwargs:
+                return lambda *args: f(*args, **kws)
+            else:
+                # Filter only allowed kwargs
+                accepted_keys = {
+                    k
+                    for k, p in sig.parameters.items()
+                    if p.kind in (p.KEYWORD_ONLY, p.POSITIONAL_OR_KEYWORD)
+                }
+                filtered_kwargs = {k: v for k, v in kws.items() if k in accepted_keys}
+                return lambda *args: f(*args, **filtered_kwargs)
+
+        # ===
+
         _dfs.append(
             create(
                 [
                     _group["variable"].tolist()[0],
-                    _group["function"].tolist()[0](_pt_start, _pt_end, **function_args),
+                    safe_func(func, **function_args)(_pt_start, _pt_end),
                 ],
             ).assign(**_group.iloc[0][_columns__keep].to_dict())
         )
