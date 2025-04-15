@@ -158,7 +158,7 @@ def create(
 
 
 def update(
-    *vtvc,
+    # *vtvc,
     timeline: wt_frame.CLASS | None = None,
     t=0.0,
     context=None,
@@ -179,8 +179,9 @@ def update(
     WARNING: In this case, beware of accidentally putting timelines into special contexts.
     """
     if timeline is None:
+        print(wt_util.args_in_function(ramp, kwargs=["vtvc_dict"]))
         return lambda x: update(
-            *vtvc,
+            # *vtvc,
             timeline=x,
             t=t,
             context=context,
@@ -196,7 +197,7 @@ def update(
         )
 
         return create(
-            *vtvc,
+            # *vtvc,
             timeline=timeline,
             t=t,
             context=context,
@@ -223,6 +224,8 @@ def anchor(
     """
     # NOTE: Makes use of a global variable (LABEL__ANCHOR).
 
+    # TODO: What happens if `t` is not specified?
+
     if timeline is None:
         return lambda tline: anchor(
             timeline=tline,
@@ -238,12 +241,11 @@ def anchor(
     )
 
     return update(
-        "{}_{:03d}".format(wt_config.LABEL__ANCHOR, num_anchors + 1),
-        0,
         timeline=timeline,
         t=t,
         context=context,
         origin=origin,
+        **{"{}_{:03d}".format(wt_config.LABEL__ANCHOR, num_anchors + 1): 0},
     )
 
 
@@ -295,7 +297,9 @@ def ramp(
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
     if timeline is None:
-        return wt_util.function__deferred(ramp, wt_util.args_in_function(ramp, kwargs=["vtvc_dict"]))
+        return wt_util.function__deferred(
+            ramp, wt_util.args_in_function(ramp, kwargs=["vtvc_dict"])
+        )
 
     _vtvcs = {k: np.array(v) for k, v in vtvc_dict.items()}
     max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
