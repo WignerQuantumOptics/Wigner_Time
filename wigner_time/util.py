@@ -155,14 +155,17 @@ def flatten_keys(d: OrderedDict, ks: str) -> OrderedDict:
     return d
 
 
-def args_in_function(f: Callable, kwargs, exclude=()) -> OrderedDict:
+def args_in_function(f: Callable, kwargs, exclude=(), call_frame=None) -> OrderedDict:
     """
     Gets the local variable values relevant to the function call.
 
     NOTE: strongly dependent on the environment in which it is called.
     """
     # TODO: populate kwargs automatically?
-    frame = inspect.currentframe().f_back
+    if call_frame is None:
+        frame = inspect.currentframe().f_back
+    else:
+        frame = call_frame
 
     sig = inspect.signature(f)
     bound_args = sig.bind_partial(**frame.f_locals)
@@ -178,19 +181,25 @@ def args_in_function(f: Callable, kwargs, exclude=()) -> OrderedDict:
     return args
 
 
-def function__deferred(f, kwargs):
+def function__lambda(lambda_key="timeline", kwargs=["vtvc_dict"]):
     """
     Returns a function lamba based on the given function, and current local values, where the existing kwargs can be overwritten.
+
+    The `lambda_key` determines which variable becomes the primary argument in the lambda.
     """
 
-    first_pair = kwargs.popitem(last=False)
+    frame = inspect.currentframe().f_back
+    name__f = frame.f_code.co_name
+    f = frame.f_globals[name__f]
 
-    if first_pair is not None:
-        k, v = first_pair
+    kwargs = args_in_function(f, kwargs=kwargs, call_frame=frame)
+
+    lambda_pair = [lambda_key, kwargs.pop(lambda_key)]
+
+    if lambda_pair is not None:
+        k, v = lambda_pair
     else:
-        raise ValueError(
-            "Function `f` needs to have arguments in `function__deferred`."
-        )
+        raise ValueError("Function `f` needs to have arguments in `function__lambda`.")
 
     return lambda x, **kwargs__new: f(
         **{

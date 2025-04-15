@@ -158,7 +158,6 @@ def create(
 
 
 def update(
-    # *vtvc,
     timeline: wt_frame.CLASS | None = None,
     t=0.0,
     context=None,
@@ -179,16 +178,7 @@ def update(
     WARNING: In this case, beware of accidentally putting timelines into special contexts.
     """
     if timeline is None:
-        print(wt_util.args_in_function(ramp, kwargs=["vtvc_dict"]))
-        return lambda x: update(
-            # *vtvc,
-            timeline=x,
-            t=t,
-            context=context,
-            origin=origin,
-            schema=schema,
-            **vtvc_dict,
-        )
+        return wt_util.function__lambda()
 
     else:
         # Check if anchor is desired and available
@@ -197,7 +187,6 @@ def update(
         )
 
         return create(
-            # *vtvc,
             timeline=timeline,
             t=t,
             context=context,
@@ -214,7 +203,7 @@ def anchor(
     origin=None,
 ) -> wt_frame.CLASS | Callable:
     """
-    Creates a special, non-physical `variable` (doesn't have a matching `connection`), that can be used for time references, particularly within individual `context`s.
+    Creates a special, non-physical `variable` (will never have a matching `connection`), that can be used for time references, particularly within individual `context`s.
 
     This can be very convenient in the context of `ramp`s, where the starting and ending times are often built around a hypothetical point in time, due to physical switching speeds.
 
@@ -225,14 +214,10 @@ def anchor(
     # NOTE: Makes use of a global variable (LABEL__ANCHOR).
 
     # TODO: What happens if `t` is not specified?
+    # - looks like it will fail?
 
     if timeline is None:
-        return lambda tline: anchor(
-            timeline=tline,
-            t=t,
-            context=context,
-            origin=origin,
-        )
+        return wt_util.function__lambda()
 
     num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
 
@@ -297,9 +282,7 @@ def ramp(
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
     if timeline is None:
-        return wt_util.function__deferred(
-            ramp, wt_util.args_in_function(ramp, kwargs=["vtvc_dict"])
-        )
+        return wt_util.function__lambda()
 
     _vtvcs = {k: np.array(v) for k, v in vtvc_dict.items()}
     max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
@@ -425,13 +408,8 @@ def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Ca
 
     # NOTE: Not implemented for `num__bounds` != 2
     """
-
     if timeline is None:
-        kwargs = dict(
-            num__bounds=num__bounds,
-            **function_args,
-        )
-        return lambda x, **kwargs__new: expand(timeline=x, **{**kwargs, **kwargs__new})
+        return wt_util.function__lambda(kwargs=["function_args"])
 
     if "function" not in timeline.columns:
         # TODO: Add test for this 'feature'
