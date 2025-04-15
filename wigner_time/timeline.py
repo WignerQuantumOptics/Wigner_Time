@@ -223,8 +223,6 @@ def anchor(
     if timeline is None:
         return wt_util.function__lambda()
 
-    print(f"anchor t: {t}")
-
     num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
 
     origin = wt_origin.auto(

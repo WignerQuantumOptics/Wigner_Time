@@ -439,10 +439,11 @@ if __name__ == "__main__":
         finish(),
     )
 
-    print(
-        thing.query("time>=0 and variable=='lockbox_MOT__MHz'")[
-            ["time", "variable", "value", "context"]
-        ]
-    )
+    print(thing.drop(columns=["function"]).to_dict(orient="list"))
+    # print(
+    #     thing.query("time>=0 and variable=='lockbox_MOT__MHz'")[
+    #         ["time", "variable", "value", "context"]
+    #     ]
+    # )
 
-    display.channels(thing)
+    # display.channels(thing)
