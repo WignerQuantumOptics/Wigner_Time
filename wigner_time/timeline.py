@@ -223,6 +223,8 @@ def anchor(
     if timeline is None:
         return wt_util.function__lambda()
 
+    print(f"anchor t: {t}")
+
     num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
 
     origin = wt_origin.auto(
@@ -342,10 +344,21 @@ def ramp(
     new2["function"] = function
     new2["context"] = new1["context"]
 
-    if (((new2["time"] - new1["time"]) < 1e-15).any()) or (
-        np.abs(new2["value"] - new1["value"]) < 1e-15
-    ).any():
-        # TODO: It would be more efficient to do these checks earlier on (but more complicated).
+    # ===
+    # TODO: It would be more efficient to do these checks earlier on (but more complicated).
+    # TODO: Move this check into expand?
+
+    TOL = 1e-15
+    time_close = np.abs(new1["time"] - new2["time"]) < TOL
+    value_close = np.abs(new1["value"] - new2["value"]) < TOL
+    mask__offending = time_close | value_close
+
+    # Remove offending rows from both DataFrames
+    new1_clean = new1[~mask__offending].reset_index(drop=True)
+    new2_clean = new2[~mask__offending].reset_index(drop=True)
+
+    # Check if either is now empty
+    if new1_clean.empty or new2_clean.empty:
         return timeline
 
     # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
