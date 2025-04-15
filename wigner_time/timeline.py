@@ -295,18 +295,7 @@ def ramp(
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
     if timeline is None:
-        kwargs = dict(
-            duration=duration,
-            t=t,
-            t2=t2,
-            context=context,
-            origin=origin,
-            origin2=origin2,
-            schema=schema,
-            function=function,
-            **vtvc_dict,
-        )
-        return lambda x, **kwargs__new: ramp(timeline=x, **{**kwargs, **kwargs__new})
+        return wt_util.function__deferred(ramp, wt_util.args_in_function(ramp, kwargs=["vtvc_dict"]))
 
     _vtvcs = {k: np.array(v) for k, v in vtvc_dict.items()}
     max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
