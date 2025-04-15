@@ -77,7 +77,9 @@ def _mask__no_context(timeline):
     return mask
 
 
-def inherit_context(timeline, timeline__previous, context=None, is_inPlace=True):
+def inherit_context(
+    timeline, timeline__previous, context=None, is_inPlace=True, time__max=None
+):
     """
     Updates the context, taken from previous values where unspecified.
 
@@ -89,9 +91,11 @@ def inherit_context(timeline, timeline__previous, context=None, is_inPlace=True)
         df = deepcopy(timeline)
 
     if (timeline__previous is not None) and (context is None):
+        if time__max == "min":
+            time__max = timeline["time"].min()
 
         df.loc[_mask__no_context(timeline), "context"] = previous(
-            timeline__previous, time__max=timeline["time"].min()
+            timeline__previous, time__max=time__max
         )["context"]
         return df
 

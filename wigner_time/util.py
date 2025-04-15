@@ -186,6 +186,8 @@ def function__lambda(lambda_key="timeline", kwargs=["vtvc_dict"]):
     Returns a function lamba based on the given function, and current local values, where the existing kwargs can be overwritten.
 
     The `lambda_key` determines which variable becomes the primary argument in the lambda.
+
+    NOTE: strongly dependent on the environment in which it is called.
     """
 
     frame = inspect.currentframe().f_back
