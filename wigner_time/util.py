@@ -1,6 +1,8 @@
 # Copyright Thomas W. Clark & András Vukics 2024. Distributed under the Boost Software License, Version 1.0. (See accompanying file LICENSE.txt)
 
 from collections.abc import Iterable, Sequence
+from typing import Callable
+import inspect
 
 import numpy as np
 import math
@@ -109,3 +111,19 @@ def range__inclusive(start, stop, step):
     # Uses `math` because it returns an integer rather than a float.
     num = np.abs(math.ceil((stop - start) / step) + 1)
     return np.linspace(start, stop, num=num)
+
+
+def function__filtered_kws(f: Callable, **kws) -> Callable:
+    sig = inspect.signature(f)
+    is_acceptable_kwargs = any(p.kind == p.VAR_KEYWORD for p in sig.parameters.values())
+    if is_acceptable_kwargs:
+        return lambda *args: f(*args, **kws)
+    else:
+        # Filter only allowed kwargs
+        accepted_keys = {
+            k
+            for k, p in sig.parameters.items()
+            if p.kind in (p.KEYWORD_ONLY, p.POSITIONAL_OR_KEYWORD)
+        }
+        filtered_kwargs = {k: v for k, v in kws.items() if k in accepted_keys}
+        return lambda *args: f(*args, **filtered_kwargs)

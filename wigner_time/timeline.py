@@ -22,6 +22,7 @@ from wigner_time import input as wt_input
 from wigner_time import ramp_function as wt_ramp_function
 from wigner_time.internal import dataframe as wt_frame
 from wigner_time.internal import origin as wt_origin
+from wigner_time import util as wt_util
 import pandas as pd
 
 
@@ -467,34 +468,15 @@ def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Ca
 
         # Apply the ramp function
         # - Only pass on the kwargs that the function accepts
-        func = _group["function"].tolist()[0]
-
-        # ===
-        # TODO: abstract out inspection
-        def safe_func(f, **kws):
-            sig = inspect.signature(func)
-            accepts_var_kwargs = any(
-                p.kind == p.VAR_KEYWORD for p in sig.parameters.values()
-            )
-            if accepts_var_kwargs:
-                return lambda *args: f(*args, **kws)
-            else:
-                # Filter only allowed kwargs
-                accepted_keys = {
-                    k
-                    for k, p in sig.parameters.items()
-                    if p.kind in (p.KEYWORD_ONLY, p.POSITIONAL_OR_KEYWORD)
-                }
-                filtered_kwargs = {k: v for k, v in kws.items() if k in accepted_keys}
-                return lambda *args: f(*args, **filtered_kwargs)
-
-        # ===
+        func = wt_util.function__filtered_kws(
+            _group["function"].tolist()[0], **function_args
+        )
 
         _dfs.append(
             create(
                 [
                     _group["variable"].tolist()[0],
-                    safe_func(func, **function_args)(_pt_start, _pt_end),
+                    func(_pt_start, _pt_end),
                 ],
             ).assign(**_group.iloc[0][_columns__keep].to_dict())
         )
