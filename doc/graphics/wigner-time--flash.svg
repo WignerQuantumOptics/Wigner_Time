@@ -7,7 +7,7 @@
    viewBox="0 0 210 297"
    version="1.1"
    id="svg1"
-   inkscape:version="1.3.2 (091e20ef0f, 2023-11-25, custom)"
+   inkscape:version="1.4.2 (ebf0e940d0, 2025-05-08)"
    sodipodi:docname="wigner-time--flash.svg"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
@@ -23,9 +23,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#505050"
      inkscape:document-units="mm"
-     inkscape:zoom="0.5341791"
-     inkscape:cx="-487.66416"
-     inkscape:cy="119.81"
+     inkscape:zoom="0.37772166"
+     inkscape:cx="-186.64537"
+     inkscape:cy="255.47912"
      inkscape:window-width="1920"
      inkscape:window-height="1052"
      inkscape:window-x="0"
@@ -379,6 +379,12 @@
        width="256.80286"
        height="121.78279"
        id="rect10-4-9-0-5" />
+    <rect
+       x="-852.47955"
+       y="135.02007"
+       width="256.80286"
+       height="121.78279"
+       id="rect10-4-9-2" />
   </defs>
   <g
      inkscape:label="Layer 1"
@@ -408,9 +414,9 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="177.13267"
-         id="tspan5"><tspan
+         id="tspan3"><tspan
            style="font-family:ubuntu;-inkscape-font-specification:ubuntu"
-           id="tspan4">Timeline</tspan></tspan></text>
+           id="tspan2">Timeline</tspan></tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.33713094,0,0,0.33713094,-20.654444,32.463795)"
@@ -418,7 +424,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan6">AOM</tspan></text>
+         id="tspan4">AOM</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.33713094,0,0,0.33713094,-297.7061,-189.66614)"
@@ -426,9 +432,9 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-9);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="177.13267"
-         id="tspan8"><tspan
+         id="tspan6"><tspan
            style="font-family:Ubuntu;-inkscape-font-specification:Ubuntu"
-           id="tspan7">Time</tspan></tspan></text>
+           id="tspan5">Time</tspan></tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.33713094,0,0,0.33713094,-236.89306,-205.58394)"
@@ -436,7 +442,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-9-5);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan9">Parameters</tspan></text>
+         id="tspan7">Parameters</tspan></text>
     <rect
        style="fill:#f9f9f9;stroke:#000000;stroke-width:2;stroke-dasharray:none"
        id="rect3"
@@ -452,7 +458,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan11">Variable</tspan></text>
+         id="tspan8">Variable</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.33713094,0,0,0.33713094,-252.82064,83.901035)"
@@ -460,7 +466,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-06);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan12">Attribute</tspan></text>
+         id="tspan9">Attribute</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.33713094,0,0,0.33713094,-254.77827,103.77573)"
@@ -468,7 +474,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-06-6);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan13">Attribute</tspan></text>
+         id="tspan11">Attribute</tspan></text>
     <rect
        style="fill:#4d4d4d;stroke:#000000;stroke-width:4.53773;stroke-dasharray:none"
        id="rect4"
@@ -492,7 +498,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-6);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan14">Connection</tspan></text>
+         id="tspan12">Connection</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.33713094,0,0,0.33713094,-253.44997,55.269577)"
@@ -500,7 +506,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-6-9);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan15">Device</tspan></text>
+         id="tspan13">Device</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.33713094,0,0,0.33713094,-286.74479,186.73059)"
@@ -508,7 +514,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-6-9-81);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan16">Conversion</tspan></text>
+         id="tspan14">Conversion</tspan></text>
     <g
        id="g6"
        transform="translate(-128.33885,-62.551738)">
@@ -527,9 +533,9 @@
          style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-6-9-8);display:inline;fill:#000000;stroke:#000000"><tspan
            x="92.660156"
            y="177.13267"
-           id="tspan18"><tspan
+           id="tspan16"><tspan
              style="font-family:ubuntu;-inkscape-font-specification:ubuntu"
-             id="tspan17">Init.</tspan></tspan></text>
+             id="tspan15">Init.</tspan></tspan></text>
     </g>
     <g
        id="g7"
@@ -549,9 +555,9 @@
          style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-6-9-8-8);display:inline;fill:#000000;stroke:#000000"><tspan
            x="92.660156"
            y="177.13267"
-           id="tspan20"><tspan
+           id="tspan18"><tspan
              style="font-family:Ubuntu;-inkscape-font-specification:Ubuntu"
-             id="tspan19">MOT</tspan></tspan></text>
+             id="tspan17">MOT</tspan></tspan></text>
     </g>
     <g
        id="g8"
@@ -571,7 +577,7 @@
          style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-6-9-8-8-2);display:inline;fill:#000000;stroke:#000000"><tspan
            x="92.660156"
            y="176.04706"
-           id="tspan21">Molasses</tspan></text>
+           id="tspan19">Molasses</tspan></text>
     </g>
     <g
        id="g9"
@@ -591,7 +597,7 @@
          style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-6-9-8-8-2-3);display:inline;fill:#000000;stroke:#000000"><tspan
            x="92.660156"
            y="176.04706"
-           id="tspan22">O.P.</tspan></text>
+           id="tspan20">O.P.</tspan></text>
     </g>
     <g
        id="g10"
@@ -612,10 +618,10 @@
          style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-6-9-8-8-2-3-3);display:inline;fill:#000000;stroke:#000000"><tspan
            x="92.660156"
            y="176.04706"
-           id="tspan23">Magnetic </tspan><tspan
+           id="tspan21">Magnetic </tspan><tspan
            x="92.660156"
            y="236.04706"
-           id="tspan24">Transport</tspan></text>
+           id="tspan22">Transport</tspan></text>
     </g>
     <text
        xml:space="preserve"
@@ -629,7 +635,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-0);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan25">Variable</tspan></text>
+         id="tspan23">Variable</tspan></text>
     <rect
        style="fill:#b3b3b3;stroke:#000000;stroke-width:2.76957;stroke-dasharray:none"
        id="rect5"
@@ -645,7 +651,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-06-61);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan26">Context</tspan></text>
+         id="tspan24">Context</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.33713094,0,0,0.33713094,-71.401201,129.29481)"
@@ -653,7 +659,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-06-61-9);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan27">Unit</tspan></text>
+         id="tspan25">Unit</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.33713094,0,0,0.33713094,-73.030381,98.560467)"
@@ -661,7 +667,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-06-61-9-5);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan28">Device</tspan></text>
+         id="tspan26">Device</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.33713094,0,0,0.33713094,-66.718631,76.117423)"
@@ -669,7 +675,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-0-2);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan29">Variable</tspan></text>
+         id="tspan27">Variable</tspan></text>
     <path
        style="fill:#000000;stroke:#000000;stroke-width:2;stroke-dasharray:none;marker-end:url(#DartArrow-4)"
        d="m -159.92683,212.29498 38.00163,0.11776"
@@ -705,7 +711,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-4);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan30">Variable (digits)</tspan></text>
+         id="tspan28">Variable (digits)</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.33713094,0,0,0.33713094,53.99317,123.16525)"
@@ -713,7 +719,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-4-8);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan31">Variable (boolean)</tspan></text>
+         id="tspan29">Variable (boolean)</tspan></text>
     <path
        style="fill:#000000;stroke:#000000;stroke-width:2;stroke-dasharray:none;marker-end:url(#DartArrow-7-3)"
        d="m -271.97944,-142.69129 -0.11776,38.00161"
@@ -794,7 +800,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-5);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan32">ADwin</tspan></text>
+         id="tspan30">ADwin</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.33713094,0,0,0.33713094,199.22046,105.12271)"
@@ -802,7 +808,7 @@
        style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-5-1);display:inline;fill:#000000;stroke:#000000"><tspan
          x="92.660156"
          y="176.04706"
-         id="tspan33">+</tspan></text>
+         id="tspan31">+</tspan></text>
     <rect
        style="fill:#f9f9f9;stroke:#000000;stroke-width:0.87383;stroke-dasharray:none"
        id="rect6"
@@ -846,7 +852,7 @@
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:48px;font-family:ubuntu;-inkscape-font-specification:ubuntu;white-space:pre;shape-inside:url(#rect10);display:inline;fill:#000000;stroke:none;stroke-width:7.55906;stroke-dasharray:45.3543, 45.3543;stroke-dashoffset:0"><tspan
          x="-852.48047"
          y="179.77916"
-         id="tspan34">Offset</tspan></text>
+         id="tspan32">Offset</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0.26458333,0,0,0.26458333,323.35394,-5.5536652)"
@@ -854,7 +860,7 @@
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:96px;font-family:ubuntu;-inkscape-font-specification:ubuntu;white-space:pre;shape-inside:url(#rect10-4);display:inline;fill:#000000;stroke:none;stroke-width:7.55906;stroke-dasharray:45.3543, 45.3543;stroke-dashoffset:0"><tspan
          x="-852.48047"
          y="224.53878"
-         id="tspan35">...</tspan></text>
+         id="tspan33">...</tspan></text>
     <rect
        style="fill:#999999;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
        id="rect6-3"
@@ -910,7 +916,15 @@
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:96px;font-family:ubuntu;-inkscape-font-specification:ubuntu;white-space:pre;shape-inside:url(#rect10-4-9);display:inline;fill:#000000;stroke:none;stroke-width:7.55906;stroke-dasharray:45.3543, 45.3543;stroke-dashoffset:0"><tspan
          x="-852.48047"
          y="224.53878"
-         id="tspan36">...</tspan></text>
+         id="tspan34">...</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="matrix(-0.38153402,0,0,-0.38153402,-318.06352,-21.970304)"
+       id="text10-3-6-7"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:96px;font-family:ubuntu;-inkscape-font-specification:ubuntu;white-space:pre;shape-inside:url(#rect10-4-9-2);display:inline;fill:#000000;stroke:none;stroke-width:7.55906;stroke-dasharray:45.3543, 45.3543;stroke-dashoffset:0"><tspan
+         x="-852.48047"
+         y="224.53878"
+         id="tspan35">...</tspan></text>
     <text
        xml:space="preserve"
        transform="matrix(0,0.38153402,-0.38153402,0,-111.47431,624.17732)"
@@ -918,7 +932,7 @@
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:96px;font-family:ubuntu;-inkscape-font-specification:ubuntu;white-space:pre;shape-inside:url(#rect10-4-9-0);display:inline;fill:#000000;stroke:none;stroke-width:7.55906;stroke-dasharray:45.3543, 45.3543;stroke-dashoffset:0"><tspan
          x="-852.48047"
          y="224.53878"
-         id="tspan37">...</tspan></text>
+         id="tspan36">...</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.7px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:2;stroke-dasharray:12, 12;stroke-dashoffset:0"
@@ -1024,7 +1038,7 @@
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:96px;font-family:ubuntu;-inkscape-font-specification:ubuntu;white-space:pre;shape-inside:url(#rect10-4-9-0-5);display:inline;fill:#000000;stroke:none;stroke-width:7.55906;stroke-dasharray:45.3543, 45.3543;stroke-dashoffset:0"><tspan
          x="-852.48047"
          y="224.53878"
-         id="tspan38">...</tspan></text>
+         id="tspan37">...</tspan></text>
     <rect
        style="fill:#999999;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
        id="rect6-1-0-7-8"
@@ -1141,5 +1155,53 @@
          style="font-size:12.7px;fill:#000000;stroke:none;stroke-width:2"
          x="-81.414658"
          y="-110.60817">Context</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+       x="-215.51018"
+       y="-88.836014"
+       id="text11-6-0-4-2-2"
+       transform="scale(0.94039751,1.0633801)"><tspan
+         sodipodi:role="line"
+         id="tspan10-2-4-0-9-4"
+         style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+         x="-215.51018"
+         y="-88.836014">coil_MOTupper__A</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+       x="-128.93413"
+       y="-89.353027"
+       id="text11-6-0-4-2-2-1"
+       transform="scale(0.94039751,1.0633801)"><tspan
+         sodipodi:role="line"
+         id="tspan10-2-4-0-9-4-0"
+         style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+         x="-128.93413"
+         y="-89.353027">1.0</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+       x="-69.197517"
+       y="-89.353027"
+       id="text11-6-0-4-2-2-1-3"
+       transform="scale(0.94039751,1.0633801)"><tspan
+         sodipodi:role="line"
+         id="tspan10-2-4-0-9-4-0-8"
+         style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+         x="-69.197517"
+         y="-89.353027">MOT</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+       x="-255.24887"
+       y="-89.353027"
+       id="text11-6-0-4-2-2-1-9"
+       transform="scale(0.94039751,1.0633801)"><tspan
+         sodipodi:role="line"
+         id="tspan10-2-4-0-9-4-0-1"
+         style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+         x="-255.24887"
+         y="-89.353027">1.0</tspan></text>
   </g>
 </svg>
