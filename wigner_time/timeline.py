@@ -25,6 +25,7 @@ from wigner_time.internal import origin as wt_origin
 from wigner_time import util as wt_util
 import pandas as pd
 
+noop = funcy.identity
 
 ###############################################################################
 #                   Constants                                                 #
