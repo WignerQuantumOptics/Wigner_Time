@@ -106,8 +106,9 @@ init:
   processSwitches(-1)
 
 event:
-  if (cyclecount = endCC+1) then end '+1 is needed to resolve the indexing differences between ADwin and Python
-  
+  ' if (cyclecount = endCC+1) then end '+1 is needed to resolve the indexing differences between ADwin and Python
+  if (cyclecount > endCC+1) then end
+
   processSwitches(cyclecount)
   par_10=1
 
@@ -121,3 +122,4 @@ finish:
   processSwitches(2147483647) ' 2**31-1
   
   P2_Burst_Read_Unpacked1 (ADC_Card, ADC_DataAmount, 0, Data_1, 1, 3)
+
