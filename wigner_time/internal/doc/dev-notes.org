@@ -1,5 +1,18 @@
 #+title: Ideas
 
+# TODO: Change this file from random ideas to structured notes on code.
+
+* API policies
+Hide everything that has no API commitment under `_internal`. 
+
+Major changes in API (post publication) will include a backwards-compatibility namespace? 
+
+** package numbering
+standard major.minor.patch package versioning.
+- major - API changes (breaking changes, if any)
+- minor - new features
+- patch - bug fixes (no expected user downsides or surprises)
+  
 * Design
 ** concepts
 A *device* is a dictionary of properties that reperesents an experimental apparatus. Not all of this information need be necessary for taking the data (analysis is important too!) but the *variable* names should be unique for use with ADwin *connections*. This should not take much effort on the user's part and allows for much easier data processing. If it becomes necessary to nest dictionaries to describe a device then we should consider switching to DataFrames for this as well.
@@ -30,7 +43,6 @@ There are many well-documented reasons for using a data-oriented approach to pro
 
 Similar reasoning was used when deciding to base the program around python's 'pandas' module. This is a very well developed platform for manipulating data and gives us the benefit of tried and tested objects as well as the convenience of not having to reinvent our own objects and methods.
 
-* Ideas
-** Bálint (for)
-- learn how to setup proper tests for python
-- document and make tests for the new system
+* TODO Feature requests
+** clear ways of importing timelines from file
+
