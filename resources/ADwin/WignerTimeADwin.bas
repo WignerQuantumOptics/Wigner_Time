@@ -67,7 +67,8 @@ init:
   processSwitches(-1)
   
 event:
-  if (cyclecount = endCC+1) then end '+1 is needed to resolve the indexing differences between ADwin and Python
+  ' if (cyclecount = endCC+1) then end '+1 is needed to resolve the indexing differences between ADwin and Python
+  if (cyclecount > endCC) then end
   
   processSwitches(cyclecount)
   
@@ -75,3 +76,4 @@ event:
 
 finish:
   processSwitches(2147483647) ' 2**31-1
+
