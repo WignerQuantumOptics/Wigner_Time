@@ -213,3 +213,4 @@ The timeline can then be exported to an ADwin-compatible format.
 
 -   Official support for NI systems
 -   Graphical input
+-   Feature requests. Post an issue! 
