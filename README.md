@@ -43,13 +43,9 @@ poetry run pytest
 
 # Abstract
 
-We introduce Wigner Time, a Python package for defining and manipulating experimen-
-tal timelines in real-time open-loop control systems [1]. Timelines are expressed as plain
-pandas.DataFrame objects, reflecting a data-oriented approach. The associated functional-
-style API is transparent, flexible, and integrates well with the broader scientific Python
-ecosystem. The package has been developed for cold-atom quantum-optics experiments,
-but is broadly applicable to any experimental domain requiring precisely timed, multi-
-channel control.
+We introduce Wigner Time, an approach and Python package for defining and
+manipulating experimental timelines in real-time open-loop control systems.
+Fundamentally, procedures are expressed functionally and implemented tabularly, such that the core timelines can be represented with in-memory databases, e.g. `pandas.DataFrame`. The associated functional-style API is clear, flexible, and integrates well with the broader scientific Python ecosystem. The package has been optimized for ADwin-based quantum-optics experiments, but is broadly applicable to any experimental domain requiring precisely timed, multi-device control.
 
 
 <a id="org231a69c"></a>
@@ -132,6 +128,7 @@ You want to digitally control an optical shutter and AOM.
 
 For digital channels, simply *name* the ADwin ports using standard Python lists. These keep track of the physical connections.
 
+``` python
     from wigner_time.adwin import connection as adcon
     from wigner_time import device
     from wigner_time import conversion as conv
@@ -139,9 +136,10 @@ For digital channels, simply *name* the ADwin ports using standard Python lists.
     connections = adcon.new(
         ["shutter_MOT", 1, 11],
         ["AOM_MOT", 1, 1])
-
+```
 For analogue connections, do the same, but specify a linear factor, conversion function or calibration file.
 
+``` python
     devices = device.new(
         ["lockbox_MOT__MHz", 0.05, -200, 200],
         [
@@ -154,11 +152,12 @@ For analogue connections, do the same, but specify a linear factor, conversion f
             1.0,
         ],
     )
-
+```
 Specify how you want your experiment to begin and end, using readable options and user-specific keywords.
 
 N.B. The use of *pandas.DataFrame* for convenient edits.
 
+``` python
     import timeline as tl
     
     initial = tl.create(
@@ -170,36 +169,43 @@ N.B. The use of *pandas.DataFrame* for convenient edits.
     )
     final = init
     final['context']="ADwin_Finish"
+``` 
 
 And any key processes&#x2026;
 
-    MOT = tl.update(
-                shutter_MOT= 0
-                AOM_MOT=1,
-                context="MOT",
-            )
-    detuned_growth = tl.ramp(
-                        lockbox_MOT__MHz=-5,
-                        duration=10e-3,
-            ),
-
+``` python
+MOT = tl.update(
+            shutter_MOT= 0
+            AOM_MOT=1,
+            context="MOT",
+        )
+detuned_growth = tl.ramp(
+                    lockbox_MOT__MHz=-5,
+                    duration=10e-3,
+        ),
+```
 Then combine it all together in readable and modular fashion.
 
 Due to the (hopefully) sensible defaults, each component, e.g. \`ramp\`, will automatically join onto the end of the previous operation in a causal chain.
 
-    tline = tl.stack(
-        initial,
-        MOT,
-        detuned_growth,
-        final
-    )
+``` python
+tline = tl.stack(
+    initial,
+    MOT,
+    detuned_growth,
+    final
+)
+
+```
+
 
 The timeline can then be exported to an ADwin-compatible format.
 
+``` python
     from wigner_time.adwin import core as adwin
     
     adwin.to_data(tline)
-
+```
 
 <a id="orge0a7f00"></a>
 
