@@ -12,6 +12,8 @@ from wigner_time.internal import dataframe as frame
 sys.path.append(str(pl.Path.cwd() / "doc"))
 import experimentDemo as ex
 
+print(str(pl.Path.cwd() / "doc"))
+
 
 @pytest.fixture
 def df_simple():

@@ -265,6 +265,7 @@ def test_random_ramp():
             ["lockbox_MOT__V", [7.0, 0.0, "ADwin_Finish"]],
         ),
         tl.ramp(lockbox_MOT__V=11.0, duration=1.0, origin=["blah", "variable"]),
+        context="blah",
     )
 
     return wt_frame.assert_equal(

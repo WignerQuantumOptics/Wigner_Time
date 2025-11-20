@@ -10,6 +10,7 @@ It is a goal to be able to go up and down through the layers of abstraction.
 """
 
 from copy import deepcopy
+import inspect
 from typing import Callable
 
 import funcy
@@ -21,8 +22,10 @@ from wigner_time import input as wt_input
 from wigner_time import ramp_function as wt_ramp_function
 from wigner_time.internal import dataframe as wt_frame
 from wigner_time.internal import origin as wt_origin
+from wigner_time import util as wt_util
 import pandas as pd
 
+noop = funcy.identity
 
 ###############################################################################
 #                   Constants                                                 #
@@ -75,7 +78,9 @@ def _mask__no_context(timeline):
     return mask
 
 
-def inherit_context(timeline, timeline__previous, context=None, is_inPlace=True):
+def inherit_context(
+    timeline, timeline__previous, context=None, is_inPlace=True, time__max=None
+):
     """
     Updates the context, taken from previous values where unspecified.
 
@@ -87,9 +92,11 @@ def inherit_context(timeline, timeline__previous, context=None, is_inPlace=True)
         df = deepcopy(timeline)
 
     if (timeline__previous is not None) and (context is None):
+        if time__max == "min":
+            time__max = timeline["time"].min()
 
         df.loc[_mask__no_context(timeline), "context"] = previous(
-            timeline__previous, time__max=timeline["time"].min()
+            timeline__previous, time__max=time__max
         )["context"]
         return df
 
@@ -156,7 +163,6 @@ def create(
 
 
 def update(
-    *vtvc,
     timeline: wt_frame.CLASS | None = None,
     t=0.0,
     context=None,
@@ -177,15 +183,7 @@ def update(
     WARNING: In this case, beware of accidentally putting timelines into special contexts.
     """
     if timeline is None:
-        return lambda x: update(
-            *vtvc,
-            timeline=x,
-            t=t,
-            context=context,
-            origin=origin,
-            schema=schema,
-            **vtvc_dict,
-        )
+        return wt_util.function__lambda()
 
     else:
         # Check if anchor is desired and available
@@ -194,7 +192,6 @@ def update(
         )
 
         return create(
-            *vtvc,
             timeline=timeline,
             t=t,
             context=context,
@@ -211,7 +208,7 @@ def anchor(
     origin=None,
 ) -> wt_frame.CLASS | Callable:
     """
-    Creates a special, non-physical `variable` (doesn't have a matching `connection`), that can be used for time references, particularly within individual `context`s.
+    Creates a special, non-physical `variable` (will never have a matching `connection`), that can be used for time references, particularly within individual `context`s.
 
     This can be very convenient in the context of `ramp`s, where the starting and ending times are often built around a hypothetical point in time, due to physical switching speeds.
 
@@ -221,13 +218,11 @@ def anchor(
     """
     # NOTE: Makes use of a global variable (LABEL__ANCHOR).
 
+    # TODO: What happens if `t` is not specified?
+    # - looks like it will fail?
+
     if timeline is None:
-        return lambda tline: anchor(
-            timeline=tline,
-            t=t,
-            context=context,
-            origin=origin,
-        )
+        return wt_util.function__lambda()
 
     num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
 
@@ -236,12 +231,11 @@ def anchor(
     )
 
     return update(
-        "{}_{:03d}".format(wt_config.LABEL__ANCHOR, num_anchors + 1),
-        0,
         timeline=timeline,
         t=t,
         context=context,
         origin=origin,
+        **{"{}_{:03d}".format(wt_config.LABEL__ANCHOR, num_anchors + 1): 0},
     )
 
 
@@ -293,18 +287,7 @@ def ramp(
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
     if timeline is None:
-        return lambda x: ramp(
-            timeline=x,
-            duration=duration,
-            t=t,
-            t2=t2,
-            context=context,
-            origin=origin,
-            origin2=origin2,
-            schema=schema,
-            function=function,
-            **vtvc_dict,
-        )
+        return wt_util.function__lambda()
 
     _vtvcs = {k: np.array(v) for k, v in vtvc_dict.items()}
     max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
@@ -360,52 +343,90 @@ def ramp(
     new2["function"] = function
     new2["context"] = new1["context"]
 
-    if (((new2["time"] - new1["time"]) < 1e-15).any()) or (
-        np.abs(new2["value"] - new1["value"]) < 1e-15
-    ).any():
-        # TODO: It would be more efficient to do these checks earlier on (but more complicated).
+    # ===
+    # TODO: It would be more efficient to do these checks earlier on (but more complicated).
+    # TODO: Move this check into expand?
+
+    TOL = 1e-15
+    time_close = np.abs(new1["time"] - new2["time"]) < TOL
+    value_close = np.abs(new1["value"] - new2["value"]) < TOL
+    mask__offending = time_close | value_close
+
+    # Remove offending rows from both DataFrames
+    new1_clean = new1[~mask__offending].reset_index(drop=True)
+    new2_clean = new2[~mask__offending].reset_index(drop=True)
+
+    # Check if either is now empty
+    if new1_clean.empty or new2_clean.empty:
         return timeline
 
     # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
     return wt_frame.concat([timeline, new1, new2])
 
 
-def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
+# def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
+#     if isinstance(firstArgument, wt_frame.CLASS):
+#         return funcy.compose(*fs[::-1])(firstArgument)
+#     else:
+#         return funcy.compose(*fs[::-1], firstArgument)
+
+
+def stack(
+    timeline_or_f: wt_frame.CLASS | Callable, *fs: list[Callable], **kws
+) -> Callable | wt_frame.CLASS:
     """
     For chaining modifications to the timeline in a composable way.
 
-    If the bottom of the stack is a timeline, the result is also a timeline
-    e.g.:
-    stack(
+    If the first argument is a timeline, the result is also a timeline; otherwise, the result is a functional, which can later be applied on an existing timeline, /e.g./
+
+    `stack(
         timeline,
         update(…),
         ramp(…)
-    )
-    the action of `update` and `ramp` is added to the existing `timeline` in this case.
-    Equivalently:
-    stack(
-        update(…,timeline=timeline),
-        ramp(…)
-    )
+    )`
 
-    Otherwise, the result is a functional, which can later be applied on an existing timeline.
+    returns a timeline equivalent to
+
+    `ramp(…, timeline=update(…, timeline=timeline))`.
+
+    Also, all key-word arguments that are passed to `stack` are passed through to the subsidiary functions. This is particularly convenient for creating shared 'contexts', e.g.
+
+    `stack(
+        timeline,
+        update(…),
+        ramp(…),
+
+        context='MOT'
+    )`
     """
-    if isinstance(firstArgument, wt_frame.CLASS):
-        return funcy.compose(*fs[::-1])(firstArgument)
+
+    fs__wrapped = [lambda x, f=f: f(x, **kws) for f in fs]
+    composed = funcy.compose(*reversed(fs__wrapped))
+
+    if isinstance(timeline_or_f, wt_frame.CLASS):
+        return composed(timeline_or_f)
+    elif callable(timeline_or_f):
+        wrapped_first = lambda x: timeline_or_f(x, **kws)
+        return funcy.compose(*reversed(fs__wrapped), wrapped_first)
     else:
-        return funcy.compose(*fs[::-1], firstArgument)
+        raise TypeError(
+            "timeline_or_f must be either an instance of wt_frame.CLASS or a function."
+        )
 
 
-def expand(timeline, num__bounds=2, **function_args) -> wt_frame.CLASS:
+def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Callable:
     """
     Converts the functions marked in the timeline into individual rows, i.e. applies the functions to the given data.
 
-    This is generally a one-way operation and so should only be carried out before the timeline is implemented on a device.
+    This is generally a 'one-way' operation and so should only be carried out before the timeline is implemented on a device.
 
     `num__bounds` refers to the number of points (and so rows) needed to define the ramp function in the first place. Currently, this is implicitly assumed to be two, i.e. that `ramp`s are simply defined by the origin, terminus and expansion function.
-    """
+
     # NOTE: Not implemented for `num__bounds` != 2
-    #
+    """
+    if timeline is None:
+        return wt_util.function__lambda(kwargs=["function_args"])
+
     if "function" not in timeline.columns:
         # TODO: Add test for this 'feature'
         return timeline
@@ -433,11 +454,16 @@ def expand(timeline, num__bounds=2, **function_args) -> wt_frame.CLASS:
         _pt_start, _pt_end = _group[["time", "value"]].values
 
         # Apply the ramp function
+        # - Only pass on the kwargs that the function accepts
+        func = wt_util.function__filtered_kws(
+            _group["function"].tolist()[0], **function_args
+        )
+
         _dfs.append(
             create(
                 [
                     _group["variable"].tolist()[0],
-                    _group["function"].tolist()[0](_pt_start, _pt_end, **function_args),
+                    func(_pt_start, _pt_end),
                 ],
             ).assign(**_group.iloc[0][_columns__keep].to_dict())
         )

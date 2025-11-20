@@ -1,6 +1,8 @@
 # Copyright Thomas W. Clark & András Vukics 2024. Distributed under the Boost Software License, Version 1.0. (See accompanying file LICENSE.txt)
 
 from collections.abc import Iterable, Sequence
+from typing import Callable, OrderedDict
+import inspect
 
 import numpy as np
 import math
@@ -109,3 +111,102 @@ def range__inclusive(start, stop, step):
     # Uses `math` because it returns an integer rather than a float.
     num = np.abs(math.ceil((stop - start) / step) + 1)
     return np.linspace(start, stop, num=num)
+
+
+def function__filtered_kws(f: Callable, **kws) -> Callable:
+    """
+    Converts the given function into a function lambda, where `kws` is used to update relevant arguments and other supplied kws are ignored.
+    """
+    sig = inspect.signature(f)
+    is_acceptable_kwargs = any(p.kind == p.VAR_KEYWORD for p in sig.parameters.values())
+    if is_acceptable_kwargs:
+        return lambda *args: f(*args, **kws)
+    else:
+        # Filter only allowed kwargs
+        accepted_keys = {
+            k
+            for k, p in sig.parameters.items()
+            if p.kind in (p.KEYWORD_ONLY, p.POSITIONAL_OR_KEYWORD)
+        }
+        filtered_kwargs = {k: v for k, v in kws.items() if k in accepted_keys}
+        return lambda *args: f(*args, **filtered_kwargs)
+
+
+def flatten_keys(d: OrderedDict, ks: str) -> OrderedDict:
+    """
+    Recursively flattens the dictionary until the given key doesn't exist anymore.
+    """
+    d = OrderedDict(d)  # make a shallow copy to avoid mutating input
+
+    while True:
+        found = False
+        for key in ks:
+            if key in d:
+                nested = d.pop(key)
+                if not isinstance(nested, dict):
+                    raise TypeError(
+                        f"{key} must be a dictionary, got {type(nested).__name__}"
+                    )
+                d.update(nested)
+                found = True
+        if not found:
+            break
+
+    return d
+
+
+def args_in_function(f: Callable, kwargs, exclude=(), call_frame=None) -> OrderedDict:
+    """
+    Gets the local variable values relevant to the function call.
+
+    NOTE: strongly dependent on the environment in which it is called.
+    """
+    # TODO: populate kwargs automatically?
+    if call_frame is None:
+        frame = inspect.currentframe().f_back
+    else:
+        frame = call_frame
+
+    sig = inspect.signature(f)
+    bound_args = sig.bind_partial(**frame.f_locals)
+    bound_args.apply_defaults()
+
+    args = flatten_keys(
+        OrderedDict(
+            {k: v for k, v in bound_args.arguments.items() if k not in exclude}
+        ),
+        kwargs,
+    )
+
+    return args
+
+
+def function__lambda(lambda_key="timeline", kwargs=["vtvc_dict"]):
+    """
+    Returns a function lamba based on the given function, and current local values, where the existing kwargs can be overwritten.
+
+    The `lambda_key` determines which variable becomes the primary argument in the lambda.
+
+    NOTE: strongly dependent on the environment in which it is called.
+    """
+
+    frame = inspect.currentframe().f_back
+    name__f = frame.f_code.co_name
+    f = frame.f_globals[name__f]
+
+    kwargs = args_in_function(f, kwargs=kwargs, call_frame=frame)
+
+    lambda_pair = [lambda_key, kwargs.pop(lambda_key)]
+
+    if lambda_pair is not None:
+        k, v = lambda_pair
+    else:
+        raise ValueError("Function `f` needs to have arguments in `function__lambda`.")
+
+    return lambda x, **kwargs__new: f(
+        **{
+            k: x,
+            **kwargs,
+            **kwargs__new,
+        }
+    )
