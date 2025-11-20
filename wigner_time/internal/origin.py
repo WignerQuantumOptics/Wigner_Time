@@ -215,7 +215,7 @@ def find(
                 t,
                 _previous_vt(
                     *([timeline, "value"] + _to_col_var(timeline, s2)),
-                    time__max=t + time__max__relative,
+                    time__max=t + wt_config.TIME_RESOLUTION + time__max__relative,
                 ),
             ]
 
