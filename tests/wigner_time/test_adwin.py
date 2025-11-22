@@ -10,7 +10,7 @@ from wigner_time import timeline as tl
 from wigner_time.internal import dataframe as frame
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
-import experimentDemo as ex
+# import experimentDemo as ex
 
 print(str(pl.Path.cwd() / "doc"))
 
