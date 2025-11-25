@@ -1,0 +1,5 @@
+#+title: Documentation
+
+Full API documentation and an introductory presentation are currently being finalized. For a brief introduction, please see the README.md file.
+
+

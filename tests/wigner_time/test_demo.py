@@ -9,7 +9,8 @@ import pathlib as pl
 import sys
 
 
-sys.path.append(str(pl.Path.cwd() / "doc"))
+sys.path.append(str(pl.Path.cwd() /  "wigner_time/internal/doc"))
+
 import experimentDemo as ex
 
 # import importlib

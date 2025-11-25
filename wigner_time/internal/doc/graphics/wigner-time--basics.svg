@@ -1,0 +1,936 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="429.45251mm"
+   height="187.34528mm"
+   viewBox="0 0 429.45251 187.34528"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.2 (ebf0e940d0, 2025-05-08)"
+   sodipodi:docname="wigner-time--basics.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:document-units="mm"
+     inkscape:zoom="0.53417909"
+     inkscape:cx="742.26042"
+     inkscape:cy="158.18665"
+     inkscape:window-width="1920"
+     inkscape:window-height="1052"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g3"
+     showguides="true" />
+  <defs
+     id="defs1">
+    <rect
+       x="-852.47955"
+       y="135.02007"
+       width="256.80286"
+       height="121.78279"
+       id="rect10" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="190.3819"
+       height="86.896751"
+       id="rect2" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="190.3819"
+       height="86.896751"
+       id="rect2-6" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="190.3819"
+       height="86.896751"
+       id="rect2-6-7" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="268.2973"
+       height="83.780136"
+       id="rect2-6-7-6" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="268.2973"
+       height="83.780136"
+       id="rect2-6-7-6-9" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="190.3819"
+       height="86.896751"
+       id="rect2-6-5" />
+    <marker
+       style="overflow:visible"
+       id="DartArrow-7"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="Dart arrow"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         style="fill:context-stroke;fill-rule:evenodd;stroke:none"
+         d="M 0,0 5,-5 -12.5,0 5,5 Z"
+         transform="scale(-0.5)"
+         id="path6-3" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="DartArrow-7-3"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="Dart arrow"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         style="fill:context-stroke;fill-rule:evenodd;stroke:none"
+         d="M 0,0 5,-5 -12.5,0 5,5 Z"
+         transform="scale(-0.5)"
+         id="path6-3-1" />
+    </marker>
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="190.3819"
+       height="86.896751"
+       id="rect2-6-7-0" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="244.40324"
+       height="84.819008"
+       id="rect2-6-7-06" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="244.40324"
+       height="84.819008"
+       id="rect2-6-7-06-6" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="365.95126"
+       height="65.080444"
+       id="rect2-6-7-4" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="416.85599"
+       height="65.080444"
+       id="rect2-6-7-4-8" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="190.3819"
+       height="86.896751"
+       id="rect2-6-5-1" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="190.3819"
+       height="86.896751"
+       id="rect2-6-9" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="282.94067"
+       height="81.020004"
+       id="rect2-6-9-5" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="190.3819"
+       height="86.896751"
+       id="rect2-6-7-0-2" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="244.40324"
+       height="84.819008"
+       id="rect2-6-7-06-61" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="244.40324"
+       height="84.819008"
+       id="rect2-6-7-06-61-9" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="244.40324"
+       height="84.819008"
+       id="rect2-6-7-06-61-9-5" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="268.2973"
+       height="83.780136"
+       id="rect2-6-7-6-9-8" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="268.2973"
+       height="83.780136"
+       id="rect2-6-7-6-9-8-8" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="268.2973"
+       height="83.780136"
+       id="rect2-6-7-6-9-8-8-6" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="268.2973"
+       height="83.780136"
+       id="rect2-6-7-6-9-8-8-2" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="268.2973"
+       height="83.780136"
+       id="rect2-6-7-6-9-8-8-2-3" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="259.48218"
+       height="141.07841"
+       id="rect2-6-7-6-9-8-8-2-3-3" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="268.2973"
+       height="83.780136"
+       id="rect2-6-7-6-9-81" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="365.95126"
+       height="65.080444"
+       id="rect2-6-7-4-0" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="190.3819"
+       height="86.896751"
+       id="rect2-6-7-0-2-6" />
+    <rect
+       x="-852.47955"
+       y="135.02007"
+       width="256.80286"
+       height="121.78279"
+       id="rect10-4" />
+    <rect
+       x="-852.47955"
+       y="135.02007"
+       width="256.80286"
+       height="121.78279"
+       id="rect10-4-9" />
+    <rect
+       x="-852.47955"
+       y="135.02007"
+       width="256.80286"
+       height="121.78279"
+       id="rect10-4-9-0" />
+    <rect
+       x="-852.47955"
+       y="135.02007"
+       width="256.80286"
+       height="121.78279"
+       id="rect10-4-9-0-5" />
+    <rect
+       x="-852.47955"
+       y="135.02007"
+       width="256.80286"
+       height="121.78279"
+       id="rect10-4-9-2" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="268.2973"
+       height="83.780136"
+       id="rect2-6-7-6-9-81-7" />
+    <rect
+       x="-852.47955"
+       y="135.02007"
+       width="256.80286"
+       height="121.78279"
+       id="rect10-4-9-26" />
+    <rect
+       x="-852.47955"
+       y="135.02007"
+       width="256.80286"
+       height="121.78279"
+       id="rect10-4-9-2-1" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="190.3819"
+       height="86.896751"
+       id="rect2-6-9-6" />
+    <rect
+       x="-852.47955"
+       y="135.02007"
+       width="256.80286"
+       height="121.78279"
+       id="rect10-4-9-7" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="268.2973"
+       height="83.780136"
+       id="rect2-6-7-6-9-81-7-9" />
+    <rect
+       x="-852.47955"
+       y="135.02007"
+       width="256.80286"
+       height="121.78279"
+       id="rect10-4-9-2-17" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="238.86506"
+       height="157.41771"
+       id="rect2-3" />
+    <rect
+       x="92.66082"
+       y="132.3726"
+       width="238.86507"
+       height="157.41771"
+       id="rect2-3-6" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(282.18392,264.73682)">
+    <rect
+       style="fill:#808080;stroke:#000000;stroke-width:0.145188"
+       id="rect1"
+       width="71.478691"
+       height="22.534491"
+       x="-282.11133"
+       y="-263.58411"
+       ry="4.4089217"
+       rx="4.4089217" />
+    <text
+       xml:space="preserve"
+       transform="matrix(0.33713094,0,0,0.33713094,-309.47468,-306.20235)"
+       id="text1"
+       style="font-size:48px;white-space:pre;shape-inside:url(#rect2);display:inline;fill:#000000;stroke:#000000"><tspan
+         x="92.660156"
+         y="177.13267"
+         id="tspan9"><tspan
+           style="font-family:ubuntu;-inkscape-font-specification:ubuntu"
+           id="tspan8">Timeline</tspan></tspan></text>
+    <text
+       xml:space="preserve"
+       transform="matrix(0.33713094,0,0,0.33713094,-297.7061,-284.9162)"
+       id="text1-9-6"
+       style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-9);display:inline;fill:#000000;stroke:#000000"><tspan
+         x="92.660156"
+         y="177.13267"
+         id="tspan12"><tspan
+           style="font-family:Ubuntu;-inkscape-font-specification:Ubuntu"
+           id="tspan11">Time</tspan></tspan></text>
+    <text
+       xml:space="preserve"
+       transform="matrix(0.33713094,0,0,0.33713094,-236.89306,-300.834)"
+       id="text1-9-6-4"
+       style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-9-5);display:inline;fill:#000000;stroke:#000000"><tspan
+         x="92.660156"
+         y="176.04706"
+         id="tspan13">Parameters</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="matrix(0.66656346,0,0,0.6661591,-44.845722,-307.43446)"
+       id="text1-9-9-6-0-8-5"
+       style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-6-9-81-7);display:inline;fill:#000000;stroke:#000000;stroke-width:0.505929"><tspan
+         x="92.660156"
+         y="176.04706"
+         id="tspan14">+</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="matrix(0.66656346,0,0,0.6661591,-217.30672,-248.66454)"
+       id="text1-9-9-6-0-8-5-8"
+       style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-6-9-81-7-9);display:inline;fill:#000000;stroke:#000000;stroke-width:0.505929"><tspan
+         x="92.660156"
+         y="176.04706"
+         id="tspan15">+</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="matrix(0.33713094,0,0,0.33713094,-83.501153,-97.145427)"
+       id="text1-9-9-6-0-6-1-1"
+       style="font-size:48px;white-space:pre;shape-inside:url(#rect2-6-7-6-9-8-8-6);display:inline;fill:#000000;stroke:#000000" />
+    <path
+       style="fill:#000000;stroke:#000000;stroke-width:2;stroke-dasharray:none;marker-end:url(#DartArrow-7)"
+       d="m -204.46649,-259.83911 38.00164,0.11776"
+       id="path1-1" />
+    <path
+       style="fill:#000000;stroke:#000000;stroke-width:2;stroke-dasharray:none;marker-end:url(#DartArrow-7-3)"
+       d="m -271.97944,-237.94135 -0.11776,38.00161"
+       id="path1-1-4" />
+    <rect
+       style="fill:#999999;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+       id="rect6-3"
+       width="57.179058"
+       height="15.260207"
+       x="-264.20419"
+       y="-217.89525"
+       ry="0" />
+    <rect
+       style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+       id="rect6-0-8"
+       width="57.179058"
+       height="15.260207"
+       x="-264.20419"
+       y="-200.34467"
+       ry="0" />
+    <rect
+       style="fill:#999999;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+       id="rect6-1-0"
+       width="57.179058"
+       height="15.260207"
+       x="-204.68492"
+       y="-217.89525"
+       ry="0" />
+    <rect
+       style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+       id="rect6-0-1-5"
+       width="57.179058"
+       height="15.260207"
+       x="-204.68492"
+       y="-200.34467"
+       ry="0" />
+    <rect
+       style="fill:#999999;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+       id="rect6-1-0-6"
+       width="57.179058"
+       height="15.260207"
+       x="-145.41814"
+       y="-217.89525"
+       ry="0" />
+    <rect
+       style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+       id="rect6-0-1-5-9"
+       width="57.179058"
+       height="15.260207"
+       x="-145.41814"
+       y="-200.34467"
+       ry="0" />
+    <text
+       xml:space="preserve"
+       transform="matrix(0,0.38153402,-0.38153402,0,-155.28854,148.98612)"
+       id="text10-3-6"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:96px;font-family:ubuntu;-inkscape-font-specification:ubuntu;white-space:pre;shape-inside:url(#rect10-4-9);display:inline;fill:#000000;stroke:none;stroke-width:7.55906;stroke-dasharray:45.3543, 45.3543;stroke-dashoffset:0"><tspan
+         x="-852.48047"
+         y="224.53878"
+         id="tspan16">...</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="matrix(0,0.38153402,-0.38153402,0,181.928,148.98612)"
+       id="text10-3-6-8"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:96px;font-family:ubuntu;-inkscape-font-specification:ubuntu;white-space:pre;shape-inside:url(#rect10-4-9-7);display:inline;fill:#000000;stroke:none;stroke-width:7.55906;stroke-dasharray:45.3543, 45.3543;stroke-dashoffset:0"><tspan
+         x="-852.48047"
+         y="224.53878"
+         id="tspan17">...</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.7px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:2;stroke-dasharray:12, 12;stroke-dashoffset:0"
+       x="-249.58467"
+       y="-205.66774"
+       id="text11"><tspan
+         sodipodi:role="line"
+         id="tspan10"
+         style="font-size:12.7px;fill:#000000;stroke:none;stroke-width:2"
+         x="-249.58467"
+         y="-205.66774">Time</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.7px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:2;stroke-dasharray:12, 12;stroke-dashoffset:0"
+       x="-199.53325"
+       y="-205.41374"
+       id="text11-6"><tspan
+         sodipodi:role="line"
+         id="tspan10-2"
+         style="font-size:12.7px;fill:#000000;stroke:none;stroke-width:2"
+         x="-199.53325"
+         y="-205.41374">Variable</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.7px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:2;stroke-dasharray:12, 12;stroke-dashoffset:0"
+       x="-132.79886"
+       y="-205.41374"
+       id="text11-6-8"><tspan
+         sodipodi:role="line"
+         id="tspan10-2-2"
+         style="font-size:12.7px;fill:#000000;stroke:none;stroke-width:2"
+         x="-132.79886"
+         y="-205.41374">Value</tspan></text>
+    <rect
+       style="fill:#999999;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+       id="rect6-1-0-6-0"
+       width="57.179058"
+       height="15.260207"
+       x="-86.680634"
+       y="-217.89525"
+       ry="0" />
+    <rect
+       style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+       id="rect6-0-1-5-9-2"
+       width="57.179058"
+       height="15.260207"
+       x="-86.680634"
+       y="-200.34467"
+       ry="0" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.7px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:2;stroke-dasharray:12, 12;stroke-dashoffset:0"
+       x="-81.414658"
+       y="-205.85823"
+       id="text11-6-8-7"><tspan
+         sodipodi:role="line"
+         id="tspan10-2-2-6"
+         style="font-size:12.7px;fill:#000000;stroke:none;stroke-width:2"
+         x="-81.414658"
+         y="-205.85823">Context</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+       x="-215.51018"
+       y="-178.40891"
+       id="text11-6-0-4-2-2"
+       transform="scale(0.94039751,1.0633801)"><tspan
+         sodipodi:role="line"
+         id="tspan10-2-4-0-9-4"
+         style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+         x="-215.51018"
+         y="-178.40891">coil_MOTupper__A</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+       x="-128.93413"
+       y="-178.92596"
+       id="text11-6-0-4-2-2-1"
+       transform="scale(0.94039751,1.0633801)"><tspan
+         sodipodi:role="line"
+         id="tspan10-2-4-0-9-4-0"
+         style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+         x="-128.93413"
+         y="-178.92596">1.0</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+       x="-69.197517"
+       y="-178.92596"
+       id="text11-6-0-4-2-2-1-3"
+       transform="scale(0.94039751,1.0633801)"><tspan
+         sodipodi:role="line"
+         id="tspan10-2-4-0-9-4-0-8"
+         style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+         x="-69.197517"
+         y="-178.92596">MOT</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+       x="-255.24887"
+       y="-178.92596"
+       id="text11-6-0-4-2-2-1-9"
+       transform="scale(0.94039751,1.0633801)"><tspan
+         sodipodi:role="line"
+         id="tspan10-2-4-0-9-4-0-1"
+         style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+         x="-255.24887"
+         y="-178.92596">1.0</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="matrix(-0.38153402,0,0,-0.38153402,-319.12187,-117.22032)"
+       id="text10-3-6-7"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:96px;font-family:ubuntu;-inkscape-font-specification:ubuntu;white-space:pre;shape-inside:url(#rect10-4-9-2);display:inline;fill:#000000;stroke:none;stroke-width:7.55906;stroke-dasharray:45.3543, 45.3543;stroke-dashoffset:0"><tspan
+         x="-852.48047"
+         y="224.53878"
+         id="tspan18">...</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="matrix(-0.38153402,0,0,-0.38153402,-319.12187,-17.207805)"
+       id="text10-3-6-7-7"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:96px;font-family:ubuntu;-inkscape-font-specification:ubuntu;white-space:pre;shape-inside:url(#rect10-4-9-2-17);display:inline;fill:#000000;stroke:none;stroke-width:7.55906;stroke-dasharray:45.3543, 45.3543;stroke-dashoffset:0"><tspan
+         x="-852.48047"
+         y="224.53878"
+         id="tspan19">...</tspan></text>
+    <g
+       id="g2"
+       transform="translate(-296.86269,-93.261701)">
+      <g
+         id="g1"
+         transform="translate(-59.795834,1.8098602)">
+        <rect
+           style="fill:#999999;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+           id="rect6-1-0-6-3-2"
+           width="96.803719"
+           height="15.260207"
+           x="406.49335"
+           y="-126.44334"
+           ry="0" />
+        <rect
+           style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+           id="rect6-0-1-5-9-7-0"
+           width="96.741806"
+           height="15.260207"
+           x="406.49341"
+           y="-108.89278"
+           ry="0" />
+        <text
+           xml:space="preserve"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.7px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:2;stroke-dasharray:12, 12;stroke-dashoffset:0"
+           x="416.57294"
+           y="-115.07942"
+           id="text11-6-8-6-6"><tspan
+             sodipodi:role="line"
+             id="tspan10-2-2-1-1"
+             style="font-size:12.7px;fill:#000000;stroke:none;stroke-width:2"
+             x="416.57294"
+             y="-115.07942">Value__digits</tspan></text>
+        <text
+           xml:space="preserve"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+           x="476.2359"
+           y="-92.924812"
+           id="text11-6-0-4-2-2-1-7-5"
+           transform="scale(0.94039751,1.0633801)"><tspan
+             sodipodi:role="line"
+             id="tspan10-2-4-0-9-4-0-84-5"
+             style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+             x="476.2359"
+             y="-92.924812">3277</tspan></text>
+      </g>
+    </g>
+    <g
+       id="g3"
+       transform="translate(0,-95.250005)">
+      <rect
+         style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+         id="rect6-0-8-9"
+         width="57.179058"
+         height="15.260207"
+         x="-263.77557"
+         y="-29.78179"
+         ry="0" />
+      <rect
+         style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+         id="rect6-0-1-5-2"
+         width="57.179058"
+         height="15.260207"
+         x="-204.2563"
+         y="-29.78179"
+         ry="0" />
+      <rect
+         style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+         id="rect6-0-1-5-9-0"
+         width="57.179058"
+         height="15.260207"
+         x="-144.98952"
+         y="-29.78179"
+         ry="0" />
+      <rect
+         style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+         id="rect6-0-1-5-9-2-6"
+         width="57.179058"
+         height="15.260207"
+         x="-86.252014"
+         y="-29.78179"
+         ry="0" />
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+         x="-78.196655"
+         y="-18.529036"
+         id="text11-6-0-4-2-2-1-3-8"
+         transform="scale(0.94039751,1.0633801)"><tspan
+           sodipodi:role="line"
+           id="tspan10-2-4-0-9-4-0-8-7"
+           style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+           x="-78.196655"
+           y="-18.529036">final ramps</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+         x="-215.05438"
+         y="-18.012026"
+         id="text11-6-0-4-2-2-8"
+         transform="scale(0.94039751,1.0633801)"><tspan
+           sodipodi:role="line"
+           id="tspan10-2-4-0-9-4-9"
+           style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+           x="-215.05438"
+           y="-18.012026">coil_MOTupper__A</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+         x="-128.29256"
+         y="-18.529036"
+         id="text11-6-0-4-2-2-1-2"
+         transform="scale(0.94039751,1.0633801)"><tspan
+           sodipodi:role="line"
+           id="tspan10-2-4-0-9-4-0-6"
+           style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+           x="-128.29256"
+           y="-18.529036">0.9</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+         x="-254.79308"
+         y="-18.529039"
+         id="text11-6-0-4-2-2-1-9-6"
+         transform="scale(0.94039751,1.0633801)"><tspan
+           sodipodi:role="line"
+           id="tspan10-2-4-0-9-4-0-1-4"
+           style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+           x="-254.79308"
+           y="-18.529039">2.0</tspan></text>
+      <rect
+         style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+         id="rect6-0-8-9-5"
+         width="57.179058"
+         height="15.260207"
+         x="-263.77557"
+         y="-13.906795"
+         ry="0" />
+      <rect
+         style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+         id="rect6-0-1-5-2-9"
+         width="57.179058"
+         height="15.260207"
+         x="-204.2563"
+         y="-13.906795"
+         ry="0" />
+      <rect
+         style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+         id="rect6-0-1-5-9-0-7"
+         width="57.179058"
+         height="15.260207"
+         x="-144.98952"
+         y="-13.906795"
+         ry="0" />
+      <rect
+         style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+         id="rect6-0-1-5-9-2-6-7"
+         width="57.179058"
+         height="15.260207"
+         x="-86.252014"
+         y="-13.906795"
+         ry="0" />
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+         x="-78.196655"
+         y="-3.600224"
+         id="text11-6-0-4-2-2-1-3-8-6"
+         transform="scale(0.94039751,1.0633801)"><tspan
+           sodipodi:role="line"
+           id="tspan10-2-4-0-9-4-0-8-7-7"
+           style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+           x="-78.196655"
+           y="-3.600224">final ramps</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+         x="-215.05438"
+         y="-3.0832143"
+         id="text11-6-0-4-2-2-8-3"
+         transform="scale(0.94039751,1.0633801)"><tspan
+           sodipodi:role="line"
+           id="tspan10-2-4-0-9-4-9-6"
+           style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+           x="-215.05438"
+           y="-3.0832143">coil_MOTupper__A</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+         x="-130.13046"
+         y="-3.6002278"
+         id="text11-6-0-4-2-2-1-2-5"
+         transform="scale(0.94039751,1.0633801)"><tspan
+           sodipodi:role="line"
+           id="tspan10-2-4-0-9-4-0-6-6"
+           style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+           x="-130.13046"
+           y="-3.6002278">0.45</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+         x="-254.79308"
+         y="-3.6002278"
+         id="text11-6-0-4-2-2-1-9-6-3"
+         transform="scale(0.94039751,1.0633801)"><tspan
+           sodipodi:role="line"
+           id="tspan10-2-4-0-9-4-0-1-4-9"
+           style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+           x="-254.79308"
+           y="-3.6002278">2.1</tspan></text>
+      <rect
+         style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+         id="rect6-0-8-9-3"
+         width="57.179058"
+         height="15.260207"
+         x="-263.77557"
+         y="1.9682096"
+         ry="0" />
+      <rect
+         style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+         id="rect6-0-1-5-2-90"
+         width="57.179058"
+         height="15.260207"
+         x="-204.2563"
+         y="1.9682096"
+         ry="0" />
+      <rect
+         style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+         id="rect6-0-1-5-9-0-8"
+         width="57.179058"
+         height="15.260207"
+         x="-144.98952"
+         y="1.9682096"
+         ry="0" />
+      <rect
+         style="fill:#f9f9f9;stroke:#000000;stroke-width:1.26008;stroke-dasharray:none"
+         id="rect6-0-1-5-9-2-6-8"
+         width="57.179058"
+         height="15.260207"
+         x="-86.252014"
+         y="1.9682096"
+         ry="0" />
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+         x="-78.196655"
+         y="11.328587"
+         id="text11-6-0-4-2-2-1-3-8-5"
+         transform="scale(0.94039751,1.0633801)"><tspan
+           sodipodi:role="line"
+           id="tspan10-2-4-0-9-4-0-8-7-0"
+           style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+           x="-78.196655"
+           y="11.328587">final ramps</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+         x="-215.05438"
+         y="11.845596"
+         id="text11-6-0-4-2-2-8-9"
+         transform="scale(0.94039751,1.0633801)"><tspan
+           sodipodi:role="line"
+           id="tspan10-2-4-0-9-4-9-63"
+           style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+           x="-215.05438"
+           y="11.845596">coil_MOTupper__A</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+         x="-128.33569"
+         y="11.328586"
+         id="text11-6-0-4-2-2-1-2-8"
+         transform="scale(0.94039751,1.0633801)"><tspan
+           sodipodi:role="line"
+           id="tspan10-2-4-0-9-4-0-6-5"
+           style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+           x="-128.33569"
+           y="11.328586">0.0</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.63503px;font-family:ubuntu;-inkscape-font-specification:ubuntu;fill:#999999;stroke:#000000;stroke-width:1.8808;stroke-dasharray:11.2848, 11.2848;stroke-dashoffset:0"
+         x="-254.79308"
+         y="11.328583"
+         id="text11-6-0-4-2-2-1-9-6-6"
+         transform="scale(0.94039751,1.0633801)"><tspan
+           sodipodi:role="line"
+           id="tspan10-2-4-0-9-4-0-1-4-1"
+           style="font-size:6.63503px;fill:#000000;stroke:none;stroke-width:1.8808"
+           x="-254.79308"
+           y="11.328583">2.2</tspan></text>
+    </g>
+    <g
+       id="g4"
+       transform="translate(-7.9249326,49.035521)">
+      <rect
+         style="fill:#b3b3b3;stroke:#000000;stroke-width:2.76957;stroke-dasharray:none"
+         id="rect5"
+         width="92.843704"
+         height="42.322254"
+         x="-23.094973"
+         y="-314.00159"
+         ry="12.912575"
+         rx="12.912575" />
+      <text
+         xml:space="preserve"
+         transform="matrix(0.33713094,0,0,0.33713094,-45.955628,-353.91162)"
+         id="text1-3"
+         style="font-size:25.1139px;white-space:pre;shape-inside:url(#rect2-3);display:inline;fill:#000000;stroke:#000000"><tspan
+           x="92.660156"
+           y="155.79156"
+           id="tspan21"><tspan
+             style="font-family:ubuntu;-inkscape-font-specification:ubuntu"
+             id="tspan20">Add parameters by </tspan></tspan><tspan
+           x="92.660156"
+           y="187.75193"
+           id="tspan23"><tspan
+             style="font-family:ubuntu;-inkscape-font-specification:ubuntu"
+             id="tspan22">appending columns, </tspan></tspan><tspan
+           x="92.660156"
+           y="219.71231"
+           id="tspan25"><tspan
+             style="font-family:ubuntu;-inkscape-font-specification:ubuntu"
+             id="tspan24">e.g. conversions.</tspan></tspan></text>
+    </g>
+    <rect
+       style="fill:#b3b3b3;stroke:#000000;stroke-width:2.76957;stroke-dasharray:none"
+       id="rect5-3"
+       width="92.843704"
+       height="42.322254"
+       x="-339.99557"
+       y="-173.55952"
+       ry="12.912575"
+       rx="12.912575" />
+    <text
+       xml:space="preserve"
+       transform="matrix(0.33713094,0,0,0.33713094,-362.85624,-213.46955)"
+       id="text1-3-8"
+       style="font-size:25.1139px;white-space:pre;shape-inside:url(#rect2-3-6);display:inline;fill:#000000;stroke:#000000"><tspan
+         x="92.660156"
+         y="155.22356"
+         id="tspan26">Add operations by </tspan><tspan
+         x="92.660156"
+         y="186.61594"
+         id="tspan27">appending rows, </tspan><tspan
+         x="92.660156"
+         y="218.00832"
+         id="tspan28">e.g. ramp coils.</tspan></text>
+  </g>
+</svg>
