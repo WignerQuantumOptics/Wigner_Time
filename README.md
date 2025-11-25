@@ -4,8 +4,7 @@
 Timeline creation and management for open-loop control in AMO experiments and beyond. Keep scrolling for a quick overview.
 
 ## Status
-This is currently an alpha release. Usable, but subject to breaking changes.
-We will release the first stable version soon.
+This is currently an alpha release. Usable, but subject to breaking changes. We will release the first stable version soon.
 
 
 ## Optional dependencies (package `extras`) 
@@ -46,6 +45,8 @@ poetry run pytest
 We introduce Wigner Time, an approach and Python package for defining and
 manipulating experimental timelines in real-time open-loop control systems.
 Fundamentally, procedures are expressed functionally and implemented tabularly, such that the core timelines can be represented with in-memory databases, e.g. `pandas.DataFrame`. The associated functional-style API is clear, flexible, and integrates well with the broader scientific Python ecosystem. The package has been optimized for ADwin-based quantum-optics experiments, but is broadly applicable to any experimental domain requiring precisely timed, multi-device control.
+
+![An example timeline.](resources/timeline--example.png "A timeline generated and displayed by the package.")
 
 
 <a id="org231a69c"></a>
