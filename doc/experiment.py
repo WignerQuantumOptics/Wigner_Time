@@ -6,9 +6,9 @@ sys.path.append("..")
 import pandas as pd
 
 from munch import Munch
-from wigner_time.adwin import connection as adcon
-from wigner_time import timeline as tl
-from wigner_time import device
+from wigner.time.adwin import connection as adcon
+from wigner.time import timeline as tl
+from wigner.time import device
 
 
 connections = adcon.new(

@@ -16,11 +16,11 @@ from typing import Callable
 import pandas as pd
 
 from munch import Munch
-from wigner_time.adwin import connection as adcon
-from wigner_time import timeline as tl
-from wigner_time import device
-from wigner_time import conversion as conv
-from wigner_time import ramp_function
+from wigner.time.adwin import connection as adcon
+from wigner.time import timeline as tl
+from wigner.time import device
+from wigner.time import conversion as conv
+from wigner.time import ramp_function
 
 
 ###########################################################################
@@ -286,7 +286,7 @@ def optical_pumping(
             coil_MOTupper__A=-i,
             duration=duration__coil_ramp,
             #            fargs={"ti": pt},
-            context="OP",
+            context="optical_pumping",
             **kwargs,
         ),
         tl.update(AOM_OP=[[-0.1, 0], [duration__coil_ramp, 1], [duration__full, 0]]),
@@ -307,7 +307,7 @@ def optical_pumping(
             t=duration__full - constants.lag__repump_shutter + delay__repump,
         ),
         tl.update(AOM_repump=0, t=duration__full),
-        tl.anchor(duration__full, context="OP"),
+        tl.anchor(duration__full, context="optical_pumping"),
     )
 
 
@@ -335,9 +335,11 @@ def magnetic_trapping(
     **kwargs
 ):
     return tl.stack(
-        pull_coils(duration__initial, li, ui, context="magneticTrapping", **kwargs),
+        pull_coils(duration__initial, li, ui, context="magnetic_trapping", **kwargs),
         pull_coils(duration__strengthen, ls, us, t=duration__initial),
-        tl.anchor(duration__initial + duration__strengthen, context="magneticTrapping"),
+        tl.anchor(
+            duration__initial + duration__strengthen, context="magnetic_trapping"
+        ),
     )
 
 
