@@ -292,7 +292,7 @@ def test_rampReal():
     timeline = tl.stack(
         ex.init(),
         ex.MOT(duration=1),
-        ex.MOT_detunedGrowth(),
+        ex.MOT__detuned_growth(),
         tl.ramp(t=1, duration=0.1, lockbox_MOT__MHz=-2),
         tl.ramp(t=0.5, duration=0.1, lockbox_MOT__MHz=-1),
     )
@@ -331,7 +331,7 @@ def test_rampReal2():
     timeline = tl.stack(
         ex.init(),
         ex.MOT(duration=1),
-        ex.MOT_detunedGrowth(),
+        ex.MOT__detuned_growth(),
         tl.ramp(t=1, duration=0.1, lockbox_MOT__MHz=-2),
         tl.ramp(t=0.5, duration=0.1, lockbox_MOT__MHz=-1),
         tl.ramp(t=0.75, duration=0.1, lockbox_MOT__MHz=-5),

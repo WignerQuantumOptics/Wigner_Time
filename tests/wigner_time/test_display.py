@@ -12,7 +12,7 @@ def test_displayIndividualTypes():
     tl__new = tl.stack(
         ex.init(shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
         ex.MOT(),
-        ex.MOT_detunedGrowth(),
+        ex.MOT__detuned_growth(),
     ).drop(columns="function")
 
     adwin_display.quantities(

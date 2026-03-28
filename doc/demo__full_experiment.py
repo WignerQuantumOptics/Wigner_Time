@@ -477,14 +477,14 @@ print(prepare_atoms()[["variable", "value", "context"]])
 # TODO: (new idea)
 # Specify function and variable and the helper function will pass it on nicely?
 
-def blah(*fs, **kws):
-    names = [f.__name__ for f in fs]
-    f_k = [list(k.split("___"))+[kws[k]], for k in kws.keys()]
+# def blah(*fs, **kws):
+#     names = [f.__name__ for f in fs]
+#     f_k = [list(k.split("___"))+[kws[k]] for k in kws.keys()]
 
-    # Check that the given functions and arguments match
-    if f is not in names:
-        raise ValueError("Some keywords did not match a given function.")
+#     # Check that the given functions and arguments match
+#     if f is not in names:
+#         raise ValueError("Some keywords did not match a given function.")
 
-    # Match the given functions and kws
+#     # Match the given functions and kws
 
-    return 5
+#     return 5
