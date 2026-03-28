@@ -10,7 +10,6 @@ It is a goal to be able to go up and down through the layers of abstraction.
 """
 
 from copy import deepcopy
-import inspect
 from typing import Callable
 
 import funcy

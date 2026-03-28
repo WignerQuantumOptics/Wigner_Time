@@ -1,0 +1,26 @@
+site_name: Wigner Time
+
+theme:
+  name: material
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_submodules: true
+
+nav:
+  - Home: index.md
+  - API: api.md
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+extra:
+  version:
+    provider: mike
