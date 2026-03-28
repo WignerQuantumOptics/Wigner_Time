@@ -4,7 +4,7 @@ version = "0.9.0"
 description="Timeline creation and management for open-loop control in AMO experiments and beyond."
 authors = ["LightMatters <clark.thomaswilliam@zoho.eu>"]
 readme = "README.md"
-packages = [{include = "wigner_time"}]
+packages = [{ include = "wigner_time", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.10"
