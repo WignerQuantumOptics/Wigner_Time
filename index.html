@@ -1,0 +1,606 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+      
+        <link rel="next" href="api/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Wigner Time</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#wigner_time" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="Wigner Time" class="md-header__button md-logo" aria-label="Wigner Time" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Wigner Time
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Home
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="Wigner Time" class="md-nav__button md-logo" aria-label="Wigner Time" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Wigner Time
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optional-dependencies-package-extras" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional dependencies (package extras)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#developer-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Developer Notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optional-dependencies-package-extras" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional dependencies (package extras)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#developer-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Developer Notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="wigner_time">Wigner_Time</h1>
+<p>Timeline creation and management for open-loop control in AMO experiments and beyond. Keep scrolling for a quick overview.</p>
+<h2 id="status">Status</h2>
+<p>This is currently an alpha release. Usable, but subject to breaking changes. We will release the first stable version soon.</p>
+<h2 id="optional-dependencies-package-extras">Optional dependencies (package <code>extras</code>)</h2>
+<ul>
+<li><code>performance_and_export</code> (Recommended): Installs <code>pyarrow</code> for memory management, sharing between systems and export to <code>parquet</code>.</li>
+<li><code>display</code>: Installs <code>matplotlib</code> and <code>pyqt</code> for visualization.</li>
+<li><code>parallel_processing</code>: Installs <code>polars</code> for parallel dataframe manipulation. (WARNING: This is currently not used, but will be in the future)</li>
+</ul>
+<h2 id="developer-notes">Developer Notes</h2>
+<p>Tests can be run from the root folder with
+<div class="highlight"><pre><span></span><code>poetry<span class="w"> </span>run<span class="w"> </span>pytest
+</code></pre></div></p>
+<h1 id="getting-started">Getting Started</h1>
+<ol>
+<li><a href="#orgfb88e4f">Abstract</a></li>
+<li><a href="#org231a69c">Why not ADbasic?</a></li>
+<li><a href="#org5e1d714">Why Wigner Time?</a><ol>
+<li><a href="#org154d75b">Easy (separation of concerns)</a></li>
+<li><a href="#org2528e95">&rsquo;Simple&rsquo;</a></li>
+<li><a href="#org1877e40">Flexible</a></li>
+<li><a href="#org99c74fd">Portable</a></li>
+<li><a href="#orgb155d13">Robust</a></li>
+<li><a href="#org6bc654b">Graphical display</a></li>
+</ol>
+</li>
+<li><a href="#org95dac3d">How it works?</a></li>
+<li><a href="#orge8cea69">Example (For ADwin systems)</a></li>
+<li><a href="#orge0a7f00">Future?</a></li>
+<li><a href="#org48d7fda">Status</a></li>
+</ol>
+<p><a id="orgfb88e4f"></a></p>
+<h1 id="abstract">Abstract</h1>
+<p>We introduce Wigner Time, an approach and Python package for defining and
+manipulating experimental timelines in real-time open-loop control systems.
+Fundamentally, procedures are expressed functionally and implemented tabularly, such that the core timelines can be represented with in-memory databases, e.g. <code>pandas.DataFrame</code>. The associated functional-style API is clear, flexible, and integrates well with the broader scientific Python ecosystem. The package has been optimized for ADwin-based quantum-optics experiments, but is broadly applicable to any experimental domain requiring precisely timed, multi-device control.</p>
+<p><img alt="An example timeline." src="resources/timeline--example.png" title="A timeline generated and displayed by the package." /></p>
+<p><a id="org231a69c"></a></p>
+<h1 id="why-not-adbasic">Why not ADbasic?</h1>
+<blockquote>
+<p><strong>ADbasic</strong> combines the <strong>power and precision</strong> of a low-level programming language with the <strong>intuitive clarity</strong> of a low-level programming languge.</p>
+</blockquote>
+<p><a id="org5e1d714"></a></p>
+<h1 id="why-wigner-time">Why Wigner Time?</h1>
+<p><a id="org154d75b"></a></p>
+<h2 id="easy-separation-of-concerns">Easy (separation of concerns)</h2>
+<p>So much of physics is choosing the right level of abstraction.</p>
+<p>Wigner Time allows you to use a normal and popular programming language to design your experimental timelines, while still utilizing the low-level features of other languages when you really need it.</p>
+<p>Don&rsquo;t write ADbasic unless you need to!</p>
+<p><a id="org2528e95"></a></p>
+<h2 id="simple">&rsquo;Simple&rsquo;</h2>
+<p>Easy tools often become complicated, but Wigner Time has been carefully designed so that all conveniences are <strong>optional</strong>. You can always drop down a level of abstraction to manually implement a new feature - to the point of just adding CSV tables.</p>
+<p><a id="org1877e40"></a></p>
+<h2 id="flexible">Flexible</h2>
+<p>By using a functional, data-oriented and bottom-up programming approach to timeline creation, Wigner Time makes it very easy to add and substract changes from the timeline and so can repsond to fast-changing lab requirements.</p>
+<p><a id="org99c74fd"></a></p>
+<h2 id="portable">Portable</h2>
+<p>The essential data is always accesible and transferrable to any other language or collaborator</p>
+<ul>
+<li>even a spreadsheet!</li>
+</ul>
+<p><a id="orgb155d13"></a></p>
+<h2 id="robust">Robust</h2>
+<p>Implemented ontop of the `pandas` system, the most widely-used data science package.</p>
+<p><a id="org6bc654b"></a></p>
+<h2 id="graphical-display">Graphical display</h2>
+<p>Easily generate and investigate your timeline.</p>
+<p><a id="org95dac3d"></a></p>
+<h1 id="how-it-works">How it works?</h1>
+<p>Wigner Time is based around the idea of a &rsquo;timeline&rsquo;, which is, at heart, simply a table of rows and columns. The columns detail &rsquo;parameters&rsquo;, e.g. &rsquo;variable&rsquo; (the name of a quantity), &rsquo;time&rsquo;, &rsquo;value&rsquo;, &rsquo;context&rsquo; (a concise description of a real-world situation, e.g. &rsquo;OpticalTrap&rsquo; )</p>
+<ul>
+<li>Add more parameters by adding columns</li>
+<li>Add more operations by adding rows</li>
+</ul>
+<p>By boiling the design down to a &rsquo;table&rsquo; as the foundation, then we can benfit from decades of database development, particularly in-memory database-like systems like `pandas`. Therefore, when in doubt, the user can simply manipulate their timeline using the well-developed `pandas` ecosystem. For most operations however, even this won&rsquo;t be necessary as wigner<sub>time</sub> provides layers of conveninece functions ontop of this for designing open-loop experiments.</p>
+<p><a id="orge8cea69"></a></p>
+<h1 id="example-for-adwin-systems">Example (For ADwin systems)</h1>
+<p>You want to digitally control an optical shutter and AOM.</p>
+<p>For digital channels, simply <em>name</em> the ADwin ports using standard Python lists. These keep track of the physical connections.</p>
+<p><div class="highlight"><pre><span></span><code>    <span class="kn">from</span><span class="w"> </span><span class="nn">wigner_time.adwin</span><span class="w"> </span><span class="kn">import</span> <span class="n">connection</span> <span class="k">as</span> <span class="n">adcon</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">wigner_time</span><span class="w"> </span><span class="kn">import</span> <span class="n">device</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">wigner_time</span><span class="w"> </span><span class="kn">import</span> <span class="n">conversion</span> <span class="k">as</span> <span class="n">conv</span>
+
+    <span class="n">connections</span> <span class="o">=</span> <span class="n">adcon</span><span class="o">.</span><span class="n">new</span><span class="p">(</span>
+        <span class="p">[</span><span class="s2">&quot;shutter_MOT&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">11</span><span class="p">],</span>
+        <span class="p">[</span><span class="s2">&quot;AOM_MOT&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+</code></pre></div>
+For analogue connections, do the same, but specify a linear factor, conversion function or calibration file.</p>
+<p><div class="highlight"><pre><span></span><code>    <span class="n">devices</span> <span class="o">=</span> <span class="n">device</span><span class="o">.</span><span class="n">new</span><span class="p">(</span>
+        <span class="p">[</span><span class="s2">&quot;lockbox_MOT__MHz&quot;</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="o">-</span><span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">],</span>
+        <span class="p">[</span>
+            <span class="s2">&quot;AOM_MOT__transmission&quot;</span><span class="p">,</span>
+            <span class="n">conv</span><span class="o">.</span><span class="n">function_from_file</span><span class="p">(</span>
+                <span class="s2">&quot;resources/calibration/aom_calibration.dat&quot;</span><span class="p">,</span>
+                <span class="n">sep</span><span class="o">=</span><span class="sa">r</span><span class="s2">&quot;\s+&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="mf">0.0</span><span class="p">,</span>
+            <span class="mf">1.0</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">)</span>
+</code></pre></div>
+Specify how you want your experiment to begin and end, using readable options and user-specific keywords.</p>
+<p>N.B. The use of <em>pandas.DataFrame</em> for convenient edits.</p>
+<div class="highlight"><pre><span></span><code>    <span class="kn">import</span><span class="w"> </span><span class="nn">timeline</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">tl</span>
+
+    <span class="n">initial</span> <span class="o">=</span> <span class="n">tl</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+        <span class="n">t</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
+        <span class="n">context</span><span class="o">=</span><span class="s2">&quot;ADwin_LowInit&quot;</span><span class="p">,</span>
+
+        <span class="n">shutter_MOT</span><span class="o">=</span> <span class="mi">1</span>
+        <span class="n">AOM_MOT</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">final</span> <span class="o">=</span> <span class="n">init</span>
+    <span class="n">final</span><span class="p">[</span><span class="s1">&#39;context&#39;</span><span class="p">]</span><span class="o">=</span><span class="s2">&quot;ADwin_Finish&quot;</span>
+</code></pre></div>
+<p>And any key processes&#x2026;</p>
+<p><div class="highlight"><pre><span></span><code><span class="n">MOT</span> <span class="o">=</span> <span class="n">tl</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="n">shutter_MOT</span><span class="o">=</span> <span class="mi">0</span>
+            <span class="n">AOM_MOT</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">context</span><span class="o">=</span><span class="s2">&quot;MOT&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+<span class="n">detuned_growth</span> <span class="o">=</span> <span class="n">tl</span><span class="o">.</span><span class="n">ramp</span><span class="p">(</span>
+                    <span class="n">lockbox_MOT__MHz</span><span class="o">=-</span><span class="mi">5</span><span class="p">,</span>
+                    <span class="n">duration</span><span class="o">=</span><span class="mf">10e-3</span><span class="p">,</span>
+        <span class="p">),</span>
+</code></pre></div>
+Then combine it all together in readable and modular fashion.</p>
+<p>Due to the (hopefully) sensible defaults, each component, e.g. `ramp`, will automatically join onto the end of the previous operation in a causal chain.</p>
+<div class="highlight"><pre><span></span><code><span class="n">tline</span> <span class="o">=</span> <span class="n">tl</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+    <span class="n">initial</span><span class="p">,</span>
+    <span class="n">MOT</span><span class="p">,</span>
+    <span class="n">detuned_growth</span><span class="p">,</span>
+    <span class="n">final</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The timeline can then be exported to an ADwin-compatible format.</p>
+<div class="highlight"><pre><span></span><code>    <span class="kn">from</span><span class="w"> </span><span class="nn">wigner_time.adwin</span><span class="w"> </span><span class="kn">import</span> <span class="n">core</span> <span class="k">as</span> <span class="n">adwin</span>
+
+    <span class="n">adwin</span><span class="o">.</span><span class="n">to_data</span><span class="p">(</span><span class="n">tline</span><span class="p">)</span>
+</code></pre></div>
+<p><a id="orge0a7f00"></a></p>
+<h1 id="future">Future?</h1>
+<ul>
+<li>Official support for NI systems</li>
+<li>Graphical input</li>
+<li>Feature requests. Post an issue! </li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": [], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
