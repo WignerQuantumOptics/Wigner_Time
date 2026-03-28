@@ -35,6 +35,11 @@ def test_to_digits002(input):
     assert conv.to_digits(input[0], [-10, 10], gain=input[1]) == 2**16 - 1
 
 
+@pytest.mark.parametrize("input", [4.0, np.array([4.0])])
+def test_to_digits003(input):
+    assert conv.to_digits(input) == 45874
+
+
 def test_add_linear_conversion(df_simple):
     df_devs = device.add(
         df_simple,
@@ -135,18 +140,17 @@ def test_add(df_devs):
                 np.nan,
             ],
             [0.5, func, 67173.0],
-            [1.0, 0.333, 33858.65775],
+            [1.0, 0.333, 33859.0],
             [1.0, np.nan, np.nan],
         ],
         columns=["value", "to_V", "value__digits"],
     )
-    print(calc["value__digits"])
     # print(guess)
 
     return wt_frame.assert_equal(calc.astype({"value__digits": float}), guess)
 
 
-def test_addReal(df_simple):
+def test_addRealistic(df_simple):
     """
     A realistic use of conversion function from file.
     """

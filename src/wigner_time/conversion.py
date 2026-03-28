@@ -12,10 +12,14 @@ SPECIFICATIONS__DEFAULT = {"voltage_range": [-10.0, 10.0], "num_bits": 16, "gain
 
 def to_digits(voltage, voltage_range=[-10.0, 10.0], num_bits: int = 16, gain: int = 1):
     """
-    Transforms any voltage range linearly to analogue-digital-converter(ADC) digits.
+    Transforms any voltage linearly to analogue-digital-converter(ADC) digits.
     """
+
+    v = np.asarray(voltage, dtype=float)
     v_min, v_max = np.asarray(voltage_range) / gain
-    return int(np.round(((voltage - v_min) / (v_max - v_min)) * (2**num_bits - 1)))
+
+    result = np.round(((v - v_min) / (v_max - v_min)) * (2**num_bits - 1)).astype(int)
+    return result.item() if result.ndim == 0 else result
 
 
 def _add_linear(
@@ -61,10 +65,14 @@ def _add_function(
         else:
             dff = deepcopy(timeline)
 
+        s = dff.loc[mask].apply(
+            lambda row: row[column__conversion](row["value"]), axis=1
+        )
+
         dff.loc[mask, column__new] = to_digits(
-            dff.loc[mask].apply(
-                lambda row: row[column__conversion](row["value"]), axis=1
-            ),
+            dff.loc[mask]
+            .apply(lambda row: row[column__conversion](row["value"]), axis=1)
+            .to_numpy(dtype=float),
             **specifications,
         )
 
@@ -79,6 +87,7 @@ def add(
     column__conversion: str = "to_V",
     column__new: str = "value__digits",
 ) -> wt_frame.CLASS:
+
     if column__conversion in timeline.columns:
         dff = _add_linear(
             timeline,
@@ -115,7 +124,7 @@ def function_from_file(
     function_from_file(
         "resources/calibration/aom_calibration.dat",
         names=["voltage", "transparency"],
-        'sep=r"\s+"',
+        `sep=r"\s+"`,
     ),
     """
     # TODO: Include default 'sep' etc.
