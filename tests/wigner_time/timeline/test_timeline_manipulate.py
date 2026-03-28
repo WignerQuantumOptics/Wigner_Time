@@ -33,16 +33,40 @@ def dfseq():
     )
 
 
-# def test_stack(dfseq):
-#     tst = tl.stack(
-#         tl.create("lockbox_MOT__V", [[0.0, 0.0]]),
-#         tl.wait(5.0, "lockbox_MOT__V"),
-#         tl.ramp0(
-#             "lockbox_MOT__V", 1.0, 1.0, fargs={"time_resolution": 0.2}, duration=1.0
-#         ),
-#         # tl.wait(),  # This shouldn't do anything for a timeline of a single variable.
-#     )
-#     return frame.assert_equal(tst, dfseq)
+def test_stack(dfseq):
+    tst = tl.stack(
+        tl.create("lockbox_MOT__V", [[0.0, 0.0], [5.0, 0.0]]),
+        tl.ramp(t=5.0, lockbox_MOT__V=[0.8, 1.0]),
+        lambda tline: tl.expand(tline, time_resolution=0.2),
+    )
+    return frame.assert_equal(tst, dfseq)
+
+
+def test_stack__kws(dfseq):
+    tline = tl.create("lockbox_MOT__V", [[0.0, 0.0], [5.0, 0.0]])
+    tst = tl.stack(
+        tline,
+        tl.ramp(t=5.0, lockbox_MOT__V=[0.8, 1.0]),
+        tl.expand(time_resolution=0.2),
+        #
+        context="test",
+    )
+
+    return frame.assert_equal(
+        tst,
+        frame.new(
+            [
+                [0.0, "lockbox_MOT__V", 0.000000, ""],
+                [5.0, "lockbox_MOT__V", 0.000000, ""],
+                [5.0, "lockbox_MOT__V", 0.000000, "test"],
+                [5.2, "lockbox_MOT__V", 0.045177, "test"],
+                [5.4, "lockbox_MOT__V", 0.500000, "test"],
+                [5.6, "lockbox_MOT__V", 0.954823, "test"],
+                [5.8, "lockbox_MOT__V", 1.000000, "test"],
+            ],
+            columns=["time", "variable", "value", "context"],
+        ),
+    )
 
 
 # def test_waitVariable(df_wait):

@@ -1,5 +1,3 @@
-![Test Status](https://github.com/WignerQuantumOptics/Wigner_Time/actions/workflows/tests.yml/badge.svg)
-
 # Wigner_Time
 Timeline creation and management for open-loop control in AMO experiments and beyond. Keep scrolling for a quick overview.
 
@@ -16,12 +14,6 @@ This is currently an alpha release. Usable, but subject to breaking changes. We 
 Tests can be run from the root folder with
 ```bash
 poetry run pytest
-```
-
-and documentation can be generated locally using 
-
-``` bash
-poetry run mkdocs serve
 ```
 
 # Getting Started

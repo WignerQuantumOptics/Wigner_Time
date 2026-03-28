@@ -5,6 +5,10 @@ As well as providing conveniences, the functions can be used to document the int
 """
 
 # TODO: WIP!!!
+import inspect
+import sys
+
+sys.path.append("..")
 
 import pandas as pd
 
@@ -170,7 +174,6 @@ def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
             coil_MOTlowerPlus__A=-constants.Compensation.Z__A,
             coil_MOTupperPlus__A=constants.Compensation.Z__A,
             duration=duration,
-            context="finalRamps",
         ),
         saneState(
             f=tl.update,
@@ -234,7 +237,10 @@ def molasses(
             coil_MOTupper__A=0,  # TODO: can these be other than 0 (e.g. for more perfect compensaton?)
             duration=durationCoilRamp,
             #            fargs={"ti": coil_pt},
+<<<<<<<< HEAD:doc/experimentDemo__backup.py
             context="molasses",
+========
+>>>>>>>> fb4fffbed4ab3d4ba72613afee89a0bcbbf26290:wigner_time/internal/doc/experimentDemo.py
             **kwargs,
         ),
         tl.ramp(
@@ -246,7 +252,8 @@ def molasses(
             shutter_MOT=[duration - constants.lag_MOTshutter + delay, 0],
             AOM_MOT=[duration, 0],
         ),
-        tl.anchor(duration, context="molasses"),
+        tl.anchor(duration),
+        context="molasses",
     )
 
 
@@ -327,9 +334,10 @@ def magneticTrapping(
     **kwargs
 ):
     return tl.stack(
-        pull_coils(durationInitial, li, ui, context="magneticTrapping", **kwargs),
+        pull_coils(durationInitial, li, ui, **kwargs),
         pull_coils(durationStrengthen, ls, us, t=durationInitial),
-        tl.anchor(durationInitial + durationStrengthen, context="magneticTrapping"),
+        tl.anchor(durationInitial + durationStrengthen),
+        context="magneticTrapping",
     )
 
 
@@ -425,3 +433,30 @@ def prepareSample(
         )
 
     return tl.stack(_(), finishFunction(MOT_ON=finish_MOT_ON))
+<<<<<<<< HEAD:doc/experimentDemo__backup.py
+========
+
+
+if __name__ == "__main__":
+    from wigner_time.adwin import display
+
+    thing = tl.stack(
+        init(),
+        MOT(duration=1),
+        MOT_detunedGrowth(),
+        molasses(),
+        OP(),
+        magneticTrapping(),
+        pull_coils(50e-3, -4.1, -4.7, -0.6, -0.6),
+        finish(),
+    )
+
+    print(thing.drop(columns=["function"]).to_dict(orient="list"))
+    # print(
+    #     thing.query("time>=0 and variable=='lockbox_MOT__MHz'")[
+    #         ["time", "variable", "value", "context"]
+    #     ]
+    # )
+
+    # display.channels(thing)
+>>>>>>>> fb4fffbed4ab3d4ba72613afee89a0bcbbf26290:wigner_time/internal/doc/experimentDemo.py

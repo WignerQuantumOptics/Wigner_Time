@@ -1,0 +1,138 @@
+#+title: Wigner Time essentials
+
+** Abstract
+We introduce Wigner Time, a Python package for defining and manipulating experimen-
+tal timelines in real-time open-loop control systems [1]. Timelines are expressed as plain
+pandas.DataFrame objects, reflecting a data-oriented approach. The associated functional-
+style API is transparent, flexible, and integrates well with the broader scientific Python
+ecosystem. The package has been developed for cold-atom quantum-optics experiments,
+but is broadly applicable to any experimental domain requiring precisely timed, multi-
+channel control.
+
+** Why not ADbasic?
+#+begin_quote
+*ADbasic* combines the *power and precision* of a low-level programming language with the *intuitive clarity* of a low-level programming languge.
+#+end_quote
+** Why Wigner Time?
+*** Easy (separation of concerns)
+So much of physics is choosing the right level of abstraction.
+
+Wigner Time allows you to use a normal and popular programming language to design your experimental timelines, while still utilizing the low-level features of other languages when you really need it.
+
+Don't write ADbasic unless you need to!
+
+*** 'Simple'
+Easy tools often become complicated, but Wigner Time has been carefully designed so that all conveniences are *optional*. You can always drop down a level of abstraction to manually implement a new feature - to the point of just adding CSV tables.
+
+*** Flexible
+By using a functional, data-oriented and bottom-up programming approach to timeline creation, Wigner Time makes it very easy to add and substract changes from the timeline and so can repsond to fast-changing lab requirements.
+
+*** Portable
+The essential data is always accesible and transferrable to any other language or collaborator
+  - even a spreadsheet!
+*** Robust
+Implemented ontop of the `pandas` system, the most widely-used data science package.
+
+*** Graphical display
+Easily generate and investigate your timeline.
+
+** How it works?
+Wigner Time is based around the idea of a 'timeline', which is, at heart, simply a table of rows and columns. The columns detail 'parameters', e.g. 'variable' (the name of a quantity), 'time', 'value', 'context' (a concise description of a real-world situation, e.g. 'OpticalTrap' )
+
+- Add more parameters by adding columns
+- Add more operations by adding rows
+
+By boiling the design down to a 'table' as the foundation, then we can benfit from decades of database development, particularly in-memory database-like systems like `pandas`. Therefore, when in doubt, the user can simply manipulate their timeline using the well-developed `pandas` ecosystem. For most operations however, even this won't be necessary as wigner_time provides layers of conveninece functions ontop of this for designing open-loop experiments.
+
+** Example (For ADwin systems)
+You want to digitally control an optical shutter and AOM.
+
+For digital channels, simply /name/ the ADwin ports using standard Python lists. These keep track of the physical connections.
+
+#+begin_src python
+from wigner_time.adwin import connection as adcon
+from wigner_time import device
+from wigner_time import conversion as conv
+
+connections = adcon.new(
+    ["shutter_MOT", 1, 11],
+    ["AOM_MOT", 1, 1])
+
+#+end_src
+
+For analogue connections, do the same, but specify a linear factor, conversion function or calibration file.
+
+#+begin_src python
+devices = device.new(
+    ["lockbox_MOT__MHz", 0.05, -200, 200],
+    [
+        "AOM_MOT__transmission",
+        conv.function_from_file(
+            "resources/calibration/aom_calibration.dat",
+            sep=r"\s+",
+        ),
+        0.0,
+        1.0,
+    ],
+)
+#+end_src
+
+Specify how you want your experiment to begin and end, using readable options and user-specific keywords.
+
+N.B. The use of /pandas.DataFrame/ for convenient edits.
+
+#+begin_src python
+import timeline as tl
+
+initial = tl.create(
+    t=1e-6,
+    context="ADwin_LowInit",
+
+    shutter_MOT= 1
+    AOM_MOT=0,
+)
+final = init
+final['context']="ADwin_Finish"
+#+end_src
+
+And any key processes...
+
+#+begin_src python
+MOT = tl.update(
+            shutter_MOT= 0
+            AOM_MOT=1,
+            context="MOT",
+        )
+detuned_growth = tl.ramp(
+                    lockbox_MOT__MHz=-5,
+                    duration=10e-3,
+        ),
+#+end_src
+
+Then combine it all together in readable and modular fashion.
+
+Due to the (hopefully) sensible defaults, each component, e.g. `ramp`, will automatically join onto the end of the previous operation in a causal chain.
+#+begin_src python
+tline = tl.stack(
+    initial,
+    MOT,
+    detuned_growth,
+    final
+)
+#+end_src
+
+The timeline can then be exported to an ADwin-compatible format.
+
+#+begin_src python
+from wigner_time.adwin import core as adwin
+
+adwin.to_data(tline)
+#+end_src
+
+** Future?
+- Official support for NI systems
+- Graphical input
+
+** Status
+Version 1.0 will be released in the coming months.
+https://github.com/WignerQuantumOptics/Wigner_Time
