@@ -26,6 +26,9 @@ parallel_processing = ["polars"]
 jupyter = "^1.1.1"
 black = "^24.10.0"
 pytest = "^7.3.1"
+mkdocstrings = {version = "^1.0.3", extras = ["python"]}
+mkdocs-material = "^9.7.6"
+mike = "^2.1.4"
 
 [build-system]
 requires = ["poetry-core"]
