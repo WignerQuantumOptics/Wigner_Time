@@ -311,10 +311,9 @@ def test_fullDemo():
         ex.molasses(),
         ex.optical_pumping(),
         ex.magnetic_trapping(),
-        # ex.pull_coils(50e-3, -4.1, -4.7, -0.6, -0.6),
-        # ex.finish(),
+        ex.pull_coils(50e-3, -4.1, -4.7, -0.6, -0.6),
+        ex.finish(),
     ).drop(columns=["function"])
-    # TODO: WIP
     expected = pd.DataFrame(
         {
             "time": [
@@ -756,10 +755,10 @@ def test_fullDemo():
         }
     )
 
-    print('actual')
-    i1=50
-    i2=i1+10
-    print(actual[i1:i2])
-    print('expected')
-    print(expected[i1:i2])
+    # print("actual")
+    # i1 = 50
+    # i2 = i1 + 10
+    # print(actual[i1:i2])
+    # print("expected")
+    # print(expected[i1:i2])
     return frame.assert_equal(actual, expected)

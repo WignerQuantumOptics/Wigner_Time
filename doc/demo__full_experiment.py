@@ -337,9 +337,8 @@ def magnetic_trapping(
     return tl.stack(
         pull_coils(duration__initial, li, ui, context="magnetic_trapping", **kwargs),
         pull_coils(duration__strengthen, ls, us, t=duration__initial),
-        tl.anchor(
-            duration__initial + duration__strengthen, context="magnetic_trapping"
-        ),
+        tl.anchor(duration__initial + duration__strengthen),
+        context="magnetic_trapping",
     )
 
 
