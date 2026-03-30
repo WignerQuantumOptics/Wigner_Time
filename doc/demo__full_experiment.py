@@ -32,7 +32,6 @@ from wigner.time import ramp_function
 """
 'connections' allows us to label physical links (inputs and outputs) between devices and the timing system. By using labels that follow a particular regex, defined within the `variable` module, we can separate out the design and the implementation of our experiment.
 """
-# TODO: Should all analogue variables be Voltages here?
 connections = adcon.new(
     ["shutter_MOT", 1, 11],
     ["shutter_repump", 1, 12],
@@ -473,19 +472,59 @@ def prepare_atoms(
     return run_pipeline(stage)
 
 
-print(prepare_atoms()[["variable", "value", "context"]])
+# print(prepare_atoms()[["variable", "value", "context"]])
 
 # TODO: (new idea)
 # Specify function and variable and the helper function will pass it on nicely?
 
-# def blah(*fs, **kws):
-#     names = [f.__name__ for f in fs]
-#     f_k = [list(k.split("___"))+[kws[k]] for k in kws.keys()]
 
-#     # Check that the given functions and arguments match
-#     if f is not in names:
-#         raise ValueError("Some keywords did not match a given function.")
+def blah(*fs, **kws):
+    """
+    Create an arbitary stack of functions while providing an arbitrary number of keywords.
+    """
+    f_names = [f.__name__ for f in fs]
 
-#     # Match the given functions and kws
+    # Create function-specific keywords
+    result = []
+    for k in kws.keys():
+        for fname in sorted(f_names, key=len, reverse=True):
+            if fname in k:
+                result.append([fname, k.split(fname, 1)[1].lstrip("_"), kws[k]])
+                break
 
-#     return 5
+    args__dict = {}
+    for k, subk, v in result:
+        args__dict.setdefault(k, {})[subk] = v
+    # print(args__dict)
+
+    # # Apply keywords to function stack
+    lambdas = []
+    for f in fs:
+        args = args__dict[f.__name__]
+        lambdas.append(f(**args))
+        # lambdas.append(lambda ff=f, kws=args: ff(**kws))
+
+    return tl.stack(*lambdas)
+
+
+blah(
+    init,
+    MOT,
+    MOT__detuned_growth,
+    #
+    init_MOT_ON=False,
+    MOT_duration=10,
+    MOT__detuned_growth_duration=0.1,
+    molasses_duration=4.5e-3,
+)[["variable", "value", "context"]]
+
+
+# fnames = ["MOT", "MOT_Delta"]
+# ks = ["MOT_duration", "MOT_Delta_duration", "molasses_duration"]
+# result = []
+# for k in ks:
+#     for fname in sorted(fnames, key=len, reverse=True):
+#         if fname in k:
+#             result.append([fname, k.split(fname, 1)[1].lstrip("_")])
+#             break
+# print(result)
