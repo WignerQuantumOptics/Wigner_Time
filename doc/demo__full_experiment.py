@@ -4,12 +4,8 @@ An example implementation of a real experiment, using 'Wigner Time' timelines.
 As well as providing conveniences, the functions can be used to document the intention and meaning of each stage.
 """
 
-# TODO: WIP!!!
-# TODO: buzz words: extensibility. flexibility and composability
-# TODO: We should use readable variable names (in general too, but this is a demo)
 # TODO:
 # - Should probably have some imaging in here?
-# - Should go all the way to generating a full timeline (adding connections, devices etc.)
 
 
 from typing import Callable
@@ -164,8 +160,6 @@ def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
     duration = 1e-2
     # TODO:
     # - The default_state function should be used to populate the ramp?
-    # - check if the second context is needed
-    # - check if the anchor is needed
     return tl.stack(
         tl.anchor(wait, context="finalRamps"),
         tl.ramp(
@@ -238,7 +232,7 @@ def molasses(
     return tl.stack(
         tl.ramp(
             coil_MOTlower__A=0,
-            coil_MOTupper__A=0,  # TODO: can these be other than 0 (e.g. for more perfect compensaton?)
+            coil_MOTupper__A=0,
             duration=durationCoilRamp,
             #            fargs={"ti": coil_pt},
             context="molasses",
@@ -345,142 +339,11 @@ def MOT_off(**kwargs):
     return tl.update(shutter_MOT=0, AOM_MOT=0, shutter_repump=0, AOM_repump=0, **kwargs)
 
 
-[
-    # MOT
-    Munch(
-        duration=15,
-        lA=-1.0,
-        uA=-0.98,
-    ),
-    # MOT detuned
-    Munch(
-        duration=0.1,
-        durationRamp=1e-2,
-        toMHz=-5,  # pt=3,
-    ),
-    # molasses
-    Munch(
-        duration=4.5e-3,
-        durationCoilRamp=9e-4,
-        durationLockboxRamp=1e-3,
-        toMHz=-90,
-        delay=-200e-6,
-    ),
-    # optical pumping
-    Munch(
-        durationExposition=80e-6,
-        durationCoilRamp=500e-6,
-        i=-0.12,
-        delay1=-350e-6,
-        delay2=450e-6,
-        delayRepump=0,
-        wait=1e-3,
-    ),
-    Munch(
-        durationInitial=50e-6,
-        li=-1.8,
-        ui=-1.7,
-        durationStrengthen=3e-3,
-        ls=-4.8,
-        us=-4.7,
-    ),
-]
-
-
-def prepare_atoms(
-    stage="finish",
-    # Basic setup
-    init: Callable = init,
-    init_MOT_ON=True,
-    finish: Callable = finish,
-    finish_MOT_ON=True,
-    # MOT stage
-    MOT_duration=15,
-    MOT_lA=-1.0,
-    MOT_uA=-0.98,
-    # MOT detuned stage
-    MOT_Delta_duration=0.1,
-    MOT_Delta_durationRamp=1e-2,
-    MOT_Delta_toMHz=-5,  # pt=3,
-    # molasses stage
-    molasses_duration=4.5e-3,
-    molasses_durationCoilRamp=9e-4,
-    molasses_durationLockboxRamp=1e-3,
-    molasses_toMHz=-90,
-    molasses_delay=-200e-6,
-    # OP stage
-    OP_durationExposition=80e-6,
-    OP_durationCoilRamp=500e-6,
-    OP_i=-0.12,
-    OP_delay1=-350e-6,
-    OP_delay2=450e-6,
-    OP_delayRepump=0,
-    OP_wait=1e-3,
-    # magnetic trapping stage
-    MT_durationInitial=50e-6,
-    MT_li=-1.8,
-    MT_ui=-1.7,
-    MT_durationStrengthen=3e-3,
-    MT_ls=-4.8,
-    MT_us=-4.7,
-):
-    def pipeline():
-        yield "init", init(MOT_ON=init_MOT_ON)
-        yield "MOT", MOT(MOT_duration, MOT_lA, MOT_uA)
-        yield "MOT_delta", MOT__detuned_growth(
-            MOT_Delta_duration,
-            MOT_Delta_durationRamp,
-            MOT_Delta_toMHz,
-        )
-        yield "molasses", molasses(
-            molasses_duration,
-            molasses_durationCoilRamp,
-            molasses_durationLockboxRamp,
-            molasses_toMHz,
-            molasses_delay,
-        )
-        yield "optical_pump", optical_pumping(
-            OP_durationExposition,
-            OP_durationCoilRamp,
-            OP_i,
-            OP_delay1,
-            OP_delay2,
-            OP_delayRepump,
-        )
-        yield "magnetic_trap", tl.stack(
-            tl.anchor(OP_wait, context="OP_wait"),
-            magnetic_trapping(
-                MT_durationInitial, MT_li, MT_ui, MT_durationStrengthen, MT_ls, MT_us
-            ),
-        )
-        yield "finish", finish(MOT_ON=finish_MOT_ON)
-
-    def run_pipeline(stage=None):
-        tline = None
-        for s, f in pipeline():
-            if callable(f):
-                tline = f(tline)
-            else:
-                tline = f
-            if s == stage:
-                if s in ["MOT", "MOT_delta"]:
-                    return MOT_off(timeline=tline)
-                else:
-                    return tline
-        return tline
-
-    return run_pipeline(stage)
-
-
-# print(prepare_atoms()[["variable", "value", "context"]])
-
-# TODO: (new idea)
-# Specify function and variable and the helper function will pass it on nicely?
-
-
 def stack__flexible(*fs, **kws):
     """
-    Create an arbitary stack of functions while providing an arbitrary number of keywords.
+    Create an arbitary stack of functions while providing an arbitrary selection of associated keywords.
+
+    This makes it easy without manually creating the underlying conversion functions.
     """
     f_names = [f.__name__ for f in fs]
 
@@ -507,23 +370,45 @@ def stack__flexible(*fs, **kws):
     return tl.stack(*lambdas)
 
 
-stack__flexible(
+sf = stack__flexible(
     init,
     MOT,
     MOT__detuned_growth,
+    molasses,
+    optical_pumping,
+    magnetic_trapping,
+    finish,
     #
-    # MOT_duration=10,
+    # KW args
+    # Basic setup
+    init_MOT_ON=True,
+    finish_MOT_ON=True,
+    # MOT stage
+    MOT_duration=15,
+    MOT_lA=-1.0,
+    MOT_uA=-0.98,
+    # MOT detuned stage
     MOT__detuned_growth_duration=0.1,
+    MOT__detuned_growth_duration__ramp=1e-2,
+    MOT__detuned_growth_detuning__MHz=-5,  # pt=3,
+    # molasses stage
     molasses_duration=4.5e-3,
-)[["variable", "value", "context"]]
-
-
-# fnames = ["MOT", "MOT_Delta"]
-# ks = ["MOT_duration", "MOT_Delta_duration", "molasses_duration"]
-# result = []
-# for k in ks:
-#     for fname in sorted(fnames, key=len, reverse=True):
-#         if fname in k:
-#             result.append([fname, k.split(fname, 1)[1].lstrip("_")])
-#             break
-# print(result)
+    molasses_durationCoilRamp=9e-4,
+    molasses_durationLockboxRamp=1e-3,
+    molasses_toMHz=-90,
+    molasses_delay=-200e-6,
+    # OP stage
+    optical_pumping_duration__exposition=80e-6,
+    optical_pumping_duration__coil_ramp=500e-6,
+    optical_pumping_i=-0.12,
+    optical_pumping_delay1=-350e-6,
+    optical_pumping_delay2=450e-6,
+    optical_pumping_delay__repump=0,
+    # magnetic trapping stage
+    magnetic_trapping_duration__initial=50e-6,
+    magnetic_trapping_li=-1.8,
+    magnetic_trapping_ui=-1.7,
+    magnetic_trapping_duration__strengthen=3e-3,
+    magnetic_trapping_ls=-4.8,
+    magnetic_trapping_us=-4.7,
+)[["time", "variable", "value", "context"]]
