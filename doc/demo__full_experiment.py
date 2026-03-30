@@ -478,7 +478,7 @@ def prepare_atoms(
 # Specify function and variable and the helper function will pass it on nicely?
 
 
-def blah(*fs, **kws):
+def stack__flexible(*fs, **kws):
     """
     Create an arbitary stack of functions while providing an arbitrary number of keywords.
     """
@@ -500,20 +500,19 @@ def blah(*fs, **kws):
     # # Apply keywords to function stack
     lambdas = []
     for f in fs:
-        args = args__dict[f.__name__]
+        args = args__dict.get(f.__name__, {})
         lambdas.append(f(**args))
         # lambdas.append(lambda ff=f, kws=args: ff(**kws))
 
     return tl.stack(*lambdas)
 
 
-blah(
+stack__flexible(
     init,
     MOT,
     MOT__detuned_growth,
     #
-    init_MOT_ON=False,
-    MOT_duration=10,
+    # MOT_duration=10,
     MOT__detuned_growth_duration=0.1,
     molasses_duration=4.5e-3,
 )[["variable", "value", "context"]]
