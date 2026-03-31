@@ -16,4 +16,4 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 wtlog = logging.getLogger("wtlog")
-wtlog.setLevel(logging.DEBUG)
+wtlog.setLevel(logging.WARNING)

@@ -116,7 +116,7 @@ def test_cascade():
                 [-1e-06, "shutter_OP002", 1.0, "ADwin_LowInit"],
                 [-1e-06, "shutter_science", 0.0, "ADwin_LowInit"],
                 [-1e-06, "shutter_transversePump", 0.0, "ADwin_LowInit"],
-                [-1e-06, "AOM_science__V", 5.0, "ADwin_LowInit"],
+                [-1e-06, "AOM_science__trans", 1.0, "ADwin_LowInit"],
                 [-1e-06, "trigger_TC__V", 0.0, "ADwin_LowInit"],
                 [0.0, "shutter_MOT", 1.0, "MOT"],
                 [0.0, "shutter_repump", 1.0, "MOT"],

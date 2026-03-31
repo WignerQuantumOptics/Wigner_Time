@@ -8,11 +8,9 @@ As well as providing conveniences, the functions can be used to document the int
 # - Should probably have some imaging in here?
 
 
-from typing import Callable
-import pandas as pd
-
 from munch import Munch
 from wigner.time.adwin import connection as adcon
+from wigner.time.adwin import core as adwin
 from wigner.time import timeline as tl
 from wigner.time import device
 from wigner.time import conversion as conv
@@ -47,7 +45,7 @@ connections = adcon.new(
     ["lockbox_MOT__MHz", 3, 8],
     ["trigger_TC__V", 3, 1],
     ["AOM_science", 1, 4],
-    ["AOM_science__V", 4, 8],
+    ["AOM_science__trans", 4, 8],
 )
 
 """
@@ -133,7 +131,7 @@ def default_state(f=tl.create, MOT_ON=True, **kwargs):
             shutter_OP002=1,
             shutter_science=0,
             shutter_transversePump=0,
-            AOM_science__V=5.0,
+            AOM_science__trans=1.0,
             trigger_TC__V=0.0,
             **kwargs,
         )
@@ -383,4 +381,9 @@ timeline__demo = tl.cascade(
     magnetic_trapping_us=-4.7,
 )
 
-print(timeline__demo[["time", "variable", "value", "context"]])
+
+# machine = adwin.create(timeline__demo, connections, devices)
+# machine.Start_Process(1)
+
+# NOTE:
+# ^^^ The above is commented out for the sake of automated testing on machines without ADwin drivers.

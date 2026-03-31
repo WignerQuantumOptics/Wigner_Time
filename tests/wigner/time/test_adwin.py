@@ -5,11 +5,10 @@ import pandas as pd
 
 import wigner.time.adwin as wt_adwin
 
-from wigner.time import config as wt_config
 from wigner.time.adwin import core as adwin
 from wigner.time.adwin import connection as adcon
 from wigner.time.adwin import validate as wt_validate
-from wigner.time import conversion as conv
+from wigner.time.adwin import internal as adi
 from wigner.time import device
 from wigner.time import timeline as tl
 from wigner.time.internal import dataframe as frame
@@ -61,7 +60,7 @@ def test_add_cycle():
     df["context"] = (
         ["MOT"] * 4 + ["ADwin_LowInit"] * 3 + ["ADwin_Init"] * 2 + ["ADwin_Finish"]
     )
-    tst = frame.cast(adwin.add_cycle(df), wt_adwin.SCHEMA)
+    tst = frame.cast(adi.add_cycle(df), wt_adwin.SCHEMA)
 
     return pd.testing.assert_frame_equal(
         tst,
@@ -196,7 +195,7 @@ def test_sanitize_success():
     )
 
 
-def test_to_data():
+def test_convert():
     connections = adcon.new(
         ["shutter_MOT", 1, 11],
         ["lockbox_MOT__MHz", 3, 8],
@@ -207,7 +206,7 @@ def test_to_data():
         ["lockbox_MOT__MHz", 0.05],
     )
 
-    tuples = adwin.to_data(
+    tuples = adwin.convert(
         tl.stack(
             tl.create(
                 lockbox_MOT__MHz=0.0,

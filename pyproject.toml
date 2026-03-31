@@ -13,12 +13,14 @@ funcy = "^2.0"
 pandas = "^2.2"
 scipy = "^1.14"
 
+ADwin = {version="^0.20", optional=true}
 pyarrow = {version="^19", optional=true}
 matplotlib = {version="^3.7.1", optional=true}
 pyqt6 = {version="^6.5.0", optional=true}
 polars = {version="^0.20.21", optional=true}
 
 [tool.poetry.extras]
+adwin = ["ADwin"]
 performance_and_export = ["pyarrow"]
 display = ["matplotlib", "pyqt6"]
 parallel_processing = ["polars"]
