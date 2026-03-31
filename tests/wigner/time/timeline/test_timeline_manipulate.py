@@ -1,7 +1,12 @@
+import pathlib as pl
+import sys
 import pytest
 
 from wigner.time import timeline as tl
 from wigner.time.internal import dataframe as frame
+
+sys.path.append(str(pl.Path.cwd() / "doc"))
+import demo__full_experiment as ex
 
 
 # @pytest.fixture
@@ -63,6 +68,61 @@ def test_stack__kws(dfseq):
                 [5.4, "lockbox_MOT__V", 0.500000, "test"],
                 [5.6, "lockbox_MOT__V", 0.954823, "test"],
                 [5.8, "lockbox_MOT__V", 1.000000, "test"],
+            ],
+            columns=["time", "variable", "value", "context"],
+        ),
+    )
+
+
+print(
+    tl.cascade(
+        ex.init,
+        ex.MOT,
+        #
+        MOT_duration=5.0,
+        MOT_lA=-1.0,
+        MOT_uA=-0.98,
+        molasses_duration=5.0,
+    ).to_numpy()
+)
+
+
+def test_cascade():
+    frame.assert_equal(
+        tl.cascade(
+            ex.init,
+            ex.MOT,
+            #
+            MOT_duration=5.0,
+            MOT_lA=-1.0,
+            MOT_uA=-0.98,
+            molasses_duration=5.0,
+        ),
+        frame.new(
+            [
+                [-1e-06, "lockbox_MOT__MHz", 0.0, "ADwin_LowInit"],
+                [-1e-06, "coil_compensationX__A", 0.25, "ADwin_LowInit"],
+                [-1e-06, "coil_compensationY__A", 1.5, "ADwin_LowInit"],
+                [-1e-06, "coil_MOTlowerPlus__A", 0.1, "ADwin_LowInit"],
+                [-1e-06, "coil_MOTupperPlus__A", -0.1, "ADwin_LowInit"],
+                [-1e-06, "AOM_MOT", 1.0, "ADwin_LowInit"],
+                [-1e-06, "AOM_repump", 1.0, "ADwin_LowInit"],
+                [-1e-06, "AOM_OPaux", 0.0, "ADwin_LowInit"],
+                [-1e-06, "AOM_OP", 1.0, "ADwin_LowInit"],
+                [-1e-06, "AOM_science", 1.0, "ADwin_LowInit"],
+                [-1e-06, "shutter_MOT", 0.0, "ADwin_LowInit"],
+                [-1e-06, "shutter_repump", 0.0, "ADwin_LowInit"],
+                [-1e-06, "shutter_OP001", 0.0, "ADwin_LowInit"],
+                [-1e-06, "shutter_OP002", 1.0, "ADwin_LowInit"],
+                [-1e-06, "shutter_science", 0.0, "ADwin_LowInit"],
+                [-1e-06, "shutter_transversePump", 0.0, "ADwin_LowInit"],
+                [-1e-06, "AOM_science__V", 5.0, "ADwin_LowInit"],
+                [-1e-06, "trigger_TC__V", 0.0, "ADwin_LowInit"],
+                [0.0, "shutter_MOT", 1.0, "MOT"],
+                [0.0, "shutter_repump", 1.0, "MOT"],
+                [0.0, "coil_MOTlower__A", -1.0, "MOT"],
+                [0.0, "coil_MOTupper__A", -0.98, "MOT"],
+                [5.0, "⚓_001", 0.0, "MOT"],
             ],
             columns=["time", "variable", "value", "context"],
         ),

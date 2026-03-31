@@ -18,7 +18,6 @@ from wigner.time import device
 from wigner.time import conversion as conv
 from wigner.time import ramp_function
 
-
 ###########################################################################
 #                       Constants and Helpers                             #
 ###########################################################################
@@ -53,6 +52,8 @@ connections = adcon.new(
 
 """
 'devices' stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable.
+
+These specifications are deliberately separated from `connection`s because they represent physical properties and conversions that are independent of the particular DAC wiring.
 """
 devices = device.new(
     ["coil_compensationX__A", 1 / 3.0, -3, 3],
@@ -339,38 +340,7 @@ def MOT_off(**kwargs):
     return tl.update(shutter_MOT=0, AOM_MOT=0, shutter_repump=0, AOM_repump=0, **kwargs)
 
 
-def stack__flexible(*fs, **kws):
-    """
-    Create an arbitary stack of functions while providing an arbitrary selection of associated keywords.
-
-    This makes it easy without manually creating the underlying conversion functions.
-    """
-    f_names = [f.__name__ for f in fs]
-
-    # Create function-specific keywords
-    result = []
-    for k in kws.keys():
-        for fname in sorted(f_names, key=len, reverse=True):
-            if fname in k:
-                result.append([fname, k.split(fname, 1)[1].lstrip("_"), kws[k]])
-                break
-
-    args__dict = {}
-    for k, subk, v in result:
-        args__dict.setdefault(k, {})[subk] = v
-    # print(args__dict)
-
-    # # Apply keywords to function stack
-    lambdas = []
-    for f in fs:
-        args = args__dict.get(f.__name__, {})
-        lambdas.append(f(**args))
-        # lambdas.append(lambda ff=f, kws=args: ff(**kws))
-
-    return tl.stack(*lambdas)
-
-
-sf = stack__flexible(
+timeline__demo = tl.cascade(
     init,
     MOT,
     MOT__detuned_growth,
@@ -411,4 +381,6 @@ sf = stack__flexible(
     magnetic_trapping_duration__strengthen=3e-3,
     magnetic_trapping_ls=-4.8,
     magnetic_trapping_us=-4.7,
-)[["time", "variable", "value", "context"]]
+)
+
+print(timeline__demo[["time", "variable", "value", "context"]])

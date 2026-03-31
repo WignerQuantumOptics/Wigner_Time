@@ -418,6 +418,46 @@ def stack(
         )
 
 
+def cascade(*fs, **kws):
+    """
+    Similarly to `stack`, a convenience that combines an arbitrary chain of functions with an arbitrary selection of associated keywords.
+
+    Currently, `kws` are passed to the associated functions by prefixing, e.g. `cascade(MOT, molasses,  MOT_duration=1.0)` creates a `stack` of `MOT` and `molasses`, with `duration=1.0` passed into the `MOT` function before evaluation.
+
+    The motivation for this feature is that different experimental contexts should be built modularly, but, at final composition, the user often just wants a single point of contact to add/change nested variables.
+
+    WARNING: API is not settled; may get combined with `stack` in the next release.
+    """
+    # TODO:
+    # - Combine with `stack`?
+    # - Consider alternative names: 'compose'?
+    # - Consider nested dictionaries instead of prefixed keywords?
+    #
+    f_names = [f.__name__ for f in fs]
+
+    # Create function-specific keywords
+    result = []
+    for k in kws.keys():
+        for fname in sorted(f_names, key=len, reverse=True):
+            if fname in k:
+                result.append([fname, k.split(fname, 1)[1].lstrip("_"), kws[k]])
+                break
+
+    args__dict = {}
+    for k, subk, v in result:
+        args__dict.setdefault(k, {})[subk] = v
+    # print(args__dict)
+
+    # # Apply keywords to function stack
+    lambdas = []
+    for f in fs:
+        args = args__dict.get(f.__name__, {})
+        lambdas.append(f(**args))
+        # lambdas.append(lambda ff=f, kws=args: ff(**kws))
+
+    return stack(*lambdas)
+
+
 def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Callable:
     """
     Converts the functions marked in the timeline into individual rows, i.e. applies the functions to the given data.
