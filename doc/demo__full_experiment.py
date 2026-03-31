@@ -9,8 +9,10 @@ As well as providing conveniences, the functions can be used to document the int
 
 
 from munch import Munch
+
 from wigner.time.adwin import connection as adcon
 from wigner.time.adwin import core as adwin
+from wigner.time import file as wtf
 from wigner.time import timeline as tl
 from wigner.time import device
 from wigner.time import conversion as conv
@@ -380,6 +382,9 @@ timeline__demo = tl.cascade(
     magnetic_trapping_ls=-4.8,
     magnetic_trapping_us=-4.7,
 )
+
+
+wtf.save(timeline__demo)
 
 
 # machine = adwin.create(timeline__demo, connections, devices)

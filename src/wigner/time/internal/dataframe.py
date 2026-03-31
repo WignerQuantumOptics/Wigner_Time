@@ -178,6 +178,26 @@ def for_input(df):
     return source
 
 
+def read_pickle(path):
+    return pd.read_pickle(path)
+
+
+def read_csv(path):
+    return pd.read_csv(path)
+
+
+def read_json(path):
+    return pd.read_json(path)
+
+
+def read_parquet(path):
+    return pd.read_parquet(path)
+
+
+def read_feather(path):
+    return pd.read_feather(path)
+
+
 # ============================================================
 # TESTS
 # ============================================================
