@@ -4,8 +4,7 @@ from wigner.time.adwin import display as adwin_display
 import sys
 import pathlib as pl
 
-sys.path.append(str(pl.Path.cwd() / "doc"))
-import demo__full_experiment as ex
+from wigner.time.demo import full_experiment as ex
 
 
 def test_displayIndividualTypes():

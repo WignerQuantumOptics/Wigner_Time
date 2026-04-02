@@ -5,16 +5,7 @@ from wigner.time import timeline as tl
 from wigner.time import anchor as anchor
 from wigner.time.internal import dataframe as frame
 
-import pathlib as pl
-import sys
-
-
-sys.path.append(str(pl.Path.cwd() / "doc"))
-import demo__full_experiment as ex
-
-
-# import importlib
-# importlib.reload(ex)
+from wigner.time.demo import full_experiment as ex
 from wigner.time.adwin import display as adwin_display
 
 

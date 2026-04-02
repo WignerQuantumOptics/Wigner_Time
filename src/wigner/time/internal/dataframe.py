@@ -199,6 +199,16 @@ def read_feather(path):
 
 
 # ============================================================
+# PREDICATES
+# ============================================================
+def is_column_string(col):
+    """
+    Does the selected column only contain strings?
+    """
+    return col.dtype == "string" or bool(col.map(lambda x: isinstance(x, str)).all())
+
+
+# ============================================================
 # TESTS
 # ============================================================
 def assert_equal(df1, df2):

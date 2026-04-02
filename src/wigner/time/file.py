@@ -4,6 +4,8 @@ For PC-level loading and saving of stored timelines.
 
 from pathlib import Path
 from typing import Callable
+from typing import Any
+
 import inspect
 import importlib.util
 import re
@@ -24,9 +26,6 @@ def _available_writers() -> dict[str, Callable[[wt_frame.CLASS, Path], None]]:
 
     if _has_module("pyarrow"):
         writers[".feather"] = lambda df, p: df.to_feather(p)
-
-    if _has_module("openpyxl") or _has_module("xlsxwriter"):
-        writers[".xlsx"] = lambda df, p: df.to_excel(p, index=False)
 
     return writers
 
@@ -92,6 +91,37 @@ def _has_module(name: str) -> bool:
     return importlib.util.find_spec(name) is not None
 
 
+def _stringify_callables_for_export(df: wt_frame.CLASS, suffix: str) -> wt_frame.CLASS:
+    """
+    Return a dataframe suitable for export.
+
+    For formats that do not support arbitrary Python objects, any callable values
+    are converted to strings. Pickle-like formats are left unchanged.
+    """
+    # Pickle can preserve Python callables/objects as-is.
+    if suffix in {".pkl", ".pickle"}:
+        return df
+
+    def _stringify_if_callable(value: Any) -> Any:
+        if callable(value):
+            try:
+                return f"{value.__module__}.{value.__qualname__}"
+            except Exception:
+                return repr(value)
+        return value
+
+    # Work on a copy so the original dataframe is not mutated.
+    out = df.copy()
+
+    # Only touch columns that actually contain callables.
+    for col in out.columns:
+        series = out[col]
+        if series.map(callable).any():
+            out[col] = series.map(_stringify_if_callable)
+
+    return out
+
+
 def save(df: wt_frame.CLASS, path: str | Path | None = None) -> Path:
     """
     Writes the given timeline to file, according to convenient features.
@@ -113,7 +143,7 @@ def save(df: wt_frame.CLASS, path: str | Path | None = None) -> Path:
 
         Supported suffixes
         ------------------
-    .parquet, .feather, .pickle, .csv, .json
+        .parquet, .feather, .pickle, .csv, .json
     """
     if path is None:
         path = Path.cwd()
@@ -121,10 +151,6 @@ def save(df: wt_frame.CLASS, path: str | Path | None = None) -> Path:
 
     writers = _available_writers()
 
-    # Determine whether the user supplied a directory path.
-    # Treat as directory if:
-    # - it exists and is a directory, or
-    # - it has no suffix and either exists as a dir or ends with a separator-like intent
     is_existing_dir = path.exists() and path.is_dir()
     looks_like_dir = str(path).endswith(("/", "\\")) or (
         not path.suffix and not path.exists()
@@ -133,12 +159,29 @@ def save(df: wt_frame.CLASS, path: str | Path | None = None) -> Path:
     if is_existing_dir or looks_like_dir:
         path.mkdir(parents=True, exist_ok=True)
         stem = _infer_caller_name(df) or "timeline"
-        ext = ".parquet" if ".parquet" in writers else ".pkl"
+
+        if ".parquet" in writers:
+            ext = ".parquet"
+        elif ".pkl" in writers:
+            ext = ".pkl"
+        elif ".pickle" in writers:
+            ext = ".pickle"
+        else:
+            # Fallback to the first available writer if needed
+            ext = next(iter(writers))
+
         path = path / f"{_sanitize_stem(stem)}{ext}"
 
     elif not path.suffix:
-        # No suffix supplied for a file path
-        ext = ".parquet" if ".parquet" in writers else ".pkl"
+        if ".parquet" in writers:
+            ext = ".parquet"
+        elif ".pkl" in writers:
+            ext = ".pkl"
+        elif ".pickle" in writers:
+            ext = ".pickle"
+        else:
+            ext = next(iter(writers))
+
         path = path.with_suffix(ext)
 
     suffix = path.suffix.lower()
@@ -152,7 +195,8 @@ def save(df: wt_frame.CLASS, path: str | Path | None = None) -> Path:
     path = _next_available_path(path)
 
     writer = writers[suffix]
-    writer(df, path)
+    export_df = _stringify_callables_for_export(df, suffix)
+    writer(export_df, path)
 
     return path
 

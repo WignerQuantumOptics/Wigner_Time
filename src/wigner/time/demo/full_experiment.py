@@ -229,6 +229,9 @@ def molasses(
     delay=0,  # arbitrary delay to shutter for ad hoc compensation of small drifts
     **kwargs
 ):
+    """
+    For slowing down the atoms by creating an optical density.
+    """
 
     return tl.stack(
         tl.ramp(
@@ -267,10 +270,9 @@ def optical_pumping(
     NOTE:
     The AOM is switched off close to, but before, the opening of the first shutter
 
-    TODO:
+    WARNING:
     Shutters are reinitialized so that additional optical pumping stages can be added later.
     However, this should probably be factorized out.
-
     """
 
     duration__full = duration__exposition + duration__coil_ramp
@@ -306,6 +308,9 @@ def optical_pumping(
 
 
 def pull_coils(duration, l, u, lp=0, up=0, pt=3, **kwargs):
+    """
+    Controls the concentric coil pairs responsible for 'pulling' the atoms.
+    """
     return tl.ramp(
         coil_MOTlower__A=l,
         coil_MOTupper__A=u,
@@ -328,6 +333,9 @@ def magnetic_trapping(
     us=-4.7,
     **kwargs
 ):
+    """
+    Does what it says on the tin.
+    """
     return tl.stack(
         pull_coils(duration__initial, li, ui, context="magnetic_trapping", **kwargs),
         pull_coils(duration__strengthen, ls, us, t=duration__initial),
@@ -384,7 +392,7 @@ timeline__demo = tl.cascade(
 )
 
 
-wtf.save(timeline__demo)
+# wtf.save(timeline__demo)
 
 
 # machine = adwin.create(timeline__demo, connections, devices)

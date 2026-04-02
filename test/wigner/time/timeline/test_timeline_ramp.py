@@ -9,8 +9,7 @@ from wigner.time.internal import dataframe as wt_frame
 import pathlib as pl
 import sys
 
-sys.path.append(str(pl.Path.cwd() / "doc"))
-import demo__full_experiment as ex
+from wigner.time.demo import full_experiment as ex
 
 
 @pytest.fixture
