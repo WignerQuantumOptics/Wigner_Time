@@ -77,4 +77,4 @@ def test_save_load__increment_name(timeline__demo):
     file.save(timeline__demo)
     t3 = Path("timeline__demo__003.parquet").exists()
 
-    assert t1 and t2
+    assert t1 and t2 and t3
