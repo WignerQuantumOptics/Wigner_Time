@@ -71,10 +71,10 @@ def test_save_load__types_with_functions(fname, timeline__demo__function):
 
 def test_save_load__increment_name(timeline__demo):
     file.save(timeline__demo)
-    t1 = Path.exists("timeline__demo.parquet")
+    t1 = Path("timeline__demo.parquet").exists()
     file.save(timeline__demo)
-    t2 = Path.exists("timeline__demo__002.parquet")
+    t2 = Path("timeline__demo__002.parquet").exists()
     file.save(timeline__demo)
-    t3 = Path.exists("timeline__demo__003.parquet")
+    t3 = Path("timeline__demo__003.parquet").exists()
 
     assert t1 and t2
