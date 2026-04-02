@@ -391,10 +391,7 @@ timeline__demo = tl.cascade(
     magnetic_trapping_us=-4.7,
 )
 
-
 # wtf.save(timeline__demo)
-
-
 # machine = adwin.create(timeline__demo, connections, devices)
 # machine.Start_Process(1)
 

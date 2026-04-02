@@ -8,16 +8,21 @@ from wigner.time.internal import dataframe as frame
 
 from wigner.time.demo import full_experiment as demo
 
-timeline__demo = tl.cascade(
-    demo.init,
-    demo.MOT,
-)
+
+@pytest.fixture
+def timeline__demo():
+    return tl.cascade(
+        demo.init,
+        demo.MOT,
+    )
 
 
-timeline__demo__function = tl.cascade(demo.init, demo.MOT, demo.MOT__detuned_growth)
+@pytest.fixture
+def timeline__demo__function():
+    return tl.cascade(demo.init, demo.MOT, demo.MOT__detuned_growth)
 
 
-def test_save_load__autoname():
+def test_save_load__autoname(timeline__demo):
     file.save(timeline__demo)
     actual = file.load("timeline__demo.parquet")
     return frame.assert_equal(actual, timeline__demo)
@@ -33,7 +38,7 @@ def test_save_load__autoname():
         "timeline__demo.feather",
     ],
 )
-def test_save_load__types(fname):
+def test_save_load__types(fname, timeline__demo):
     file.save(timeline__demo, fname)
     actual = file.load(fname)
     return frame.assert_equal(actual, timeline__demo)
@@ -49,7 +54,7 @@ def test_save_load__types(fname):
         "timeline__demo__function.feather",
     ],
 )
-def test_save_load__types_with_functions(fname):
+def test_save_load__types_with_functions(fname, timeline__demo__function):
     file.save(timeline__demo__function, fname)
     actual = file.load(fname)
 
@@ -64,7 +69,7 @@ def test_save_load__types_with_functions(fname):
     return frame.assert_equal(actual, output)
 
 
-def test_save_load__increment_name():
+def test_save_load__increment_name(timeline__demo):
     file.save(timeline__demo)
     t1 = Path.exists("timeline__demo.parquet")
     file.save(timeline__demo)
