@@ -7,7 +7,6 @@ from wigner.time.internal import dataframe as frame
 
 from wigner.time.demo import full_experiment as ex
 
-
 # @pytest.fixture
 # def df_wait():
 #     return frame.new(
@@ -71,19 +70,6 @@ def test_stack__kws(dfseq):
             columns=["time", "variable", "value", "context"],
         ),
     )
-
-
-print(
-    tl.cascade(
-        ex.init,
-        ex.MOT,
-        #
-        MOT_duration=5.0,
-        MOT_lA=-1.0,
-        MOT_uA=-0.98,
-        molasses_duration=5.0,
-    ).to_numpy()
-)
 
 
 def test_cascade():
