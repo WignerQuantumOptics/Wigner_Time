@@ -418,7 +418,7 @@ def stack(
         )
 
 
-def cascade(*fs, **kws):
+def cascade(*fs: list[Callable], **kws) -> Callable | wt_frame.CLASS:
     """
     Similarly to `stack`, a convenience that combines an arbitrary chain of functions with an arbitrary selection of associated keywords.
 

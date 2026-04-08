@@ -4,10 +4,6 @@ An example implementation of a real experiment, using 'Wigner Time' timelines.
 As well as providing conveniences, the functions can be used to document the intention and meaning of each stage.
 """
 
-# TODO:
-# - Should probably have some imaging in here?
-
-
 from munch import Munch
 
 from wigner.time.adwin import connection as adcon
@@ -51,7 +47,7 @@ connections = adcon.new(
 )
 
 """
-'devices' stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable.
+`devices` stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable.
 
 These specifications are deliberately separated from `connection`s because they represent physical properties and conversions that are independent of the particular DAC wiring.
 """
@@ -81,7 +77,6 @@ devices = device.new(
 """
 constants = Munch(
     safety_factor=1.1,
-    #    factor__VpMHz=0.05,
     lag__MOTshutter=2.3e-3,
     lag__repump_shutter=0,  # Earlier value, yet unverified: 2.3e-3,
     Compensation=Munch(
@@ -95,10 +90,6 @@ constants = Munch(
         lag__shutter_off=1.78e-3,
         duration__shutter_on=140e-6,
         duration__shutter_off=600e-6,
-    ),
-    AI=Munch(
-        lag__shutter_on=2.2e-3,
-        lag__shutter_off=1.9e-3,
     ),
 )
 
@@ -195,12 +186,17 @@ def MOT(duration=15, lA=-1.0, uA=-0.98, **kwargs):
             shutter_repump=1,
             coil_MOTlower__A=lA,
             coil_MOTupper__A=uA,
-            context="MOT",
+            #
             origin=0.0,
             **kwargs,
         ),
-        tl.anchor(duration, origin=0.0, context="MOT"),
+        tl.anchor(duration, origin=0.0),
+        context="MOT",
     )
+
+
+def MOT__off(**kwargs):
+    return tl.update(shutter_MOT=0, AOM_MOT=0, shutter_repump=0, AOM_repump=0, **kwargs)
 
 
 def MOT__detuned_growth(
@@ -214,17 +210,17 @@ def MOT__detuned_growth(
             lockbox_MOT__MHz=detuning__MHz,
             duration=duration__ramp,
             #            fargs={"ti": pt},
-            context="MOT",
             **kwargs,
         ),
         tl.anchor(duration),
+        context="MOT",
     )
 
 
 def molasses(
     duration=5e-3,
-    durationCoilRamp=9e-4,
-    durationLockboxRamp=1e-3,
+    duration__coil_ramp=9e-4,
+    duration__lockbox_ramp=1e-3,
     toMHz=-90,  # coil_pt=3, lockbox_pt=3,
     delay=0,  # arbitrary delay to shutter for ad hoc compensation of small drifts
     **kwargs
@@ -237,21 +233,21 @@ def molasses(
         tl.ramp(
             coil_MOTlower__A=0,
             coil_MOTupper__A=0,
-            duration=durationCoilRamp,
+            duration=duration__coil_ramp,
             #            fargs={"ti": coil_pt},
-            context="molasses",
             **kwargs,
         ),
         tl.ramp(
             lockbox_MOT__MHz=toMHz,
-            duration=durationLockboxRamp,
+            duration=duration__lockbox_ramp,
             #            fargs={"ti": lockbox_pt},
         ),
         tl.update(
             shutter_MOT=[duration - constants.lag__MOTshutter + delay, 0],
             AOM_MOT=[duration, 0],
         ),
-        tl.anchor(duration, context="molasses"),
+        tl.anchor(duration),
+        context="molasses",
     )
 
 
@@ -272,7 +268,6 @@ def optical_pumping(
 
     WARNING:
     Shutters are reinitialized so that additional optical pumping stages can be added later.
-    However, this should probably be factorized out.
     """
 
     duration__full = duration__exposition + duration__coil_ramp
@@ -282,7 +277,6 @@ def optical_pumping(
             coil_MOTupper__A=-i,
             duration=duration__coil_ramp,
             #            fargs={"ti": pt},
-            context="optical_pumping",
             **kwargs,
         ),
         tl.update(AOM_OP=[[-0.1, 0], [duration__coil_ramp, 1], [duration__full, 0]]),
@@ -303,7 +297,8 @@ def optical_pumping(
             t=duration__full - constants.lag__repump_shutter + delay__repump,
         ),
         tl.update(AOM_repump=0, t=duration__full),
-        tl.anchor(duration__full, context="optical_pumping"),
+        tl.anchor(duration__full),
+        context="optical_pumping",
     )
 
 
@@ -344,9 +339,9 @@ def magnetic_trapping(
     )
 
 
-def MOT_off(**kwargs):
-    return tl.update(shutter_MOT=0, AOM_MOT=0, shutter_repump=0, AOM_repump=0, **kwargs)
-
+###########################################################################
+#                   Stage composition                                     #
+###########################################################################
 
 timeline__demo = tl.cascade(
     init,
@@ -371,8 +366,8 @@ timeline__demo = tl.cascade(
     MOT__detuned_growth_detuning__MHz=-5,  # pt=3,
     # molasses stage
     molasses_duration=4.5e-3,
-    molasses_durationCoilRamp=9e-4,
-    molasses_durationLockboxRamp=1e-3,
+    molasses_duration__coil_ramp=9e-4,
+    molasses_duration__lockbox_ramp=1e-3,
     molasses_toMHz=-90,
     molasses_delay=-200e-6,
     # OP stage
@@ -391,9 +386,13 @@ timeline__demo = tl.cascade(
     magnetic_trapping_us=-4.7,
 )
 
+###########################################################################
+#                   Running the experiment
+###########################################################################
+
 # wtf.save(timeline__demo)
 # machine = adwin.create(timeline__demo, connections, devices)
 # machine.Start_Process(1)
 
 # NOTE:
-# ^^^ The above is commented out for the sake of automated testing on machines without ADwin drivers.
+# ^^^ The above lines are commented out for the sake of automated testing.

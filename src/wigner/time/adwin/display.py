@@ -78,7 +78,7 @@ def quantities(
     range__x=None,
 ):
     """
-    Displays the given `tline`, filtered by `variable`, in terms of different quantites, i.e. by common `unit`. The mapping between `unit` and 'quantity' can be provided as a dictionary.
+    Displays the given `timeline`, filtered by `variable`, in terms of different quantites, i.e. by common `unit`. The mapping between `unit` and 'quantity' can be provided as a dictionary.
 
     NOTE: Unit and quantity terminology taken from SI conventions.
     """
@@ -149,11 +149,11 @@ def quantities(
     if num_analog_panels > 0:
         axes__analogue = axes[:-num_digital_panels] if num_digital_panels != 0 else axes
         for key, axis in zip(unit_variables__analog.keys(), axes__analogue):
-            (
-                axis.set_ylabel(symbol_quantities[key] + " [{}]".format(key))
-                if key in symbol_quantities
-                else key
-            )
+            if key in symbol_quantities:
+                axis.set_ylabel(f"{symbol_quantities[key]} [{key}]")
+            else:
+                axis.set_ylabel(f"[{key}]")
+
             for variable, color in zip(unit_variables__analog[key], colors):
                 array = tline[tline["variable"] == variable]
                 # axis.plot(array["time"], array["value"], marker="o", ms=3)
