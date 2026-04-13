@@ -3,7 +3,7 @@
 import numpy as np
 
 from wigner.time import config as wt_config
-from wigner.time import util as wt_util
+from wigner.time.internal import util as wt_util
 
 
 def linear(

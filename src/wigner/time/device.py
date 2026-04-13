@@ -8,10 +8,9 @@ import numpy as np
 import pandas as pd
 
 from wigner.time.internal import dataframe as wt_frame
-from wigner.time import util as wt_util
+from wigner.time.internal import util as wt_util
 
 from collections.abc import Callable
-
 
 # ======================================================================
 SCHEMA = {
@@ -83,10 +82,16 @@ def add(timeline, devices):
     return wt_frame.join(timeline, devices)
 
 
-def check_safety_range(timeline):
+def check_within_range(timeline):
     """
-    Checks whether the `timeline` `value`s fall inside device safety ranges.
+    Considers whether the `timeline` `value`s fall inside device safety ranges (see SCHEMA). Raises an error if not.
+
+    ASSUMES: That a `value` column is present.
     """
+
+    if not wt_frame.is_column_float(timeline["value"]):
+        raise ValueError("Value column might not contain floats.")
+
     for variable, group in timeline.groupby("variable"):
         if group["value__max"].any():
             if max(group["value"].values) > group["value__max"].values[0]:
@@ -102,4 +107,10 @@ def check_safety_range(timeline):
                     )
                 )
             else:
-                pass
+                return True
+        else:
+            raise ValueError(
+                "`value__max` was not found in timeline columns:  {}".format(
+                    timeline.columns
+                )
+            )

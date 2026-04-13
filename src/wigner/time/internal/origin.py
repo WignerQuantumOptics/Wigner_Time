@@ -10,7 +10,7 @@ import numpy as np
 
 from wigner.time import config as wt_config
 from wigner.time.config import wtlog
-from wigner.time import util as wt_util
+from wigner.time.internal import util as wt_util
 from wigner.time import anchor as wt_anchor
 from wigner.time.internal import dataframe as wt_frame
 from wigner.time.internal import origin as wt_origin

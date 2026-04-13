@@ -208,6 +208,10 @@ def is_column_string(col):
     return col.dtype == "string" or bool(col.map(lambda x: isinstance(x, str)).all())
 
 
+def is_column_float(col):
+    return pd.api.types.is_float_dtype(col)
+
+
 # ============================================================
 # TESTS
 # ============================================================

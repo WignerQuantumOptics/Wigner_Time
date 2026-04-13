@@ -9,9 +9,6 @@ Multiple layers of abstraction:
 It is a goal to be able to go up and down through the layers of abstraction.
 """
 
-# TODO: separate out sanitize functions
-
-from copy import deepcopy
 from typing import Callable
 
 import funcy
@@ -23,8 +20,10 @@ from wigner.time import input as wt_input
 from wigner.time import ramp_function as wt_ramp_function
 from wigner.time.internal import dataframe as wt_frame
 from wigner.time.internal import origin as wt_origin
-from wigner.time import util as wt_util
-import pandas as pd
+from wigner.time.internal.timeline import inherit
+
+
+from wigner.time.internal import util as wt_util
 
 noop = funcy.identity
 
@@ -33,17 +32,36 @@ noop = funcy.identity
 ###############################################################################
 
 _SCHEMA = {"time": float, "variable": str, "value": float, "context": str}
-_COLUMN_NAMES__RESERVED = list(_SCHEMA.keys()) + [
-    "unit__min",
-    "unit__max",
-    "safety__min",
-    "safety__max",
-]
 """These column names are assumed to exist and are used in core functions. Be careful about editing them."""
 
 ###############################################################################
 #                   Utility functions
 ###############################################################################
+
+
+def context_info(timeline):
+    """
+    Useful data (currently 'variables' and 'times') concerning every context. The result is a dictionary, indexed by context.
+
+    e.g. To get the start and end times of the 'MOT' context, call `context_info(timeline)['MOT']['times]`.
+    """
+    # TODO: Remove dependence on pandas
+
+    if {"context", "time", "variable"}.issubset(timeline.columns):
+        tlg = timeline.groupby("context")
+        return {
+            k: {
+                "variables": tlg["variable"].agg(set).to_dict()[k],
+                "times": tlg["time"]
+                .agg(["first", "last"])
+                .apply(list, axis=1)
+                .to_dict()[k],
+            }
+            for k in tlg.groups.keys()
+        }
+
+    else:
+        return None
 
 
 def previous(
@@ -70,44 +88,6 @@ def previous(
         sort_by=sort_by,
         index=index,
     )
-
-
-def _mask__no_context(timeline):
-    if "context" in timeline.columns:
-        mask = timeline["context"] == ""
-    else:
-        mask = pd.Series(True, index=timeline.index)
-
-    return mask
-
-
-def inherit_context(
-    timeline, timeline__previous, context=None, is_inPlace=True, time__max=None
-):
-    """
-    Updates the context, taken from previous values where unspecified.
-
-    Allows for situations where the new timelines are inserted at earlier times.
-    """
-    if is_inPlace:
-        df = timeline
-    else:
-        df = deepcopy(timeline)
-
-    if (timeline__previous is not None) and (context is None):
-        if time__max == "min":
-            time__max = timeline["time"].min()
-
-        df.loc[_mask__no_context(timeline), "context"] = previous(
-            timeline__previous, time__max=time__max
-        )["context"]
-        return df
-
-    elif (timeline__previous is None) and (context is not None):
-        df.loc[_mask__no_context(timeline), "context"] = context
-
-    else:
-        return timeline
 
 
 ###############################################################################
@@ -159,7 +139,7 @@ def create(
     new = wt_origin.update(df_rows, timeline, origin=origin)
 
     if timeline is not None:
-        inherit_context(new, timeline, context=context)
+        inherit.context(new, timeline, context=context)
         return wt_frame.concat([timeline, new])
 
     return new
@@ -341,7 +321,7 @@ def ramp(
         wt_frame.concat([df_1, df__no_start_points]), timeline, origin=origin
     )
     new1["function"] = function
-    inherit_context(new1, timeline, context=context)
+    inherit.context(new1, timeline, context=context)
 
     new2 = wt_origin.update(df_2, new1, origin=origin2)
     new2["function"] = function
@@ -517,116 +497,3 @@ def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Ca
 
     # Add the values back into the main timeline
     return wt_frame.insert_dataframes(timeline, _inds__start, _dfs)
-
-
-def is_value_within_range(value, unit_range):
-    # TODO: Shouldn't be here - internal function
-    if wt_frame.isnull(unit_range):
-        # If unit_range is NaN, consider it as within range
-        return True
-    else:
-        min_value, max_value = unit_range
-        return min_value <= value <= max_value
-
-
-def sanitize_values(timeline):
-    """
-    Ensures that the given timeline doesn't contain values outside of the given unit or safety range.
-    """
-    # TODO: SHOULDN'T BE HERE - internal
-    # TODO: Check for efficiency
-    #
-    if ("unit_range" in timeline.columns) or ("safety_range" in timeline.columns):
-        df = deepcopy(timeline)
-
-        # List to store rows with values outside the range
-        rows__out_of_unit_range = []
-        rows__out_of_safety_range = []
-
-        # Iterate through each row
-        for index, row in df.iterrows():
-            if not is_value_within_range(row["value"], row["unit_range"]):
-                print(
-                    f"Value {row['value']} is outside device unit range {row['unit_range']} for {row['variable']} at time {row['time']} at dataframe index {index}."
-                )
-
-                # Append the row index to the list
-                rows__out_of_unit_range.append(index)
-
-            if not is_value_within_range(row["value"], row["safety_range"]):
-                print(
-                    f"Value {row['value']} is outside device safety range {row['safety_range']} for {row['variable']} at time {row['time']} at dataframe index {index}."
-                )
-
-                # Append the row index to the list
-                rows__out_of_safety_range.append(index)
-
-        # Raise ValueError after printing all relevant information
-        if rows__out_of_unit_range or rows__out_of_safety_range:
-            raise ValueError(
-                f"Values outside the unit range: {rows__out_of_unit_range}!\n Values outside the safety range: {rows__out_of_safety_range}! \n\nPlease update these before proceeding."
-            )
-    return timeline
-
-
-def sanitize__drop_duplicates(timeline, subset=["variable", "time"]):
-    """
-    Drop duplicate rows and drop rows where the variable and time are duplicated.
-    """
-    return wt_frame.drop_duplicates(timeline, subset=subset)
-
-
-def sanitize__round_value(timeline, num_decimal_places=6):
-    """
-    Rounds the 'value' column to the given number of decimal places and returns the updated timeline.
-    """
-    df = deepcopy(timeline)
-    df["value"] = df["value"].round(num_decimal_places)
-    return df
-
-
-def sanitize(timeline):
-    """
-    Check for duplicate, range and type errors in the current dataframe and either return an updated dataframe or an error.
-
-    `sanitize__round_value` is not by default because this might be unexpected by the user.
-    """
-    # TODO: Add check for negative times in the 'final' databases.
-
-    return funcy.compose(
-        sanitize__drop_duplicates,
-        sanitize_values,
-        lambda df: wt_frame.cast(
-            df,
-            {
-                "variable": str,
-                "time": float,
-                "value": float,
-                # "context": str, # Currently, context can sometimes be None - this should be questioned though
-            },
-        ),
-    )(timeline)
-
-
-def context_info(timeline):
-    """
-    Useful data (currently 'variables' and 'times') concerning every context. The result is a dictionary, indexed by context.
-
-    e.g. To get the start and end times of the 'MOT' context, call `context_info(timeline)['MOT']['times]`.
-    """
-
-    if {"context", "time", "variable"}.issubset(timeline.columns):
-        tlg = timeline.groupby("context")
-        return {
-            k: {
-                "variables": tlg["variable"].agg(set).to_dict()[k],
-                "times": tlg["time"]
-                .agg(["first", "last"])
-                .apply(list, axis=1)
-                .to_dict()[k],
-            }
-            for k in tlg.groups.keys()
-        }
-
-    else:
-        return None

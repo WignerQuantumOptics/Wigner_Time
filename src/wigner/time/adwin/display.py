@@ -18,7 +18,7 @@ import matplotlib.axes as mpa
 import matplotlib.pyplot as plt
 import numpy as np
 import wigner.time.anchor as anchor
-import wigner.time.util as wt_util
+from wigner.time.internal import util as wt_util
 import wigner.time.variable as wt_variable
 from wigner.time import timeline as tl
 from wigner.time.anchor import LABEL__ANCHOR

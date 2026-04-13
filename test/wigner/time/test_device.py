@@ -1,7 +1,5 @@
 import pytest
 import numpy as np
-import pandas as pd
-from munch import Munch
 
 from wigner.time.internal import dataframe as wt_frame
 from wigner.time import device as dev
@@ -39,7 +37,7 @@ def test_deviceSingle(input):
         dev.SCHEMA__expanded,
     )
 
-    return pd.testing.assert_frame_equal(input, comparison)
+    return wt_frame.assert_equal(input, comparison)
 
 
 @pytest.mark.parametrize(
@@ -58,7 +56,7 @@ def test_deviceSingle(input):
     ],
 )
 def test_deviceMultiple(input):
-    return pd.testing.assert_frame_equal(
+    return wt_frame.assert_equal(
         input,
         wt_frame.new_schema(
             [
@@ -116,3 +114,35 @@ def test_function002(input):
             dev.SCHEMA,
         ),
     )
+
+
+def test_check_safety_range001():
+    df = dev.new(
+        ["coil_compensationY__A", 0.33, -5, 5],
+        ["coil_MOTlower__A", 0.5, -2.5, 3],
+        ["coil_MOTupper__A", 0.5, -np.inf, np.inf],
+    )
+    df["value"] = [5.0, -2.5, 0.0]
+
+    assert dev.check_within_range(df) == True
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        -5.0001,
+        5.00000001,
+        -2.6,
+        "test",
+    ],
+)
+def test_check_safety_range002(input):
+    df = dev.new(
+        ["coil_compensationY__A", 0.33, -5, 5],
+        ["coil_MOTlower__A", 0.5, -2.5, 3],
+        ["coil_MOTupper__A", 0.5, -np.inf, np.inf],
+    )
+    df["value"] = input
+
+    with pytest.raises(ValueError):
+        dev.check_within_range(df)

@@ -1,6 +1,6 @@
 import pytest
 
-from wigner.time import util
+from wigner.time.internal import util
 from wigner.time import timeline as tl
 from wigner.time.internal import dataframe as wt_frame
 

@@ -1,5 +1,9 @@
 # Copyright Thomas W. Clark & András Vukics 2024. Distributed under the Boost Software License, Version 1.0. (See accompanying file LICENSE.txt)
 
+"""
+The inevitable `util` module for miscellaneous functions that haven't been organized yet.
+"""
+
 from collections.abc import Iterable, Sequence
 from typing import Callable, OrderedDict
 import inspect

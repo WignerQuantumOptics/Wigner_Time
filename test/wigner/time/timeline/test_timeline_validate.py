@@ -1,7 +1,11 @@
 import pytest
 
-from wigner.time import timeline as tl
+from wigner.time.internal.timeline import validate
 from wigner.time.internal import dataframe as frame
+
+# TODO:
+# - Update the test schema to use min and max values rather than ranges
+# - Consider whether the sanitize/validate namespace is actually useful.
 
 devices001 = frame.new(
     [
@@ -40,7 +44,7 @@ df_sanitize001 = frame.new(
 def test_sanitize_raises(input_value):
     df, dev = input_value
     with pytest.raises(ValueError):
-        tl.sanitize(frame.join(df, dev))
+        validate.sanitize(frame.join(df, dev))
 
 
 @pytest.mark.parametrize(
@@ -52,7 +56,7 @@ def test_sanitize_raises(input_value):
 def test_sanitize_success(input_value):
     df, dev = input_value
     return frame.assert_equal(
-        tl.sanitize(df),
+        validate.sanitize(df),
         frame.new(
             [
                 [0.0, "AOM_imaging", 0.0, ""],

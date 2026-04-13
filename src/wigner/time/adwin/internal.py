@@ -2,7 +2,8 @@
 For 'lower-level' manipulations of ADwin-specifc timeline informaton.
 
 In general, the user shouldn't need to use these functions and there is no guarantee that the API will not change.
- """
+
+"""
 
 import numpy as np
 
@@ -15,7 +16,6 @@ from wigner.time.internal import dataframe as wt_frame
 import wigner.time.adwin as wt_adwin
 from wigner.time.adwin import connection
 from wigner.time.adwin import validate as wt_validate
-
 
 """
 Represents the key ADwin settings for the given machine.
@@ -140,7 +140,7 @@ def add(timeline, connections, devices, machine_specifications=SPECIFICATIONS__D
     dff.loc[mask__digital, "value__digits"] = round(dff["value"])
     # TODO: Shouldn't all of value__digits be rounded?
 
-    device.check_safety_range(dff)
+    device.check_within_range(dff)
     dcycle = add_cycle(dff, machine_specifications)
 
     return wt_validate.all(dcycle)
