@@ -4,7 +4,7 @@
 # Block module based on dependency
 import importlib.util
 
-from wigner.time import adwin, anchor
+from wigner.time import adwin
 
 if not importlib.util.find_spec("matplotlib"):
     raise ImportError("The `display` module requires `matplotlib` to be installed.")
@@ -17,11 +17,11 @@ from copy import deepcopy
 import matplotlib.axes as mpa
 import matplotlib.pyplot as plt
 import numpy as np
-import wigner.time.anchor as anchor
-from wigner.time.internal import util as wt_util
 import wigner.time.variable as wt_variable
 from wigner.time import timeline as tl
-from wigner.time.anchor import LABEL__ANCHOR
+from wigner.time.internal.timeline import anchor
+from wigner.time.internal import util as wt_util
+from wigner.time.config import LABEL__ANCHOR
 from wigner.time.internal import dataframe as wt_frame
 
 # ============================================================
