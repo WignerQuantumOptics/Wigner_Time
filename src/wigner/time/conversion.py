@@ -87,7 +87,9 @@ def add(
     column__conversion: str = "to_V",
     column__new: str = "value__digits",
 ) -> wt_frame.CLASS:
-
+    """
+    Performs a conversion, according to the associated factor or function, adds the resulting values as another column, `value__digits`, and returns the result.
+    """
     if column__conversion in timeline.columns:
         dff = _add_linear(
             timeline,
