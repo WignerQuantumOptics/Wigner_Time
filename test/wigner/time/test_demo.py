@@ -2,7 +2,7 @@ from copy import deepcopy
 import pandas as pd
 
 from wigner.time import timeline as tl
-from wigner.time import anchor as anchor
+from wigner.time.internal.timeline import anchor as anchor
 from wigner.time.internal import dataframe as frame
 
 from wigner.time.demo import full_experiment as ex
