@@ -1,8 +1,8 @@
 import pytest
 import pandas as pd
 
-from wigner.time.internal import dataframe as frame
-from wigner.time.internal import origin
+from wignertime.internal import dataframe as frame
+from wignertime.internal import origin
 
 
 @pytest.fixture

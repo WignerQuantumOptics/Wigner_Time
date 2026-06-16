@@ -2,14 +2,14 @@ import pytest
 from munch import Munch
 import numpy as np
 
-from wigner.time import ramp_function, timeline as tl
-from wigner.time.adwin import display
-from wigner.time.internal import dataframe as wt_frame
+from wignertime import ramp_function, timeline as tl
+from wignertime.adwin import display
+from wignertime.internal import dataframe as wt_frame
 
 import pathlib as pl
 import sys
 
-from wigner.time.demo import full_experiment as ex
+from wignertime.demo import full_experiment as ex
 
 
 @pytest.fixture

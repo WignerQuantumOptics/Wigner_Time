@@ -6,13 +6,13 @@ As well as providing conveniences, the functions can be used to document the int
 
 from munch import Munch
 
-from wigner.time.adwin import connection as adcon
-from wigner.time.adwin import core as adwin
-from wigner.time import file as wtf
-from wigner.time import timeline as tl
-from wigner.time import device
-from wigner.time import conversion as conv
-from wigner.time import ramp_function
+from wignertime.adwin import connection as adcon
+from wignertime.adwin import core as adwin
+from wignertime import file as wtf
+from wignertime import timeline as tl
+from wignertime import device
+from wignertime import conversion as conv
+from wignertime import ramp_function
 
 ###########################################################################
 #                       Constants and Helpers                             #

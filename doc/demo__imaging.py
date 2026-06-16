@@ -2,8 +2,8 @@ import sys
 import pandas as pd
 from munch import Munch
 
-from wigner.time.adwin import connection as con
-from wigner.time import timeline as tl
+from wignertime.adwin import connection as con
+from wignertime import timeline as tl
 
 import demo__full_experiment as ex
 

@@ -14,16 +14,16 @@ from typing import Callable
 import funcy
 import numpy as np
 
-from wigner.time import config as wt_config
-from wigner.time import ramp_function as wt_ramp_function
-from wigner.time.internal.timeline import anchor as wt_anchor
-from wigner.time.internal.timeline import input as wt_input
-from wigner.time.internal import dataframe as wt_frame
-from wigner.time.internal import origin as wt_origin
-from wigner.time.internal.timeline import inherit
+from wignertime import config as wt_config
+from wignertime import ramp_function as wt_ramp_function
+from wignertime.internal.timeline import anchor as wt_anchor
+from wignertime.internal.timeline import input as wt_input
+from wignertime.internal import dataframe as wt_frame
+from wignertime.internal import origin as wt_origin
+from wignertime.internal.timeline import inherit
 
 
-from wigner.time.internal import util as wt_util
+from wignertime.internal import util as wt_util
 
 noop = funcy.identity
 

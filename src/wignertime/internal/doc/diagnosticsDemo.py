@@ -4,8 +4,8 @@ sys.path.append("..")
 import pandas as pd
 
 from munch import Munch
-from wigner.time import connection as con
-from wigner.time import timeline as tl
+from wignertime import connection as con
+from wignertime import timeline as tl
 
 import experimentDemo as ex
 

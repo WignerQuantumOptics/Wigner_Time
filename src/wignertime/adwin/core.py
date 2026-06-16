@@ -9,10 +9,10 @@ if not importlib.util.find_spec("ADwin"):
 
 import ADwin
 
-from wigner.time import timeline as tl
-import wigner.time.adwin as wt_adwin
-from wigner.time.adwin import connection
-from wigner.time.adwin import internal as ad
+from wignertime import timeline as tl
+import wignertime.adwin as wt_adwin
+from wignertime.adwin import connection
+from wignertime.adwin import internal as ad
 
 
 def link_device(DeviceNo=1, raiseExceptions=1, useNumpyArrays=0):

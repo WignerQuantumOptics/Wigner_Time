@@ -20,11 +20,11 @@ import pathlib as pl
 import pandas as pd
 import numpy as np
 from munch import Munch
-from wigner.time import constructor as construct
-from wigner.time import connection as con
-from wigner.time import timeline as tl
-from wigner.time import adwin as adwin
-from wigner.time import util as u
+from wignertime import constructor as construct
+from wignertime import connection as con
+from wignertime import timeline as tl
+from wignertime import adwin as adwin
+from wignertime import util as u
 
 from copy import deepcopy
 
@@ -489,7 +489,7 @@ context = "test"
 
 init = init()
 
-from wigner.time import variable as var
+from wignertime import variable as var
 
 
 print("here")

@@ -6,7 +6,7 @@ A module for managing flexible input to entry-level timeline functions.
 
 import numpy as np
 
-from wigner.time.internal import util as WTutil
+from wignertime.internal import util as WTutil
 
 
 def __find_depth(vtvc):

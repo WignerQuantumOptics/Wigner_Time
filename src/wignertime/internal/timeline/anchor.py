@@ -6,8 +6,8 @@ Utility functions related to setting, finding and querying anchors in a timeline
 
 from typing import Callable
 
-from wigner.time import config as wt_config
-from wigner.time.internal import dataframe as wt_frame
+from wignertime import config as wt_config
+from wignertime.internal import dataframe as wt_frame
 
 LABEL__ANCHOR = wt_config.LABEL__ANCHOR
 

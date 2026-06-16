@@ -3,10 +3,10 @@ import pandas as pd
 from munch import Munch
 import numpy as np
 
-from wigner.time.internal import dataframe as wt_frame
-from wigner.time import timeline as tl
-from wigner.time import device
-from wigner.time import conversion as conv
+from wignertime.internal import dataframe as wt_frame
+from wignertime import timeline as tl
+from wignertime import device
+from wignertime import conversion as conv
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 from copy import deepcopy
 import pandas as pd
 
-from wigner.time.internal import origin as wt_origin
+from wignertime.internal import origin as wt_origin
 
 # TODO: Fix dependance on pandas
 

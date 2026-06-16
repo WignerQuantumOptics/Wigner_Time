@@ -1,12 +1,12 @@
 import pytest
 from pathlib import Path
 
-from wigner.time import file
-from wigner.time import timeline as tl
-from wigner.time.internal import dataframe as frame
+from wignertime import file
+from wignertime import timeline as tl
+from wignertime.internal import dataframe as frame
 
 
-from wigner.time.demo import full_experiment as demo
+from wignertime.demo import full_experiment as demo
 
 
 @pytest.fixture
@@ -62,7 +62,7 @@ def test_save_load__types_with_functions(fname, timeline__demo__function):
 
     if bool(actual.loc[mask, "function"].map(lambda x: isinstance(x, str)).all()):
         output = timeline__demo__function.copy(deep=True)
-        output.loc[mask, "function"] = "wigner.time.ramp_function.tanh"
+        output.loc[mask, "function"] = "wignertime.ramp_function.tanh"
     else:
         output = timeline__demo__function
 

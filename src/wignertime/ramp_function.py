@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from wigner.time import config as wt_config
-from wigner.time.internal import util as wt_util
+from wignertime import config as wt_config
+from wignertime.internal import util as wt_util
 
 
 def linear(

@@ -1,10 +1,10 @@
 import pytest
 from munch import Munch
 
-from wigner.time import config as wt_config
-from wigner.time import ramp_function
-from wigner.time import timeline as tl
-from wigner.time.internal import dataframe as wt_frame
+from wignertime import config as wt_config
+from wignertime import ramp_function
+from wignertime import timeline as tl
+from wignertime.internal import dataframe as wt_frame
 
 
 def test_anchor__basic():

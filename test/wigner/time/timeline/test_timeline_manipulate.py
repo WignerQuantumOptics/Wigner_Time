@@ -2,10 +2,10 @@ import pathlib as pl
 import sys
 import pytest
 
-from wigner.time import timeline as tl
-from wigner.time.internal import dataframe as frame
+from wignertime import timeline as tl
+from wignertime.internal import dataframe as frame
 
-from wigner.time.demo import full_experiment as ex
+from wignertime.demo import full_experiment as ex
 
 # @pytest.fixture
 # def df_wait():

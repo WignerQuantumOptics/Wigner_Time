@@ -1,7 +1,7 @@
 import pytest
 
-from wigner.time import timeline as tl
-from wigner.time import variable
+from wignertime import timeline as tl
+from wignertime import variable
 
 
 def test_variable():

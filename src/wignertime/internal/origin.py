@@ -8,12 +8,12 @@ This is important for inferring what the user means when they want to add rows t
 from copy import deepcopy
 import numpy as np
 
-from wigner.time import config as wt_config
-from wigner.time.config import wtlog
-from wigner.time.internal import util as wt_util
-from wigner.time.internal.timeline import anchor as wt_anchor
-from wigner.time.internal import dataframe as wt_frame
-from wigner.time.internal import origin as wt_origin
+from wignertime import config as wt_config
+from wignertime.config import wtlog
+from wignertime.internal import util as wt_util
+from wignertime.internal.timeline import anchor as wt_anchor
+from wignertime.internal import dataframe as wt_frame
+from wignertime.internal import origin as wt_origin
 
 ###############################################################################
 #                                  CONSTANTS                                   #
@@ -25,7 +25,7 @@ _ORIGINS = ["anchor", "last", "variable"]
 
 def error__unsupported_option(origin):
     return ValueError(
-        f"{origin} is an unsupported option for 'origin' in `wigner.time.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. \n\n If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
+        f"{origin} is an unsupported option for 'origin' in `wignertime.internal.origin.find`. Check the formatting and whether this makes sense for your current timeline. \n\n If you feel like this option should be supported then don't hesitate to get in touch with the maintainers."
     )
 
 

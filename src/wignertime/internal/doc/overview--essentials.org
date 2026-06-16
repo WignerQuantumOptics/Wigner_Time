@@ -42,7 +42,7 @@ Wigner Time is based around the idea of a 'timeline', which is, at heart, simply
 - Add more parameters by adding columns
 - Add more operations by adding rows
 
-By boiling the design down to a 'table' as the foundation, then we can benfit from decades of database development, particularly in-memory database-like systems like `pandas`. Therefore, when in doubt, the user can simply manipulate their timeline using the well-developed `pandas` ecosystem. For most operations however, even this won't be necessary as wigner.time provides layers of conveninece functions ontop of this for designing open-loop experiments.
+By boiling the design down to a 'table' as the foundation, then we can benfit from decades of database development, particularly in-memory database-like systems like `pandas`. Therefore, when in doubt, the user can simply manipulate their timeline using the well-developed `pandas` ecosystem. For most operations however, even this won't be necessary as wignertime provides layers of conveninece functions ontop of this for designing open-loop experiments.
 
 ** Example (For ADwin systems)
 You want to digitally control an optical shutter and AOM.
@@ -50,9 +50,9 @@ You want to digitally control an optical shutter and AOM.
 For digital channels, simply /name/ the ADwin ports using standard Python lists. These keep track of the physical connections.
 
 #+begin_src python
-from wigner.time.adwin import connection as adcon
-from wigner.time import device
-from wigner.time import conversion as conv
+from wignertime.adwin import connection as adcon
+from wignertime import device
+from wignertime import conversion as conv
 
 connections = adcon.new(
     ["shutter_MOT", 1, 11],
@@ -124,7 +124,7 @@ tline = tl.stack(
 The timeline can then be exported to an ADwin-compatible format.
 
 #+begin_src python
-from wigner.time.adwin import core as adwin
+from wignertime.adwin import core as adwin
 
 adwin.to_data(tline)
 #+end_src

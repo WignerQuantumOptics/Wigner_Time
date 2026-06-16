@@ -178,7 +178,7 @@ pd.DataFrame(
 ** ~create~
 *** basic
 #+begin_src python :session :exports both
-from wigner.time import timeline as tl
+from wignertime import timeline as tl
 tl.create(
     [
         ["lockbox_MOT__V", [[0.0, 5.0, "testing"]]],

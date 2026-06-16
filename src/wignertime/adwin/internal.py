@@ -7,15 +7,15 @@ In general, the user shouldn't need to use these functions and there is no guara
 
 import numpy as np
 
-from wigner.time.config import wtlog as wtl
-from wigner.time import timeline as tl
-from wigner.time import conversion as conv
-from wigner.time import device
-from wigner.time import variable as wt_variable
-from wigner.time.internal import dataframe as wt_frame
-import wigner.time.adwin as wt_adwin
-from wigner.time.adwin import connection
-from wigner.time.adwin import validate as wt_validate
+from wignertime.config import wtlog as wtl
+from wignertime import timeline as tl
+from wignertime import conversion as conv
+from wignertime import device
+from wignertime import variable as wt_variable
+from wignertime.internal import dataframe as wt_frame
+import wignertime.adwin as wt_adwin
+from wignertime.adwin import connection
+from wignertime.adwin import validate as wt_validate
 
 """
 Represents the key ADwin settings for the given machine.

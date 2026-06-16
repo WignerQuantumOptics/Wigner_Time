@@ -10,8 +10,8 @@ from copy import deepcopy
 import pandas as pd
 import numpy as np
 
-from wigner.time.internal import dataframe as wt_frame
-import wigner.time.variable as variable
+from wignertime.internal import dataframe as wt_frame
+import wignertime.variable as variable
 
 # ======================================================================
 _SCHEMA = {"variable": str, "module": int, "channel": int}

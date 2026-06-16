@@ -4,8 +4,8 @@ Outlines the conventions for variables  and provides some convenience functions 
 
 import re
 from munch import Munch
-from wigner.time.internal import dataframe as wt_frame
-from wigner.time.config import LABEL__ANCHOR
+from wignertime.internal import dataframe as wt_frame
+from wignertime.config import LABEL__ANCHOR
 
 REGEX = re.compile(r"^([^_]+)_([^_]+)(?:__([^_]+))?$")
 

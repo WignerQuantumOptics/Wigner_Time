@@ -2,7 +2,7 @@
 Here we highlight some convenient features that might not be obvious otherwise.
 """
 
-from wigner.time import timeline as tl
+from wignertime import timeline as tl
 
 tl.create(AOM_MOT=1, shutter_MOT=1, t=10, context="MOT")
 

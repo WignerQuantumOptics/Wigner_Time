@@ -10,7 +10,7 @@ import inspect
 import importlib.util
 import re
 
-from wigner.time.internal import dataframe as wt_frame
+from wignertime.internal import dataframe as wt_frame
 
 
 def _available_writers() -> dict[str, Callable[[wt_frame.CLASS, Path], None]]:

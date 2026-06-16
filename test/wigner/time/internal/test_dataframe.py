@@ -1,6 +1,6 @@
 import pytest
 
-from wigner.time.internal import dataframe as frame
+from wignertime.internal import dataframe as frame
 
 
 df_simple1 = frame.new(

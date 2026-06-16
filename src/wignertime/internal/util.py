@@ -11,7 +11,7 @@ import inspect
 import numpy as np
 import math
 
-from wigner.time.config import wtlog
+from wignertime.config import wtlog
 
 
 def is_sequence(x, is_string=False):

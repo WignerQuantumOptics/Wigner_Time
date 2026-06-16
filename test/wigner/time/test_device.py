@@ -1,8 +1,8 @@
 import pytest
 import numpy as np
 
-from wigner.time.internal import dataframe as wt_frame
-from wigner.time import device as dev
+from wignertime.internal import dataframe as wt_frame
+from wignertime import device as dev
 
 
 @pytest.mark.parametrize(

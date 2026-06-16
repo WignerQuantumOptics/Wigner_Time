@@ -7,8 +7,8 @@ The unit range is used for conversion and the saftey range is for sanity checkin
 import numpy as np
 import pandas as pd
 
-from wigner.time.internal import dataframe as wt_frame
-from wigner.time.internal import util as wt_util
+from wignertime.internal import dataframe as wt_frame
+from wignertime.internal import util as wt_util
 
 from collections.abc import Callable
 

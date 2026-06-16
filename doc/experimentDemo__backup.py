@@ -13,11 +13,11 @@ sys.path.append("..")
 import pandas as pd
 
 from munch import Munch
-from wigner.time.adwin import connection as adcon
-from wigner.time import timeline as tl
-from wigner.time import device
-from wigner.time import conversion as conv
-from wigner.time import ramp_function
+from wignertime.adwin import connection as adcon
+from wignertime import timeline as tl
+from wignertime import device
+from wignertime import conversion as conv
+from wignertime import ramp_function
 from enum import IntEnum
 
 
@@ -240,7 +240,7 @@ def molasses(
 <<<<<<<< HEAD:doc/experimentDemo__backup.py
             context="molasses",
 ========
->>>>>>>> fb4fffbed4ab3d4ba72613afee89a0bcbbf26290:wigner.time/internal/doc/experimentDemo.py
+>>>>>>>> fb4fffbed4ab3d4ba72613afee89a0bcbbf26290:wignertime/internal/doc/experimentDemo.py
             **kwargs,
         ),
         tl.ramp(
@@ -438,7 +438,7 @@ def prepareSample(
 
 
 if __name__ == "__main__":
-    from wigner.time.adwin import display
+    from wignertime.adwin import display
 
     thing = tl.stack(
         init(),
@@ -459,4 +459,4 @@ if __name__ == "__main__":
     # )
 
     # display.channels(thing)
->>>>>>>> fb4fffbed4ab3d4ba72613afee89a0bcbbf26290:wigner.time/internal/doc/experimentDemo.py
+>>>>>>>> fb4fffbed4ab3d4ba72613afee89a0bcbbf26290:wignertime/internal/doc/experimentDemo.py

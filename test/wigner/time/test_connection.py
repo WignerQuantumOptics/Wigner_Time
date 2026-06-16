@@ -2,9 +2,9 @@ import pytest
 import pandas as pd
 from munch import Munch
 
-from wigner.time import timeline as tl
-from wigner.time import variable
-from wigner.time.adwin import connection as adcon
+from wignertime import timeline as tl
+from wignertime import variable
+from wignertime.adwin import connection as adcon
 
 
 @pytest.mark.parametrize(

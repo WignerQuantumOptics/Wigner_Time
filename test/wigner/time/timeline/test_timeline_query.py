@@ -1,8 +1,8 @@
 import pytest
 
-from wigner.time import timeline as tl
-from wigner.time.internal import dataframe as frame
-from wigner.time.internal import origin
+from wignertime import timeline as tl
+from wignertime.internal import dataframe as frame
+from wignertime.internal import origin
 
 
 df_previous1 = frame.new(

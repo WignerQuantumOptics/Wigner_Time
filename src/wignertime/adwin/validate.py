@@ -1,7 +1,7 @@
 import funcy
 
-import wigner.time.adwin as wt_adwin
-from wigner.time.internal import dataframe as wt_frame
+import wignertime.adwin as wt_adwin
+from wignertime.internal import dataframe as wt_frame
 
 
 def special_contexts(timeline, special_contexts=wt_adwin.CONTEXTS__SPECIAL):

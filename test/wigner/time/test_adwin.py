@@ -3,15 +3,15 @@ import sys
 import pytest
 import pandas as pd
 
-import wigner.time.adwin as wt_adwin
+import wignertime.adwin as wt_adwin
 
-from wigner.time.adwin import core as adwin
-from wigner.time.adwin import connection as adcon
-from wigner.time.adwin import validate as wt_validate
-from wigner.time.adwin import internal as adi
-from wigner.time import device
-from wigner.time import timeline as tl
-from wigner.time.internal import dataframe as frame
+from wignertime.adwin import core as adwin
+from wignertime.adwin import connection as adcon
+from wignertime.adwin import validate as wt_validate
+from wignertime.adwin import internal as adi
+from wignertime import device
+from wignertime import timeline as tl
+from wignertime.internal import dataframe as frame
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
 # import experimentDemo as ex

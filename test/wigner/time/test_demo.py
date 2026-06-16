@@ -1,12 +1,12 @@
 from copy import deepcopy
 import pandas as pd
 
-from wigner.time import timeline as tl
-from wigner.time.internal.timeline import anchor as anchor
-from wigner.time.internal import dataframe as frame
+from wignertime import timeline as tl
+from wignertime.internal.timeline import anchor as anchor
+from wignertime.internal import dataframe as frame
 
-from wigner.time.demo import full_experiment as ex
-from wigner.time.adwin import display as adwin_display
+from wignertime.demo import full_experiment as ex
+from wignertime.adwin import display as adwin_display
 
 
 def replace_anchor_symbol(df, symbol__old="Anchor", symbol__new="⚓"):

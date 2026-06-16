@@ -1,10 +1,10 @@
-from wigner.time import timeline as tl
-from wigner.time.adwin import display as adwin_display
+from wignertime import timeline as tl
+from wignertime.adwin import display as adwin_display
 
 import sys
 import pathlib as pl
 
-from wigner.time.demo import full_experiment as ex
+from wignertime.demo import full_experiment as ex
 
 
 def test_displayIndividualTypes():

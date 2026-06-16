@@ -12,7 +12,7 @@ May or may not be temporary, but removed to keep the main API as clean as possib
 import funcy
 from copy import deepcopy
 
-from wigner.time.internal import dataframe as wt_frame
+from wignertime.internal import dataframe as wt_frame
 
 
 def is_value_within_range(value, unit_range):

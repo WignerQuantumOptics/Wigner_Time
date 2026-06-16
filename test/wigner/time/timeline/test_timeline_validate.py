@@ -1,7 +1,7 @@
 import pytest
 
-from wigner.time.internal.timeline import validate
-from wigner.time.internal import dataframe as frame
+from wignertime.internal.timeline import validate
+from wignertime.internal import dataframe as frame
 
 # TODO:
 # - Update the test schema to use min and max values rather than ranges

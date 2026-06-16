@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 
-from wigner.time.internal import dataframe as wt_frame
+from wignertime.internal import dataframe as wt_frame
 
 SPECIFICATIONS__DEFAULT = {"voltage_range": [-10.0, 10.0], "num_bits": 16, "gain": 1}
 

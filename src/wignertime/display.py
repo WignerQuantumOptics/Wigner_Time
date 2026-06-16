@@ -7,7 +7,7 @@ if not importlib.util.find_spec("matplotlib"):
     raise ImportError("The `display` module requires `matplotlib` to be installed.")
 
 
-from wigner.time.adwin import display as adwin_display
+from wignertime.adwin import display as adwin_display
 
 
 def display(
