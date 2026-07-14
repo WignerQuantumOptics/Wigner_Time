@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "wignertime"
+name = "wigner-time"
 version = "0.9.0"
 description="Timeline creation and management for open-loop control in AMO experiments and beyond."
 authors = ["LightMatters <clark.thomaswilliam@zoho.eu>"]
