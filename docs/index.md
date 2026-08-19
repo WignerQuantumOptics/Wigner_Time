@@ -126,9 +126,9 @@ You want to digitally control an optical shutter and AOM.
 For digital channels, simply *name* the ADwin ports using standard Python lists. These keep track of the physical connections.
 
 ``` python
-    from wigner_time.adwin import connection as adcon
-    from wigner_time import device
-    from wigner_time import conversion as conv
+    from wignertime.adwin import connection as adcon
+    from wignertime import device
+    from wignertime import conversion as conv
     
     connections = adcon.new(
         ["shutter_MOT", 1, 11],
@@ -199,7 +199,7 @@ tline = tl.stack(
 The timeline can then be exported to an ADwin-compatible format.
 
 ``` python
-    from wigner_time.adwin import core as adwin
+    from wignertime.adwin import core as adwin
     
     adwin.to_data(tline)
 ```

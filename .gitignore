@@ -1,3 +1,6 @@
 *.pyc
 .ipynb_checkpoints
 poetry.lock
+timeline__demo*
+*.ipynb
+jupyter.log

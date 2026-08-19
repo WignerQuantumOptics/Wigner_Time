@@ -1,4 +1,4 @@
 # API Reference
 
-::: wigner_time
+::: wignertime
 

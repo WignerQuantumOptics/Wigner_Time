@@ -1,0 +1,151 @@
+import pathlib as pl
+import sys
+import pytest
+
+from wignertime import timeline as tl
+from wignertime.internal import dataframe as frame
+
+from wignertime.demo import full_experiment as ex
+
+# @pytest.fixture
+# def df_wait():
+#     return frame.new(
+#         [
+#             [0.0, "AOM_imaging", 0, "init"],
+#             [0.0, "AOM_imaging__V", 2.0, "init"],
+#             [0.0, "AOM_repump", 1, "init"],
+#             [10.0, "AOM_repump", 0, "init"],
+#         ],
+#         columns=["time", "variable", "value", "context"],
+#     )
+
+
+@pytest.fixture
+def dfseq():
+    return frame.new(
+        [
+            [0.0, "lockbox_MOT__V", 0.000000, ""],
+            [5.0, "lockbox_MOT__V", 0.000000, ""],
+            [5.0, "lockbox_MOT__V", 0.000000, ""],
+            [5.2, "lockbox_MOT__V", 0.045177, ""],
+            [5.4, "lockbox_MOT__V", 0.500000, ""],
+            [5.6, "lockbox_MOT__V", 0.954823, ""],
+            [5.8, "lockbox_MOT__V", 1.000000, ""],
+        ],
+        columns=["time", "variable", "value", "context"],
+    )
+
+
+def test_stack(dfseq):
+    tst = tl.stack(
+        tl.create("lockbox_MOT__V", [[0.0, 0.0], [5.0, 0.0]]),
+        tl.ramp(t=5.0, lockbox_MOT__V=[0.8, 1.0]),
+        lambda tline: tl.expand(tline, time_resolution=0.2),
+    )
+    return frame.assert_equal(tst, dfseq)
+
+
+def test_stack__kws(dfseq):
+    tline = tl.create("lockbox_MOT__V", [[0.0, 0.0], [5.0, 0.0]])
+    tst = tl.stack(
+        tline,
+        tl.ramp(t=5.0, lockbox_MOT__V=[0.8, 1.0]),
+        tl.expand(time_resolution=0.2),
+        #
+        context="test",
+    )
+
+    return frame.assert_equal(
+        tst,
+        frame.new(
+            [
+                [0.0, "lockbox_MOT__V", 0.000000, ""],
+                [5.0, "lockbox_MOT__V", 0.000000, ""],
+                [5.0, "lockbox_MOT__V", 0.000000, "test"],
+                [5.2, "lockbox_MOT__V", 0.045177, "test"],
+                [5.4, "lockbox_MOT__V", 0.500000, "test"],
+                [5.6, "lockbox_MOT__V", 0.954823, "test"],
+                [5.8, "lockbox_MOT__V", 1.000000, "test"],
+            ],
+            columns=["time", "variable", "value", "context"],
+        ),
+    )
+
+
+def test_cascade():
+    frame.assert_equal(
+        tl.cascade(
+            ex.init,
+            ex.MOT,
+            #
+            MOT_duration=5.0,
+            MOT_lA=-1.0,
+            MOT_uA=-0.98,
+            molasses_duration=5.0,
+        ),
+        frame.new(
+            [
+                [-1e-06, "lockbox_MOT__MHz", 0.0, "ADwin_LowInit"],
+                [-1e-06, "coil_compensationX__A", 0.25, "ADwin_LowInit"],
+                [-1e-06, "coil_compensationY__A", 1.5, "ADwin_LowInit"],
+                [-1e-06, "coil_MOTlowerPlus__A", 0.1, "ADwin_LowInit"],
+                [-1e-06, "coil_MOTupperPlus__A", -0.1, "ADwin_LowInit"],
+                [-1e-06, "AOM_MOT", 1.0, "ADwin_LowInit"],
+                [-1e-06, "AOM_repump", 1.0, "ADwin_LowInit"],
+                [-1e-06, "AOM_OPaux", 0.0, "ADwin_LowInit"],
+                [-1e-06, "AOM_OP", 1.0, "ADwin_LowInit"],
+                [-1e-06, "AOM_science", 1.0, "ADwin_LowInit"],
+                [-1e-06, "shutter_MOT", 0.0, "ADwin_LowInit"],
+                [-1e-06, "shutter_repump", 0.0, "ADwin_LowInit"],
+                [-1e-06, "shutter_OP001", 0.0, "ADwin_LowInit"],
+                [-1e-06, "shutter_OP002", 1.0, "ADwin_LowInit"],
+                [-1e-06, "shutter_science", 0.0, "ADwin_LowInit"],
+                [-1e-06, "shutter_transversePump", 0.0, "ADwin_LowInit"],
+                [-1e-06, "AOM_science__trans", 1.0, "ADwin_LowInit"],
+                [-1e-06, "trigger_TC__V", 0.0, "ADwin_LowInit"],
+                [0.0, "shutter_MOT", 1.0, "MOT"],
+                [0.0, "shutter_repump", 1.0, "MOT"],
+                [0.0, "coil_MOTlower__A", -1.0, "MOT"],
+                [0.0, "coil_MOTupper__A", -0.98, "MOT"],
+                [5.0, "⚓_001", 0.0, "MOT"],
+            ],
+            columns=["time", "variable", "value", "context"],
+        ),
+    )
+
+
+# def test_waitVariable(df_wait):
+#     return frame.assert_equal(
+#         tl.wait(variables=["AOM_imaging"], timeline=df_wait, context="test"),
+#         frame.new(
+#             {
+#                 "time": {0: 0.0, 1: 0.0, 2: 0.0, 3: 10.0, 4: 10.0},
+#                 "variable": {
+#                     0: "AOM_imaging",
+#                     1: "AOM_imaging__V",
+#                     2: "AOM_repump",
+#                     3: "AOM_repump",
+#                     4: "AOM_imaging",
+#                 },
+#                 "value": {0: 0.0, 1: 2.0, 2: 1.0, 3: 0.0, 4: 0.0},
+#                 "context": {0: "init", 1: "init", 2: "init", 3: "init", 4: "test"},
+#             }
+#         ),
+#     )
+
+
+# def test_waitAll(df_wait):
+#     return frame.assert_equal(
+#         tl.wait(timeline=df_wait),
+#         frame.new(
+#             [
+#                 [0.0, "AOM_imaging", 0.0, "init"],
+#                 [0.0, "AOM_imaging__V", 2.0, "init"],
+#                 [0.0, "AOM_repump", 1.0, "init"],
+#                 [10.0, "AOM_repump", 0.0, "init"],
+#                 [10.0, "AOM_imaging", 0.0, "init"],
+#                 [10.0, "AOM_imaging__V", 2.0, "init"],
+#             ],
+#             columns=["time", "variable", "value", "context"],
+#         ),
+#     )

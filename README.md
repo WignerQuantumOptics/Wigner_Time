@@ -6,6 +6,13 @@ Timeline creation and management for open-loop control in AMO experiments and be
 ## Status
 This is currently an alpha release. Usable, but subject to breaking changes. We will release the first stable version soon.
 
+## Installation
+
+```bash
+pip install wigner-time
+```
+
+Distributed under the Boost Software License, Version 1.0.
 
 ## Optional dependencies (package `extras`) 
  - `performance_and_export` (Recommended): Installs `pyarrow` for memory management, sharing between systems and export to `parquet`.
@@ -122,7 +129,7 @@ Wigner Time is based around the idea of a &rsquo;timeline&rsquo;, which is, at h
 -   Add more parameters by adding columns
 -   Add more operations by adding rows
 
-By boiling the design down to a &rsquo;table&rsquo; as the foundation, then we can benfit from decades of database development, particularly in-memory database-like systems like \`pandas\`. Therefore, when in doubt, the user can simply manipulate their timeline using the well-developed \`pandas\` ecosystem. For most operations however, even this won&rsquo;t be necessary as wigner<sub>time</sub> provides layers of conveninece functions ontop of this for designing open-loop experiments.
+By boiling the design down to a &rsquo;table&rsquo; as the foundation, then we can benfit from decades of database development, particularly in-memory database-like systems like \`pandas\`. Therefore, when in doubt, the user can simply manipulate their timeline using the well-developed \`pandas\` ecosystem. For most operations however, even this won&rsquo;t be necessary as \`wignertime\` provides layers of convenience functions ontop of this for designing open-loop experiments.
 
 
 <a id="orge8cea69"></a>
@@ -134,9 +141,9 @@ You want to digitally control an optical shutter and AOM.
 For digital channels, simply *name* the ADwin ports using standard Python lists. These keep track of the physical connections.
 
 ``` python
-    from wigner_time.adwin import connection as adcon
-    from wigner_time import device
-    from wigner_time import conversion as conv
+    from wignertime.adwin import connection as adcon
+    from wignertime import device
+    from wignertime import conversion as conv
     
     connections = adcon.new(
         ["shutter_MOT", 1, 11],
@@ -169,7 +176,7 @@ N.B. The use of *pandas.DataFrame* for convenient edits.
         t=1e-6,
         context="ADwin_LowInit",
     
-        shutter_MOT= 1
+        shutter_MOT=1,
         AOM_MOT=0,
     )
     final = init
@@ -180,14 +187,14 @@ And any key processes&#x2026;
 
 ``` python
 MOT = tl.update(
-            shutter_MOT= 0
+            shutter_MOT=0,
             AOM_MOT=1,
             context="MOT",
         )
 detuned_growth = tl.ramp(
                     lockbox_MOT__MHz=-5,
                     duration=10e-3,
-        ),
+        )
 ```
 Then combine it all together in readable and modular fashion.
 
@@ -207,9 +214,9 @@ tline = tl.stack(
 The timeline can then be exported to an ADwin-compatible format.
 
 ``` python
-    from wigner_time.adwin import core as adwin
+    from wignertime.adwin import core as adwin
     
-    adwin.to_data(tline)
+    adwin.core.convert(tline)
 ```
 
 <a id="orge0a7f00"></a>
@@ -218,4 +225,4 @@ The timeline can then be exported to an ADwin-compatible format.
 
 -   Official support for NI systems
 -   Graphical input
--   Feature requests. Post an issue! 
+-   Feature requests. Post an issue!
