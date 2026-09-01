@@ -82,35 +82,53 @@ def add(timeline, devices):
     return wt_frame.join(timeline, devices)
 
 
-def check_within_range(timeline):
+def check_within_range(timeline, columns__bounds=["value__min", "value__max"]):
     """
-    Considers whether the `timeline` `value`s fall inside device safety ranges (see SCHEMA). Raises an error if not.
+    Considers whether the `timeline` `value`s fall inside device safety ranges (see SCHEMA). Raises an error if not, naming every variable that offends rather than only the first.
 
-    ASSUMES: That a `value` column is present.
+    A variable with no bounds at all is one that has no entry in `device`s – a digital line, typically – and is skipped. A variable with only one bound is checked against that bound alone.
+
+    ASSUMES: That a `value` column is present, and that the timeline has already been joined to `device`s.
     """
 
     if not wt_frame.is_column_float(timeline["value"]):
         raise ValueError("Value column might not contain floats.")
 
-    for variable, group in timeline.groupby("variable"):
-        if group["value__max"].any():
-            if max(group["value"].values) > group["value__max"].values[0]:
-                raise ValueError(
-                    "{} was given a value of {}, which is higher than its maximum safe limit. Please provide values only inside it's safety range.".format(
-                        variable, max(group["value"].values)
-                    )
-                )
-            elif min(group["value"].values) < group["value__min"].values[0]:
-                raise ValueError(
-                    "{} was given a value of {}, which is lower than its minimum safe limit. Please provide values only inside it's safety range.".format(
-                        variable, min(group["value"].values)
-                    )
-                )
-            else:
-                return True
-        else:
-            raise ValueError(
-                "`value__max` was not found in timeline columns:  {}".format(
-                    timeline.columns
-                )
+    columns__missing = [c for c in columns__bounds if c not in timeline.columns]
+    if columns__missing:
+        raise ValueError(
+            "Safety limits cannot be checked because the column(s) {} are absent. `device`s should be joined to the timeline before validation. Columns present: {}".format(
+                columns__missing, list(timeline.columns)
             )
+        )
+
+    column__min, column__max = columns__bounds
+    violations = []
+
+    for variable, group in timeline.groupby("variable"):
+        bound__min = group[column__min].iloc[0]
+        bound__max = group[column__max].iloc[0]
+
+        if wt_frame.isnull(bound__min) and wt_frame.isnull(bound__max):
+            # No device entry for this variable, so there is nothing to check.
+            continue
+
+        if not wt_frame.isnull(bound__max):
+            value__max = group["value"].max()
+            if value__max > bound__max:
+                violations.append((variable, value__max, "above", bound__max))
+
+        if not wt_frame.isnull(bound__min):
+            value__min = group["value"].min()
+            if value__min < bound__min:
+                violations.append((variable, value__min, "below", bound__min))
+
+    if violations:
+        raise ValueError(
+            "The following variables were given values outside their device safety range. Please provide values only inside it:\n"
+            + "\n".join(
+                "  {}: {} is {} the limit of {}".format(*v) for v in violations
+            )
+        )
+
+    return True
