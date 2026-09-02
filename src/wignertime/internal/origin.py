@@ -13,7 +13,6 @@ from wignertime.config import wtlog
 from wignertime.internal import util as wt_util
 from wignertime.internal.timeline import anchor as wt_anchor
 from wignertime.internal import dataframe as wt_frame
-from wignertime.internal import origin as wt_origin
 
 ###############################################################################
 #                                  CONSTANTS                                   #
@@ -258,7 +257,7 @@ def update(
 
         for var in timeline__future["variable"].unique():
 
-            _t0, _v0 = wt_origin.find(
+            _t0, _v0 = find(
                 timeline__past,
                 origin=[var if e == "variable" else e for e in input],
                 time__max__relative=timeline__future["time"].min(),
@@ -274,7 +273,7 @@ def update(
         find_every_origin(timeline__past, timeline__future, o)
 
     else:
-        _t0, _v0 = wt_origin.find(origin=origin)
+        _t0, _v0 = find(origin=origin)
 
         _update_future(timeline__future, _t0, _v0, variable=None)
 
