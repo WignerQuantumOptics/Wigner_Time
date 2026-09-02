@@ -85,9 +85,10 @@ def drop_repeats(
         column__order=column__order,
     )
 
-    mask__keep = mask__special | mask__changed.reindex(timeline.index).fillna(
-        False
-    ).astype(bool)
+    # `mask__changed` covers only the non-special rows, so it is widened back to the
+    # full index. `fill_value` is what keeps this a boolean mask: reindexing without
+    # one introduces NaN, which bool cannot hold, silently upcasting to object dtype.
+    mask__keep = mask__special | mask__changed.reindex(timeline.index, fill_value=False)
 
     return timeline[mask__keep]
 
