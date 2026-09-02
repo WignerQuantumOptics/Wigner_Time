@@ -1,4 +1,10 @@
+import pytest
+
 from wignertime import timeline as tl
+
+# `adwin.display` needs the optional `display` extra.
+pytest.importorskip("matplotlib", reason="the `display` extra is not installed")
+
 from wignertime.adwin import display as adwin_display
 
 import sys

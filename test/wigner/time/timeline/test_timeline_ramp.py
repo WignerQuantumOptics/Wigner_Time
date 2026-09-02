@@ -3,7 +3,11 @@ from munch import Munch
 import numpy as np
 
 from wignertime import ramp_function, timeline as tl
-from wignertime.adwin import display
+
+# NOTE: the commented-out `display` call below needs
+# `from wignertime.adwin import display`, and with it the optional `display`
+# extra. It is not imported at module scope so that these tests remain runnable
+# without that extra.
 from wignertime.internal import dataframe as wt_frame
 
 import pathlib as pl
