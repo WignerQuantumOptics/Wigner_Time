@@ -394,6 +394,47 @@ Two candidate behaviours: strict (consult `inspect.signature`, reject splits tha
 
 The docstring carries an unresolved TODO asking what happens if `t` is unspecified, with the author's own guess that it fails. Establish the intended behaviour and either give `t` a meaningful default or reject `None` explicitly.
 
+### C4 — the `timeline` argument's full contract **[open; the §F guard was agreed insufficient, 2026-09-03]**
+
+`internal/util.ensure_not_deferred` catches a callable handed in where a timeline belongs. It catches nothing else, so five distinct cryptic failures remain reachable from ordinary mistakes — measured:
+
+```
+tl.expand([[0.0, 1.0]])                AttributeError: 'list' object has no attribute 'columns'
+tl.update("not a timeline", a__A=1.0)  TypeError: string indices must be integers, not 'str'
+tl.ramp(42, a__A=1.0, duration=1.0)    TypeError: 'int' object is not subscriptable
+tl.anchor(1.0, timeline={})            KeyError: 'variable'
+tl.create(a__A=1.0, timeline=[1,2,3])  AttributeError: 'list' object has no attribute 'loc'
+```
+
+None of them names the function at fault or the argument that was wrong.
+
+**Target contract** — a four-way dispatch on the `timeline` argument:
+
+| `timeline` is | behaviour |
+| --- | --- |
+| a `wt_frame.CLASS` | evaluate, return a timeline |
+| callable | compose, return a function |
+| `None` | defer, return a function |
+| anything else | `TypeError` naming the function and the type received |
+
+Written this way the contract is uniform: **frame in, frame out; function in, function out.** `ensure_not_deferred` would become something like `resolve_timeline_argument`.
+
+**The two halves carry very different risk, and can be taken separately.**
+
+- **Broadening the check** (row 4) is purely additive. It converts the five failures above into one named `TypeError` and changes nothing for code that already works. Small, safe, no API decision.
+- **The composition branch** (row 2) is a genuine behaviour change: nesting currently raises and would start working. It is defensible — nesting with a *concrete* timeline at the bottom already works today and produces a result identical to the `stack` form, and the paper itself writes `ramp(..., timeline=update(..., timeline=timeline))` — and it can be implemented by delegating to `stack`, so there is only ever one composition rule:
+
+    ```python
+    if callable(timeline) and not isinstance(timeline, wt_frame.CLASS):
+        return stack(timeline, wt_util.function__lambda())
+    ```
+
+  That works because `function__lambda` pops `timeline` out of the captured arguments and uses only the key, so it yields the correct deferred self even while `timeline` holds the inner function. Note it inherits `stack`'s keyword forwarding, so A5 and C1 are worth settling first or accepting knowingly.
+
+**The one open fork: does `create` join the composition branch?** `create` has no deferred form — it always evaluates — so it cannot compose without gaining one, which is C2. Recommended: `create` accepts a frame or `None` only and raises on a callable, since the paper makes it the entry point of a stack and composing *onto* it is meaningless. That confines row 2 to the four functions that already have a deferred form, and keeps C2 unopened.
+
+Whichever way this goes, `stack` and `cascade` must stay outside the guard: their first argument is legitimately a callable, and `cascade(init, MOT, ...)` depends on it. `test_timeline_deferred.py` already pins that.
+
 ---
 
 ## D. Structural
@@ -507,7 +548,9 @@ Note that the extra being installed is *not* the same as the hardware being pres
 
   Fix: `internal/util.ensure_not_deferred`, called as the first statement of all five. It raises `TypeError` naming the function, explaining that a core call without `timeline=` returns a function, and showing the sibling-in-`stack` form that was intended. Regression tests in `test/wigner/time/timeline/test_timeline_deferred.py` (11 cases, covering all five functions, the deferral protocol itself, and that `stack`/`cascade` still accept a leading callable — they legitimately do, and must not be caught).
 
-  This is a guard, not defensive branching: it converts a downstream `AttributeError` into an immediate, named `TypeError`, which is what §"loud and early" asks for. It is deliberately narrow — it fires only for a callable given where a timeline belongs, the mistake the deferral design specifically invites, and is not a general type check on the argument. A non-callable non-frame (`expand([1, 2, 3])`) still fails downstream and cryptically; broadening it would mean deciding what counts as a timeline, which is entangled with the `wt_frame.CLASS` polars abstraction (D5) and was left alone.
+  This is a guard, not defensive branching: it converts a downstream `AttributeError` into an immediate, named `TypeError`, which is what §"loud and early" asks for. It is deliberately narrow — it fires only for a callable given where a timeline belongs, the mistake the deferral design specifically invites, and is not a general type check on the argument. A non-callable non-frame (`expand([1, 2, 3])`) still fails downstream and cryptically; broadening it would mean deciding what counts as a timeline, which is entangled with the `wt_frame.CLASS` polars abstraction (D5).
+
+  **That rationale is withdrawn, 2026-09-03.** It does not hold: the check would route through `wt_frame.CLASS`, which is precisely the seam that exists for the polars swap, so there was no cost to broadening it. The narrowness was agreed insufficient in discussion and the full contract is recorded as C4. Until C4 lands, the cryptic failures it lists remain reachable.
 
   Worth noting what the guard does *not* address, since the original report was really about something else: `expand` acts on the entire timeline it receives, not on the ramp beside it. Calling it mid-`stack` inside a late stage expands **every** ramp accumulated so far — 14 variable-ramps across five variables by the time `finish` runs in the demo — at whatever `time_resolution` was passed, and then drops the `function` column so that the `expand` inside `adwin.core.convert` silently becomes a no-op and that resolution is what reaches the hardware. Per-ramp resolution is available instead by baking it into the `function` argument, as `demo.pull_coils` already does. Both behaviours are by design; neither is documented anywhere a user would look, which is a documentation gap rather than a bug.
 - **E, the suite aborting when an optional extra is absent** — fixed 2026-09-01.
