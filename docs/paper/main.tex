@@ -1341,6 +1341,56 @@ backend.Start_Process(1) # assuming that the ADwin backend program is loaded on 
  
  
  
+\section{Extending the default state from a downstream module}
+\label{sec:forwarding}
+
+A recurring situation in the operation layer is that a module does not describe a new experiment, but \emph{extends} an existing one with additional hardware. In our laboratory a diagnostics module adds absorption-imaging equipment -- an imaging shutter, an imaging AOM and a camera trigger -- to the base cold-atom experiment of \cref{sec:demonstration}. These three channels take no part in preparing the sample, but they are nonetheless part of the apparatus, and like every other channel they require a defined state at both ends of a run (\cref{sec:context}).
+
+There are two unsatisfying ways to arrange this. The base \python{default_state} can be edited to mention the imaging hardware, which couples the base experiment to equipment it never uses and makes that one function the place where every future module must intervene. Or the diagnostics module can declare a default state of its own, which duplicates the base specification and reintroduces precisely the divergence that having a single \python{default_state} exists to prevent (\cref{sec:discussion}).
+
+Keyword forwarding provides a third way. \python{default_state} accepts \python{**kwargs} and passes them to its terminal \python{create} or \python{update} call, where -- because that call's keyword namespace \emph{is} the variable namespace (\cref{sec:functions}) -- an unrecognised keyword is read as a variable-value pair. Every stage between a call site and \python{default_state} forwards \python{**kwargs} in the same way, so a keyword that no intermediate stage consumes falls through to the default state and initialises a variable there.
+
+\begin{minted}[fontsize=\footnotesize, breaklines, breakanywhere, frame=none]{python}
+# experiment.py - the base apparatus
+def default_state(f=tl.create, MOT_ON=True, cavity_transmission=True, **kwargs):
+    return f(
+        lockbox_MOT__MHz=0.0,
+        AOM_MOT=1,
+        AOM_repump=1,
+        shutter_MOT=int(MOT_ON),
+        shutter_repump=int(MOT_ON),
+        shutter_science=int(cavity_transmission),
+        trigger_TC__V=0.0,
+        # ... the remainder of the base state
+        **kwargs,
+    )
+
+def init(MOT_ON=False, cavity_transmission=False, **kwargs):
+    return default_state(
+        t=-1e-6, context="ADwin_LowInit",
+        MOT_ON=MOT_ON, cavity_transmission=cavity_transmission,
+        **kwargs,
+    )
+
+# diagnostics.py - a module that adds absorption imaging
+connections = pd.concat([
+    experiment.connections,
+    adcon.new(["shutter_imaging", 1, 13],
+              ["AOM_imaging", 1, 5],
+              ["trigger_camera", 1, 0]),
+])
+
+def init(**kwargs):
+    return experiment.init(shutter_imaging=0, AOM_imaging=1, trigger_camera=0, **kwargs)
+
+def finish(**kwargs):
+    return experiment.finish(shutter_imaging=0, AOM_imaging=1, trigger_camera=0, **kwargs)
+\end{minted}
+
+The three keywords given in \python{diagnostics.init} are consumed by nothing on the way down: \python{experiment.init} passes them on, and \python{default_state} adds them to its \python{create} call. The base experiment file is untouched, the base state is stated exactly once, and \python{diagnostics.finish} does the same against \python{experiment.finish}, so that the added channels are defined at the end of a run as well as at its beginning. The connection table is extended in the same spirit -- the diagnostics module declares only its own three channels and concatenates them onto the ones it inherits. This is the module referred to as \python{di} in \cref{sec:parameter_scan}.
+
+Nothing here is a library feature. It is ordinary Python keyword forwarding, available because stages are ordinary functions rather than objects with fixed interfaces, and because the library keeps one namespace deliberately open: the terminal \python{**vtvc_dict}. The cost of that openness is that a misspelled keyword arriving at the terminal call is still a legal variable name, and so creates a variable rather than raising. The connection table is what bounds the consequence -- a variable with no matching connection cannot reach the hardware, and is removed during conversion (\cref{sec:connectionlayer}) -- which is a further reason to treat that table, rather than the stage functions, as the authoritative statement of what the apparatus is.
+
 \section{Parameter scanning}
 \label{sec:parameter_scan}
 The functional approach extends naturally beyond single-shot timeline construction into experimental automation. The following example illustrates a time-of-flight (TOF) measurement, in which the same base timeline is composed with an imaging stage at a series of different delay times. The key observation is that this is not specific to TOF: the same pattern applies to any experiment in which a single parameter is scanned while the rest of the timeline remains fixed.
