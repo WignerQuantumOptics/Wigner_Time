@@ -12,6 +12,7 @@ import numpy as np
 import math
 
 from wignertime.config import wtlog
+from wignertime.internal import dataframe as wt_frame
 
 
 def is_sequence(x, is_string=False):
@@ -200,6 +201,31 @@ def args_in_function(f: Callable, kwargs, exclude=(), call_frame=None) -> Ordere
     )
 
     return args
+
+
+def ensure_not_deferred(timeline, name__function: str):
+    """
+    Raises `TypeError` if `timeline` is one of the deferred functions returned by `function__lambda`, rather than a timeline.
+
+    Nesting one core call inside another – `expand(ramp(...))` – is an easy mistake, because it reads like ordinary function composition. It is not: a core function called without a `timeline` returns a *function*, so the inner call arrives here as the `timeline` argument and fails much further downstream, on whatever dataframe attribute is touched first.
+
+    Deferred calls compose as siblings of a `stack`, never by nesting. Raising at the point of the mistake keeps that distinction visible instead of surfacing it as an `AttributeError` about a column.
+
+    NOTE: Narrow by construction. It catches a callable given where a timeline belongs, which is the mistake the deferral design invites; it is not a general type check on the argument, so a non-callable non-frame still fails downstream and cryptically. That is a known gap, not a settled choice – see `KNOWN_ISSUES.md` C4 for the intended four-way contract, which supersedes this function.
+    """
+    if (
+        (timeline is not None)
+        and (not isinstance(timeline, wt_frame.CLASS))
+        and callable(timeline)
+    ):
+        raise TypeError(
+            "`{f}` was given a deferred function where a timeline was expected.\n\n"
+            "That is what a core function returns when called without `timeline=`, so this "
+            "usually means two calls were nested:\n\n"
+            "    {f}(ramp(...))          # `ramp(...)` here is a function, not a timeline\n\n"
+            "Deferred calls compose as siblings of a `stack`, in execution order:\n\n"
+            "    stack(timeline, ramp(...), {f}(...))".format(f=name__function)
+        )
 
 
 def function__lambda(lambda_key="timeline", kwargs=["vtvc_dict"]):
