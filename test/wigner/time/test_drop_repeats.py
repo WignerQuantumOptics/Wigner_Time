@@ -5,6 +5,7 @@ Run with `pytest test_drop_repeats.py` from this directory.
 """
 
 import sys
+import warnings
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "shim"))
@@ -15,6 +16,7 @@ import pytest
 
 import wignertime.adwin as wt_adwin
 from wignertime.adwin import validate
+from wignertime.internal import dataframe as wt_frame
 
 
 COLUMNS = list(wt_adwin.SCHEMA.keys())
@@ -252,3 +254,44 @@ def test_digital_channels_are_filtered_too():
         ]
     )
     assert list(validate.all(tl)["cycle"]) == [0, 2, 4]
+
+
+# ---------------------------------------------------------------------------
+# Dtype hygiene
+# ---------------------------------------------------------------------------
+
+
+def test_mask_stays_boolean_with_special_contexts():
+    """
+    The keep-mask is assembled without an object-dtype round trip.
+
+    `mask__changed` is computed over the non-special rows only, so widening it back
+    to the full index adds labels. Reindexing a boolean mask without a `fill_value`
+    fills those with NaN, which bool cannot hold, so pandas upcasts to object – and
+    `fillna` on an object-dtype array is deprecated. This only ever showed up when a
+    special context was present, which is to say in every real ADwin export.
+    """
+    tl = frame(
+        [row(-2, 5, context="ADwin_LowInit")]
+        + [row(c, d) for c, d in [(0, 100), (1, 100), (2, 101)]]
+        + [row(2**31 - 1, 7, context="ADwin_Finish")]
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        result = validate.drop_repeats(tl)
+
+    assert list(result["cycle"]) == [-2, 0, 2, 2**31 - 1]
+
+
+def test_mask__changed_returns_a_boolean_series():
+    tl = frame([row(c, d) for c, d in [(0, 100), (1, 100), (2, 101)]])
+
+    mask = wt_frame.mask__changed(
+        tl,
+        subset=["module", "channel"],
+        column__value="value__digits",
+        column__order="cycle",
+    )
+
+    assert mask.dtype == bool
