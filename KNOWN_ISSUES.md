@@ -8,6 +8,8 @@ Standing checklist for code work. Written for an agent picking up the repository
 
 Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 — so verification has *not* renumbered them, and sections A and B are consequently no longer in strict severity order. **A4 is now the most severe open item in this document**: it was expected to be unreachable and turns out to be reachable through `ramp`, silently, on any anchorless timeline. Read A4 first.
 
+**Origins have their own reference.** `docs/origin-resolution.md` maps every branch of the origin mechanism as implemented, in four layers, with the defect in each. Read it before touching `internal/origin.py` — the items below give the defects, that document gives the shape.
+
 **Do not "fix" by adding try/except or defensive branching.** This library's value proposition is that experiment descriptions are inspectable data. Failures should be loud and early, at the point where the user's intent was ambiguous — not absorbed downstream.
 
 ---
@@ -78,6 +80,8 @@ Note the interaction with the recommendation that every stage end with an `ancho
 
 Fix direction: `auto` should not be able to return `None` implicitly. Either raise when no default applies — naming the timeline's lack of an anchor, since that is the actual cause — or fall back to `"last"` as the config default does. **Which of those two is right is an API decision**: raising is consistent with §"loud and early", falling back is consistent with `ORIGIN__DEFAULTS`. Do not choose unilaterally; see C1 for the analogous question.
 
+**Addendum, 2026-09-03.** The same condition is handled two ways, worth fixing in one go: an *explicit* `origin="anchor"` on an anchorless timeline raises `anchor is an unsupported option for 'origin'` (verified), because `_to_col_var` falls through the variable and context lookups to its error branch. The *default* path, meeting the same absent anchor, is silent. Whichever is chosen — raise, or fall back with a warning — the two paths should agree.
+
 ### A5 — `stack` turns an unrecognised keyword into a phantom variable **[new, found 2026-09-02]**
 
 `timeline.stack` forwards every keyword it is given to every constituent, which is the documented convenience for a shared `context`. But the core functions absorb unrecognised keywords into `**vtvc_dict`, where a keyword *is* a variable name. So a keyword that matches no parameter is not rejected — it becomes a row.
@@ -118,6 +122,55 @@ Fix direction, and it is an API decision: **`auto` should complete a partial ori
 
 - `sec:origin_full`: "No default in the package is value-relative; value origins are available … but are always requested explicitly." `ramp`'s start-point default `["anchor", "variable"]` *is* value-relative, and is the reason ramps chain correctly at all.
 - The same appendix's account of interweaving is accurate for `update` but not reachable for `ramp` through the shorthand it documents.
+
+### A7 — `"last"` and `"anchor"` are accepted as VALUE origins, where they are category errors **[new, found 2026-09-03]**
+
+Both keywords are defined temporally: `"last"` means the highest time recorded so far, `"anchor"` the time of the most recent anchor. Yet `origin.find` resolves both slots of the pair through the same `_to_col_var`, so both are accepted in the *value* slot, silently, with no interpretation that makes physical sense.
+
+Measured on a timeline with `coil__A` = 7.0 A, an anchor at t=5, and `shutter_MOT` = 1 at t=9:
+
+```python
+origin=[20.0, "variable"]  # -> 7.0   the variable's own last value   MEANINGFUL
+origin=[20.0, "coil__A"]   # -> 7.0   same, named explicitly          MEANINGFUL
+origin=[20.0, "anchor"]    # -> 0.0   the anchor row's dummy value
+origin=[20.0, "last"]      # -> 1.0   shutter_MOT's state. In amps.
+origin=[20.0, "prep"]      # -> 1.0   that context's last row, whatever variable it belongs to
+```
+
+`"last"` is the dangerous one: it returns the value of whichever variable happens to hold the highest time, so a digital line's 0/1 is added to a current in amps with no complaint. `"anchor"` is harmless only because anchors are created carrying value 0 — nothing enforces that, so it is a latent trap rather than a safe no-op. A context name in the value slot fails the same way.
+
+It is not even consistently wrong, because the answer depends on which branch computes the lookup bound: `origin=["anchor", "last"]` gives 0.0, since the bound is the anchor's own instant and the anchor *is* the highest-time row there.
+
+**What the manuscript actually says, and it splits this item in two** (`fig:origin` caption, `docs/paper/main.tex:916`): "With the exception of anchors, for which no value is defined, every option can serve as either a time or a value origin."
+
+- **`"anchor"` in the value slot is a plain bug against the documented design.** The paper states no value is defined for anchors; the code silently returns the anchor row's dummy `0.0`. No design question — it should raise.
+- **`"last"` and context names in the value slot are *licensed* by that caption.** So narrowing them is a change to the manuscript, not a bug fix, and belongs to the maintainer. The argument for narrowing is the measurement above: "every option can serve as either" is true mechanically but not physically, since the value it yields belongs to whichever variable happens to hold the highest time — a digital line's 0/1 added to a current in amps. My recommendation is to narrow and amend the caption, but it is a §G report, not a defect.
+
+The figure's leaf wording already leans that way: `"last"` and `"anchor"` are described as *times* ("the highest time recorded so far", "the time of the most recent anchor"), while the value-capable leaves are described neutrally as *entities* ("entity of previously occuring variable").
+
+Fix direction: split the vocabulary by slot. The time slot admits a number, `"anchor"`, `"last"`, `"variable"`, a variable name or a context name; the value slot admits a number, `"variable"` or a variable name, and **raises** on the rest. Raise rather than warn — unlike the time slot there is no sensible value to fall back to. Nothing is lost, because "the value `coil__A` held at the end of molasses" is already `["molasses", "variable"]`. See `docs/origin-resolution.md` for the full branch map.
+
+### A8 — a value origin is added on top of an explicitly stated `ramp` start value **[new, found 2026-09-03]**
+
+`ramp`'s value origin defaults to `"variable"`, and `_update_future` applies it **additively**. That is right for a variable whose start point was inferred, but it is applied just as readily to a start value the user stated explicitly in the 2-D input form.
+
+```python
+# coil__A last known at 7.0
+tl.ramp(timeline=base, coil__A=[[0.0, 1.0], [0.5, 3.0]])
+# start value comes out as 8.0 (= 1.0 + 7.0), not the 1.0 that was written
+```
+
+`tab:rampExamples` documents that exact form as "for cases where the start cannot be inferred from `origin`" — i.e. the user is overriding the inference — so adding the inferred value back on top defeats the only reason to use the form.
+
+Fix direction: resolve the value origin only for variables in `df__no_start_points`, never for those in `df_1`. Settle together with B1 and A3, which sit in the same block of `ramp`.
+
+### A9 — reserved origin words silently shadow real context and variable names **[new, found 2026-09-03]**
+
+`_to_col_var` tests `"anchor"`, then `"last"`, then variable names, then context names. So a context or variable actually named `anchor`, `last` or `variable` is unreachable as an origin, silently. Verified with a context literally named `anchor` whose rows sit at t=1, alongside a real anchor at t=5: `origin="anchor"` resolves to **5.0**, not 1.0.
+
+`_ORIGINS = ["anchor", "last", "variable"]` exists in `origin.py`, with a docstring saying these labels are reserved for interpretation by the package — and is referenced nowhere in it.
+
+Fix direction: make `_ORIGINS` the single source of truth, and reject a context or variable name that shadows one at the point it is created. `connection.new` already validates variable names; contexts are unvalidated. A collision is a mistake in the client's vocabulary, so raising at creation beats resolving it silently either way.
 
 ---
 
@@ -194,6 +247,33 @@ Fix direction: operate on a copy.
 `_pt_start, _pt_end = _group[["time", "value"]].values` unpacks assuming two rows. Groups are formed by `_dff.index // num__bounds` after a reset, so an odd total row count leaves a final group of one and the unpack raises a bare `ValueError` with no indication of which variable is malformed.
 
 Fix direction: check group size explicitly and raise naming the offending variable. This becomes load-bearing if `num__bounds != 2` is ever implemented.
+
+### B7 — a value-only origin against a variable raises a raw `TypeError` **[new, found 2026-09-03]**
+
+In `find`'s `[None | float, str]` branch the value lookup's bound is `n1 + time__max__relative`. When the time slot is `None` — the caller asked for a value origin and no time origin — that is `None + float`:
+
+```python
+tl.update(timeline=base, coil__A=0.0, t=3.0, origin=[None, "variable"])
+# TypeError: unsupported operand type(s) for +: 'NoneType' and 'float'
+tl.update(timeline=base, coil__A=0.0, t=3.0, origin=[None, "coil__A"])
+# TypeError: the same
+tl.update(timeline=base, coil__A=0.0, t=3.0, origin=[None, 2.0])
+# fine -- numeric value origins work
+```
+
+So a value origin resolved against a variable is unusable through the public API unless a numeric or string time origin is supplied too. The `[str, str]` branch does not have the bug, because there the bound is built from the *resolved* time.
+
+A related rough edge in the same expression: when the bound is small enough to exclude every past row, the error is `Previous <var> not found`, naming neither the bound nor the instant that produced it. The refusal is arguably correct — the value in effect at an instant before the variable existed does not exist — but it is undiagnosable as written, and under a "value default is 0" policy the better answer may be 0 with a warning.
+
+Fix direction: give both branches one definition of the bound, namely the instant the new rows will occupy once the time origin is applied. That removes the `None` arithmetic and makes the branches agree. Do it together with B2, which is in the same expression.
+
+### B8 — `"last"` on an empty timeline raises an opaque pandas error **[new, found 2026-09-03]**
+
+`origin="last"` resolves through `previous` to `dataframe.row_from_max_column`, which is `df.loc[df[column][::-1].idxmax()]`. On an empty frame that is `ValueError: attempt to get argmax of an empty sequence`, with nothing to connect it to origins, timelines, or the user's call.
+
+It is reachable through the documented default, since `config.ORIGIN__DEFAULTS` falls back to `"last"` — so `update` on an empty timeline takes this path. This is the hole that a terminal `0.0` step in the default chain would close (`docs/origin-resolution.md`, suggested semantics item 3).
+
+Fix direction: guard in `previous`, and either raise naming the timeline as empty or fall back to 0.0 with a warning, consistent with whatever the default chain decides.
 
 ---
 
@@ -352,7 +432,7 @@ One-character fix, no design question. Left unfixed only because it fell outside
 
 ### D7 — Reconcile all code to the paper version **[maintainer decision, 2026-09-02]**
 
-`docs/main.tex` is canonical. Where the code and the manuscript disagree, **the code changes.** This is the same direction as §G: the manuscript is not to be edited to match the code.
+`docs/paper/main.tex` is canonical. Where the code and the manuscript disagree, **the code changes.** This is the same direction as §G: the manuscript is not to be edited to match the code.
 
 **Scope to settle before starting.** The paper fixes the naming of everything it *shows*; for library internals it never shows there is no paper version to reconcile to, so those are out of scope by construction. Proposed reading: reconcile the public API surface, the demo, and the ADbasic listing; leave internal identifiers (`num__bounds`, `column__value`, `timeline__past`, `mask__changed`) alone. Confirm this before renaming anything, because the alternative reading — that the paper's single-underscore style governs internals too — is a very large change.
 
@@ -369,11 +449,27 @@ Known divergences, as an inventory rather than a plan:
 
 *ADbasic.* The paper calls the dispatch subroutine `processUpdates`; `resources/ADwin/WignerTimeADwin.bas` calls it `processSwitches`.
 
-**Three prerequisites, all cheap, all worth doing first.**
+**Prerequisites 1 and 2 are DONE as of 2026-09-03** (commits `76b5d09`, `629baef`): the manuscript was imported from Overleaf and committed as a self-contained subtree, `docs/paper/` — `main.tex`, `SciPost.cls`, `SciPost_bibstyle.bst`, `WignerTime.bib` and all five figures. Every `\includegraphics` target and the bibliography call resolve, so the canonical target is now under version control and buildable. Verified separately that the import is byte-identical to the copy audited on 2026-09-01/02 (1453 lines, every recorded citation on the same line), so the inventory above needs no re-verification.
 
-1. **Commit `docs/main.tex`.** It is currently untracked. A canonical target that is not under version control cannot be reconciled against — there is no way to tell whether the code drifted or the manuscript moved.
-2. **Make the manuscript build.** There is no `docs/graphic/` and no `WignerTime.bib`, and two referenced figures exist nowhere in the repository (`origin-decision-tree-highlighted.png`; `ramp-options` only as `.svg`). See `CLAUDE.md` for the full asset list.
-3. **Land the pending decisions first.** The §C decision (event functions lose `**kwargs`; `finish` derives the final state from the timeline) rewrites much of the demo, and hence much of `sec:demonstration` and the new `sec:forwarding`. Reconciling before that lands means doing the same renaming twice.
+**One prerequisite remains.**
+
+1. **Land the pending decisions first.** The §C decision (event functions lose `**kwargs`; `finish` derives the final state from the timeline) rewrites much of the demo, and hence much of `sec:demonstration` and the new `sec:forwarding`. Reconciling before that lands means doing the same renaming twice.
+
+### D8 — `"variable"` resolves only on one call path **[new, found 2026-09-03]**
+
+The literal string `"variable"` is not handled by `_to_col_var` at all. It is substituted for the actual variable name inside `origin.update`'s `find_every_origin` loop, before `find` is reached. So it works through `update`, `ramp` and `anchor`, and raises `variable is an unsupported option for 'origin'` when `origin.find` is called directly with it — even though `find` is the function whose docstring enumerates the reserved labels, and `_ORIGINS` lists `"variable"` among them.
+
+Not user-visible today, but it means `find` cannot be tested or reused in isolation for the one origin keyword that matters most to `ramp`.
+
+### D9 — the decision-tree figure and the config disagree on the value slot **[new, found 2026-09-03]**
+
+`graphic/origin-decision-tree-highlighted.png` (`fig:origin`) shows the default as `[["anchor", 0.0], ["last", 0.0]]`. `config.ORIGIN__DEFAULTS` is `[["anchor", None], ["last", None]]`. Numerically they agree, since a value origin of 0.0 and an absent value origin both leave values untouched, but they are different objects and only one is what the code does. Whichever way it is settled, the figure and the constant should say the same thing — and if the default stops living in `config`, as proposed, the figure's root node needs rewording rather than renumbering.
+
+### D10 — `ensure_pair` message typo, and `find` normalises twice **[new, found 2026-09-03]**
+
+`internal/util.ensure_pair` raises a message beginning "Two many arguments to" — "Two" for "Too". Reachable from user input: `origin=["a", "b", "c"]`.
+
+Separately, `find` normalises the origin twice: once at the top, for the `[None, None]` early return, then again through `sanitize_origin`. Harmless, but it means `sanitize_origin`'s "timeline required for a string origin" check does not gate the early return, and a reader cannot tell which normalisation is authoritative.
 
 ---
 

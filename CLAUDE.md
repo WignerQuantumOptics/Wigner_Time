@@ -41,13 +41,13 @@ anything it covers. Read it before touching `timeline.py` or `internal/origin.py
 - **A green suite does not clear the ADwin backend.** Changes under `wignertime/adwin/` can only be
   checked for internal consistency; correctness must be verified on the rig. Say so explicitly rather
   than reporting such a change as done.
-- **The paper and the code are developed together.** If a change makes a claim in `docs/main.tex`
+- **The paper and the code are developed together.** If a change makes a claim in `docs/paper/main.tex`
   inaccurate or hard to state, stop and report it. Do not edit the paper to match the code. If a
   behaviour is awkward to describe in prose, that is a signal to change the code.
 
 ## Primary reference
 
-`docs/main.tex` is the most comprehensive description of the project: a SciPost Physics Codebases
+`docs/paper/main.tex` is the most comprehensive description of the project: a SciPost Physics Codebases
 submission (Clark, Sárközi, … Vukics) that states the design rationale, not just the API. Read it
 before any non-trivial design decision. Useful section map: `sec:definitions` (the three layers),
 `sec:origin` + appendix `sec:origin_full` (the complete `origin` specification and resolution order),
@@ -55,11 +55,20 @@ before any non-trivial design decision. Useful section map: `sec:definitions` (t
 `sec:stacking` and `sec:interweaving`, `sec:adwin` (the whole real-time program, in ~15 lines),
 `sec:discussion` (comparison with labscript / ARTIQ / Cicero / Entangleware, and stated future work).
 
-It is untracked and does not build from the repo as it stands: there is no `docs/graphic/`
-directory and no `WignerTime.bib`. Of the five referenced figures, `language-tree.png` and
-`wigner-time--basics.pdf` live in `src/wignertime/internal/doc/graphics/`, `ramp-options` exists
-only as `.svg` there, `timeline__example.png` corresponds to `resources/timeline--example.png`
-(note the different separator), and `origin-decision-tree-highlighted.png` is nowhere in the repo.
+The manuscript is now committed and self-contained under `docs/paper/`, imported from Overleaf:
+`main.tex`, `SciPost.cls`, `SciPost_bibstyle.bst`, `WignerTime.bib`, and all five figures under
+`docs/paper/graphic/`. Every `\includegraphics` target and the `\bibliography{WignerTime.bib}` call
+resolve. No LaTeX toolchain is installed here, so a build has not been demonstrated — and note that
+`minted` requires `pygmentize` and `-shell-escape`. Build from inside `docs/paper/`; the figure paths
+are relative to it.
+
+The Overleaf import is byte-identical to the copy analysed on 2026-09-01/02 — 1453 lines, and every
+citation recorded in `KNOWN_ISSUES.md` still lands on the same line — so paper references in these
+notes remain valid as written.
+
+For the `origin` mechanism specifically, read `docs/origin-resolution.md` first: it maps every branch
+of the resolution as *implemented*, in four layers, with the defect in each. `sec:origin` and
+`sec:origin_full` describe the intended design, which the code does not currently match.
 
 ## Architecture
 
@@ -218,7 +227,7 @@ cycle numbers. Rows in these contexts have **no meaningful time**, so they are v
   through everything: columns (`value__digits`), kwargs (`duration__initial`, `column__value`,
   `timeline__past`), functions (`mask__changed`, `sanitize__round_value`), and the `variable` regex.
   Trailing `__002` on filenames is `file.py`'s collision suffix. Note the scope limit from D7: this
-  governs library-internal identifiers, and `docs/main.tex` overrides it for anything the paper shows.
+  governs library-internal identifiers, and `docs/paper/main.tex` overrides it for anything the paper shows.
 - **Route dataframe operations through `internal/dataframe.py`** (imported as `wt_frame`), not through
   pandas directly. That module exists so a polars backend can be dropped in later; `wt_frame.CLASS` is
   the dataframe type. Several older modules (`conversion.py`, `device.py`, `adwin/connection.py`,
@@ -231,8 +240,8 @@ cycle numbers. Rows in these contexts have **no meaningful time**, so they are v
   *why* a rule exists, not just what the function does — match that.
 - `internal/` is explicitly unstable API. `internal/doc/` and `doc/` are org-mode notes and scratch
   notebooks, not built documentation; `docs/` is the mkdocs source (`docs/index.md` duplicates the
-  README, so changes to the overview belong in both) and also holds the paper, `main.tex`, which
-  `mkdocs.yml`'s nav does not include.
+  README, so changes to the overview belong in both). The paper lives in its own self-contained
+  subtree, `docs/paper/`; neither it nor `docs/origin-resolution.md` is in `mkdocs.yml`'s nav.
 - Tests live under `test/wigner/time/`, mirroring the *old* package name — the package was renamed to
   `wignertime` and the test tree wasn't. Tests build frames as literal row lists and compare with
   `wt_frame.assert_equal`; behaviour with many input shapes is covered via `@pytest.mark.parametrize`
@@ -267,7 +276,7 @@ Not covered by `KNOWN_ISSUES.md`:
   `MOT_detuned_growth` against the code's `shutter_OP001`/`shutter_OP002` and `MOT__detuned_growth`;
   and the paper adds a `MOT_off` stage and a `delay_shutter_reinitialization` parameter that the code
   inlines as `0.1`. The paper also renames the ADbasic subroutine `processSwitches` to
-  `processUpdates`. **`docs/main.tex` is canonical: when they disagree, the code changes** (maintainer
+  `processUpdates`. **`docs/paper/main.tex` is canonical: when they disagree, the code changes** (maintainer
   decision, 2026-09-02 — see `KNOWN_ISSUES.md` D7 for the inventory and the prerequisites). This
   governs only what the paper actually shows; internal identifiers it never mentions keep the `__`
   convention below.
