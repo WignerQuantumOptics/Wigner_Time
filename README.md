@@ -12,7 +12,9 @@ This is currently an alpha release. Usable, but subject to breaking changes. We 
 pip install wigner-time
 ```
 
-Distributed under the Boost Software License, Version 1.0.
+Distributed under the GNU General Public License, version 3 — see [LICENSE](LICENSE).
+
+Commercial licences, for use without the obligations of the GPL, are available from the copyright holders on request.
 
 ## Optional dependencies (package `extras`) 
  - `performance_and_export` (Recommended): Installs `pyarrow` for memory management, sharing between systems and export to `parquet`.

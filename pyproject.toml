@@ -2,6 +2,7 @@
 name = "wigner-time"
 version = "0.9.0"
 description="Timeline creation and management for open-loop control in AMO experiments and beyond."
+license = "GPL-3.0-or-later"
 authors = ["LightMatters <clark.thomaswilliam@zoho.eu>"]
 readme = "README.md"
 packages = [{ include = "wignertime", from = "src" }]
