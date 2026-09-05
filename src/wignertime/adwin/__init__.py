@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024-2026 Thomas W. Clark and András Vukics
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 import numpy as np
 
 CONTEXTS__SPECIAL = {"ADwin_LowInit": -2, "ADwin_Init": -1, "ADwin_Finish": 2**31 - 1}

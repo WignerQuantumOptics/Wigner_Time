@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024-2026 Thomas W. Clark and András Vukics
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """
 For 'lower-level' manipulations of ADwin-specifc timeline informaton.
 
