@@ -4,7 +4,9 @@
 Timeline creation and management for open-loop control in AMO experiments and beyond. Keep scrolling for a quick overview.
 
 ## Status
-This is currently an alpha release. Usable, but subject to breaking changes. We will release the first stable version soon.
+Beta. The package has been in use on two cold-atom setups for more than two years, but a number of known issues remain open — including several silent-failure cases surfaced by a systematic code review. These are catalogued in `KNOWN_ISSUES.md` and are being worked through while the accompanying paper is refereed; some of the resulting fixes will be deliberately breaking, most notably to the `origin` mechanism.
+
+A preprint has been submitted to arXiv; the identifier will be added here once it is announced.
 
 ## Installation
 
