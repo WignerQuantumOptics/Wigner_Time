@@ -1,0 +1,37 @@
+Wigner Time — copyright holders and contributors
+================================================
+
+Copyright (C) 2024 Thomas W. Clark and András Vukics.
+
+The copyright in this software is held jointly by the two authors named
+above, who are consequently able to license it on terms of their choosing.
+
+Licensing
+---------
+
+Wigner Time is released publicly under the GNU General Public License,
+either version 3 of the License or, at your option, any later version
+(GPL-3.0-or-later). The LICENSE file carries the full text of version 3.
+
+Commercial licences, on terms negotiated separately, are available from the
+copyright holders on request.
+
+Contributors
+------------
+
+Code contributors, by first contribution:
+
+  Thomas W. Clark      <clark.thomaswilliam@zoho.eu>   (also as "light-matters")
+  András Vukics        <vukics.andras@wigner.hu>       (also as <andras.vukics@gmail.com>)
+
+The accompanying manuscript has a wider author list, reflecting contributions
+to the design, the physics and the apparatus rather than to this source tree.
+
+Note for future contributors
+----------------------------
+
+Because this project is dual-licensed, the copyright holders must be able to
+license every line of it under both sets of terms. Contributions from outside
+the group of copyright holders therefore require a contributor licence
+agreement before they can be merged. Please open an issue before submitting a
+substantial patch.

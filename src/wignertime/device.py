@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 Thomas W. Clark and András Vukics
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """
 A device is represented by a dataframe that contains a variable (with a given unit) and a means, scalar or function, to convert this quantity to a voltage. It also specifies a minimum and maximum value for the variable, to be used in validation.
 

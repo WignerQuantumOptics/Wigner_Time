@@ -1,4 +1,5 @@
-# Copyright Thomas W. Clark & András Vukics 2024. Distributed under the Boost Software License, Version 1.0. (See accompanying file LICENSE.txt)
+# SPDX-FileCopyrightText: 2024 Thomas W. Clark and András Vukics
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 
 """
