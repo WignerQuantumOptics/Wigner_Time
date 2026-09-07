@@ -1,11 +1,43 @@
 [tool.poetry]
 name = "wigner-time"
 version = "0.9.0"
-description="Timeline creation and management for open-loop control in AMO experiments and beyond."
+description = "Timeline creation and management for experiments in quantum science and technology"
 license = "GPL-3.0-or-later"
-authors = ["LightMatters <clark.thomaswilliam@zoho.eu>"]
+authors = [
+    "LightMatters <clark.thomaswilliam@zoho.eu>",
+    "András Vukics <andras.vukics@gmail.com>",
+]
 readme = "README.md"
 packages = [{ include = "wignertime", from = "src" }]
+
+homepage = "https://github.com/WignerQuantumOptics/Wigner_Time"
+repository = "https://github.com/WignerQuantumOptics/Wigner_Time"
+# FIXME: confirm the published mkdocs/mike URL before releasing.
+documentation = "https://WignerQuantumOptics.github.io/Wigner_Time"
+
+keywords = [
+    "timeline",
+    "experiment control",
+    "multidevice control",
+    "hardware timing",
+    "quantum science",
+    "quantum technology",
+    "atomic physics",
+    "cold atoms",
+    "ADwin",
+]
+
+# NOTE: no "License :: OSI Approved :: ..." classifier here on purpose —
+# Poetry derives it from the `license` field above, and specifying both
+# can be rejected under PEP 639.
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
 
 [tool.poetry.dependencies]
 python = ">=3.10"
