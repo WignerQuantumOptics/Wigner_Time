@@ -10,8 +10,20 @@ A preprint has been submitted to arXiv; the identifier will be added here once i
 
 ## Installation
 
+**Not yet on PyPI.** Publication is planned once the accompanying paper has been
+through review; `pip install wigner-time` will work from that point on. Until then,
+install from the repository:
+
 ```bash
-pip install wigner-time
+git clone https://github.com/WignerQuantumOptics/Wigner_Time.git
+cd Wigner_Time
+poetry install
+```
+
+Or, to install it into an existing environment without cloning:
+
+```bash
+pip install git+https://github.com/WignerQuantumOptics/Wigner_Time.git
 ```
 
 Distributed under the GNU General Public License, version 3 — see [LICENSE](LICENSE).
@@ -22,6 +34,10 @@ Commercial licences, for use without the obligations of the GPL, are available f
  - `performance_and_export` (Recommended): Installs `pyarrow` for memory management, sharing between systems and export to `parquet`.
  - `display`: Installs `matplotlib` and `pyqt` for visualization.
  - `parallel_processing`: Installs `polars` for parallel dataframe manipulation. (WARNING: This is currently not used, but will be in the future)
+
+While installing from the repository, extras are selected with
+`poetry install --extras "adwin performance_and_export"`, or with
+`pip install "wigner-time[adwin] @ git+https://github.com/WignerQuantumOptics/Wigner_Time.git"`.
 
 ## Developer Notes
 Tests can be run from the root folder with
