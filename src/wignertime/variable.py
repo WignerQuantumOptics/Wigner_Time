@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 Thomas W. Clark and András Vukics
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """
 Outlines the conventions for variables  and provides some convenience functions for working with them.
 """
