@@ -172,6 +172,65 @@ Fix direction: resolve the value origin only for variables in `df__no_start_poin
 
 Fix direction: make `_ORIGINS` the single source of truth, and reject a context or variable name that shadows one at the point it is created. `connection.new` already validates variable names; contexts are unvalidated. A collision is a mistake in the client's vocabulary, so raising at creation beats resolving it silently either way.
 
+### A10 — `create` silently corrupts a positional row of more than two elements — **GitHub issue #58, still open; verified 2026-09-09**
+
+Reported by T. W. Clark on 2025-03-24 as "problem with `create` (varargs)", labelled `bug` and self-assigned. Confirmed OPEN via `gh issue view 58` on 2026-09-09 (superseding an earlier reading taken from a screenshot). Still reproduces verbatim.
+
+```python
+tl.create(AOM_imaging=[0.0, 0, "init"],                # kwargs -- correct
+          AOM_imaging__V=[0.0, 2.0, "init"],
+          AOM_repump=[0.0, 1, "init"])
+#  time       variable  value context
+#   0.0    AOM_imaging    0.0    init
+#   0.0 AOM_imaging__V    2.0    init
+#   0.0     AOM_repump    1.0    init
+
+tl.create(["AOM_imaging", 0.0, 0, "init"],             # positional -- WRONG, silently
+          ["AOM_imaging__V", 0.0, 2.0, "init"],
+          ["AOM_repump", 0.0, 1, "init"])
+#  time       variable  value context
+#   0.0    AOM_imaging    0.0
+#   0.0 AOM_imaging__V    0.0
+#   0.0     AOM_repump    0.0
+```
+
+Every value collapses and every context is lost. No warning.
+
+**Mechanism.** `internal/timeline/input.py`. `__find_depth` sees `vtvc[0]` as a collection and `vtvc[0][0]` as a string, so it reports depth 2. `__correct_variable_list` then builds `[[row[0], __ensure_time_context(row[1], ...)] for row in coll2D]` — it reads elements 0 and 1 and **discards `row[2:]` without comment**. `__ensure_time_context` treats `row[1]` as the *value*, taking the time from the `t=` default. So element [1] silently becomes the value and the stated time, value and context are all lost. Confirmed directly:
+
+```python
+wt_input.convert(["AOM_imaging", 0.0, 0, "init"], time=0.0)
+# [['AOM_imaging', [[0.0, 0.0, '']]]]
+```
+
+Three-element rows fail identically. Only the two-element shapes parse correctly:
+
+| row given | parsed as | |
+| --- | --- | --- |
+| `["a_x", 1.0]` | t=0.0, v=1.0 | correct, documented |
+| `["a_x", [0.5, 1.0]]` | t=0.5, v=1.0 | correct, documented |
+| `["a_x", 0.5, 1.0]` | t=0.0, **v=0.5** | wrong, silent |
+| `["a_x", 0.5, 1.0, "ctx"]` | t=0.0, **v=0.5**, ctx=`''` | wrong, silent — the issue |
+
+**Root cause is an ambiguity in the input grammar itself**, which is why no positional rule can be right: in a *list* row element [1] is a **value** (`[['variable', value]]`), while in the *flat* form it is a **time** (`variable, time, value, context`). Both are documented in `create`'s docstring. The meaning of element [1] therefore depends on the row's length, and `__correct_variable_list` simply picks one reading. See C5.
+
+Strictly the reported shape is not among the documented forms — but it fails by corrupting data rather than raising, so by the priority rule at the head of this document it is a bug either way.
+
+**There is a commented-out test for exactly this**, `test/wigner/time/timeline/test_timeline_create.py:108`, sitting between two working cases:
+
+```python
+tl.create(AOM_repump=[10.0, 0.0, "important"], timeline=df_previous),
+tl.create("AOM_repump", 10.0, 0.0, "important", timeline=df_previous),
+# tl.create(["AOM_repump", 10.0, 0.0, "important"], timeline=df_previous),   <-- commented out
+tl.create(["AOM_repump", [10.0, 0.0, "important"]], timeline=df_previous),
+```
+
+So the case was hit, parked, and never returned to — which is why the suite is green.
+
+Note that `internal/timeline/input.py` is byte-identical on `main` and every working branch, so this affects the released state and development alike.
+
+Fix direction, and it is C5's decision: either read a row of more than two elements as `[variable, time, value, context]`, mirroring the flat form — which also makes the three-element case unambiguous — or reject it loudly. Doing both is best: support the three- and four-element rows, raise on anything still unmatched, and uncomment line 108. Note that supporting it changes what `["a_x", 0.5, 1.0]` means, from v=0.5 to t=0.5; that is technically breaking, though only for behaviour that is currently wrong and undocumented.
+
 ---
 
 ## B. Correctness
@@ -435,6 +494,27 @@ Written this way the contract is uniform: **frame in, frame out; function in, fu
 
 Whichever way this goes, `stack` and `cascade` must stay outside the guard: their first argument is legitimately a callable, and `cascade(init, MOT, ...)` depends on it. `test_timeline_deferred.py` already pins that.
 
+### C5 — settle and document the whole `*vtvc` / `**vtvc_dict` input grammar **[maintainer, 2026-09-09]**
+
+The input grammar is the most-used part of the public API and the least specified. `create`'s docstring lists five forms; `tab:inputSpecs` in the paper lists five *recommended* ones, all keyword-based, and defers the rest to "more foundational forms ... for programmatic use; see the API documentation" — which does not currently document them. A10 is what that gap costs.
+
+Two things are wanted, in this order.
+
+**1. Decide the grammar, then enumerate it.** Deciding comes first because the grammar is genuinely ambiguous today, not merely undocumented: element [1] of a list row is a *value*, while the second positional argument of the flat form is a *time*. Any enumeration has to resolve that before it can be written down. Questions that need answers:
+
+- Is a row of more than two elements `[variable, time, value, context]` (A10)?
+- Is a bare `[]` meaningful? A tuple rather than a list? Both are currently accepted silently.
+- What is the maximum nesting, and what happens past it? `__find_depth` raises "input involves too deeply nested array" at depth 4 but says nothing about which argument.
+- Do `t=` and `context=` act as defaults, as overrides, or as errors when a row also states them?
+
+**2. Then document it in `create`'s docstring**, so it reaches the generated API pages (`docs/api.md` renders `::: wignertime` through mkdocstrings, so a docstring is the only place this will publish from). The docstring already carries a TODO asking for exactly this: "document the possible combinations of arguments ordered according to usecases". A table of shape against meaning, with one worked example each, is the right form — the paper's `tab:inputSpecs` is the model, extended to the positional forms.
+
+**3. Weed out the silent failures while enumerating.** This is the part that matters most, and the enumeration is the natural occasion for it: every shape that the grammar does *not* accept should raise, naming the argument and the shape received. Today the unsupported shapes are absorbed. Known so far, all of them silent: A10 (rows longer than two elements), and `[]` and tuples accepted without comment. One further oddity for the enumeration to settle rather than a defect: `__ensure_time_context`'s `case 1` branch reads `row[1]` as a context when `context` is falsy, but `case 1` is entered only when rows are one element long, so that arm needs ragged input to fire and may simply be dead. Checked 2026-09-09 that it causes no observable difference — `context=""` and `context=None` both yield `''` — so it is a question of intent, not a bug.
+
+A property-based test would suit this better than more `parametrize` cases: generate shapes, assert that each either produces the documented frame or raises, and that nothing lands in between. That is the check that would have caught A10 in March 2025.
+
+Related: D10 (the `ensure_pair` typo and double normalisation) is in the same input-handling area; C4 governs the `timeline` argument rather than the vtvc arguments, but the same "accept, compose, defer, or raise" discipline applies.
+
 ---
 
 ## D. Structural
@@ -523,6 +603,7 @@ Note that the extra being installed is *not* the same as the hardware being pres
 ~~The same applies to `conversion.function_from_file`, which reads calibration data (e.g. `resources/calibration/aom_calibration.dat`) that will not exist in a clean checkout.~~ **Withdrawn 2026-09-01: this is wrong.** `resources/calibration/aom_calibration.dat` is tracked by git and present in a clean checkout, and the demo's `AOM_science__trans` device reads it during ordinary test collection.
 
 **"If the suite errors rather than skipping cleanly when an optional extra is absent, fix that first" — done, 2026-09-01.** See F.
+
 
 ---
 
