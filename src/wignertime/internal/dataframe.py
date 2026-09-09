@@ -140,6 +140,35 @@ def duplicated(df, subset=["time", "variable"], keep="last"):
     return df.duplicated(subset=subset, keep=keep)
 
 
+def mask__changed(
+    df,
+    subset: list,
+    column__value: str,
+    column__order: str,
+    do_keep_edges: bool = True,
+):
+    """
+    A boolean mask, index-aligned with `df`, that is True where `column__value` differs from the previous row of the same `subset` group, once that group is ordered by `column__order`.
+
+    The first row of every group is always True, as it has no predecessor. When `do_keep_edges`, the last row of every group is True as well, so that the temporal extent of each group survives any filtering built on this mask.
+
+    NOTE: Requires a unique index, which is the case for every frame produced by the ADwin conversion chain.
+    """
+    if df.empty:
+        return pd.Series(dtype=bool, index=df.index)
+
+    ordered = df.sort_values(by=list(subset) + [column__order], kind="stable")
+    grouped = ordered.groupby(list(subset), sort=False)[column__value]
+
+    value__previous = grouped.shift()
+    changed = ordered[column__value].ne(value__previous) | value__previous.isna()
+
+    if do_keep_edges:
+        changed = changed | grouped.shift(-1).isna()
+
+    return changed.reindex(df.index, fill_value=False).astype(bool)
+
+
 def replace_column__filtered(
     df,
     dict__replacement,

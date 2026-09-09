@@ -6,7 +6,11 @@ from wignertime.internal.timeline import anchor as anchor
 from wignertime.internal import dataframe as frame
 
 from wignertime.demo import full_experiment as ex
-from wignertime.adwin import display as adwin_display
+
+# NOTE: the commented-out `adwin_display` calls below need
+# `from wignertime.adwin import display as adwin_display`, and with it the
+# optional `display` extra. It is not imported at module scope so that these
+# tests remain runnable without that extra.
 
 
 def replace_anchor_symbol(df, symbol__old="Anchor", symbol__new="⚓"):

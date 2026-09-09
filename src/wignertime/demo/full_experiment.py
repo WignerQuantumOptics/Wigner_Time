@@ -10,7 +10,6 @@ As well as providing conveniences, the functions can be used to document the int
 from munch import Munch
 
 from wignertime.adwin import connection as adcon
-from wignertime.adwin import core as adwin
 from wignertime import file as wtf
 from wignertime import timeline as tl
 from wignertime import device
@@ -393,9 +392,16 @@ timeline__demo = tl.cascade(
 #                   Running the experiment
 ###########################################################################
 
+# from wignertime.adwin import core as adwin
+#
 # wtf.save(timeline__demo)
 # machine = adwin.create(timeline__demo, connections, devices)
 # machine.Start_Process(1)
 
 # NOTE:
 # ^^^ The above lines are commented out for the sake of automated testing.
+#
+# `adwin.core` is imported here rather than at the top of the module because it
+# requires the optional `ADwin` extra. Importing it at module scope would make
+# this demo – and every test that builds a timeline from it – unimportable for
+# anyone who installed the package without that extra.

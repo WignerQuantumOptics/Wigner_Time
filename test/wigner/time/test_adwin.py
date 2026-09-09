@@ -5,6 +5,10 @@ import pandas as pd
 
 import wignertime.adwin as wt_adwin
 
+# `adwin.core` needs the optional `adwin` extra. Skip rather than error, so that
+# the suite is green for the right reasons in an environment without it.
+pytest.importorskip("ADwin", reason="the `adwin` extra is not installed")
+
 from wignertime.adwin import core as adwin
 from wignertime.adwin import connection as adcon
 from wignertime.adwin import validate as wt_validate

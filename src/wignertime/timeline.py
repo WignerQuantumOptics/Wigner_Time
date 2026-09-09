@@ -134,6 +134,8 @@ def create(
 
     NOTE: It seems to be the case that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
     """
+    wt_util.ensure_not_deferred(timeline, "create")
+
     rows = wt_input.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
 
     df_rows = wt_frame.new(rows, columns=schema.keys()).astype(schema)
@@ -166,6 +168,8 @@ def update(
     Like other functions, when `context` is not specified for a given variable, it is taken to be the latest context in the timeline.
     WARNING: In this case, beware of accidentally putting timelines into special contexts.
     """
+    wt_util.ensure_not_deferred(timeline, "update")
+
     if timeline is None:
         return wt_util.function__lambda()
 
@@ -205,6 +209,8 @@ def anchor(
 
     # TODO: What happens if `t` is not specified?
     # - looks like it will fail?
+
+    wt_util.ensure_not_deferred(timeline, "anchor")
 
     if timeline is None:
         return wt_util.function__lambda()
@@ -271,6 +277,8 @@ def ramp(
 
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
+    wt_util.ensure_not_deferred(timeline, "ramp")
+
     if timeline is None:
         return wt_util.function__lambda()
 
@@ -449,6 +457,8 @@ def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Ca
 
     # NOTE: Not implemented for `num__bounds` != 2
     """
+    wt_util.ensure_not_deferred(timeline, "expand")
+
     if timeline is None:
         return wt_util.function__lambda(kwargs=["function_args"])
 
