@@ -602,6 +602,34 @@ Not user-visible today, but it means `find` cannot be tested or reused in isolat
 
 Separately, `find` normalises the origin twice: once at the top, for the `[None, None]` early return, then again through `sanitize_origin`. Harmless, but it means `sanitize_origin`'s "timeline required for a string origin" check does not gate the early return, and a reader cannot tell which normalisation is authoritative.
 
+### D11 — `conversion.add` is hard-wired to ±10 V / 16 bits, ignoring the per-module specification **[new, found 2026-09-12]**
+
+`adwin/internal.py::add` takes `machine_specifications` and uses it for `modules__digital` and `add_cycle`, but calls `conv.add(dff)` with no specifications at all. The analog conversion therefore always uses `conversion.SPECIFICATIONS__DEFAULT` (`voltage_range=[-10.0, 10.0]`, `num_bits=16`, `gain=1`) and never consults `machine_specifications["modules"]`, which carries a `voltage_range` and `bits` per module precisely so that modules can differ.
+
+Harmless on the setups tested, where every analog module is ±10 V/16-bit — which is why the demo and the lab's timelines convert correctly. But a module with any other range is silently mis-converted, with no error and no warning, and the function's own signature says otherwise. Same shape as A-class silence rather than a crash.
+
+Found while verifying the conversion arithmetic end to end for the lab's device table.
+
+### D12 — digital modules are identified by `bits == True` **[new, found 2026-09-12]**
+
+`adwin/internal.py::modules__digital` selects modules with `m.get("bits", False) == True`. The digital module is declared with `bits: 1`, and is matched only because `1 == True` in Python.
+
+It works, and module 1 does come out as the digital one. But the test expresses "has exactly one bit" as a comparison against a boolean, so a module declared `bits: 2` would not be caught, and the intent is not recoverable from the code. `m.get("bits") == 1` would say it.
+
+### D13 — `cycle_period__normal__us` is named in microseconds and holds seconds **[new, found 2026-09-12]**
+
+`adwin/internal.py` sets `"cycle_period__normal__us": 5e-6`. The `__us` qualifier says microseconds; the value is 5 µs expressed in **seconds**. Every use divides a `time` column that is also in seconds, so the arithmetic is right and only the name is wrong.
+
+It is wrong in the one place a reader checking a factor-of-10⁶ question would look, and the `__<qualifier>` convention is load-bearing in this package rather than decorative (see the Conventions section of `CLAUDE.md`). Either drop the suffix or hold `5.0` and divide.
+
+### D14 — nothing cross-checks ADbasic's `Initial_Processdelay` against the cycle period **[new, found 2026-09-12]**
+
+`resources/ADwin/WignerTimeADwin.bas` carries `Initial_Processdelay = 5000` in its header; `adwin/internal.py` carries `cycle_period__normal__us = 5e-6`. These must agree, and nothing checks that they do: they live in different files, in different languages, in different units, and the Python side never reads the `.bas`.
+
+They agree today, so this is latent. But it is exactly the pair that drifts when someone raises the Processdelay on the machine to buy resolution and does not think to change Python — and the resulting error is a *uniform rescaling of every time in the experiment*, which is a more plausible thing to misread as a physics result than as a bug. Reading the value back off the machine, or at minimum asserting it in `adwin.core.create`, would close it.
+
+Worth noting what makes this more than pedantry: the same reasoning is why the maintainer could dismiss a suspected 5× cycle-period discrepancy immediately — a timeline that took five times as long as expected would be noticed at once. That argument protects against a *change* in the ratio, not against the two values having been inconsistent from the start, and only while someone is watching the clock.
+
 ---
 
 ## E. Testing constraints
