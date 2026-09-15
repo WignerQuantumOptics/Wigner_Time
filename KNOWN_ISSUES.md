@@ -616,15 +616,35 @@ Found while verifying the conversion arithmetic end to end for the lab's device 
 
 It works, and module 1 does come out as the digital one. But the test expresses "has exactly one bit" as a comparison against a boolean, so a module declared `bits: 2` would not be caught, and the intent is not recoverable from the code. `m.get("bits") == 1` would say it.
 
-### D13 — `cycle_period__normal__us` is named in microseconds and holds seconds **[new, found 2026-09-12]**
+### D13 — `cycle_period__normal__us` is named in microseconds and holds seconds — **RESOLVED AND FIXED 2026-09-15**
 
-`adwin/internal.py` sets `"cycle_period__normal__us": 5e-6`. The `__us` qualifier says microseconds; the value is 5 µs expressed in **seconds**. Every use divides a `time` column that is also in seconds, so the arithmetic is right and only the name is wrong.
+`adwin/internal.py` set `"cycle_period__normal__us": 5e-6`. The `__us` qualifier said microseconds; the value was 5 µs expressed in seconds. The arithmetic was right and only the name was wrong — but wrong in the one place a reader checking a factor-of-10⁶ question would look.
 
-It is wrong in the one place a reader checking a factor-of-10⁶ question would look, and the `__<qualifier>` convention is load-bearing in this package rather than decorative (see the Conventions section of `CLAUDE.md`). Either drop the suffix or hold `5.0` and divide.
+`normal` turned out to be a fossil rather than a choice. The original specification (`099e65c`) read
+
+```python
+"cycle_period__normal": 5e-6,
+"cycle_period__burst":  250e-9,
+```
+
+where `burst` was ADwin's ADC burst sampling mode (`P2_Burst_Init` in `WignerTimeADwinADC.bas`). When the per-device nesting was flattened, `burst` was dropped and `__us` appended, leaving `normal` qualifying a contrast that no longer existed.
+
+**Fixed.** The key is now `cycle_period`, in seconds like every other time in the package — no unit suffix, because nothing else carries one (`TIME_RESOLUTION`, `time`, `duration`, `time_resolution` are all bare seconds) and a suffix is what rotted in the first place. The name is consistent with the `cycle` column and the `add_cycle` function that produce it. A comment at the definition records the burst history and states that if ADC burst mode is ever described here it wants a name of its own (`sampling_period__ADC`): it is a sampling period, for reading, on a different clock — filing the two as flavours of one "cycle period" is what made the qualifier necessary.
+
+Two adjacent defects in the same three lines were fixed with it:
+
+- the `KeyError` handler raised a message naming `cycle_period__normal`, already out of sync with the key it had just failed to find, sending the reader after the wrong string;
+- that message interpolated `{device}`, which is not a parameter of `add_cycle` but the imported `wignertime.device` **module**, so it rendered as "… not found in specifications for `<module 'wignertime.device' from 'C:\…\device.py'>`". A leftover from when the function took a `device` argument selecting among `device_001`/`device_002`. pyflakes could not catch it precisely because the name happens to be bound at module scope. It now lists the keys that *are* present.
+
+The `add_cycle` docstring also documented two parameters (`specifications`, `device`) that the function does not take.
+
+This is a breaking change to `SPECIFICATIONS__DEFAULT` for anyone passing their own `machine_specifications`, but it breaks loudly and the new message names the missing key. Nothing in this repo or in `quantum_optics_lab` passes one — which is D15's complaint from the other direction. Suite 209 passing; demo and lab timelines convert to identical output (8260/35 and 8188/33).
+
+Tracked as [#127](https://github.com/WignerQuantumOptics/Wigner_Time/issues/127), and as L18 in `quantum_optics_lab`.
 
 ### D14 — nothing cross-checks ADbasic's `Initial_Processdelay` against the cycle period **[new, found 2026-09-12]**
 
-`resources/ADwin/WignerTimeADwin.bas` carries `Initial_Processdelay = 5000` in its header; `adwin/internal.py` carries `cycle_period__normal__us = 5e-6`. These must agree, and nothing checks that they do: they live in different files, in different languages, in different units, and the Python side never reads the `.bas`.
+`resources/ADwin/WignerTimeADwin.bas` carries `Initial_Processdelay = 5000` in its header; `adwin/internal.py` carries `cycle_period = 5e-6` seconds (renamed from `cycle_period__normal__us` by D13). These must agree, and nothing checks that they do: they live in different files, in different languages, in different units, and the Python side never reads the `.bas`.
 
 They agree today, so this is latent. But it is exactly the pair that drifts when someone raises the Processdelay on the machine to buy resolution and does not think to change Python — and the resulting error is a *uniform rescaling of every time in the experiment*, which is a more plausible thing to misread as a physics result than as a bug. Reading the value back off the machine, or at minimum asserting it in `adwin.core.create`, would close it.
 

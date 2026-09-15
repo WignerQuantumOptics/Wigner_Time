@@ -44,7 +44,7 @@ def convert(
     if time_resolution is not None:
         resolution = time_resolution
     else:
-        resolution = machine_specifications["cycle_period__normal__us"]
+        resolution = machine_specifications["cycle_period"]
 
     return funcy.compose(
         lambda tline: ad.to_tuples(
@@ -93,7 +93,7 @@ def create(
     # TODO: make this a log instead of a print statement
     print(
         "=== time_end: {}s ===".format(
-            time_end__cycles * machine_specifications["cycle_period__normal__us"]
+            time_end__cycles * machine_specifications["cycle_period"]
         )
     )
 

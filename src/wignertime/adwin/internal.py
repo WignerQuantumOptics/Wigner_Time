@@ -28,7 +28,18 @@ These should be loaded by the ADwin system during initialization. The settings s
 The specifications have the form of a list of 'ADwin device' dictionaries, with the modules represented as a list of dictionaries.
 """
 SPECIFICATIONS__DEFAULT = {
-    "cycle_period__normal__us": 5e-6,
+    # In seconds, like every other time in the package. This is the period of the
+    # ADbasic event loop that emits the timeline, i.e. `Initial_Processdelay` divided
+    # by the processor clock rate -- a relationship nothing currently checks (see
+    # KNOWN_ISSUES D14).
+    #
+    # NOTE: this was `cycle_period__normal`, where `normal` contrasted with a
+    # `cycle_period__burst` of 250 ns that has since been dropped. If ADC burst mode
+    # (`P2_Burst_Init` in `WignerTimeADwinADC.bas`) is ever described here, it wants a
+    # name of its own -- `sampling_period__ADC` or similar. It is a sampling period for
+    # reading, on a different clock and for a different purpose, and calling the two
+    # things flavours of one "cycle period" is what made the qualifier necessary.
+    "cycle_period": 5e-6,
     "modules": [
         {
             "bits": 1,
@@ -80,12 +91,11 @@ def add_cycle(
 
     Parameters:
     - timeline: DataFrame containing the experimental data.
-    - specifications: Dictionary with device-specific configuration, must contain cycle period.
+    - machine_specifications: Dictionary describing the machine; must contain `cycle_period`, in seconds.
     - special_contexts: Dictionary with context-specific overrides for cycle values.
-    - device: Device name to use for cycle period in specifications.
 
     Raises:
-    - ValueError if required columns are missing or if cycle period is not found for specified device.
+    - ValueError if required columns are missing, or if `cycle_period` is absent from the specifications.
     """
     # Check if `time` column is present
 
@@ -94,12 +104,14 @@ def add_cycle(
             f"`time` column not found. Columns present: {list(timeline.columns)}"
         )
 
-    # Ensure device-specific cycle period is available
+    # Ensure the cycle period is available
     try:
-        cycle_period = machine_specifications["cycle_period__normal__us"]
+        cycle_period = machine_specifications["cycle_period"]
     except KeyError:
         raise ValueError(
-            f"`cycle_period__normal` not found in specifications for {device}."
+            "`cycle_period` not found in the machine specifications. Keys present: {}.".format(
+                list(machine_specifications)
+            )
         )
 
     # Calculate cycles and handle special contexts
