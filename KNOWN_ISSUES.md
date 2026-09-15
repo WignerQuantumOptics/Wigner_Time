@@ -630,6 +630,33 @@ They agree today, so this is latent. But it is exactly the pair that drifts when
 
 Worth noting what makes this more than pedantry: the same reasoning is why the maintainer could dismiss a suspected 5× cycle-period discrepancy immediately — a timeline that took five times as long as expected would be noticed at once. That argument protects against a *change* in the ratio, not against the two values having been inconsistent from the start, and only while someone is watching the clock.
 
+### D15 — `adwin.core.create` silently ignores two of its own arguments **[new, found 2026-09-11]**
+
+```python
+def create(timeline, connections, devices, machine=None,
+           machine_specifications=ad.SPECIFICATIONS__DEFAULT, time_resolution=None):
+    ...
+    output = convert(timeline, connections, devices)   # neither is forwarded
+```
+
+`convert` accepts both parameters and `create` accepts both parameters, but `create` passes neither on. So `create(..., time_resolution=1e-6)` expands the ramps at the default cycle period, and `create(..., machine_specifications=...)` converts against the default machine — in both cases with no error and no warning.
+
+Worse than merely ignoring them: `machine_specifications` *is* still used, for the `time_end` that `create` prints. The number reported to the user is computed from the specification they supplied; the data uploaded to the machine is not. The one visible signal therefore agrees with the user's intent while the hardware disagrees with it.
+
+`create` also prints that line unconditionally, where the `initialize_ADwin` it replaced took `printDiagnostics=False`. In a parameter scan that is one line of noise per point, interleaved with the caller's own output. Reported from live use in `quantum_optics_lab`.
+
+### D16 — the anchor label cannot be printed on a legacy Windows code page **[new, found 2026-09-11]**
+
+`config.LABEL__ANCHOR` is `⚓` (U+2693). Printing a timeline containing an anchor from a console whose encoding is a legacy Windows code page — cp1250 on the Hungarian-locale machines this package is developed and used on — raises:
+
+```
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2693' in position 706
+```
+
+This is not obscure: the recommended convention is that *every user-defined stage ends with an anchor*, so essentially every real timeline contains one, and `print(timeline)` is the most obvious thing a user does with it. Jupyter and any UTF-8 console are unaffected, which is why it has gone unnoticed — but it means the package's own advice produces objects that cannot be inspected from a plain terminal without setting `PYTHONIOENCODING`.
+
+Loud rather than silent, so low severity by this document's ordering. Fixing it properly probably means making the label configurable rather than changing it, since it is also a display affordance.
+
 ---
 
 ## E. Testing constraints
