@@ -677,6 +677,41 @@ This is not obscure: the recommended convention is that *every user-defined stag
 
 Loud rather than silent, so low severity by this document's ordering. Fixing it properly probably means making the label configurable rather than changing it, since it is also a display affordance.
 
+### D17 — a `stack` constituent that was never called binds the timeline to its first parameter **[new, found 2026-09-16]**
+
+A `stack` constituent is supposed to be a timeline *transformer* — either a core function already called without `timeline=`, or another `stack`. A user stage function that has not been called is not one, but `stack` accepts it and applies it to the timeline anyway:
+
+```python
+tl.stack(base, demo.MOT)        # `demo.MOT`, not `demo.MOT()`
+# -> returns a *function*; `MOT` received the 18-row timeline as its `duration`
+```
+
+No error. The timeline is bound to the stage's first positional parameter, the stage runs with its remaining defaults, and the composition evaluates to a deferred function where a timeline was expected. Whatever the caller does next — `adwin.convert`, `file.save`, a plot — fails somewhere unrelated, or quietly stores the wrong object.
+
+**It is silent only when the miscalled stage is last in the chain** (which includes being the only one). With anything after it, the function it returned is passed on as the next constituent's `timeline=`, where `ensure_not_deferred` catches it and names the mistake:
+
+| position of the bare stage | result |
+|---|---|
+| last, or only | a `function` — silent |
+| anywhere earlier | `TypeError` from `ensure_not_deferred` — loud |
+| first, then applied | `TypeError` from `ensure_not_deferred` — loud |
+
+So the existing guard already covers most of the shape, and this is the hole at the tail of it. The mistake is an easy one precisely because `stack` and `cascade` differ in exactly this respect: `cascade(MOT, molasses)` takes the *uncalled* stages, `stack(tl, MOT(), molasses())` takes the *called* ones. Writing one where the other belongs is the single most likely slip at this layer, and it is the confusion that motivated #83.
+
+**Why the obvious guard does not work.** The three callables `stack` may legitimately receive are indistinguishable by type and not reliably separable by signature:
+
+```
+core deferred   tl.update(...)     (x, **kwargs__new)
+stack-composed  stack(u, u)        (*a, **kw)
+user stage      demo.MOT           (duration=15, lA=-1.0, uA=-0.98, **kwargs)
+```
+
+All three are plain `function`, and a user stage is free to take `(x, **kwargs)` too. Nor is there anything to key on: `vars()` on a deferred function is empty.
+
+Fix direction: tag the deferred objects at the point of creation — set an attribute in `internal/util.function__lambda` and on `stack`'s own return — and have `stack` raise on a constituent that lacks it, reusing `ensure_not_deferred`'s message style. That makes the contract explicit rather than inferred, and it is the same "name the mistake where it is made" pattern already used for nesting. It also gives C4's four-way `timeline` contract something concrete to build on.
+
+Note this is narrower than the general problem C4 describes, and should be settled with it rather than patched separately.
+
 ---
 
 ## E. Testing constraints
