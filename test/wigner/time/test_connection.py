@@ -4,6 +4,7 @@ from munch import Munch
 
 from wignertime import timeline as tl
 from wignertime import variable
+from wignertime import config as wt_config
 from wignertime.adwin import connection as adcon
 
 
@@ -43,7 +44,7 @@ def test_connectionName():
             ["shutter_repump", 1, 12],
             ["shutter_imaging", 1, 13],
         )
-        .variable.str.match(variable.REGEX)
+        .variable.str.match(wt_config.VARIABLE__REGEX)
         .all()
     )
 
