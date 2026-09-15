@@ -275,8 +275,8 @@ Not covered by `KNOWN_ISSUES.md`:
   `lag__MOTshutter`, `li`/`ui`, `toMHz`); the paper has `shutter_OP1`/`shutter_OP2` and
   `MOT_detuned_growth` against the code's `shutter_OP001`/`shutter_OP002` and `MOT__detuned_growth`;
   and the paper adds a `MOT_off` stage and a `delay_shutter_reinitialization` parameter that the code
-  inlines as `0.1`. The paper also renames the ADbasic subroutine `processSwitches` to
-  `processUpdates`. **`docs/paper/main.tex` is canonical: when they disagree, the code changes** (maintainer
+  inlines as `0.1`. (The ADbasic subroutine `processSwitches` was renamed to
+  `processUpdates` in both `.bas` files on 2026-09-15, so that divergence is gone.) **`docs/paper/main.tex` is canonical: when they disagree, the code changes** (maintainer
   decision, 2026-09-02 — see `KNOWN_ISSUES.md` D7 for the inventory and the prerequisites). This
   governs only what the paper actually shows; internal identifiers it never mentions keep the `__`
   convention below.

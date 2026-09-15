@@ -576,7 +576,7 @@ The port itself is done (lab commits `dd08fce`, `62a400f`): `con.connection(...)
 
 Still open in this group, and genuinely drift rather than defect: `sane_state` / `default_state`; stage names `MOT_Delta`, `OP`, `MT` against the demo's and the paper's longer forms; composition written imperatively in `prepare_sample` rather than with `cascade` (which the lab's parameter names would not currently survive — its own `KNOWN_ISSUES.md` L6). The lab also has a `dispenser_Rb__A` connection and device that `sec:demonstration` shows but the shipped demo does not.
 
-*ADbasic.* The paper calls the dispatch subroutine `processUpdates`; `resources/ADwin/WignerTimeADwin.bas` calls it `processSwitches`.
+*ADbasic.* **RESOLVED 2026-09-15** (issue #86). The dispatch subroutine was `processSwitches` in `resources/ADwin/WignerTimeADwin.bas` against the paper's `processUpdates`; it is now `processUpdates` in both `.bas` files, along with the `dim` comments that described the same arrays as "switches". Verified that the subroutine is now line-for-line identical to the `sec:adwin` listing, ignoring blank and comment lines. **Not compiled or run** — see §E.
 
 **Prerequisites 1 and 2 are DONE as of 2026-09-03** (commits `76b5d09`, `629baef`): the manuscript was imported from Overleaf and committed as a self-contained subtree, `docs/paper/` — `main.tex`, `SciPost.cls`, `SciPost_bibstyle.bst`, `WignerTime.bib` and all five figures. Every `\includegraphics` target and the bibliography call resolve, so the canonical target is now under version control and buildable. Verified separately that that import was byte-identical to the copy audited on 2026-09-01/02 (1453 lines, every recorded citation on the same line).
 
