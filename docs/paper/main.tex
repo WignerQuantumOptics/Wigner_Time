@@ -29,12 +29,14 @@
 \fancypagestyle{SPstyle}{
 \fancyhf{}
 \lhead{\colorbox{scipostblue}{\bf \color{white} ~SciPost Physics Codebases }}
+%\lhead{\colorbox{scipostblue}{\bf \color{white} ~Wigner Time }}
 \rhead{{\bf \color{scipostdeepblue} ~Submission }}
 \renewcommand{\headrulewidth}{1pt}
 \fancyfoot[C]{\textbf{\thepage}}
 }
  
 \usepackage{hyperref}
+\usepackage{orcidlink}
 \usepackage{cleveref}
 %\usepackage{fontspec}
 \usepackage{fontawesome}
@@ -113,9 +115,9 @@ B. Sárközi\textsuperscript{2}
 A. Dombi\textsuperscript{1},
 Á. Kurkó\textsuperscript{1},
 D. Nagy\textsuperscript{1},
-A. Simon\textsuperscript{1},
-D. Varga\textsuperscript{1},
-P. Domokos\textsuperscript{1},
+A. Simon\textsuperscript{1,3},
+D. Varga\textsuperscript{1,3},
+P. Domokos\textsuperscript{1,4},
 A. Vukics\textsuperscript{1$\dagger$} %\textsuperscript{3$\dagger$}
 %%%%%%%%%% END TODO: AUTHORS
 }\end{center}
@@ -125,7 +127,7 @@ A. Vukics\textsuperscript{1$\dagger$} %\textsuperscript{3$\dagger$}
 % Write all affiliations here.
 % Format: institute, city, country
 %{\bf 1} Affiliation1
-\textbf{1} HUN-REN Wigner Research Centre for Physics, H-1525 Budapest, PO Box 49, Hungary\\\textbf{2} Center for Hybrid Quantum Networks (Hy-Q), Niels Bohr Institute, University of Copenhagen, Jagtvej 155A, Copenhagen DK-2200, Denmark
+\textbf{1} HUN-REN Wigner Research Centre for Physics, H-1525 Budapest, PO Box 49, Hungary\\\textbf{2} Center for Hybrid Quantum Networks (Hy-Q), Niels Bohr Institute, University of Copenhagen, Jagtvej 155A, Copenhagen DK-2200, Denmark\\\textbf{3} Department of Physics of Complex Systems, ELTE Eötvös Loránd University, Pázmány Péter sétány 1/A, Budapest 1117, Hungary\\\textbf{4} Department of Theoretical Physics, Institute of Physics, Budapest University of Technology and Economics, Műegyetem rkp. 3, Budapest 1111, Hungary
 %%%%%%%%%% END TODO: AFFILIATIONS
 %%%%%%%%%% TODO: EMAIL
 % Provide email address of corresponding author(s)
@@ -382,7 +384,7 @@ in a high-level language like Python is an equally significant advantage.
 \paragraph{Curatable} Experimental stages are ordinary functions, so the quantities one expects to vary are their arguments – declared once, with defaults, alongside the code they govern – while everything that rarely changes is enclosed in the body. A stage’s interface is therefore self-documenting and discoverable by the usual Python means, and a specification needed in more than one place, such as a safe default state for the apparatus, can be written once and reused. Because the composition and its parameters live together in ordinary source, a complete experiment becomes a single versionable artifact: the difference between two campaigns is a diff, and the timeline actually delivered to the hardware can be archived alongside the data it produced.
  
 \bigskip
-With these goals in mind, the package has been under development at the Wigner Research Centre for Physics, Budapest, and so was named in honor of the Hungarian-born Nobel laureate: \emph{Eugene Wigner}. Having been in use for more than two years across two cold-atom setups, we now present it as an open-source package, distributed under the Boost Software License \cite{github}. In the rest of this paper, we first describe the high-level Python API in a back-end agnostic manner (\cref{sec:pythonAPI}) before presenting the conversion features specific to the ADwin timing system (\cref{sec:adwin}). We conclude with an overview and future outlook, before exhibiting concrete cold-atom laboratory examples in the appendices.
+With these goals in mind, the package has been under development at the Wigner Research Centre for Physics, Budapest, and so was named in honor of the Hungarian-born Nobel laureate: \emph{Eugene Wigner}. Having been in use for more than two years across two cold-atom setups, we now present it as an open-source package, distributed under the GNU Public License v3 \cite{github}. In the rest of this paper, we first describe the high-level Python API in a back-end agnostic manner (\cref{sec:pythonAPI}) before presenting the conversion features specific to the ADwin timing system (\cref{sec:adwin}). We conclude with an overview and future outlook, before exhibiting concrete cold-atom laboratory examples in the appendices.
  
 \section{Python API}
 \label{sec:pythonAPI}
@@ -877,7 +879,10 @@ It is in this context that Wigner Time offers tools that are unusually composabl
  
 \section*{Acknowledgements}
 T. W. Clark would like to acknowledge and thank the informal contribution of the Clojure community in general, as well as the Clojure data science community in particular, who have been working to bring data-oriented programming into the mainstream.
- 
+
+A systematic review of the codebase was carried out with the assistance of Anthropic's Claude Code, which surfaced a number of latent defects – several of them silent, in the sense that they yield a physically wrong timeline without raising an error, and had survived more than two years of daily use.
+These are catalogued in the repository and are being addressed. The tool was used for review, verification and documentation; the design decisions, and the final judgement on each finding, remained with the authors.
+
 \paragraph{Funding information}
 This research was supported by the Hungarian National Research, Development and Innovation Office (Grant Nos. 2022-2.1.1-NL-2022-00004 and 2025-3.1.1-ED-2025-00011), the ERANET COFUND QuantERA programme (MOCA 2019-2.1.7-ERA\_NET-2022-00041), the QuantERA II Programme (V-mag 2024-1.2.2-ERA\_NET-2024-00012), and by the Swiss National Science Foundation (Grant No. 230870). AD and TWC acknowledges support from the János Bolyai research scholarship of the Hungarian Academy of Sciences.
  
@@ -1350,7 +1355,7 @@ There are two unsatisfying ways to arrange this. The base \python{default_state}
 
 Keyword forwarding provides a third way. \python{default_state} accepts \python{**kwargs} and passes them to its terminal \python{create} or \python{update} call, where -- because that call's keyword namespace \emph{is} the variable namespace (\cref{sec:functions}) -- an unrecognised keyword is read as a variable-value pair. Every stage between a call site and \python{default_state} forwards \python{**kwargs} in the same way, so a keyword that no intermediate stage consumes falls through to the default state and initialises a variable there.
 
-\begin{minted}[fontsize=\footnotesize, breaklines, breakanywhere, frame=none]{python}
+\begin{minted}[fontsize=\scriptsize, breaklines, breakanywhere, frame=none]{python}
 # experiment.py - the base apparatus
 def default_state(f=tl.create, MOT_ON=True, cavity_transmission=True, **kwargs):
     return f(
