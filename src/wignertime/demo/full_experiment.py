@@ -23,7 +23,7 @@ from wignertime import ramp_function
 # Connections, devices and constants can be read from a separate file(s) (they won't change much). They are all collected together here for demonstration purposes only.
 
 """
-'connections' allows us to label physical links (inputs and outputs) between devices and the timing system. By using labels that follow a particular regex, defined within the `variable` module, we can separate out the design and the implementation of our experiment.
+'connections' allows us to label physical links (inputs and outputs) between devices and the timing system. By using labels that follow a particular regex, configurable as `config.VARIABLE__REGEX`, we can separate out the design and the implementation of our experiment.
 """
 connections = adcon.new(
     ["shutter_MOT", 1, 11],
@@ -49,17 +49,17 @@ connections = adcon.new(
 )
 
 """
-`devices` stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable.
+`devices` stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable. A linear conversion is the factor taking the unit *to* volts, so a device whose permitted range spans the controller's full output is `10 / limit` — `10 / 5.0` for a coil driven over +/-5 A by a +/-10 V DAC.
 
 These specifications are deliberately separated from `connection`s because they represent physical properties and conversions that are independent of the particular DAC wiring.
 """
 devices = device.new(
-    ["coil_compensationX__A", 1 / 3.0, -3, 3],
-    ["coil_compensationY__A", 1 / 3.0, -3, 3],
-    ["coil_MOTlower__A", 1 / 2.0, -5, 5],
-    ["coil_MOTupper__A", 1 / 2.0, -5, 5],
-    ["coil_MOTlowerPlus__A", 1 / 2.0, -5, 5],
-    ["coil_MOTupperPlus__A", 1 / 2.0, -5, 5],
+    ["coil_compensationX__A", 10 / 3.0, -3, 3],
+    ["coil_compensationY__A", 10 / 3.0, -3, 3],
+    ["coil_MOTlower__A", 10 / 5.0, -5, 5],
+    ["coil_MOTupper__A", 10 / 5.0, -5, 5],
+    ["coil_MOTlowerPlus__A", 10 / 5.0, -5, 5],
+    ["coil_MOTupperPlus__A", 10 / 5.0, -5, 5],
     ["lockbox_MOT__MHz", 0.05, -200, 200],
     ["trigger_TC__V", 1.0, -10, 10],
     [
