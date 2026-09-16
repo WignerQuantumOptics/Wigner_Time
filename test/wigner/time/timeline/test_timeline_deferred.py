@@ -111,3 +111,40 @@ def test_noop_survives_a_stack_that_forwards_keywords():
     """
     base = demo.init()
     assert len(tl.stack(base, tl.noop, context="anything")) == len(base)
+
+
+@pytest.mark.parametrize(
+    "f,args",
+    [
+        (tl.update, {"AOM_MOT": 1}),
+        (tl.anchor, {}),
+        (tl.ramp, {"coil__A": 2.0, "duration": 1.0}),
+    ],
+)
+def test_a_frame_without_context_is_refused(f, args):
+    """
+    #28. `context` is a required column, and a frame lacking it used to raise a bare
+    `KeyError: 'context'` from four frames down, naming neither function nor column.
+    """
+    import pandas as pd
+
+    incomplete = pd.DataFrame(
+        [[0.0, "coil__A", 1.0]], columns=["time", "variable", "value"]
+    )
+    with pytest.raises(TypeError, match="missing the column"):
+        f(timeline=incomplete, **args) if args else f(1.0, timeline=incomplete)
+
+
+def test_a_null_context_is_normalised_to_the_empty_string():
+    """
+    #28. The empty string is the minimum context. A hand-built frame carrying `None`
+    used to propagate a real `None` into every row that inherited from it.
+    """
+    import pandas as pd
+
+    hand = pd.DataFrame(
+        [[0.0, "coil__A", 1.0, None]],
+        columns=["time", "variable", "value", "context"],
+    )
+    out = tl.update(coil__A=2.0, timeline=hand)
+    assert list(out["context"]) == ["", ""]

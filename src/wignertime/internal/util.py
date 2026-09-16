@@ -287,16 +287,25 @@ def takes_one_timeline(f) -> bool:
     )
 
 
-def ensure_timeline(timeline, name__function: str, name__argument: str = "timeline"):
+def ensure_timeline(
+    timeline,
+    name__function: str,
+    name__argument: str = "timeline",
+    columns__required=None,
+    column__context: str = "context",
+):
     """
     Check the `timeline` argument against its contract, naming the mistake where it is
     made rather than letting it surface downstream.
 
     Three outcomes, and the third is the point of the function:
 
-    - a dataframe -- evaluate against it
+    - a dataframe -- evaluate against it, after checking it carries `columns__required`
+      and normalising a null `context` to the empty string
     - `None`      -- defer, returning a callable
     - anything else -- `TypeError`
+
+    Returns the timeline, which may be a normalised copy, so callers must use the result.
 
     A **callable** is the mistake the deferral design invites. Nesting one core call
     inside another -- `expand(ramp(...))` -- reads like ordinary composition but is not:
@@ -308,7 +317,31 @@ def ensure_timeline(timeline, name__function: str, name__argument: str = "timeli
     cryptically, on whatever dataframe attribute was touched first, naming neither the
     function nor the argument. It is rejected here instead, with both.
     """
-    if timeline is None or isinstance(timeline, wt_frame.CLASS):
+    if timeline is None:
+        return timeline
+
+    if isinstance(timeline, wt_frame.CLASS):
+        if columns__required is not None:
+            missing = [c for c in columns__required if c not in timeline.columns]
+            if missing:
+                raise TypeError(
+                    "`{}` was given a frame missing the column(s) {}. A timeline has "
+                    "{}; `context` is required and is the empty string where "
+                    "unspecified, not absent and not `None` (#28).".format(
+                        name__function, missing, list(columns__required)
+                    )
+                )
+
+        # A hand-built frame can carry a null here, which used to propagate as a real
+        # `None` into every row that inherited from it. The empty string is the
+        # documented minimum, so normalise rather than carry two spellings of "no
+        # context" through the rest of the package.
+        if (
+            column__context in timeline.columns
+            and wt_frame.isnull(timeline[column__context]).any()
+        ):
+            return wt_frame.fill_null(timeline, column__context, "")
+
         return timeline
 
     if callable(timeline):

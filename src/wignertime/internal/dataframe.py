@@ -63,6 +63,15 @@ def isnull(o):
     return pd.isnull(o)
 
 
+def fill_null(df, column: str, value):
+    """
+    Replace nulls in `column` with `value`, returning a new frame.
+    """
+    dff = df.copy()
+    dff[column] = dff[column].fillna(value)
+    return dff
+
+
 def subframe(df: CLASS, column: str, values: list, func: Callable | None = None):
     """
     Returns a filtered df, where func(`column`) has values in `values`.

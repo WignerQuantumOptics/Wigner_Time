@@ -213,7 +213,6 @@ def update(
     t=0.0,
     context=None,
     origin=None,
-    schema=_SCHEMA,
     **vtvc_dict,
 ):
     """
@@ -228,7 +227,7 @@ def update(
     Like other functions, when `context` is not specified for a given variable, it is taken to be the latest context in the timeline.
     WARNING: In this case, beware of accidentally putting timelines into special contexts.
     """
-    wt_util.ensure_timeline(timeline, "update")
+    timeline = wt_util.ensure_timeline(timeline, "update", columns__required=_SCHEMA)
 
     if timeline is None:
         return wt_util.function__lambda()
@@ -244,7 +243,6 @@ def update(
             t=t,
             context=context,
             origin=origin,
-            schema=schema,
             **vtvc_dict,
         )
 
@@ -270,7 +268,7 @@ def anchor(
     # TODO: What happens if `t` is not specified?
     # - looks like it will fail?
 
-    wt_util.ensure_timeline(timeline, "anchor")
+    timeline = wt_util.ensure_timeline(timeline, "anchor", columns__required=_SCHEMA)
 
     if timeline is None:
         return wt_util.function__lambda()
@@ -298,7 +296,6 @@ def ramp(
     context=None,
     origin=None,
     origin2=["variable"],
-    schema=_SCHEMA,
     function=wt_ramp_function.tanh,
     **vtvc_dict,
 ) -> wt_frame.CLASS | Callable:
@@ -337,7 +334,7 @@ def ramp(
 
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
-    wt_util.ensure_timeline(timeline, "ramp")
+    timeline = wt_util.ensure_timeline(timeline, "ramp", columns__required=_SCHEMA)
 
     if timeline is None:
         return wt_util.function__lambda()
@@ -374,8 +371,8 @@ def ramp(
 
     # Prepare the starting points and then basically do two (shorcut-ed) `create`s. One depending on the previous timeline and one depending on the previous `create`.
 
-    df_1 = wt_frame.new(rows1, columns=schema.keys()).astype(schema)
-    df_2 = wt_frame.new(rows2, columns=schema.keys()).astype(schema)
+    df_1 = wt_frame.new(rows1, columns=_SCHEMA.keys()).astype(_SCHEMA)
+    df_2 = wt_frame.new(rows2, columns=_SCHEMA.keys()).astype(_SCHEMA)
 
     df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])]
     if t is None:
@@ -634,7 +631,7 @@ def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Ca
 
     # NOTE: Not implemented for `num__bounds` != 2
     """
-    wt_util.ensure_timeline(timeline, "expand")
+    timeline = wt_util.ensure_timeline(timeline, "expand", columns__required=_SCHEMA)
 
     if timeline is None:
         return wt_util.function__lambda(kwargs=["function_args"])
