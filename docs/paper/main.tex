@@ -800,7 +800,7 @@ The abstraction away from ADbasic is one of the central motivations for Wigner T
 \begin{minted}[fontsize=\footnotesize,frame=none]{basic}
 sub processUpdates(cc)
   ' analog
-  if (data_10[analogIdx] = cc) then
+  if ( (analogIdx <= analogArrayDim) and (data_10[analogIdx] = cc) ) then
     do  
       p2_dac(data_11[analogIdx],data_12[analogIdx],data_13[analogIdx])
       inc analogIdx
@@ -808,7 +808,7 @@ sub processUpdates(cc)
   endif
   
   ' digital
-  if (data_20[digitalIdx] = cc) then
+  if ( (digitalIdx <= digitalArrayDim) and (data_20[digitalIdx] = cc) ) then
     do
       p2_digout(1,data_22[digitalIdx],data_23[digitalIdx])
       inc digitalIdx
@@ -820,7 +820,7 @@ endsub.
 As can be seen, the role of ADwin has been reduced to a single concept – “at this
 time instant, if any desired voltage is different from the past time instant,
 update this voltage” – written once each for analog and digital connections. The
-loop therefore costs one comparison per channel group, with early exit, and no
+loop therefore costs two comparisons per channel group, with early exit, and no
 arithmetic whatsoever. This is what permits the 1\,µs cycle time quoted in
 \cref{sec:intro}: the previous implementation evaluated, on every cycle and for
 every ramp in progress, an expression of the form
