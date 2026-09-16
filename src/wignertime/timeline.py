@@ -26,7 +26,22 @@ from wignertime.internal.timeline import inherit
 
 from wignertime.internal import util as wt_util
 
-noop = funcy.identity
+as_deferred = wt_util.mark_deferred
+"""
+Mark a user-written function as a deferred timeline function, so that `stack` will
+accept it as a constituent. See `stack`.
+"""
+
+noop = wt_util.mark_deferred(lambda timeline, **kwargs: timeline)
+"""
+A `stack` constituent that contributes nothing, for the branch of a conditional that
+should add no rows.
+
+Not `funcy.identity`: it has to carry the deferred tag, and tagging a shared library
+function would mark it for every other user of `funcy`. Taking `**kwargs` also means it
+survives a `stack` that forwards keywords -- `identity` did not, and raised
+`TypeError: identity() got an unexpected keyword argument 'context'`.
+"""
 
 ###############################################################################
 #                   Constants                                                 #
@@ -213,7 +228,7 @@ def update(
     Like other functions, when `context` is not specified for a given variable, it is taken to be the latest context in the timeline.
     WARNING: In this case, beware of accidentally putting timelines into special contexts.
     """
-    wt_util.ensure_not_deferred(timeline, "update")
+    wt_util.ensure_timeline(timeline, "update")
 
     if timeline is None:
         return wt_util.function__lambda()
@@ -255,7 +270,7 @@ def anchor(
     # TODO: What happens if `t` is not specified?
     # - looks like it will fail?
 
-    wt_util.ensure_not_deferred(timeline, "anchor")
+    wt_util.ensure_timeline(timeline, "anchor")
 
     if timeline is None:
         return wt_util.function__lambda()
@@ -322,7 +337,7 @@ def ramp(
 
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
-    wt_util.ensure_not_deferred(timeline, "ramp")
+    wt_util.ensure_timeline(timeline, "ramp")
 
     if timeline is None:
         return wt_util.function__lambda()
@@ -409,6 +424,53 @@ def ramp(
 #         return funcy.compose(*fs[::-1], firstArgument)
 
 
+def _ensure_stackable(f):
+    """
+    A `stack` constituent must be a *deferred timeline function*, not merely callable.
+
+    The distinction is invisible to Python: a deferred call, a composed `stack` and an
+    uncalled user stage are all plain `function` objects with unhelpfully similar
+    signatures. So the deferral machinery tags what it produces, and this checks the tag.
+
+    The mistake it exists for is writing a stage's name where its call belongs --
+    `stack(timeline, MOT)` for `stack(timeline, MOT(...))`. Without the tag that composes
+    silently, binding the timeline to the stage's first parameter and returning a
+    function where a timeline was expected. It was caught only when something followed it
+    in the chain, so the tail of every composition went unguarded.
+    """
+    if wt_util.is_deferred(f) or isinstance(f, wt_frame.CLASS):
+        return f
+
+    if callable(f) and wt_util.takes_one_timeline(f):
+        # A hand-written `lambda tline: ...` is a legitimate constituent and carries no
+        # tag. It is told apart from an uncalled stage by arity: see `takes_one_timeline`.
+        return f
+
+    if callable(f):
+        name = getattr(f, "__name__", repr(f))
+        raise TypeError(
+            "\n".join(
+                [
+                    "`stack` was given the function `{}` itself, rather than the result"
+                    " of calling it.".format(name),
+                    "",
+                    "A constituent must be a deferred timeline function -- what a core"
+                    " function or a stage returns when called without a `timeline`:",
+                    "",
+                    "    stack(timeline, {}(...), update(...))".format(name),
+                    "",
+                    "If `{}` is your own timeline function, mark it with"
+                    " `timeline.as_deferred`.".format(name),
+                ]
+            )
+        )
+
+    raise TypeError(
+        "`stack` was given {} as a constituent, where a deferred timeline function was"
+        " expected.".format(type(f).__name__)
+    )
+
+
 def stack(
     timeline_or_f: wt_frame.CLASS | Callable, *fs: list[Callable], **kws
 ) -> Callable | wt_frame.CLASS:
@@ -438,18 +500,17 @@ def stack(
     )`
     """
 
+    for f in (timeline_or_f, *fs):
+        _ensure_stackable(f)
+
     fs__wrapped = [lambda x, f=f: f(x, **kws) for f in fs]
     composed = funcy.compose(*reversed(fs__wrapped))
 
     if isinstance(timeline_or_f, wt_frame.CLASS):
         return composed(timeline_or_f)
-    elif callable(timeline_or_f):
-        wrapped_first = lambda x: timeline_or_f(x, **kws)
-        return funcy.compose(*reversed(fs__wrapped), wrapped_first)
-    else:
-        raise TypeError(
-            "timeline_or_f must be either an instance of wt_frame.CLASS or a function."
-        )
+
+    wrapped_first = lambda x: timeline_or_f(x, **kws)
+    return wt_util.mark_deferred(funcy.compose(*reversed(fs__wrapped), wrapped_first))
 
 
 def _route_keyword(key, names__by_length, stages__by_name):
@@ -573,7 +634,7 @@ def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Ca
 
     # NOTE: Not implemented for `num__bounds` != 2
     """
-    wt_util.ensure_not_deferred(timeline, "expand")
+    wt_util.ensure_timeline(timeline, "expand")
 
     if timeline is None:
         return wt_util.function__lambda(kwargs=["function_args"])

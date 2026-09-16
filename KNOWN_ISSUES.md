@@ -483,46 +483,26 @@ One subtlety worth recording, because it defeats the obvious implementation. Rem
 
 The docstring carries an unresolved TODO asking what happens if `t` is unspecified, with the author's own guess that it fails. Establish the intended behaviour and either give `t` a meaningful default or reject `None` explicitly.
 
-### C4 — the `timeline` argument's full contract **[open; the §F guard was agreed insufficient, 2026-09-03]**
+### C4 — the `timeline` argument's full contract — **RESOLVED AND PARTLY FIXED 2026-09-16**
 
-`internal/util.ensure_not_deferred` catches a callable handed in where a timeline belongs. It catches nothing else, so five distinct cryptic failures remain reachable from ordinary mistakes — measured:
-
-```
-tl.expand([[0.0, 1.0]])                AttributeError: 'list' object has no attribute 'columns'
-tl.update("not a timeline", a__A=1.0)  TypeError: string indices must be integers, not 'str'
-tl.ramp(42, a__A=1.0, duration=1.0)    TypeError: 'int' object is not subscriptable
-tl.anchor(1.0, timeline={})            KeyError: 'variable'
-tl.create(a__A=1.0, timeline=[1,2,3])  AttributeError: 'list' object has no attribute 'loc'
-```
-
-None of them names the function at fault or the argument that was wrong.
-
-**Target contract** — a four-way dispatch on the `timeline` argument:
+**The broadening is done.** `util.ensure_not_deferred` is now `util.ensure_timeline`, and the contract is three-way rather than one-and-a-half:
 
 | `timeline` is | behaviour |
 | --- | --- |
 | a `wt_frame.CLASS` | evaluate, return a timeline |
-| callable | compose, return a function |
 | `None` | defer, return a function |
-| anything else | `TypeError` naming the function and the type received |
+| callable | `TypeError` — the nesting message, unchanged |
+| anything else | `TypeError` naming the function, the argument and the type |
 
-Written this way the contract is uniform: **frame in, frame out; function in, function out.** `ensure_not_deferred` would become something like `resolve_timeline_argument`.
+A list, a string, an int or a dict used to fail far downstream on whatever dataframe attribute was touched first, naming neither the function nor the argument.
 
-**The two halves carry very different risk, and can be taken separately.**
+**The composition branch was considered and rejected** (maintainer, 2026-09-16). Letting `timeline=<callable>` compose rather than raise looked like a natural fourth row, and is not:
 
-- **Broadening the check** (row 4) is purely additive. It converts the five failures above into one named `TypeError` and changes nothing for code that already works. Small, safe, no API decision.
-- **The composition branch** (row 2) is a genuine behaviour change: nesting currently raises and would start working. It is defensible — nesting with a *concrete* timeline at the bottom already works today and produces a result identical to the `stack` form, and the paper itself writes `ramp(..., timeline=update(..., timeline=timeline))` — and it can be implemented by delegating to `stack`, so there is only ever one composition rule:
+1. *It converts D17 into a feature.* Three different things are callable — a deferred core call, a composed `stack`, and an **uncalled user stage** — and they are indistinguishable by type or signature. A single "callable → compose" row routes all three to composition, which for the third means binding the timeline to the stage's first parameter. The branch would have removed the only guard that currently catches D17.
+2. *It widens an inconsistency §C already records.* There are two ways a composed callable gets built and they behave differently under `stack`'s keyword forwarding — "an implementation detail invisible at the call site". Nesting would add a third before the existing two are reconciled.
+3. *It re-legitimises the form `stack` exists to replace.* `main.tex:702` introduces `stack` precisely by contrast with `ramp(..., timeline=update(..., timeline=timeline))`. Nesting reads inside-out; `stack` reads top-to-bottom. Supporting both gives two idioms for one thing, and the newly-supported one is the less legible.
 
-    ```python
-    if callable(timeline) and not isinstance(timeline, wt_frame.CLASS):
-        return stack(timeline, wt_util.function__lambda())
-    ```
-
-  That works because `function__lambda` pops `timeline` out of the captured arguments and uses only the key, so it yields the correct deferred self even while `timeline` holds the inner function. Note it inherits `stack`'s keyword forwarding, so A5 and C1 are worth settling first or accepting knowingly.
-
-**The one open fork: does `create` join the composition branch?** `create` has no deferred form — it always evaluates — so it cannot compose without gaining one, which is C2. Recommended: `create` accepts a frame or `None` only and raises on a callable, since the paper makes it the entry point of a stack and composing *onto* it is meaningless. That confines row 2 to the four functions that already have a deferred form, and keeps C2 unopened.
-
-Whichever way this goes, `stack` and `cascade` must stay outside the guard: their first argument is legitimately a callable, and `cascade(init, MOT, ...)` depends on it. `test_timeline_deferred.py` already pins that.
+If it is ever wanted, the prerequisite is now in place: D17's tagging splits "callable" into *tagged deferred* (compose) and *any other callable* (error), so the row would no longer be a guess. It should be chosen on its merits, not inherited from loosening a guard.
 
 ### C5 — settle and document the whole `*vtvc` / `**vtvc_dict` input grammar **[maintainer, 2026-09-09]**
 
@@ -707,40 +687,19 @@ This is not obscure: the recommended convention is that *every user-defined stag
 
 Loud rather than silent, so low severity by this document's ordering. Fixing it properly probably means making the label configurable rather than changing it, since it is also a display affordance.
 
-### D17 — a `stack` constituent that was never called binds the timeline to its first parameter **[new, found 2026-09-16]**
+### D17 — a `stack` constituent that was never called binds the timeline to its first parameter — **FIXED 2026-09-16**
 
-A `stack` constituent is supposed to be a timeline *transformer* — either a core function already called without `timeline=`, or another `stack`. A user stage function that has not been called is not one, but `stack` accepts it and applies it to the timeline anyway:
+`stack(timeline, demo.MOT)` -- the stage's name where its call belongs -- composed silently, binding the 18-row timeline to `MOT`'s `duration` and returning a function where a timeline was expected. It was caught only when something followed it in the chain, so the hole was at the tail of every composition.
 
-```python
-tl.stack(base, demo.MOT)        # `demo.MOT`, not `demo.MOT()`
-# -> returns a *function*; `MOT` received the 18-row timeline as its `duration`
-```
+**Fixed by tagging.** `internal/util.function__lambda` and `timeline.stack` now mark what they produce with `ATTRIBUTE__DEFERRED`, and `stack` checks each constituent. The tag is necessary because the distinction is invisible otherwise: a deferred call, a composed `stack` and an uncalled stage are all plain `function` objects, and their signatures do not separate them.
 
-No error. The timeline is bound to the stage's first positional parameter, the stage runs with its remaining defaults, and the composition evaluates to a deferred function where a timeline was expected. Whatever the caller does next — `adwin.convert`, `file.save`, a plot — fails somewhere unrelated, or quietly stores the wrong object.
+A hand-written `lambda tline: expand(tline, ...)` is a legitimate constituent and carries no tag, so an untagged callable is accepted when it takes **exactly one required positional argument** (`util.takes_one_timeline`). That discriminates precisely the case at issue: a stage written to the manuscript's convention defaults everything and takes `timeline=None`, so it has *none*; a stage with required parameters, like `pull_coils`, has several. Only a transformer has one. `timeline.as_deferred` is exposed for anything the heuristic would turn away, and the error message names it.
 
-**It is silent only when the miscalled stage is last in the chain** (which includes being the only one). With anything after it, the function it returned is passed on as the next constituent's `timeline=`, where `ensure_not_deferred` catches it and names the mistake:
+Two consequences beyond the bug:
 
-| position of the bare stage | result |
-|---|---|
-| last, or only | a `function` — silent |
-| anywhere earlier | `TypeError` from `ensure_not_deferred` — loud |
-| first, then applied | `TypeError` from `ensure_not_deferred` — loud |
+- **`noop` is no longer `funcy.identity`.** It has to carry the tag, and tagging a shared library function would mark it for every other user of `funcy`. It is now `lambda timeline, **kwargs: timeline`, which also means it survives a `stack` that forwards keywords — `identity` raised `TypeError: identity() got an unexpected keyword argument 'context'`, recorded as L5 in `quantum_optics_lab`.
+- A frame passed as a *constituent* rather than as the leading argument is now rejected with a message, instead of `'DataFrame' object is not callable` from inside the composition.
 
-So the existing guard already covers most of the shape, and this is the hole at the tail of it. The mistake is an easy one precisely because `stack` and `cascade` differ in exactly this respect: `cascade(MOT, molasses)` takes the *uncalled* stages, `stack(tl, MOT(), molasses())` takes the *called* ones. Writing one where the other belongs is the single most likely slip at this layer, and it is the confusion that motivated #83.
-
-**Why the obvious guard does not work.** The three callables `stack` may legitimately receive are indistinguishable by type and not reliably separable by signature:
-
-```
-core deferred   tl.update(...)     (x, **kwargs__new)
-stack-composed  stack(u, u)        (*a, **kw)
-user stage      demo.MOT           (duration=15, lA=-1.0, uA=-0.98, **kwargs)
-```
-
-All three are plain `function`, and a user stage is free to take `(x, **kwargs)` too. Nor is there anything to key on: `vars()` on a deferred function is empty.
-
-Fix direction: tag the deferred objects at the point of creation — set an attribute in `internal/util.function__lambda` and on `stack`'s own return — and have `stack` raise on a constituent that lacks it, reusing `ensure_not_deferred`'s message style. That makes the contract explicit rather than inferred, and it is the same "name the mistake where it is made" pattern already used for nesting. It also gives C4's four-way `timeline` contract something concrete to build on.
-
-Note this is narrower than the general problem C4 describes, and should be settled with it rather than patched separately.
 
 ---
 

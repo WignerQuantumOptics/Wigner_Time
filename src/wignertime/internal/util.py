@@ -227,29 +227,124 @@ def accepts_keyword(f, name: str) -> bool:
     )
 
 
-def ensure_not_deferred(timeline, name__function: str):
+ATTRIBUTE__DEFERRED = "__wigner_time_deferred__"
+"""
+Marks an object as a *deferred timeline function*: something that takes a timeline and
+returns a timeline. Set by `function__lambda` and by `timeline.stack`, and by nothing
+else.
+
+This exists because the distinction cannot be recovered any other way. A deferred call,
+a composed `stack` and an uncalled user stage are all plain `function` objects, and
+their signatures do not separate them -- a stage is free to take `(x, **kwargs)` too.
+The tag is therefore the only thing that can tell `stack` a constituent is the kind of
+callable it knows how to apply.
+"""
+
+
+def mark_deferred(f):
     """
-    Raises `TypeError` if `timeline` is one of the deferred functions returned by `function__lambda`, rather than a timeline.
-
-    Nesting one core call inside another – `expand(ramp(...))` – is an easy mistake, because it reads like ordinary function composition. It is not: a core function called without a `timeline` returns a *function*, so the inner call arrives here as the `timeline` argument and fails much further downstream, on whatever dataframe attribute is touched first.
-
-    Deferred calls compose as siblings of a `stack`, never by nesting. Raising at the point of the mistake keeps that distinction visible instead of surfacing it as an `AttributeError` about a column.
-
-    NOTE: Narrow by construction. It catches a callable given where a timeline belongs, which is the mistake the deferral design invites; it is not a general type check on the argument, so a non-callable non-frame still fails downstream and cryptically. That is a known gap, not a settled choice – see `KNOWN_ISSUES.md` C4 for the intended four-way contract, which supersedes this function.
+    Tag `f` as a deferred timeline function and return it. See `ATTRIBUTE__DEFERRED`.
     """
-    if (
-        (timeline is not None)
-        and (not isinstance(timeline, wt_frame.CLASS))
-        and callable(timeline)
-    ):
-        raise TypeError(
-            "`{f}` was given a deferred function where a timeline was expected.\n\n"
-            "That is what a core function returns when called without `timeline=`, so this "
-            "usually means two calls were nested:\n\n"
-            "    {f}(ramp(...))          # `ramp(...)` here is a function, not a timeline\n\n"
-            "Deferred calls compose as siblings of a `stack`, in execution order:\n\n"
-            "    stack(timeline, ramp(...), {f}(...))".format(f=name__function)
+    setattr(f, ATTRIBUTE__DEFERRED, True)
+    return f
+
+
+def is_deferred(f) -> bool:
+    """
+    Whether `f` was produced by the deferral machinery, rather than merely being callable.
+    """
+    return getattr(f, ATTRIBUTE__DEFERRED, False) is True
+
+
+def takes_one_timeline(f) -> bool:
+    """
+    Whether `f` looks like a timeline transformer: something callable with exactly one
+    required positional argument.
+
+    A fallback for `is_deferred`, so that an ordinary hand-written
+    `lambda tline: expand(tline, ...)` can be a `stack` constituent without being tagged.
+
+    It discriminates the case that matters. A stage written to the convention of the
+    manuscript defaults everything and takes `timeline=None`, so it has *no* required
+    positional argument; a stage with required parameters, like `pull_coils`, has several.
+    Only a transformer has exactly one. Permissive when the signature cannot be read.
+    """
+    try:
+        parameters = inspect.signature(f).parameters.values()
+    except (TypeError, ValueError):
+        return True
+
+    return (
+        len(
+            [
+                p
+                for p in parameters
+                if p.default is p.empty
+                and p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+            ]
         )
+        == 1
+    )
+
+
+def ensure_timeline(timeline, name__function: str, name__argument: str = "timeline"):
+    """
+    Check the `timeline` argument against its contract, naming the mistake where it is
+    made rather than letting it surface downstream.
+
+    Three outcomes, and the third is the point of the function:
+
+    - a dataframe -- evaluate against it
+    - `None`      -- defer, returning a callable
+    - anything else -- `TypeError`
+
+    A **callable** is the mistake the deferral design invites. Nesting one core call
+    inside another -- `expand(ramp(...))` -- reads like ordinary composition but is not:
+    a core function called without a `timeline` returns a *function*, so the inner call
+    arrives here as the `timeline` argument. Deferred calls compose as siblings of a
+    `stack`, in execution order, never by nesting.
+
+    **Anything else** -- a list, a string, an int, a dict -- used to fail much later and
+    cryptically, on whatever dataframe attribute was touched first, naming neither the
+    function nor the argument. It is rejected here instead, with both.
+    """
+    if timeline is None or isinstance(timeline, wt_frame.CLASS):
+        return timeline
+
+    if callable(timeline):
+        raise TypeError(
+            "\n".join(
+                [
+                    "`{}` was given a deferred function where a timeline was"
+                    " expected.".format(name__function),
+                    "",
+                    "That is what a core function returns when called without"
+                    " `timeline=`, so this usually means two calls were nested:",
+                    "",
+                    "    {}(ramp(...))    # `ramp(...)` here is a function, not a"
+                    " timeline".format(name__function),
+                    "",
+                    "Deferred calls compose as siblings of a `stack`, in execution"
+                    " order:",
+                    "",
+                    "    stack(timeline, ramp(...), {}(...))".format(name__function),
+                ]
+            )
+        )
+
+    raise TypeError(
+        "\n".join(
+            [
+                "`{}` was given {} as `{}`, where a timeline or `None` was"
+                " expected.".format(
+                    name__function, type(timeline).__name__, name__argument
+                ),
+                "",
+                "A timeline is a dataframe. `None` defers the call, returning a"
+                " function for a `stack` to apply later.",
+            ]
+        )
+    )
 
 
 def function__lambda(lambda_key="timeline", kwargs=["vtvc_dict"]):
@@ -274,10 +369,12 @@ def function__lambda(lambda_key="timeline", kwargs=["vtvc_dict"]):
     else:
         raise ValueError("Function `f` needs to have arguments in `function__lambda`.")
 
-    return lambda x, **kwargs__new: f(
-        **{
-            k: x,
-            **kwargs,
-            **kwargs__new,
-        }
+    return mark_deferred(
+        lambda x, **kwargs__new: f(
+            **{
+                k: x,
+                **kwargs,
+                **kwargs__new,
+            }
+        )
     )

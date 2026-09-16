@@ -8,6 +8,7 @@ import pytest
 
 from wignertime import timeline as tl
 from wignertime.internal import dataframe as wt_frame
+from wignertime.demo import full_experiment as demo
 
 
 def deferred():
@@ -71,3 +72,42 @@ def test_stack_still_accepts_a_leading_callable():
     The guard must not catch `stack`/`cascade`, whose first argument is legitimately a function.
     """
     assert callable(tl.stack(tl.update(AOM_MOT=1), tl.anchor(1.0)))
+
+
+@pytest.mark.parametrize("bad", [[1, 2, 3], "yesterday", 7, {"a": 1}])
+def test_non_timeline_argument_names_the_type(bad):
+    """
+    C4. A non-frame, non-callable used to fail far downstream on whatever dataframe
+    attribute was touched first, naming neither the function nor the argument.
+    """
+    with pytest.raises(TypeError, match="where a timeline or `None` was expected"):
+        tl.update(AOM_MOT=1, timeline=bad)
+
+
+@pytest.mark.parametrize("stage", [demo.MOT, demo.pull_coils])
+def test_stack_rejects_an_uncalled_stage(stage):
+    """
+    D17. `stack(timeline, MOT)` for `stack(timeline, MOT(...))` used to compose silently,
+    binding the timeline to the stage's first parameter and returning a function. It was
+    caught only when something followed it in the chain.
+    """
+    with pytest.raises(TypeError, match="rather than the result of calling it"):
+        tl.stack(demo.init(), stage)
+
+
+def test_stack_accepts_a_hand_written_transformer():
+    """
+    A plain `lambda tline: ...` carries no deferred tag, and must still compose. It is
+    told apart from an uncalled stage by arity -- a transformer takes exactly one
+    required positional argument, a stage written to convention takes none.
+    """
+    base = demo.init()
+    assert len(tl.stack(base, lambda tline: tline)) == len(base)
+
+
+def test_noop_survives_a_stack_that_forwards_keywords():
+    """
+    `noop` was `funcy.identity`, which raised on any keyword `stack` forwarded.
+    """
+    base = demo.init()
+    assert len(tl.stack(base, tl.noop, context="anything")) == len(base)

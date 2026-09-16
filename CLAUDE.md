@@ -121,9 +121,18 @@ whole experiment has a single point of contact for its nested parameters.
 
 **Deferred calls compose as siblings of a `stack`, never by nesting.** `expand(ramp(...))` looks like
 composition but passes a function in as `expand`'s `timeline`; write
-`stack(timeline, ramp(...), expand(...))` instead. All five functions now raise a `TypeError` naming
-the mistake (`util.ensure_not_deferred`), so this is self-correcting — but `stack` and `cascade` take a
-leading callable *legitimately* and must stay outside that guard.
+`stack(timeline, ramp(...), expand(...))` instead. `util.ensure_timeline` raises a `TypeError` naming
+the mistake, and also rejects anything that is neither a frame nor `None` (C4, 2026-09-16) — but
+`stack` and `cascade` take a leading callable *legitimately* and must stay outside that guard.
+Allowing nesting to *compose* was considered and rejected; see C4 for why.
+
+Deferred objects are tagged (`util.ATTRIBUTE__DEFERRED`, set by `function__lambda` and by `stack`),
+because a deferred call, a composed `stack` and an *uncalled stage* are otherwise indistinguishable —
+all plain functions with similar signatures. `stack` checks the tag on every constituent, so
+`stack(timeline, MOT)` for `stack(timeline, MOT(...))` now raises instead of binding the timeline to
+`MOT`'s first parameter (D17). An untagged callable taking exactly one required positional argument is
+accepted too, so a hand-written `lambda tline: ...` still works; `timeline.as_deferred` marks anything
+else. `noop` is consequently our own tagged function rather than `funcy.identity`.
 
 A related trap the guard cannot catch: **`expand` acts on the whole timeline it receives**, not on the
 adjacent ramp. Mid-`stack` in a late stage it expands every ramp accumulated so far, and since it then
