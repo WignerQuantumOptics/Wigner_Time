@@ -445,9 +445,15 @@ It also rescues A2's proposed tie-break. While every stage had `**kwargs`, "is t
 
 Two candidate behaviours: strict (consult `inspect.signature`, reject splits that don't correspond to a real parameter) or lenient (longest-match-wins, as now). Strictness is consistent with the paper's claim that parameter sets are explicit and checkable, and it subsumes A1 and A2. Cost is that it breaks `**kwargs`-forwarding stages, of which the lab example has several. Decide before PyPI publication; changing a default afterwards is expensive.
 
-### C2 — Should `create` accept origin parameters?
+### C2 — Should `create` accept origin parameters? — **RESOLVED AND FIXED 2026-09-16 (no), with #45**
 
-`create` passes `origin` straight to `wt_origin.update`, while `update` first routes through `wt_origin.auto`. This asymmetry may be deliberate (`create` starts a timeline, so has nothing to be relative to) or vestigial. Unresolved.
+`create` passed `origin` straight to `wt_origin.update` while `update` routed through `wt_origin.auto`. The asymmetry was deliberate in the first sense offered: `create` starts a timeline, so it has nothing to be relative to.
+
+**Settled by deciding it takes neither `origin` nor `timeline`**, which is also what the manuscript has documented all along — `sec:functions` gives the signature as `def create( *vtvc, t=0.0, context=None, **vtvc_dict )`, with no `timeline`, no `origin` and no `schema`. The code was the thing out of step, so this is a D7 reconciliation that needs no manuscript change.
+
+The shared argument-resolution machinery moved to an internal `_populate_timeline`, which both public functions call; see #45. Nothing is lost: a numeric `origin` on a timeline-less `create` only offset `t` and the value, which is arithmetic the caller can do, and no call site anywhere used it. A string origin already raised.
+
+One subtlety worth recording, because it defeats the obvious implementation. Removing the parameters from the signature is not enough: `**vtvc_dict` is an *open namespace*, so `timeline=` and `origin=` fall into it and are then re-bound by `_populate_timeline`, which does declare them — silently reinstating the arguments the signature exists to withhold. `create` therefore intercepts both names explicitly and raises, pointing at `update`. Neither is a valid `variable` name under `config.VARIABLE__REGEX`, so the interception cannot shadow a legitimate one.
 
 ### C3 — `anchor` with `t=None`
 

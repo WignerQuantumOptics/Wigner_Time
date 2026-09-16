@@ -102,16 +102,20 @@ into device conversions or vice versa.
 
 ### The dual-return idiom
 
-`create`, `update`, `ramp`, `anchor` and `expand` all return **a timeline when `timeline=` is passed,
-and a curried callable when it is not**. The callable branch is produced by
+`update`, `ramp`, `anchor` and `expand` return **a timeline when `timeline=` is passed, and a curried
+callable when it is not**. `create` is the exception and always returns a timeline: it initialises one
+from scratch, so it takes no `timeline` and no `origin` at all (2026-09-16, #45/C2 — this matches the
+signature `sec:functions` has always documented). To add to an existing timeline, use `update`;
+`update(..., origin=0.0)` is exactly what passing a timeline to `create` used to do. The callable branch is produced by
 `internal/util.py::function__lambda`, which reads the caller's frame to capture its own arguments — so
 it only works when called directly from the public function's body. `stack` and `cascade` compose
 those callables (and forward their own kwargs into every one of them). Any new top-level timeline
 function should follow this shape.
 
 This is what lets a stage be written once, generically, relative only to its own beginning, and
-inserted anywhere later. `create` and `update` are otherwise near-identical; they differ only in how
-they compose — `create` is the entry point of a stack, `update` can appear anywhere inside one.
+inserted anywhere later. `create` and `update` are otherwise near-identical — they share a body,
+`timeline._populate_timeline`, and differ only in what they expose of it: `create` is the entry point
+of a stack and withholds `timeline`/`origin`, `update` can appear anywhere inside one and takes both.
 `cascade` adds prefix-routed keyword forwarding (`MOT_duration=...` reaches `MOT`'s `duration`), so a
 whole experiment has a single point of contact for its nested parameters.
 

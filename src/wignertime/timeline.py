@@ -94,7 +94,7 @@ def previous(
 ###############################################################################
 #                   Main functions
 ###############################################################################
-def create(
+def _populate_timeline(
     *vtvc,
     timeline: wt_frame.CLASS | None = None,
     t=0.0,
@@ -104,14 +104,50 @@ def create(
     **vtvc_dict,
 ) -> wt_frame.CLASS:
     """
-    Does what it says on the tin: establishes a new timeline according to the given (flexible) input collection. If 'timeline' is also specified, then it concatenates the new creation with the existing one.
+    The shared body of `create` and `update`. **Internal**: the argument resolution is
+    common to both, but the two public entry points expose different parts of it.
 
+    Resolves the flexible `*vtvc` / `**vtvc_dict` input into rows, places them with
+    respect to `origin`, and — when a `timeline` is given — inherits its context and
+    concatenates.
+
+    The split exists because `create` and `update` differ only in how they compose, and
+    that difference is entirely about `timeline` and `origin`:
+
+    - `create` starts a timeline from scratch, so neither argument means anything to it
+      and neither is part of its signature. See §sec:functions of the manuscript, where
+      `create` is documented as `create(*vtvc, t=0.0, context=None, **vtvc_dict)`.
+    - `update` extends an existing one, so it takes both — and routes `origin` through
+      `origin.auto` first, which is what makes its times relative by default.
+
+    Positional `*vtvc` combined with a `timeline` is reachable only from here: `create`
+    has the positional forms but no timeline, and `update` has the timeline but no
+    positional forms.
+    """
+    rows = wt_input.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
+
+    df_rows = wt_frame.new(rows, columns=schema.keys()).astype(schema)
+    new = wt_origin.update(df_rows, timeline, origin=origin)
+
+    if timeline is not None:
+        inherit.context(new, timeline, context=context)
+        return wt_frame.concat([timeline, new])
+
+    return new
+
+
+def create(*vtvc, t=0.0, context=None, **vtvc_dict) -> wt_frame.CLASS:
+    """
+    Establishes a new timeline from the given (flexible) input collection.
+
+    `create` initialises a timeline *from scratch*. It deliberately takes no `timeline`
+    and no `origin`: there is nothing for the new rows to be relative to, which is the
+    whole of the difference between it and `update`. To add to an existing timeline,
+    use `update` — `update(..., origin=0.0)` reproduces exactly what passing a timeline
+    to `create` used to do, and the default (anchor-then-last) origin is usually what
+    was actually wanted.
 
     Accepts programmatic and manual input.
-
-    TODO:
-    - document the possible combinations of arguments ordered according to usecases
-    - change from default `t` to default `origin`?
 
     variable_time_values (*vtvc) has the form:
     variable, time, value, context
@@ -128,24 +164,33 @@ def create(
 
     but when unspecified, is replaced by the dictionary form (**vtvc_dict)
 
-    The [time,value] list can also be replaced with [time,value,context] if you would like to specify data-specific context.
+    The [time,value] list can also be replaced with [time,value,context] if you would
+    like to specify data-specific context.
 
-    If you supply an additional timeline, the result will be concatenated with this and the new timeline (if one isn't specified) will inherit the old context.
-
-    NOTE: It seems to be the case that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
+    NOTE: It seems to be the case that dataframes use less memory than lists of
+    dictionaries or dictionaries of lists (in general).
     """
-    wt_util.ensure_not_deferred(timeline, "create")
+    # `**vtvc_dict` is an open namespace -- an unrecognised keyword is read as a
+    # variable name -- so `timeline=` and `origin=` would otherwise be swallowed by it
+    # and then re-bound by `_populate_timeline`, which does declare them. That would
+    # reinstate the very arguments this signature exists to withhold, silently. Neither
+    # is a valid `variable` name (`config.VARIABLE__REGEX` requires two segments), so
+    # intercepting them cannot shadow a legitimate one.
+    for name, instead in [
+        (
+            "timeline",
+            "`update(..., timeline=...)`; add `origin=0.0` for the absolute placement `create` used to give",
+        ),
+        ("origin", "`update(..., origin=...)`, or fold the offset into `t`"),
+    ]:
+        if name in vtvc_dict:
+            raise TypeError(
+                "`create` does not take `{n}`: it starts a timeline from scratch, so "
+                "there is nothing for the new rows to be placed relative to. Use "
+                "{i}.".format(n=name, i=instead)
+            )
 
-    rows = wt_input.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
-
-    df_rows = wt_frame.new(rows, columns=schema.keys()).astype(schema)
-    new = wt_origin.update(df_rows, timeline, origin=origin)
-
-    if timeline is not None:
-        inherit.context(new, timeline, context=context)
-        return wt_frame.concat([timeline, new])
-
-    return new
+    return _populate_timeline(*vtvc, t=t, context=context, **vtvc_dict)
 
 
 def update(
@@ -179,7 +224,7 @@ def update(
             timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
         )
 
-        return create(
+        return _populate_timeline(
             timeline=timeline,
             t=t,
             context=context,

@@ -20,7 +20,8 @@ def deferred():
 @pytest.mark.parametrize(
     "name,call",
     [
-        ("create", lambda f: tl.create(AOM_MOT=1, timeline=f)),
+        # `create` is absent on purpose: it has no `timeline` argument, so a deferred
+        # function cannot reach it. See `test_create_rejects_timeline_and_origin`.
         ("update", lambda f: tl.update(f)),
         ("ramp", lambda f: tl.ramp(f, coil__A=2.0, duration=1.0)),
         ("anchor", lambda f: tl.anchor(1.0, timeline=f)),

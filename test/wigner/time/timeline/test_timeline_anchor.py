@@ -25,7 +25,7 @@ def test_anchor__basic():
         ],
     )
 
-    tl_check = tl.create(
+    tl_check = tl._populate_timeline(
         ["⚓_001", [10.0, 0.0, "InitialAnchor"]],
         timeline=tl_check,
         context="InitialAnchor",
@@ -57,7 +57,7 @@ def df_context1():
 
 def test_anchorContext(df_context1):
     return wt_frame.assert_equal(
-        tl.create(
+        tl._populate_timeline(
             lockbox_MOT__MHz=[1.0, 10.0],
             timeline=df_context1,
             context="ramp",
