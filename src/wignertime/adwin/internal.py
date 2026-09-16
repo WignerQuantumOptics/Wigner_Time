@@ -184,13 +184,16 @@ def to_tuples(timeline, machine_specifications=SPECIFICATIONS__DEFAULT):
         )
 
     mods_digital = modules__digital(machine_specifications)
-    mods_analogue = [
-        int(x) for x in timeline["module"].unique() if x not in mods_digital
-    ]
+    mods_analogue = [x for x in timeline["module"].unique() if x not in mods_digital]
 
+    # NOTE: filtered by value rather than by a formatted query string. `module` is an
+    # int64 column, so `unique()` yields numpy scalars, and building a query out of them
+    # produced `module in [np.int64(3), np.int64(4)]` -- which pandas parses and then
+    # rejects with `UndefinedVariableError: name 'np' is not defined`, an error that
+    # looks like it comes from inside pandas and says nothing about modules (#41). A
+    # bare `int()` on each element used to hold that off; comparing values removes the
+    # failure mode instead of guarding it.
     return [
-        to_tuples__raw(timeline.query("module in {}".format(mods_analogue))),
-        to_tuples__raw(
-            timeline.query("module in {}".format(mods_digital)),
-        ),
+        to_tuples__raw(wt_frame.subframe(timeline, "module", mods_analogue)),
+        to_tuples__raw(wt_frame.subframe(timeline, "module", mods_digital)),
     ]

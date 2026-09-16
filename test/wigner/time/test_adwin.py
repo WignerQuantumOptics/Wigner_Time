@@ -248,3 +248,37 @@ def test_convert():
     ]
 
     assert tuples == tuples__guess
+
+
+def test_to_tuples_separates_modules_despite_numpy_scalars():
+    """
+    #41. `module` is an int64 column, so `unique()` yields numpy scalars. Selecting on
+    them by way of a formatted query string built `module in [np.int64(3), np.int64(4)]`,
+    which pandas parses and then rejects with `UndefinedVariableError: name 'np' is not
+    defined` -- an error that appears to come from inside pandas and mentions nothing
+    about modules.
+
+    Filtering by value cannot have that failure mode, so this guards the separation
+    itself: every analogue tuple on a non-digital module, every digital one on module 1,
+    and nothing dropped.
+    """
+    import numpy as np
+    from wignertime.internal import dataframe as frame
+
+    digital = adi.modules__digital(adi.SPECIFICATIONS__DEFAULT)
+
+    timeline = frame.new_schema(
+        [
+            [0.0, "AOM_imaging", 0.0, "init", 1, 1, 0, 0],
+            [0.0, "coil__A", 1.0, "init", 3, 2, 0, 32768],
+            [1.0, "coil__A", 2.0, "init", 4, 5, 1, 65535],
+        ],
+        schema=wt_adwin.SCHEMA,
+    )
+    assert timeline["module"].dtype == np.int64, "the premise of the bug"
+
+    analogue, digitals = adi.to_tuples(timeline)
+
+    assert [t[1] for t in digitals] == [1]
+    assert sorted(int(t[1]) for t in analogue) == [3, 4]
+    assert len(analogue) + len(digitals) == len(timeline), "no row dropped"
