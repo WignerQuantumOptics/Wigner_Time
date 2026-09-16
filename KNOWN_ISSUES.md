@@ -361,6 +361,17 @@ tl.cascade(demo.init, demo.MOT, init_coil_MOTlower__A=0.5, MOT_duration=1.0)
 
 C1 as originally posed conflates 1 and 3, which is why it looked like an all-or-nothing choice. It is not.
 
+**Layer 2b — the operation layer's own stages — was narrowed on 2026-09-16** (`19d41ad`, lab `36f7fdf`). `**kwargs` now appears on `default_state` and on the two functions that wrap it, `init` and `finish`, and nowhere else in the demo or the lab. Every other stage declares what it forwards: `timeline=None`, plus `t` and `context` for `pull_coils`, the only stage another stage calls. The diagnostics functions keep the `origin` and `context` they already declared and gain `timeline=None`.
+
+This is the decision recorded below as "event functions lose `**kwargs`", and it is the prerequisite C1 was waiting on: with stages carrying declared parameters, `cascade` can accept a keyword split only when the remainder is a parameter the target actually takes, and `default_state`/`init`/`finish` stay correctly permissive because they still have `**kwargs`. The policy is therefore *derived* from `inspect.signature` rather than configured.
+
+Two findings from doing it:
+
+- `context` does **not** belong on every stage. Across the demo and the lab there are exactly two stage-calls-a-stage sites, and both are `pull_coils`. Everything else sets its context on its own `stack` or passes it straight to the core call.
+- `origin` should **not** be added uniformly, and the existing code already drew the line correctly. It belongs on a stage meant to be *placed* — the interwoven diagnostics, every one of which declares it — and not on a stage forming a causal link, where it would exist only to be given wrongly. The signature therefore says which kind a stage is. Recorded in the manuscript at `sec:interweaving`.
+
+The other half of the decision — `finish` deriving the final state from the timeline rather than from a hardcoded list — has **not** landed, and is still fix direction (1) below.
+
 **The intent is only half-served: injection reaches one end of the experiment, not both.** The point of `default_state` is that an injected variable is *both* an initial and a final condition — two rows, one per special context. `cascade` cannot express that: its dispatch loop `break`s on the first matching stage name, so each keyword is routed to exactly one stage.
 
 ```python
@@ -588,9 +599,9 @@ Still open in this group, and genuinely drift rather than defect: `sane_state` /
 
 **Re-imported 2026-09-15** as the arXiv version (`fdd2e0d`), now 1458 lines: licence corrected to GPLv3, three affiliations added, `orcidlink` loaded, an acknowledgement of the review paragraph added, and the `sec:forwarding` listing set in `\scriptsize`. None of it touches the listings this inventory is about, but **line numbers quoted anywhere in this document have shifted by up to +5 below `sec:goals`** — the device tables are now at `main.tex:434` and `:1022`, and the `connections` prose at `:998`.
 
-**One prerequisite remains.**
+**One prerequisite remains, now half-satisfied.**
 
-1. **Land the pending decisions first.** The §C decision (event functions lose `**kwargs`; `finish` derives the final state from the timeline) rewrites much of the demo, and hence much of `sec:demonstration` and the new `sec:forwarding`. Reconciling before that lands means doing the same renaming twice.
+1. **Land the pending decisions first.** The §C decision has two halves. *Event functions lose `**kwargs`* **landed 2026-09-16** (`19d41ad`), and the demo, the lab and the manuscript were rewritten together, so `sec:demonstration`, `sec:stacking`, `sec:interweaving` and `sec:forwarding` are already reconciled on that point. *`finish` derives the final state from the timeline* has not landed, and still rewrites `finish` in both the demo and `sec:demonstration`. The parameter-style divergence listed above is unaffected by either and remains the bulk of this item.
 
 ### D8 — `"variable"` resolves only on one call path **[new, found 2026-09-03]**
 
