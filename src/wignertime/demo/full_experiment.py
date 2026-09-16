@@ -178,7 +178,7 @@ def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
     )
 
 
-def MOT(duration=15, lA=-1.0, uA=-0.98, **kwargs):
+def MOT(duration=15, lA=-1.0, uA=-0.98, timeline=None):
     """
     Creates a Magneto-Optical Trap.
     """
@@ -190,19 +190,21 @@ def MOT(duration=15, lA=-1.0, uA=-0.98, **kwargs):
             coil_MOTupper__A=uA,
             #
             origin=0.0,
-            **kwargs,
+            timeline=timeline,
         ),
         tl.anchor(duration, origin=0.0),
         context="MOT",
     )
 
 
-def MOT__off(**kwargs):
-    return tl.update(shutter_MOT=0, AOM_MOT=0, shutter_repump=0, AOM_repump=0, **kwargs)
+def MOT__off(timeline=None):
+    return tl.update(
+        shutter_MOT=0, AOM_MOT=0, shutter_repump=0, AOM_repump=0, timeline=timeline
+    )
 
 
 def MOT__detuned_growth(
-    duration=100e-3, duration__ramp=10e-3, detuning__MHz=-5, **kwargs
+    duration=100e-3, duration__ramp=10e-3, detuning__MHz=-5, timeline=None
 ):  # pt=3,
     """
     Final stage of MOT collection with detuned MOT beams for increased capture range.
@@ -212,7 +214,7 @@ def MOT__detuned_growth(
             lockbox_MOT__MHz=detuning__MHz,
             duration=duration__ramp,
             #            fargs={"ti": pt},
-            **kwargs,
+            timeline=timeline,
         ),
         tl.anchor(duration),
         context="MOT",
@@ -225,7 +227,7 @@ def molasses(
     duration__lockbox_ramp=1e-3,
     toMHz=-90,  # coil_pt=3, lockbox_pt=3,
     delay=0,  # arbitrary delay to shutter for ad hoc compensation of small drifts
-    **kwargs
+    timeline=None,
 ):
     """
     For slowing down the atoms by creating an optical density.
@@ -237,7 +239,7 @@ def molasses(
             coil_MOTupper__A=0,
             duration=duration__coil_ramp,
             #            fargs={"ti": coil_pt},
-            **kwargs,
+            timeline=timeline,
         ),
         tl.ramp(
             lockbox_MOT__MHz=toMHz,
@@ -260,7 +262,7 @@ def optical_pumping(
     delay1=0,
     delay2=0,
     delay__repump=0,  # arbitrary delays to shutters for ad hoc compensation of small drifts
-    **kwargs
+    timeline=None,
 ):
     """
     Creates an experimental timeline for optical pumping.
@@ -279,7 +281,7 @@ def optical_pumping(
             coil_MOTupper__A=-i,
             duration=duration__coil_ramp,
             #            fargs={"ti": pt},
-            **kwargs,
+            timeline=timeline,
         ),
         tl.update(AOM_OP=[[-0.1, 0], [duration__coil_ramp, 1], [duration__full, 0]]),
         tl.update(
@@ -304,7 +306,7 @@ def optical_pumping(
     )
 
 
-def pull_coils(duration, l, u, lp=0, up=0, pt=3, **kwargs):
+def pull_coils(duration, l, u, lp=0, up=0, pt=3, timeline=None, t=None, context=None):
     """
     Controls the concentric coil pairs responsible for 'pulling' the atoms.
     """
@@ -317,7 +319,9 @@ def pull_coils(duration, l, u, lp=0, up=0, pt=3, **kwargs):
             origin, terminus, time_resolution, pt
         ),
         duration=duration,
-        **kwargs,
+        timeline=timeline,
+        t=t,
+        context=context,
     )
 
 
@@ -328,13 +332,15 @@ def magnetic_trapping(
     duration__strengthen=3e-3,
     ls=-4.8,
     us=-4.7,
-    **kwargs
+    timeline=None,
 ):
     """
     Does what it says on the tin.
     """
     return tl.stack(
-        pull_coils(duration__initial, li, ui, context="magnetic_trapping", **kwargs),
+        pull_coils(
+            duration__initial, li, ui, context="magnetic_trapping", timeline=timeline
+        ),
         pull_coils(duration__strengthen, ls, us, t=duration__initial),
         tl.anchor(duration__initial + duration__strengthen),
         context="magnetic_trapping",

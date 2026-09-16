@@ -287,12 +287,12 @@ def optical_pumping(
     i=-0.12,
     delay1=0, delay2=0, delay_repump=0,
     delay_shutter_reinitialization=0.1,
-    **kwargs
+    timeline=None,
 ):
     duration_full = duration_exposition + duration_coil_ramp
     return tl.stack(
         tl.ramp(coil_MOTlower__A=i, coil_MOTupper__A=-i,
-                duration=duration_coil_ramp, **kwargs),
+                duration=duration_coil_ramp, timeline=timeline),
         tl.update(AOM_OP=[[-0.1, 0], [duration_coil_ramp, 1], [duration_full, 0]]),
         tl.update(shutter_OP1=[
             [duration_coil_ramp - constants.OP.lag_shutter_on + delay1, 1],
@@ -705,20 +705,21 @@ This is best illustrated by example. Suppose we want to estimate the number of a
  
 Breaking this down into reusable operations, the MOT stage is clearly central, and can be defined as a reusable function. It turns on the appropriate shutters and electromagnets (the latter by a smooth ramp to minimize self-induction):
 \begin{minted}[fontsize=\scriptsize,frame=none]{python}
-def MOT(duration, lower_current, upper_current, **kwargs):
+def MOT(duration, lower_current, upper_current, timeline=None):
     return stack(
-        update(shutter_MOT=1, shutter_repump=1),
+        update(shutter_MOT=1, shutter_repump=1, timeline=timeline),
         ramp(coil_MOTlower__A=lower_current, coil_MOTupper__A=upper_current, duration=0.1),
         anchor(duration),
         context="MOT"
     )
 \end{minted}
-Since no timeline is supplied, this returns a deferred function that can be slotted into any later timeline.
+Since no timeline is supplied, this returns a deferred function that can be slotted into any later timeline. Note the explicit \python{timeline=None}: a stage declares the placement arguments it forwards, exactly as the core functions do, and it is this that makes it both directly callable and composable. A stage should not collect them in \python{**kwargs} -- there, the keyword namespace of the terminal \python{create} or \python{update} call \emph{is} the variable namespace (\cref{sec:functions}), so a mistyped argument is silently read as a new variable rather than rejected. The one place an open namespace is wanted is \python{default_state}, where that reading is the entire point (\cref{sec:forwarding}).
  
 Similarly, triggering a camera is a useful abstraction, parameterized by the time instant and the duration of the exposition:
 \begin{minted}[frame=none]{python}
-def trigger_camera(t, exposition, **kwargs) :
-    return update(trigger_camera=[[t,1],[t+exposure,0]],**kwargs)
+def trigger_camera(t, exposure, context, origin=None, timeline=None) :
+    return update(trigger_camera=[[t,1],[t+exposure,0]],
+                  context=context, origin=origin, timeline=timeline)
 \end{minted}
 This pattern – a thin wrapper around \python{update} – covers the vast majority of digital operations.
  
@@ -776,6 +777,8 @@ tl.cascade(
 Stacking is a powerful technique for composing linear timelines, where each stage follows the previous one. In practice, non-linear timelines are also useful – where an operation is anchored not to the end of the preceding stage but to some earlier reference point.
  
 Returning to the example above (\cref{sec:stacking}), the \python{trigger_camera} function need not follow linearly from the MOT stage. By supplying \python{origin="initialization"}, the camera trigger can be placed relative to the initial anchor instead. Such \emph{interweaving} is particularly valuable for inserting diagnostic operations into an existing timeline without restructuring it.
+
+This gives a practical criterion for what a stage should declare. A stage that is meant to be \emph{placed} takes \python{origin}; a stage that forms a link in a causal chain does not. The preparation sequence of \cref{sec:demonstration} is of the second kind -- each of \python{MOT}, \python{molasses}, \python{optical_pumping} and \python{magnetic_trapping} acts on the physical state the previous one left behind, so there is no meaningful freedom in where it goes, and an \python{origin} argument would exist only to be given wrongly. The diagnostics of \cref{sec:forwarding} are of the first kind, and every one of them declares it. The signature therefore says which a stage is, and that is worth preserving as the operation layer grows.
  
 For further examples, see \cref{sec:demonstration,sec:parameter_scan}.
  
@@ -1128,7 +1131,7 @@ def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwarg
     )
  
  
-def MOT(duration=15, lower_current=-1.0, upper_current=-0.98, origin=0.0, **kwargs):
+def MOT(duration=15, lower_current=-1.0, upper_current=-0.98, origin=0.0, timeline=None):
     """
     Creates a magneto-optical trap
     """
@@ -1140,14 +1143,14 @@ def MOT(duration=15, lower_current=-1.0, upper_current=-0.98, origin=0.0, **kwar
             coil_MOTupper__A=upper_current,
             #
             origin=origin,
-            **kwargs,
+            timeline=timeline,
         ),
         tl.anchor(duration, origin=origin),
         context="MOT",
     )
  
  
-def MOT_detuned_growth( duration=100e-3, duration_ramp=10e-3, detuning__MHz=-5, **kwargs) :
+def MOT_detuned_growth( duration=100e-3, duration_ramp=10e-3, detuning__MHz=-5, timeline=None) :
     """
     Final stage of MOT collection with farther detuned MOT beams
     """
@@ -1155,18 +1158,18 @@ def MOT_detuned_growth( duration=100e-3, duration_ramp=10e-3, detuning__MHz=-5, 
         tl.ramp(
             lockbox_MOT__MHz=detuning__MHz,
             duration=duration_ramp,
-            **kwargs,
+            timeline=timeline,
         ),
         tl.anchor(duration),
         context="MOT",
     )
  
  
-def MOT_off(**kwargs):
+def MOT_off(timeline=None):
     """
     respecting shutter lags
     """
-    return tl.update(shutter_MOT=[-constants.lag_MOT_shutter,0], AOM_MOT=0, shutter_repump=[-constants.lag_repump_shutter,0], AOM_repump=0, **kwargs)
+    return tl.update(shutter_MOT=[-constants.lag_MOT_shutter,0], AOM_MOT=0, shutter_repump=[-constants.lag_repump_shutter,0], AOM_repump=0, timeline=timeline)
  
  
 def molasses(
@@ -1175,7 +1178,7 @@ def molasses(
     duration_lockbox_ramp=1e-3,
     to__MHz=-90,
     delay=0,  # arbitrary delay to shutter for ad hoc compensation of small drifts
-    **kwargs
+    timeline=None,
 ):
     """
     Optical molasses cooling with zero magnetic field
@@ -1186,7 +1189,7 @@ def molasses(
             coil_MOTlower__A=0,
             coil_MOTupper__A=0,
             duration=duration_coil_ramp,
-            **kwargs,
+            timeline=timeline,
         ),
         tl.ramp(
             lockbox_MOT__MHz=to__MHz,
@@ -1209,7 +1212,7 @@ def optical_pumping(
     delay2=0,
     delay_repump=0,  # arbitrary delays to shutters for ad hoc compensation of small drifts
     delay_shutter_reinitialization=0.1,
-    **kwargs
+    timeline=None,
 ):
     """
     Creates an experimental timeline for optical pumping.
@@ -1227,7 +1230,7 @@ def optical_pumping(
             coil_MOTlower__A=i,
             coil_MOTupper__A=-i,
             duration=duration_coil_ramp,
-            **kwargs,
+            timeline=timeline,
         ),
         tl.update(AOM_OP=[[-0.1, 0], [duration_coil_ramp, 1], [duration_full, 0]]),
         tl.update(
@@ -1252,7 +1255,8 @@ def optical_pumping(
     )
  
  
-def pull_coils(duration, lower_current, upper_current, pt=3, **kwargs):
+def pull_coils(duration, lower_current, upper_current, pt=3,
+               timeline=None, t=None, context=None):
     """
     Pull the coil currents to a given value
     """
@@ -1263,7 +1267,9 @@ def pull_coils(duration, lower_current, upper_current, pt=3, **kwargs):
             origin, terminus, time_resolution, pt
         ),
         duration=duration,
-        **kwargs,
+        timeline=timeline,
+        t=t,
+        context=context,
     )
  
  
@@ -1274,13 +1280,13 @@ def magnetic_trapping(
     duration_strengthen=3e-3,
     lower_current_strengthen=-4.8,
     upper_current_strengthen=-4.7,
-    **kwargs
+    timeline=None,
 ):
     """
     Pulls up the magnetic trap
     """
     return tl.stack(
-        pull_coils(duration_initial, lower_current_initial, upper_current_initial, context="magnetic_trapping", **kwargs),
+        pull_coils(duration_initial, lower_current_initial, upper_current_initial, context="magnetic_trapping", timeline=timeline),
         pull_coils(duration_strengthen, lower_current_strengthen, upper_current_strengthen, t=duration_initial),
         tl.anchor(duration_initial + duration_strengthen, context="magnetic_trapping")
     )
@@ -1353,7 +1359,9 @@ A recurring situation in the operation layer is that a module does not describe 
 
 There are two unsatisfying ways to arrange this. The base \python{default_state} can be edited to mention the imaging hardware, which couples the base experiment to equipment it never uses and makes that one function the place where every future module must intervene. Or the diagnostics module can declare a default state of its own, which duplicates the base specification and reintroduces precisely the divergence that having a single \python{default_state} exists to prevent (\cref{sec:discussion}).
 
-Keyword forwarding provides a third way. \python{default_state} accepts \python{**kwargs} and passes them to its terminal \python{create} or \python{update} call, where -- because that call's keyword namespace \emph{is} the variable namespace (\cref{sec:functions}) -- an unrecognised keyword is read as a variable-value pair. Every stage between a call site and \python{default_state} forwards \python{**kwargs} in the same way, so a keyword that no intermediate stage consumes falls through to the default state and initialises a variable there.
+Keyword forwarding provides a third way. \python{default_state} accepts \python{**kwargs} and passes them to its terminal \python{create} or \python{update} call, where -- because that call's keyword namespace \emph{is} the variable namespace (\cref{sec:functions}) -- an unrecognised keyword is read as a variable-value pair. The two stages that wrap it, \python{init} and \python{finish}, forward \python{**kwargs} in the same way, so a keyword that neither consumes falls through to the default state and initialises a variable at both ends of the run.
+
+The open namespace stops there, and deliberately. An ordinary stage declares the placement arguments it forwards and nothing else (\cref{sec:stacking}), because in a stage the same mechanism is a liability rather than a feature: a mistyped argument would be read as a new variable and silently written into the middle of the experiment, where -- unlike in the default state -- there is no reason to want one. Confining \python{**kwargs} to this one path is also what allows \python{cascade} to check its routing against the target's signature.
 
 \begin{minted}[fontsize=\scriptsize, breaklines, breakanywhere, frame=none]{python}
 # experiment.py - the base apparatus
