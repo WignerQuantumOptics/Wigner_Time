@@ -16,6 +16,7 @@ from wignertime.adwin import internal as adi
 from wignertime import device
 from wignertime import timeline as tl
 from wignertime.internal import dataframe as frame
+from wignertime.demo import full_experiment as demo
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
 # import experimentDemo as ex
@@ -282,3 +283,74 @@ def test_to_tuples_separates_modules_despite_numpy_scalars():
     assert [t[1] for t in digitals] == [1]
     assert sorted(int(t[1]) for t in analogue) == [3, 4]
     assert len(analogue) + len(digitals) == len(timeline), "no row dropped"
+
+
+class _MachineRecording:
+    """
+    Stands in for `ADwin.ADwin`, recording what `core.create` would transfer.
+
+    The hardware calls are the part of the export that cannot be exercised here
+    (`KNOWN_ISSUES` §E), so this covers the argument assembly around them and nothing
+    more: which parameters are set, and which data arrays are written.
+    """
+
+    def __init__(self):
+        self.par = {}
+        self.data = {}
+
+    def Set_Par(self, number, value):
+        self.par[number] = value
+
+    def SetData_Long(self, values, number, startindex, count):
+        self.data[number] = (list(values), count)
+
+
+def _digital_only():
+    conns = adcon.new(["shutter_MOT", 1, 11], ["AOM_MOT", 1, 1])
+    devs = device.new(["coil_unused__A", 2.0, -5, 5])
+    timeline = tl.stack(
+        tl.create(shutter_MOT=1, AOM_MOT=1, t=0.0, context="run"),
+        tl.update(shutter_MOT=0, t=1.0),
+    )
+    return timeline, conns, devs
+
+
+def test_create_transfers_an_empty_analogue_set_as_a_count_of_zero():
+    """
+    #73. An empty set used to raise `IndexError: too many indices` while computing the
+    end cycle -- before any `Set_Par` -- so nothing was transferred at all and the
+    machine kept the whole of the previous experiment, which then ran.
+
+    The count is what tells the real-time program not to read the array, and it has to
+    be set precisely because the arrays are never cleared (#8).
+    """
+    machine = _MachineRecording()
+    adwin.create(*_digital_only(), machine=machine)
+
+    assert machine.par[2] == 0, "analogue count must be transferred as zero"
+    assert machine.par[3] == 3, "digital count unaffected"
+    assert sorted(machine.data) == [20, 21, 22, 23], "only the digital arrays written"
+
+
+def test_create_transfers_both_sets_when_both_are_populated():
+    machine = _MachineRecording()
+    adwin.create(demo.timeline__demo, demo.connections, demo.devices, machine=machine)
+
+    assert sorted(machine.data) == [10, 11, 12, 13, 20, 21, 22, 23]
+    assert machine.par[2] == len(machine.data[10][0]) > 0
+    assert machine.par[3] == len(machine.data[20][0]) > 0
+
+
+def test_create_refuses_a_timeline_with_no_run():
+    """
+    Every update in a special context means the experiment has no duration, and the end
+    cycle cannot be derived. That used to be a bare `ValueError: zero-size array`.
+    """
+    _, conns, devs = _digital_only()
+    with pytest.raises(ValueError, match="nothing to run"):
+        adwin.create(
+            tl.create(shutter_MOT=1, t=-1e-6, context="ADwin_LowInit"),
+            conns,
+            devs,
+            machine=_MachineRecording(),
+        )

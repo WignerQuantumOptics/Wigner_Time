@@ -84,11 +84,26 @@ def create(
 
     output = convert(timeline, connections, devices)
 
-    cycles = np.array([np.array(output[i])[:, 0] for i in range(2)]).flatten()
+    # Either set may legitimately be empty -- a digital-only apparatus has no analogue
+    # updates -- so the two are concatenated rather than stacked. Stacking them assumed
+    # both were non-empty and raised `IndexError: too many indices` on an empty one,
+    # before any `Set_Par` had run, leaving the machine holding the whole of the previous
+    # experiment (#73).
+    cycles = np.concatenate(
+        [np.array(rows)[:, 0] for rows in output if len(rows)]
+        or [np.array([], dtype=int)]
+    )
+
     # Finds the maximum cycle value, discounting special contexts
-    time_end__cycles = cycles[
-        ~np.isin(cycles, list(wt_adwin.CONTEXTS__SPECIAL.values()))
-    ].max()
+    cycles__run = cycles[~np.isin(cycles, list(wt_adwin.CONTEXTS__SPECIAL.values()))]
+    if not len(cycles__run):
+        raise ValueError(
+            "There is nothing to run: no update falls outside the special contexts "
+            "{}, so the experiment has no duration. Every variable may have been "
+            "dropped for want of a `connection`, or the timeline may describe only "
+            "initial and final states.".format(list(wt_adwin.CONTEXTS__SPECIAL))
+        )
+    time_end__cycles = cycles__run.max()
 
     # TODO: make this a log instead of a print statement
     print(
@@ -102,14 +117,18 @@ def create(
     machine.Set_Par(2, len(output[0]))
     machine.Set_Par(3, len(output[1]))
 
-    machine.SetData_Long([a[0] for a in output[0]], 10, 1, len(output[0]))
-    machine.SetData_Long([a[1] for a in output[0]], 11, 1, len(output[0]))
-    machine.SetData_Long([a[2] for a in output[0]], 12, 1, len(output[0]))
-    machine.SetData_Long([a[3] for a in output[0]], 13, 1, len(output[0]))
-
-    machine.SetData_Long([d[0] for d in output[1]], 20, 1, len(output[1]))
-    machine.SetData_Long([d[1] for d in output[1]], 21, 1, len(output[1]))
-    machine.SetData_Long([d[2] for d in output[1]], 22, 1, len(output[1]))
-    machine.SetData_Long([d[3] for d in output[1]], 23, 1, len(output[1]))
+    # `cycle, module, channel, digits` go to data_10..13 for the analogue set and
+    # data_20..23 for the digital one.
+    #
+    # An empty set is communicated by its count alone, set just above: there is nothing
+    # to write, and a zero-length transfer is not meaningful. The count is what stops the
+    # real-time program reading the array -- which matters, because the arrays are never
+    # cleared, so a previous and longer run's contents are still sitting in them (#8).
+    for data__first, rows in ((10, output[0]), (20, output[1])):
+        for offset in range(4):
+            if rows:
+                machine.SetData_Long(
+                    [row[offset] for row in rows], data__first + offset, 1, len(rows)
+                )
 
     return machine
