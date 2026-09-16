@@ -452,44 +452,115 @@ def stack(
         )
 
 
+def _route_keyword(key, names__by_length, stages__by_name):
+    """
+    Resolve one `cascade` keyword to a `(stage name, parameter name)` pair, or to
+    `None` with the reason it could not be resolved.
+
+    Matching is anchored to the start of the key and to a `_` boundary, so a parameter
+    that merely *contains* a stage name is not captured by it. Candidates are tried
+    longest first, because a shorter stage name can be a prefix of a longer one
+    (`MOT_` also begins `MOT__detuned_growth_duration`).
+
+    Longest-first alone is not enough to settle the genuine collision, though: if
+    `MOT__detuned_growth` does not take the remainder but `MOT` does, the key belongs to
+    `MOT`. So a split is accepted only when the target actually takes the parameter --
+    or has `**kwargs`, which is how `init` and `finish` stay open for the injection
+    idiom of `sec:forwarding`.
+    """
+    near_misses = []
+
+    for name in names__by_length:
+        if not key.startswith(name + "_"):
+            continue
+        parameter = key[len(name) + 1 :]
+        if wt_util.accepts_keyword(stages__by_name[name], parameter):
+            return (name, parameter), None
+        near_misses.append((name, parameter))
+
+    return None, near_misses
+
+
 def cascade(*fs: list[Callable], **kws) -> Callable | wt_frame.CLASS:
     """
     Similarly to `stack`, a convenience that combines an arbitrary chain of functions with an arbitrary selection of associated keywords.
 
-    Currently, `kws` are passed to the associated functions by prefixing, e.g. `cascade(MOT, molasses,  MOT_duration=1.0)` creates a `stack` of `MOT` and `molasses`, with `duration=1.0` passed into the `MOT` function before evaluation.
+    `kws` are routed to the associated functions by prefixing, e.g. `cascade(MOT, molasses, MOT_duration=1.0)` creates a `stack` of `MOT` and `molasses`, with `duration=1.0` passed into the `MOT` function before evaluation.
 
     The motivation for this feature is that different experimental contexts should be built modularly, but, at final composition, the user often just wants a single point of contact to add/change nested variables.
+
+    Routing is **strict**: a keyword that names no stage, or that names one but is not a
+    parameter of it, raises rather than being dropped. The alternative -- letting an
+    unrouted keyword broadcast to every stage -- was considered and rejected, because
+    every stage would turn it into rows, and into different *kinds* of row depending on
+    whether the stage ends in an `update` or a `ramp`.
+
+    Strictness is not configured but derived, from whether the target has `**kwargs`.
+    That is only safe because the operation layer confines the open namespace to
+    `default_state` and the two functions that wrap it; a stage that collects `**kwargs`
+    is, correctly, still permissive here.
 
     WARNING: API is not settled; may get combined with `stack` in the next release.
     """
     # TODO:
-    # - Combine with `stack`?
     # - Consider alternative names: 'compose'?
     # - Consider nested dictionaries instead of prefixed keywords?
     #
-    f_names = [f.__name__ for f in fs]
-
-    # Create function-specific keywords
-    result = []
-    for k in kws.keys():
-        for fname in sorted(f_names, key=len, reverse=True):
-            if fname in k:
-                result.append([fname, k.split(fname, 1)[1].lstrip("_"), kws[k]])
-                break
+    # NOTE: keyed by `__name__`, so a stage appearing twice receives the same keywords
+    # both times. That is relied upon; see `KNOWN_ISSUES.md` §C.
+    stages__by_name = {f.__name__: f for f in fs}
+    names__by_length = sorted(stages__by_name, key=len, reverse=True)
 
     args__dict = {}
-    for k, subk, v in result:
-        args__dict.setdefault(k, {})[subk] = v
-    # print(args__dict)
+    unroutable = {}
+    for key, value in kws.items():
+        routed, near_misses = _route_keyword(key, names__by_length, stages__by_name)
+        if routed is None:
+            unroutable[key] = near_misses
+        else:
+            name, parameter = routed
+            args__dict.setdefault(name, {})[parameter] = value
 
-    # # Apply keywords to function stack
-    lambdas = []
-    for f in fs:
-        args = args__dict.get(f.__name__, {})
-        lambdas.append(f(**args))
-        # lambdas.append(lambda ff=f, kws=args: ff(**kws))
+    if unroutable:
+        raise TypeError(_message__unroutable(unroutable, names__by_length))
 
-    return stack(*lambdas)
+    # Apply keywords to function stack
+    return stack(*[f(**args__dict.get(f.__name__, {})) for f in fs])
+
+
+def _message__unroutable(unroutable, names__by_length):
+    """
+    Say which keywords could not be routed and why, rather than only that some could not.
+
+    A keyword that named a stage but not one of its parameters is the more interesting
+    case -- usually a misspelled parameter rather than a misspelled stage -- so it is
+    reported against the stage it nearly reached.
+    """
+    lines = []
+    for key, near_misses in unroutable.items():
+        if near_misses:
+            name, parameter = near_misses[0]
+            lines.append(
+                "  {} -> `{}` is not a parameter of `{}`".format(key, parameter, name)
+            )
+        else:
+            lines.append("  {} -> matches no stage name".format(key))
+
+    return "\n".join(
+        [
+            "`cascade` could not route {} keyword(s):".format(len(unroutable)),
+            *lines,
+            "",
+            "Keywords are routed by stage-name prefix, e.g. `MOT_duration=1.0` reaches",
+            "`MOT`'s `duration`. The stages given were: {}.".format(
+                ", ".join("`{}`".format(n) for n in sorted(names__by_length))
+            ),
+            "",
+            "An unroutable keyword is an error rather than a default, because silently",
+            "dropping it would run the stage with its default value -- a physically",
+            "different sequence that still executes.",
+        ]
+    )
 
 
 def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Callable:

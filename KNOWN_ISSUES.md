@@ -16,15 +16,17 @@ Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 �
 
 ## A. Silent failures
 
-### A1 — `cascade` discards unmatched keywords
+### A1 — `cascade` discards unmatched keywords — **FIXED 2026-09-16**
 
 `timeline.cascade`. The dispatch loop iterates over `kws`, tries each function name, and `break`s on the first match. If no function name matches, nothing is appended to `result` and the keyword vanishes. No warning, no exception.
 
 Consequence: a typo in a stage prefix (`molases_duration=...`) means the parameter is silently ignored and the stage runs with its default. In an experimental timeline that is a physically wrong sequence which still executes.
 
-Fix direction: collect unmatched keys and raise, listing them alongside the available function names. This is layer 1 of the three in §C “Design intent”, so it does not conflict with keyword forwarding.
+**Fixed.** Unmatched keys are collected and raised together, each with the reason it could not be routed, alongside the stage names that were given. A keyword that named a real stage but not one of its parameters is reported against that stage, since a misspelled parameter is likelier than a misspelled stage.
 
-### A2 — `cascade` uses substring matching, not prefix-anchored matching
+The alternative — letting an unprefixed keyword broadcast to every stage — was rejected with #83; see fix direction (3) in §C.
+
+### A2 — `cascade` uses substring matching, not prefix-anchored matching — **FIXED 2026-09-16**
 
 The test is `if fname in k`, and the split is `k.split(fname, 1)[1]`. Correctness currently rests entirely on `sorted(f_names, key=len, reverse=True)`: `MOT_detuned_growth_duration` resolves correctly only because the longer name is tested first.
 
@@ -33,7 +35,9 @@ Two distinct hazards, worth keeping separate:
 - **Stage named after another stage** (`MOT` / `MOT_detuned_growth`) — the genuine collision. If `MOT` itself had a parameter called `detuned_growth_duration`, the keyword `MOT_detuned_growth_duration` would be captured by the longer stage name and `MOT`'s parameter would be permanently unreachable.
 - **Parameter merely containing a stage name** — harmless under prefix anchoring, hazardous under substring matching. Anchoring the match to the start of the key removes this class entirely.
 
-Fix direction: anchor with `k.startswith(fname + "_")`, and resolve genuinely ambiguous splits by consulting the target functions' signatures (`inspect.signature`) — accept the split only if the remainder is a parameter the function actually takes. See C1 for the associated API decision.
+**Fixed, both halves.** Matching is anchored with `k.startswith(fname + "_")`, which removes the "parameter merely containing a stage name" class entirely. Longest-first ordering is kept, because a shorter stage name can still legitimately prefix a longer one (`MOT_` also begins `MOT__detuned_growth_duration`), and the genuine collision is then settled by signature: a split is accepted only when the target declares the remainder as a parameter, or collects `**kwargs`. So if `MOT__detuned_growth` does not take the remainder but `MOT` does, the keyword reaches `MOT` — the case this entry described as permanently unreachable.
+
+Signature checking only became safe once the operation layer stopped putting `**kwargs` on ordinary stages (§C, 2026-09-16): with every stage open, every split would have been accepted and the check would have bought nothing.
 
 ### A3 — `ramp` computes cleaned frames and then discards them
 
@@ -452,9 +456,18 @@ It also rescues A2's proposed tie-break. While every stage had `**kwargs`, "is t
 
 **One asymmetry `finish` must preserve.** It is not a pure mirror of `init`: `MOT_ON` defaults to `False` at `init` and `True` at `finish` — the MOT shutters are deliberately closed at the start and open at the end. (The shipped cascade sets both `True`, so they agree today, but the differing defaults record the intent.) So the derivation should be "mirror the `ADwin_LowInit` rows, then apply named overrides", not a bare copy. Deriving also settles the ramp TODO: `finish` can ramp exactly the analog variables it finds among those rows, so an injected analog variable is ramped rather than stepped.
 
-### C1 — Should `cascade`'s signature checking default to strict?
+### C1 — Should `cascade`'s signature checking default to strict? — **RESOLVED AND FIXED 2026-09-16 (yes, and derived rather than configured)**
 
-Two candidate behaviours: strict (consult `inspect.signature`, reject splits that don't correspond to a real parameter) or lenient (longest-match-wins, as now). Strictness is consistent with the paper's claim that parameter sets are explicit and checkable, and it subsumes A1 and A2. Cost is that it breaks `**kwargs`-forwarding stages, of which the lab example has several. Decide before PyPI publication; changing a default afterwards is expensive.
+The question was whether strictness should be a setting. It should not, because once the operation layer confines `**kwargs` to `default_state` and the two functions wrapping it (§C, same day), the policy follows from the target's signature: a split is accepted when the target declares the parameter, **or** when it collects `**kwargs` and is therefore deliberately open. `init` and `finish` stay permissive for exactly the reason `sec:forwarding` wants them to, and every ordinary stage is closed, without either being configured.
+
+That ordering mattered. Signature checking before the `**kwargs` narrowing would have bought nothing at all — with every stage open, every split would have been accepted.
+
+Fixes A1 and A2 together, and removes the cascade half of A5. Verified that the demo's own 20-keyword `cascade` still routes, that injection through `init` into `default_state` still works, and that both error kinds report usefully:
+
+```
+`cascade` could not route 1 keyword(s):
+  MOT_duratoin -> `duratoin` is not a parameter of `MOT`
+```
 
 ### C2 — Should `create` accept origin parameters? — **RESOLVED AND FIXED 2026-09-16 (no), with #45**
 

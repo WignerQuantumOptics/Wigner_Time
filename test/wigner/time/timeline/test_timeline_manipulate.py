@@ -4,6 +4,7 @@ import pytest
 
 from wignertime import timeline as tl
 from wignertime.internal import dataframe as frame
+from wignertime.internal import dataframe as wt_frame
 
 from wignertime.demo import full_experiment as ex
 
@@ -81,7 +82,6 @@ def test_cascade():
             MOT_duration=5.0,
             MOT_lA=-1.0,
             MOT_uA=-0.98,
-            molasses_duration=5.0,
         ),
         frame.new(
             [
@@ -149,3 +149,51 @@ def test_cascade():
 #             columns=["time", "variable", "value", "context"],
 #         ),
 #     )
+
+
+def test_cascade_rejects_a_keyword_naming_no_stage():
+    """
+    `molasses` is not among the stages, so `molasses_duration` reaches nothing.
+
+    This used to be dropped in silence, leaving every stage on its defaults -- a
+    physically different sequence that still runs. The test previously asserted that
+    behaviour; it now asserts the error.
+    """
+    with pytest.raises(TypeError, match="matches no stage name"):
+        tl.cascade(ex.init, ex.MOT, MOT_duration=5.0, molasses_duration=5.0)
+
+
+def test_cascade_rejects_a_keyword_naming_no_parameter():
+    """
+    The stage is real but the parameter is misspelled, which is the likelier mistake.
+    """
+    with pytest.raises(TypeError, match="is not a parameter of"):
+        tl.cascade(ex.init, ex.MOT, MOT_duratoin=5.0)
+
+
+def test_cascade_matches_on_a_prefix_not_a_substring():
+    """
+    A2. `MOT` must not capture a keyword merely because the name occurs inside it, and
+    the longer stage name must win where both anchor -- `MOT_` also begins
+    `MOT__detuned_growth_duration`.
+    """
+    stacked = tl.cascade(
+        ex.init,
+        ex.MOT,
+        ex.MOT__detuned_growth,
+        MOT_duration=5.0,
+        MOT__detuned_growth_duration=0.2,
+    )
+    assert isinstance(stacked, wt_frame.CLASS) or callable(stacked)
+
+
+def test_cascade_stays_permissive_where_the_target_has_kwargs():
+    """
+    `init` forwards `**kwargs` to `default_state`, where an unrecognised keyword is
+    meant to be read as a variable. Strictness is derived from the signature, so that
+    path must survive it -- see `sec:forwarding`.
+    """
+    built = tl.cascade(ex.init, ex.MOT, init_coil_MOTlower__A=0.5, MOT_duration=1.0)
+    assert 0.5 in set(
+        built.loc[built["variable"] == "coil_MOTlower__A", "value"]
+    ), "injection through `init` into `default_state` must still work"

@@ -770,6 +770,8 @@ tl.cascade(
 )
 \end{minted}
 %
+Routing is strict. A keyword that names no stage, or that names one but is not a parameter of it, raises rather than being quietly dropped -- a dropped keyword would leave the stage on its default, which is a physically different sequence that nonetheless runs. The check is derived rather than configured: a split is accepted when the target declares the parameter, or when it collects \python{**kwargs} and is therefore deliberately open, as \python{default_state} and the functions wrapping it are (\cref{sec:forwarding}). Matching is anchored to the start of the keyword and to an underscore boundary, so a parameter that merely contains a stage name is not captured by it, and where two stage names both anchor the longer one is preferred.
+%
     
  
 \subsubsection{Interweaving}

@@ -204,6 +204,29 @@ def args_in_function(f: Callable, kwargs, exclude=(), call_frame=None) -> Ordere
     return args
 
 
+def accepts_keyword(f, name: str) -> bool:
+    """
+    Whether `f` would accept `name` as a keyword argument.
+
+    True if `f` declares the parameter, or if it collects `**kwargs` -- which is what
+    keeps `default_state` and the functions wrapping it open to the variable injection
+    described in the manuscript's `sec:forwarding`, while an ordinary stage, having
+    declared what it forwards, is closed.
+
+    Permissive when the signature cannot be read at all (some builtins and C callables),
+    since refusing there would reject a legitimate target on the strength of not being
+    able to inspect it.
+    """
+    try:
+        parameters = inspect.signature(f).parameters
+    except (TypeError, ValueError):
+        return True
+
+    return name in parameters or any(
+        p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values()
+    )
+
+
 def ensure_not_deferred(timeline, name__function: str):
     """
     Raises `TypeError` if `timeline` is one of the deferred functions returned by `function__lambda`, rather than a timeline.
