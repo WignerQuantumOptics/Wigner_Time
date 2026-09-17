@@ -248,7 +248,7 @@ def update(
 
 
 def anchor(
-    t=None,
+    t,
     timeline=None,
     context=None,
     origin=None,
@@ -258,15 +258,47 @@ def anchor(
 
     This can be very convenient in the context of `ramp`s, where the starting and ending times are often built around a hypothetical point in time, due to physical switching speeds.
 
+    `t` is required. There is no sensible default: it is a displacement from whatever
+    the `origin` resolves to, and the two readings a default would have to choose
+    between are genuinely different instants (see below).
+
+    *Where the anchor lands*
+
+    By default the `origin` is the most recent anchor where one exists and the last
+    entry otherwise, so `t` is normally a duration measured **from the end of the
+    preceding stage**. That is what makes stages chain: a stage may write rows past its
+    own closing anchor -- `optical_pumping` reinitialises shutters 0.1 s later -- without
+    dragging the next stage along with them.
+
+    To mark the end of everything written so far instead, ask for it explicitly:
+
+        anchor(0.0, origin="last")     # here, at the last entry in the timeline
+        anchor(0.0)                    # here, at the most recent anchor
+
+    The two coincide until some stage writes past its own anchor, and then they do not:
+    in the shipped demo they differ by ~0.1 s from `optical_pumping` onwards. Which one
+    is meant is therefore worth stating at the call site rather than defaulting.
+
     NB.
-    - By default, the `origin` of `anchor` is `'anchor'` when available; `None` otherwise. This is for convenience.
     - Anchors are automatically numbered, for 'global' referencing, but these numbers are not necessary in normal use.
     """
     # NOTE: Makes use of a global variable (LABEL__ANCHOR).
     # TODO: Can include an example plot for illustration?
 
-    # TODO: What happens if `t` is not specified?
-    # - looks like it will fail?
+    if t is None:
+        raise TypeError(
+            "\n".join(
+                [
+                    "`anchor` requires `t`, a displacement from whatever `origin`"
+                    " resolves to.",
+                    "",
+                    "    anchor(0.0)                    # at the most recent anchor",
+                    "    anchor(0.0, origin='last')     # at the last entry so far",
+                    "    anchor(duration)               # `duration` after the"
+                    " preceding stage",
+                ]
+            )
+        )
 
     timeline = wt_util.ensure_timeline(timeline, "anchor", columns__required=_SCHEMA)
 

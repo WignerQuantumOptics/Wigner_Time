@@ -659,6 +659,15 @@ def anchor( t, timeline=None, context=None, origin=None )
 Anchors are useful because key experimental time instants are often necessarily virtual. An anchor marks a moment that matters physically but that no device update records. The commonest case is a stage that ends in a waiting period: a MOT collection or a molasses stage finishes not because something is switched, but because enough time has passed. Nothing is commanded at that instant, so without an anchor there is no row to refer to, and the following stage would have to be placed relative to whichever update happened to come last – an accident of how the stage was written rather than a statement about the experiment. The anchor makes the waiting period explicit and gives the instant a name that later stages can chain from via the \python{origin} mechanism.
  
 An anchor is simply a special row in the timeline – one whose \python{variable} entry does \emph{not} correspond to a connection and contains the designated anchor symbol (\faAnchor~ by default). It can therefore be added using the convenience function above or by any other means of adding a row. It is recommended that all user-defined stages end with an anchor whose \python{context} denotes the stage.
+
+Note that \python{t} is required, and is a displacement from whatever the \python{origin} resolves to rather than an absolute time. Since the default origin is the most recent anchor where one exists, \python{t} is normally a duration measured from the end of the \emph{preceding stage} – which is precisely what allows a stage to write rows past its own closing anchor, as \python{optical_pumping} does when it reinitialises its shutters, without dragging the following stage along with them. Where the intention is instead to mark the end of everything written so far, that is a different instant and is asked for explicitly:
+%
+\begin{minted}[fontsize=\footnotesize, breaklines, frame=none, linenos=false]{python}
+anchor(0.0, origin="last")   # here, at the last entry in the timeline
+anchor(0.0)                  # here, at the most recent anchor
+\end{minted}
+%
+The two coincide until some stage writes past its own anchor, and then they do not: in the example of \cref{sec:demonstration} they differ by \(\sim0.1\,\)s from \python{optical_pumping} onwards. Which is meant is therefore stated at the call site rather than defaulted to.
  
 \subsection{Context}
 \label{sec:context}

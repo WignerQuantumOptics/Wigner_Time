@@ -479,9 +479,24 @@ The shared argument-resolution machinery moved to an internal `_populate_timelin
 
 One subtlety worth recording, because it defeats the obvious implementation. Removing the parameters from the signature is not enough: `**vtvc_dict` is an *open namespace*, so `timeline=` and `origin=` fall into it and are then re-bound by `_populate_timeline`, which does declare them — silently reinstating the arguments the signature exists to withhold. `create` therefore intercepts both names explicitly and raises, pointing at `update`. Neither is a valid `variable` name under `config.VARIABLE__REGEX`, so the interception cannot shadow a legitimate one.
 
-### C3 — `anchor` with `t=None`
+### C3 — `anchor` with `t=None` — **RESOLVED AND FIXED 2026-09-17 (`t` is required)**
 
-The docstring carries an unresolved TODO asking what happens if `t` is unspecified, with the author's own guess that it fails. Establish the intended behaviour and either give `t` a meaningful default or reject `None` explicitly.
+The docstring carried an unresolved TODO asking what happens when `t` is unspecified, with the author's own guess that it fails. It did, with `ValueError: Badly formatted input to __ensure_time_context` — a message naming a private function and not the argument.
+
+**`t` is now required**, which is the signature `sec:anchor` documents (`def anchor( t, timeline=None, context=None, origin=None )`), so this is a D7 reconciliation needing no manuscript change to the signature itself. `anchor(None)` raises a message naming `t` and showing the idioms.
+
+**Why no default is possible, which is the substance of the item.** `t` is a displacement from whatever the `origin` resolves to, and the two candidate readings are genuinely different instants:
+
+```
+anchor(0.0)                  # at the most recent anchor
+anchor(0.0, origin="last")   # at the last entry in the timeline
+```
+
+They coincide until a stage writes rows past its own closing anchor — and then they do not. Measured on the shipped demo: identical through `MOT`, `MOT__detuned_growth` and `molasses`, then **0.0999 s apart from `optical_pumping` onwards**, which reinitialises its shutters 0.1 s after its anchor.
+
+That divergence is also the argument against the other candidate, which was to keep `t=0.0` *and* change `anchor`'s default origin to `"last"`. That is self-consistent — `anchor()` and `anchor(0.0)` would agree — but it changes the meaning of every existing `anchor(duration)` call, and in the demo it would move the start of `magnetic_trapping` by ~0.1 s. Anchor-chaining is what makes each stage's `t` a Δt from the end of the *preceding stage* rather than from whatever row happened to be written last, which is exactly what lets `optical_pumping` reach past its own anchor without dragging its successor along.
+
+`sec:anchor` now states that `t` is required, that it is a displacement rather than an absolute time, and gives both idioms with the demo's ~0.1 s divergence as the reason to state the intent at the call site.
 
 ### C4 — the `timeline` argument's full contract — **RESOLVED AND PARTLY FIXED 2026-09-16**
 
