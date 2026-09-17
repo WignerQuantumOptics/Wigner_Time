@@ -176,64 +176,27 @@ Fix direction: resolve the value origin only for variables in `df__no_start_poin
 
 Fix direction: make `_ORIGINS` the single source of truth, and reject a context or variable name that shadows one at the point it is created. `connection.new` already validates variable names; contexts are unvalidated. A collision is a mistake in the client's vocabulary, so raising at creation beats resolving it silently either way.
 
-### A10 — `create` silently corrupts a positional row of more than two elements — **GitHub issue #58, still open; verified 2026-09-09**
+### A10 — `create` silently corrupts a positional row of more than two elements — **FIXED 2026-09-17**
 
-Reported by T. W. Clark on 2025-03-24 as "problem with `create` (varargs)", labelled `bug` and self-assigned. Confirmed OPEN via `gh issue view 58` on 2026-09-09 (superseding an earlier reading taken from a screenshot). Still reproduces verbatim.
+The row form read only its second element and discarded the rest, so `["v", time, value, context]` produced the *time* as its value and lost the context entirely. Every value collapsed and every context vanished, with no warning. GitHub issue #58, open since 2025-03-24.
 
-```python
-tl.create(AOM_imaging=[0.0, 0, "init"],                # kwargs -- correct
-          AOM_imaging__V=[0.0, 2.0, "init"],
-          AOM_repump=[0.0, 1, "init"])
-#  time       variable  value context
-#   0.0    AOM_imaging    0.0    init
-#   0.0 AOM_imaging__V    2.0    init
-#   0.0     AOM_repump    1.0    init
-
-tl.create(["AOM_imaging", 0.0, 0, "init"],             # positional -- WRONG, silently
-          ["AOM_imaging__V", 0.0, 2.0, "init"],
-          ["AOM_repump", 0.0, 1, "init"])
-#  time       variable  value context
-#   0.0    AOM_imaging    0.0
-#   0.0 AOM_imaging__V    0.0
-#   0.0     AOM_repump    0.0
-```
-
-Every value collapses and every context is lost. No warning.
-
-**Mechanism.** `internal/timeline/input.py`. `__find_depth` sees `vtvc[0]` as a collection and `vtvc[0][0]` as a string, so it reports depth 2. `__correct_variable_list` then builds `[[row[0], __ensure_time_context(row[1], ...)] for row in coll2D]` — it reads elements 0 and 1 and **discards `row[2:]` without comment**. `__ensure_time_context` treats `row[1]` as the *value*, taking the time from the `t=` default. So element [1] silently becomes the value and the stated time, value and context are all lost. Confirmed directly:
+**The fix was already present in the sibling branch.** `convert`'s flat case has always read
 
 ```python
-wt_input.convert(["AOM_imaging", 0.0, 0, "init"], time=0.0)
-# [['AOM_imaging', [[0.0, 0.0, '']]]]
+__ensure_time_context(vtvc[1]) if len(vtvc) == 2 else __ensure_time_context(vtvc[1:])
 ```
 
-Three-element rows fail identically. Only the two-element shapes parse correctly:
+while `__correct_variable_list` did only the first half. Applying the same rule per row makes the two forms one grammar: `["v", t, value, context]` is `["v", [t, value, context]]` with the brackets dropped, exactly as `create("v", t, value, context)` already allowed. Two lines; no new syntax.
 
-| row given | parsed as | |
-| --- | --- | --- |
-| `["a_x", 1.0]` | t=0.0, v=1.0 | correct, documented |
-| `["a_x", [0.5, 1.0]]` | t=0.5, v=1.0 | correct, documented |
-| `["a_x", 0.5, 1.0]` | t=0.0, **v=0.5** | wrong, silent |
-| `["a_x", 0.5, 1.0, "ctx"]` | t=0.0, **v=0.5**, ctx=`''` | wrong, silent — the issue |
+Verified that the nested and keyword forms now produce identical frames, and that the issue's own example parses as written.
 
-**Root cause is an ambiguity in the input grammar itself**, which is why no positional rule can be right: in a *list* row element [1] is a **value** (`[['variable', value]]`), while in the *flat* form it is a **time** (`variable, time, value, context`). Both are documented in `create`'s docstring. The meaning of element [1] therefore depends on the row's length, and `__correct_variable_list` simply picks one reading. See C5.
+### A11 — mixing positional and keyword input silently discards the keywords — **FIXED 2026-09-17**
 
-Strictly the reported shape is not among the documented forms — but it fails by corrupting data rather than raising, so by the priority rule at the head of this document it is a bug either way.
+`convert` read `**vtvc_dict` only when there were no positional arguments, so `tl.create(["a_b__V", 1.0], c_d__V=2.0)` dropped `c_d__V` entirely, with no error. Worse in kind than A10: that produces a visibly wrong row, this produces no row at all, so the variable is simply absent from the experiment and reads later as a deliberate omission.
 
-**There is a commented-out test for exactly this**, `test/wigner/time/timeline/test_timeline_create.py:108`, sitting between two working cases:
+**Fixed by raising**, naming the keywords that would have been lost. No merge is sensible: the two forms each carry their own `t`/`context` handling, and the keyword namespace is deliberately open (`sec:forwarding`), so a dropped keyword cannot be told from an intended variable.
 
-```python
-tl.create(AOM_repump=[10.0, 0.0, "important"], timeline=df_previous),
-tl.create("AOM_repump", 10.0, 0.0, "important", timeline=df_previous),
-# tl.create(["AOM_repump", 10.0, 0.0, "important"], timeline=df_previous),   <-- commented out
-tl.create(["AOM_repump", [10.0, 0.0, "important"]], timeline=df_previous),
-```
-
-So the case was hit, parked, and never returned to — which is why the suite is green.
-
-Note that `internal/timeline/input.py` is byte-identical on `main` and every working branch, so this affects the released state and development alike.
-
-Fix direction, and it is C5's decision: either read a row of more than two elements as `[variable, time, value, context]`, mirroring the flat form — which also makes the three-element case unambiguous — or reject it loudly. Doing both is best: support the three- and four-element rows, raise on anything still unmatched, and uncomment line 108. Note that supporting it changes what `["a_x", 0.5, 1.0]` means, from v=0.5 to t=0.5; that is technically breaking, though only for behaviour that is currently wrong and undocumented.
+Tracked as [#132](https://github.com/WignerQuantumOptics/Wigner_Time/issues/132).
 
 ---
 
@@ -519,26 +482,27 @@ A list, a string, an int or a dict used to fail far downstream on whatever dataf
 
 If it is ever wanted, the prerequisite is now in place: D17's tagging splits "callable" into *tagged deferred* (compose) and *any other callable* (error), so the row would no longer be a guess. It should be chosen on its merits, not inherited from loosening a guard.
 
-### C5 — settle and document the whole `*vtvc` / `**vtvc_dict` input grammar **[maintainer, 2026-09-09]**
+### C5 — settle and document the whole `*vtvc` / `**vtvc_dict` input grammar — **RESOLVED AND FIXED 2026-09-17**
 
-The input grammar is the most-used part of the public API and the least specified. `create`'s docstring lists five forms; `tab:inputSpecs` in the paper lists five *recommended* ones, all keyword-based, and defers the rest to "more foundational forms ... for programmatic use; see the API documentation" — which does not currently document them. A10 is what that gap costs.
+Settled by discovering the grammar was never really two grammars. The flat positional form already allowed `create("v", t, value, context)`; the row form was simply missing the same rule, which is all A10 was. With that applied, there is one grammar with three ways of naming a variable:
 
-Two things are wanted, in this order.
+| | |
+| --- | --- |
+| keyword | `create(AOM_MOT=<follows>)` |
+| positional, flat | `create("AOM_MOT", <follows>)` |
+| positional, as a row | `create(["AOM_MOT", <follows>])` |
 
-**1. Decide the grammar, then enumerate it.** Deciding comes first because the grammar is genuinely ambiguous today, not merely undocumented: element [1] of a list row is a *value*, while the second positional argument of the flat form is a *time*. Any enumeration has to resolve that before it can be written down. Questions that need answers:
+and `<follows>` is `value` \| `[time, value]` \| `[time, value, context]` \| a list of those. In the positional forms the brackets around `<follows>` may be dropped. `t` and `context` are **defaults, not overrides**.
 
-- Is a row of more than two elements `[variable, time, value, context]` (A10)?
-- Is a bare `[]` meaningful? A tuple rather than a list? Both are currently accepted silently.
-- What is the maximum nesting, and what happens past it? `__find_depth` raises "input involves too deeply nested array" at depth 4 but says nothing about which argument.
-- Do `t=` and `context=` act as defaults, as overrides, or as errors when a row also states them?
+The ambiguity this entry called "genuine" was not. `create("v", 9.0)` against `create("v", 9.0, 1.0)` is arity overloading — decidable, and no worse than `range(stop)` against `range(start, stop)`. The real defect was the silent truncation of row-form elements past the second (A10), plus A11, found while mapping this.
 
-**2. Then document it in `create`'s docstring**, so it reaches the generated API pages (`docs/api.md` renders `::: wignertime` through mkdocstrings, so a docstring is the only place this will publish from). The docstring already carries a TODO asking for exactly this: "document the possible combinations of arguments ordered according to usecases". A table of shape against meaning, with one worked example each, is the right form — the paper's `tab:inputSpecs` is the model, extended to the positional forms.
+Five changes: the row rule (A10); mixing the forms raises (A11); `[]`, a bare name, over-long rows and over-nested values raise messages naming what arrived rather than citing the private `__ensure_time_context`; a non-numeric value is rejected before it reaches `astype`, where it used to surface as `TypeError: float() argument must be a string or a real number, not 'dict'` from inside pandas; and the grammar is documented in `create`'s docstring.
 
-**3. Weed out the silent failures while enumerating.** This is the part that matters most, and the enumeration is the natural occasion for it: every shape that the grammar does *not* accept should raise, naming the argument and the shape received. Today the unsupported shapes are absorbed. Known so far, all of them silent: A10 (rows longer than two elements), and `[]` and tuples accepted without comment. One further oddity for the enumeration to settle rather than a defect: `__ensure_time_context`'s `case 1` branch reads `row[1]` as a context when `context` is falsy, but `case 1` is entered only when rows are one element long, so that arm needs ragged input to fire and may simply be dead. Checked 2026-09-09 that it causes no observable difference — `context=""` and `context=None` both yield `''` — so it is a question of intent, not a bug.
+**No manuscript change needed**, which was the `paper-affecting` half. `tab:inputSpecs` shows only keyword forms and defers the rest to "the API documentation" — the docstring is what `docs/api.md` publishes through mkdocstrings, so writing it there discharges the promise.
 
-A property-based test would suit this better than more `parametrize` cases: generate shapes, assert that each either produces the documented frame or raises, and that nothing lands in between. That is the check that would have caught A10 in March 2025.
+`test_input_grammar.py` covers it, including the totality property this entry asked for: across a spread of generated shapes, each either produces a frame with the documented columns or raises `ValueError`. That test is what found the non-numeric hole.
 
-Related: D10 (the `ensure_pair` typo and double normalisation) is in the same input-handling area; C4 governs the `timeline` argument rather than the vtvc arguments, but the same "accept, compose, defer, or raise" discipline applies.
+**Blast radius was nil.** `expand`, the only programmatic producer, passes a two-element row (`[name, (N,2) array]`), untouched by any of it; demo and lab use the keyword form throughout; the one test using a long row had it commented out because it was broken.
 
 ---
 

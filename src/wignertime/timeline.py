@@ -141,7 +141,22 @@ def _populate_timeline(
     """
     rows = wt_input.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
 
-    df_rows = wt_frame.new(rows, columns=schema.keys()).astype(schema)
+    df_rows = wt_frame.new(rows, columns=schema.keys())
+
+    # A value that is neither a number nor convertible to one reaches `astype` and fails
+    # there as `TypeError: float() argument must be a string or a real number, not
+    # 'dict'` -- from inside pandas, naming neither the variable nor the call. One
+    # vectorised check instead, before the cast (C5).
+    values__bad = wt_frame.not_numeric(df_rows["value"])
+    if values__bad.any():
+        raise ValueError(
+            "Not a numeric value for {}: {}. A variable's value must be a number.".format(
+                sorted(set(df_rows.loc[values__bad, "variable"])),
+                sorted(set(map(repr, df_rows.loc[values__bad, "value"]))),
+            )
+        )
+
+    df_rows = df_rows.astype(schema)
     new = wt_origin.update(df_rows, timeline, origin=origin)
 
     if timeline is not None:
@@ -162,25 +177,37 @@ def create(*vtvc, t=0.0, context=None, **vtvc_dict) -> wt_frame.CLASS:
     to `create` used to do, and the default (anchor-then-last) origin is usually what
     was actually wanted.
 
-    Accepts programmatic and manual input.
+    Input grammar
+    -------------
+    A variable is named once and followed by what it does. There are three ways to name
+    it, and one grammar for what follows:
 
-    variable_time_values (*vtvc) has the form:
-    variable, time, value, context
-    OR
-    variable, [[time, value],...]
-    OR
-    [['variable', value]]
-    OR
-    [['variable', [time, value]]]
-    OR
-    [['variable', [[time, value],
-                  [time002,value002],
-                  ...]]]
+    ======================  =============================================
+    keyword                 ``create(AOM_MOT=<follows>)``
+    positional, flat        ``create("AOM_MOT", <follows>)``
+    positional, as a row    ``create(["AOM_MOT", <follows>])``
+    ======================  =============================================
 
-    but when unspecified, is replaced by the dictionary form (**vtvc_dict)
+    where ``<follows>`` is one of
 
-    The [time,value] list can also be replaced with [time,value,context] if you would
-    like to specify data-specific context.
+    ======================================  ==========================================
+    ``value``                               at ``t``
+    ``[time, value]``
+    ``[time, value, context]``
+    ``[[time, value], [time, value], ...]``  several instants for one variable
+    ======================================  ==========================================
+
+    In the two positional forms the brackets around ``<follows>`` may be dropped, so
+    ``["AOM_MOT", 0.1, 1, "MOT"]`` and ``["AOM_MOT", [0.1, 1, "MOT"]]`` are the same
+    statement, as are ``create("AOM_MOT", 0.1, 1)`` and ``create("AOM_MOT", [0.1, 1])``.
+
+    Rows may be batched into one list: ``create([["a__V", 1.0], ["b__V", 2.0]])``.
+
+    ``t`` and ``context`` are **defaults, not overrides** — a row stating its own keeps
+    it. The keyword namespace is open by design, so an unrecognised keyword is read as a
+    variable name (see the manuscript's `sec:forwarding`); consequently the positional
+    and keyword forms **cannot be mixed**, since there would be no way to tell a dropped
+    keyword from an intended variable. Doing so raises.
 
     NOTE: It seems to be the case that dataframes use less memory than lists of
     dictionaries or dictionaries of lists (in general).

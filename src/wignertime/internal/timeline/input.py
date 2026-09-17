@@ -7,6 +7,8 @@ A module for managing flexible input to entry-level timeline functions.
 
 import numpy as np
 
+NEWLINE = "\n"
+
 from wignertime.internal import util as WTutil
 
 
@@ -15,9 +17,29 @@ def __find_depth(vtvc):
     Returns the necessary level of nesting to reach the data. This is complicated by the fact that the array input can be inhomogenously shaped (which is convenient for the user, if not for the programming!).
     """
 
+    if not len(vtvc):
+        raise ValueError(
+            "Empty input. Give at least one variable, as a keyword "
+            "(`create(AOM_MOT=1)`) or as a row (`create(['AOM_MOT', 1])`)."
+        )
+
+    def nested(collection):
+        """The first element, or `None` where there is nothing to descend into."""
+        if WTutil.is_collection(collection) and len(collection):
+            return collection[0]
+        return None
+
+    if not len(vtvc) or any(WTutil.is_collection(v) and not len(v) for v in vtvc):
+        raise ValueError(
+            "Empty input: {!r}. Give at least one variable, as a keyword "
+            "(`create(AOM_MOT=1)`) or as a row (`create(['AOM_MOT', 1])`).".format(
+                list(vtvc)
+            )
+        )
+
     if WTutil.is_collection(vtvc[0]):
-        if WTutil.is_collection(vtvc[0][0]):
-            if WTutil.is_collection(vtvc[0][0][0]):
+        if WTutil.is_collection(nested(vtvc[0])):
+            if WTutil.is_collection(nested(nested(vtvc[0]))):
                 raise ValueError("input involves too deeply nested array. ")
             else:
                 return 3
@@ -45,7 +67,14 @@ def __ensure_time_context(collection, time, context=None, context__default=""):
             coll = collection
         case _:
             raise ValueError(
-                "Problem with the structure of values in __ensure_time_context."
+                NEWLINE.join(
+                    [
+                        "Too deeply nested: {!r}.".format(collection),
+                        "",
+                        "A variable's value(s) must be one of: `value`, "
+                        "`[time, value]`, `[time, value, context]`, or a list of those.",
+                    ]
+                )
             )
 
     # print(f"coll[0] shape[-1]: {np.shape(coll[0])[-1]}")
@@ -72,19 +101,53 @@ def __ensure_time_context(collection, time, context=None, context__default=""):
                     ]
             else:
                 raise ValueError(
-                    "Badly formatted input to __ensure_time_context. Time is not specified."
+                    NEWLINE.join(
+                        [
+                            "No time given for {!r}, and none to fall back on.".format(
+                                collection
+                            ),
+                            "",
+                            "Either state it in the row -- `[time, value]` -- or supply "
+                            "`t=` for the call to use as its default.",
+                        ]
+                    )
                 )
         case _:
             raise ValueError(
-                "Badly formatted input to __ensure_time_context. Should have a final length of 1,2 or 3."
+                NEWLINE.join(
+                    [
+                        "Could not read a time-value pair from {!r}.".format(
+                            collection
+                        ),
+                        "",
+                        "A variable's value(s) must be one of: `value`, "
+                        "`[time, value]`, `[time, value, context]`, or a list of those.",
+                    ]
+                )
             )
 
 
 def __correct_variable_list(coll2D, time, context):
     """
     Takes a 2D collection (array, list etc.) and runs the __ensure_time_context function appropriately.
+
+    A row is `[variable, <what follows>]`, and *what follows* may be spread over the rest
+    of the row rather than bracketed: `["v", t, value, context]` is the same statement as
+    `["v", [t, value, context]]`, exactly as the flat positional form allows
+    `create("v", t, value, context)`.
+
+    Taking only `row[1]` is what #58 was: elements past it were dropped without comment,
+    so a row stating a time, a value and a context produced a row with the *time* as its
+    value and no context at all. The rule below is the one `convert`'s flat branch has
+    always used; applying it here makes the two forms the same grammar.
     """
-    return [[row[0], __ensure_time_context(row[1], time, context)] for row in coll2D]
+    return [
+        [
+            row[0],
+            __ensure_time_context(row[1] if len(row) == 2 else row[1:], time, context),
+        ]
+        for row in coll2D
+    ]
 
 
 def convert(
@@ -109,6 +172,23 @@ def convert(
     # - make consistent: sometimes a tuple and sometimes a list
 
     shape = np.array(vtvc, dtype=object).shape
+
+    if shape != (0,) and vtvc_dict:
+        # Only one form is read below: with positional input present, `vtvc_dict` is
+        # never consulted again. Silently dropping it loses the variable from the
+        # experiment altogether rather than merely mis-stating it (A11).
+        raise ValueError(
+            "".join(
+                [
+                    "Positional and keyword input cannot be mixed. These keywords ",
+                    "would be discarded: {}.".format(sorted(vtvc_dict)),
+                    NEWLINE,
+                    NEWLINE,
+                    "Use one form or the other -- either give every variable as a ",
+                    "keyword, or give every one as a positional row.",
+                ]
+            )
+        )
 
     if shape == (0,):
         return __correct_variable_list(vtvc_dict.items(), time, context)

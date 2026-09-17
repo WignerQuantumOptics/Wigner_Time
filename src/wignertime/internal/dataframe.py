@@ -63,6 +63,13 @@ def isnull(o):
     return pd.isnull(o)
 
 
+def not_numeric(column):
+    """
+    A boolean mask of the entries that cannot be read as a number.
+    """
+    return pd.to_numeric(column, errors="coerce").isna()
+
+
 def fill_null(df, column: str, value):
     """
     Replace nulls in `column` with `value`, returning a new frame.
