@@ -11,6 +11,12 @@ account is `docs/paper/main.tex`, `sec:origin` and appendix `sec:origin_full`.
 (34104ce) on 2026-09-03, not inferred from reading. Where behaviour contradicts the manuscript or the
 decision-tree figure, that is stated.
 
+**Re-verified 2026-09-17.** The measured tables still hold, with one correction below and one
+substantive change: `create` no longer takes `origin` or `timeline` at all (#45 / C2), so Layer A has
+one fewer entry and one fewer defect. Every `NEW-n` identifier used here is tracked as a GitHub
+issue — NEW-1 #123, NEW-2 #124, NEW-3 #115, NEW-4 #122, NEW-5 #107, NEW-6 #105, NEW-7 #114,
+NEW-8 #106, and NEW-9 inside #102 (A4) rather than as an item of its own.
+
 **The figure.** `docs/paper/graphic/origin-decision-tree-highlighted.png` is the authoritative
 diagram (`fig:origin`), and its caption at `main.tex:916` is the authoritative statement of which
 slots each option may serve. It presents resolution as one flat tree. This document splits it into **four layers**,
@@ -24,7 +30,7 @@ is applied (D).
 
 | caller | default handed to `origin.auto` |
 | --- | --- |
-| `create` | **none — `auto` is never called** |
+| `create` | **not applicable — it takes no `origin` and no `timeline`** (#45, 2026-09-16) |
 | `update`, `anchor` | `config.ORIGIN__DEFAULTS = [["anchor", None], ["last", None]]` |
 | `ramp` (start point) | its own `[["anchor", "variable"]]` — anchor-only, and value-relative |
 | `ramp` (`origin2`) | literal `["variable"]`; `auto` not called |
@@ -42,7 +48,10 @@ Defects:
   timeline `auto` returns `None` and the rows land at absolute time.
 - **NEW-9** — the same condition is handled two different ways: an *explicit* `origin="anchor"` on an
   anchorless timeline raises `anchor is an unsupported option`, while the *default* path is silent.
-- **C2** — `create` consults no default at all, even when given a timeline.
+- ~~**C2** — `create` consults no default at all, even when given a timeline.~~ **Resolved
+  2026-09-16**: `create` initialises a timeline from scratch and now takes neither argument, which is
+  the signature `sec:functions` documented all along. There is nothing for it to be relative to, so
+  no default applies. To extend a timeline, use `update`.
 - **NEW-1** — the figure's root node reads `[["anchor", 0.0], ["last", 0.0]]`; the config has `None`
   in both value slots. Figure and code disagree.
 
@@ -115,6 +124,10 @@ origin=[20.0, "anchor"]    -> 0.0   the anchor's dummy value
 origin=[20.0, "last"]      -> 1.0   shutter_MOT's state. In amps.
 origin=[20.0, "prep"]      -> 1.0   the context's last row, whatever variable that is
 ```
+
+The last line assumes `prep` holds **no anchor of its own**. Where it does, the context resolves to
+that anchor instead and the value is the anchor's dummy `0.0` — the same NEW-6 defect reached by a
+second route. Both were re-measured on 2026-09-17.
 
 `"last"` is not even consistently wrong, because the answer depends on the lookup bound:
 
