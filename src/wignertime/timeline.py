@@ -126,6 +126,12 @@ def _populate_timeline(
     respect to `origin`, and — when a `timeline` is given — inherits its context and
     concatenates.
 
+    The input grammar itself is documented on `create`, not here: only `create` exposes
+    the positional forms (`update` lost `*vtvc` with #71, `ramp` never had it), and this
+    function is private, so mkdocstrings would not publish a description written here —
+    which matters because `tab:inputSpecs` defers to the API documentation for exactly
+    those forms.
+
     The split exists because `create` and `update` differ only in how they compose, and
     that difference is entirely about `timeline` and `origin`:
 
