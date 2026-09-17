@@ -39,7 +39,7 @@ def dfseq():
 
 def test_stack(dfseq):
     tst = tl.stack(
-        tl.create("lockbox_MOT__V", [[0.0, 0.0], [5.0, 0.0]]),
+        tl._populate_timeline("lockbox_MOT__V", [[0.0, 0.0], [5.0, 0.0]]),
         tl.ramp(t=5.0, lockbox_MOT__V=[0.8, 1.0]),
         lambda tline: tl.expand(tline, time_resolution=0.2),
     )
@@ -47,7 +47,7 @@ def test_stack(dfseq):
 
 
 def test_stack__kws(dfseq):
-    tline = tl.create("lockbox_MOT__V", [[0.0, 0.0], [5.0, 0.0]])
+    tline = tl._populate_timeline("lockbox_MOT__V", [[0.0, 0.0], [5.0, 0.0]])
     tst = tl.stack(
         tline,
         tl.ramp(t=5.0, lockbox_MOT__V=[0.8, 1.0]),

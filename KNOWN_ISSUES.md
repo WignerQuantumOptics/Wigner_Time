@@ -484,21 +484,21 @@ If it is ever wanted, the prerequisite is now in place: D17's tagging splits "ca
 
 ### C5 — settle and document the whole `*vtvc` / `**vtvc_dict` input grammar — **RESOLVED AND FIXED 2026-09-17**
 
-Settled by discovering the grammar was never really two grammars. The flat positional form already allowed `create("v", t, value, context)`; the row form was simply missing the same rule, which is all A10 was. With that applied, there is one grammar with three ways of naming a variable:
+Settled in two steps. First, the grammar was never really two grammars: the flat positional form already allowed `create("v", t, value, context)` and the row form was simply missing the same rule, which is all A10 was. Applying it made the forms agree.
 
-| | |
-| --- | --- |
-| keyword | `create(AOM_MOT=<follows>)` |
-| positional, flat | `create("AOM_MOT", <follows>)` |
-| positional, as a row | `create(["AOM_MOT", <follows>])` |
+Then the positional forms were withdrawn from the public surface altogether (2026-09-17). Nothing needed them: `**{...}` expresses everything they do, including `expand`'s own row and names computed at runtime — and names that are not valid Python identifiers, which is how `anchor` already writes its `⚓_001` row. `expand` was the only non-test caller. So `create` takes keywords only:
 
-and `<follows>` is `value` \| `[time, value]` \| `[time, value, context]` \| a list of those. In the positional forms the brackets around `<follows>` may be dropped. `t` and `context` are **defaults, not overrides**.
+    create(AOM_MOT=<follows>)
+
+with `<follows>` being `value` \| `[time, value]` \| `[time, value, context]` \| a list of those, and `t`/`context` as **defaults, not overrides**. The positional forms remain on the internal `_populate_timeline`, where rows are assembled rather than named.
+
+The reason to withdraw rather than keep them is the open namespace: the keyword namespace *is* the variable namespace (`sec:forwarding`), so an unrecognised keyword is read as a variable rather than rejected. A parallel positional syntax is then a second thing for that to be confused with — and it carried the one genuinely hard-to-read corner, the arity-overloaded `create("v", 9.0)` against `create("v", 9.0, 1.0)`.
 
 The ambiguity this entry called "genuine" was not. `create("v", 9.0)` against `create("v", 9.0, 1.0)` is arity overloading — decidable, and no worse than `range(stop)` against `range(start, stop)`. The real defect was the silent truncation of row-form elements past the second (A10), plus A11, found while mapping this.
 
 Five changes: the row rule (A10); mixing the forms raises (A11); `[]`, a bare name, over-long rows and over-nested values raise messages naming what arrived rather than citing the private `__ensure_time_context`; a non-numeric value is rejected before it reaches `astype`, where it used to surface as `TypeError: float() argument must be a string or a real number, not 'dict'` from inside pandas; and the grammar is documented in `create`'s docstring.
 
-**No manuscript change needed**, which was the `paper-affecting` half. `tab:inputSpecs` shows only keyword forms and defers the rest to "the API documentation" — the docstring is what `docs/api.md` publishes through mkdocstrings, so writing it there discharges the promise.
+**Manuscript updated** (the `paper-affecting` half): `sec:functions` gives the signature without `*vtvc`, says why a variable is always named as a keyword, and `tab:inputSpecs`'s caption no longer advertises the positional forms as available for programmatic use — it now says the package uses them internally when expanding a ramp. The grammar itself is in `create`'s docstring, which is what `docs/api.md` publishes through mkdocstrings and what the caption defers to.
 
 `test_input_grammar.py` covers it, including the totality property this entry asked for: across a spread of generated shapes, each either produces a frame with the documented columns or raises `ValueError`. That test is what found the non-numeric hole.
 

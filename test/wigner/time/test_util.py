@@ -33,7 +33,7 @@ def test_ensure_2d_multi(input):
 # @pytest.mark.parametrize(
 #     "input",
 #     [
-#         tl.create("AOM_imaging", [[0.0, 0.0]]),
+#         tl._populate_timeline("AOM_imaging", [[0.0, 0.0]]),
 #     ],
 # )
 
@@ -42,7 +42,7 @@ def test_function__deferred():
     tl.ramp(AOM_imaging__V=[1.0, 1.0])
 
     actual = tl.stack(
-        tl.create("AOM_imaging__V", 0.0, 0.0),
+        tl._populate_timeline("AOM_imaging__V", 0.0, 0.0),
         tl.ramp(AOM_imaging__V=[1.0, 1.0]),
         tl.update(AOM_imaging__V=[1.0, 0.0]),
     )

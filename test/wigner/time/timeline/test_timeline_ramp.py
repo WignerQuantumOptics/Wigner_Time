@@ -34,7 +34,7 @@ def dfseq():
 
 @pytest.fixture
 def tl_anchor():
-    return tl.create(
+    return tl._populate_timeline(
         [
             ["lockbox_MOT__V", 0.0],
             ["⚓_001", 0.0],
@@ -65,7 +65,7 @@ def tl_anchor():
     ],
 )
 def test_ramp0(args):
-    timeline = tl.create(
+    timeline = tl._populate_timeline(
         [
             ["lockbox_MOT__V", 0.0, 0.0],
             ["⚓_001", 0.0, 0.0],
@@ -73,7 +73,7 @@ def test_ramp0(args):
         context="init",
     )
     tl_ramp = tl.ramp(timeline, **args)
-    tl_check = tl.create(
+    tl_check = tl._populate_timeline(
         [
             ["lockbox_MOT__V", [0.0, 0.0, "init"]],
             ["⚓_001", [0.0, 0.0, "init"]],
@@ -113,12 +113,12 @@ def test_ramp0(args):
     ],
 )
 def test_ramp1(args):
-    timeline = tl.create(
+    timeline = tl._populate_timeline(
         [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
     )
 
     tl_ramp = tl.ramp(timeline, **args, context="init")
-    tl_check = tl.create(
+    tl_check = tl._populate_timeline(
         [
             ["lockbox_MOT__V", [50e-3, 0.2]],
             [
@@ -176,7 +176,7 @@ def test_ramp_combined():
     ] = ramp_function.tanh
 
     tl_ramp = tl.stack(
-        tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
+        tl._populate_timeline("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
         tl.ramp(
             lockbox_MOT__V=[[5.0, 0.0], [1.0, 10.0]],
             origin=["lockbox_MOT__V", "lockbox_MOT__V"],
@@ -193,7 +193,7 @@ def test_ramp_combined():
 def test_ramp_start(tl_anchor, args):
     tl_ramp = tl.ramp(tl_anchor, lockbox_MOT__V=args, duration=100e-3)
 
-    tl_check = tl.create(
+    tl_check = tl._populate_timeline(
         [
             ["lockbox_MOT__V", [0.0, 0.0, "init"]],
             ["⚓_001", [0.0, 0.0, "init"]],
@@ -215,7 +215,7 @@ def test_ramp_start(tl_anchor, args):
 # def test_ramp_start2(tl_anchor, args):
 #     tl_ramp = tl.ramp(tl_anchor, lockbox_MOT__V=args, duration=0.0)
 
-#     tl_check = tl.create(
+#     tl_check = tl._populate_timeline(
 #         [
 #             ["lockbox_MOT__V", [0.0, 0.0, "init"]],
 #             ["⚓_001", [0.0, 0.0, "init"]],
@@ -231,7 +231,7 @@ def test_ramp_start(tl_anchor, args):
 
 def test_ramp_expand():
     tl_ramp = tl.stack(
-        tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
+        tl._populate_timeline("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
         tl.ramp(
             lockbox_MOT__V=[1.0, 10.0],
             origin=["lockbox_MOT__V", "lockbox_MOT__V"],
@@ -256,7 +256,7 @@ def test_ramp_expand():
 
 def test_random_ramp():
     tl_ramp = tl.stack(
-        tl.create(
+        tl._populate_timeline(
             ["device_pump", [0.0, 0.0, "ADwin_Init"]],
             ["lockbox_MOT__V", [1.0, 00.0, "ADwin_Init"]],
             ["lockbox_MOT__V", [2.0, 10.0, "blah"]],

@@ -172,7 +172,7 @@ def _populate_timeline(
     return new
 
 
-def create(*vtvc, t=0.0, context=None, **vtvc_dict) -> wt_frame.CLASS:
+def create(t=0.0, context=None, **vtvc_dict) -> wt_frame.CLASS:
     """
     Establishes a new timeline from the given (flexible) input collection.
 
@@ -185,14 +185,9 @@ def create(*vtvc, t=0.0, context=None, **vtvc_dict) -> wt_frame.CLASS:
 
     Input grammar
     -------------
-    A variable is named once and followed by what it does. There are three ways to name
-    it, and one grammar for what follows:
+    A variable is named as a keyword, and followed by what it does::
 
-    ======================  =============================================
-    keyword                 ``create(AOM_MOT=<follows>)``
-    positional, flat        ``create("AOM_MOT", <follows>)``
-    positional, as a row    ``create(["AOM_MOT", <follows>])``
-    ======================  =============================================
+        create(AOM_MOT=<follows>)
 
     where ``<follows>`` is one of
 
@@ -203,17 +198,16 @@ def create(*vtvc, t=0.0, context=None, **vtvc_dict) -> wt_frame.CLASS:
     ``[[time, value], [time, value], ...]``  several instants for one variable
     ======================================  ==========================================
 
-    In the two positional forms the brackets around ``<follows>`` may be dropped, so
-    ``["AOM_MOT", 0.1, 1, "MOT"]`` and ``["AOM_MOT", [0.1, 1, "MOT"]]`` are the same
-    statement, as are ``create("AOM_MOT", 0.1, 1)`` and ``create("AOM_MOT", [0.1, 1])``.
+    Several variables are given at once, and a computed set through ``**``::
 
-    Rows may be batched into one list: ``create([["a__V", 1.0], ["b__V", 2.0]])``.
+        create(AOM_MOT=1, shutter_MOT=[0.1, 1, "MOT"])
+        create(**{name: value for name, value in ...})
 
-    ``t`` and ``context`` are **defaults, not overrides** — a row stating its own keeps
-    it. The keyword namespace is open by design, so an unrecognised keyword is read as a
-    variable name (see the manuscript's `sec:forwarding`); consequently the positional
-    and keyword forms **cannot be mixed**, since there would be no way to tell a dropped
-    keyword from an intended variable. Doing so raises.
+    ``t`` and ``context`` are **defaults, not overrides** — a variable stating its own
+    keeps it. The keyword namespace is open by design, so an unrecognised keyword is
+    read as a variable name rather than rejected (see the manuscript's `sec:forwarding`);
+    that is what makes the injection idiom work, and it is why there is no second,
+    positional way in to be confused with it.
 
     NOTE: It seems to be the case that dataframes use less memory than lists of
     dictionaries or dictionaries of lists (in general).
@@ -238,7 +232,7 @@ def create(*vtvc, t=0.0, context=None, **vtvc_dict) -> wt_frame.CLASS:
                 "{i}.".format(n=name, i=instead)
             )
 
-    return _populate_timeline(*vtvc, t=t, context=context, **vtvc_dict)
+    return _populate_timeline(t=t, context=context, **vtvc_dict)
 
 
 def update(
@@ -733,8 +727,10 @@ def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Ca
             _group["function"].tolist()[0], **function_args
         )
 
+        # The internal constructor, because this is the one caller that assembles rows
+        # rather than being handed them: `create` takes keywords only.
         _dfs.append(
-            create(
+            _populate_timeline(
                 [
                     _group["variable"].tolist()[0],
                     func(_pt_start, _pt_end),

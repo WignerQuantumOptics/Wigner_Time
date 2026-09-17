@@ -62,7 +62,7 @@ def test_connectionName002():
 def test_connectionName003():
     assert (
         adcon.is_valid_name(
-            tl.create(
+            tl._populate_timeline(
                 ["shutter_MOT", 1, 11],
                 ["shutter__repump", 1, 12],
                 ["shutter_imaging", 1, 13],

@@ -72,7 +72,7 @@ def test_unit003():
 
 def test_units():
     assert variable.units(
-        tl.create(
+        tl._populate_timeline(
             ["AOM_imaging__V", [[0.0, 2]]],
             ["AOM_repump", [[1.0, 1.0]]],
             ["coil_MOT__A", [[1.0, 10.0]]],
@@ -83,7 +83,7 @@ def test_units():
 
 def test_units_nodigital():
     assert variable.units(
-        tl.create(
+        tl._populate_timeline(
             ["AOM_imaging__V", [[0.0, 2]]],
             ["AOM_repump", [[1.0, 1.0]]],
             ["coil_MOT__A", [[1.0, 10.0]]],

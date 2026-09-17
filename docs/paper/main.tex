@@ -539,10 +539,12 @@ The three main convenience functions are \python{create}, which initialises a ne
 \subsubsection{Create}
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none, linenos=false]{python}
-def create( *vtvc, t=0.0, context=None, **vtvc_dict )
+def create( t=0.0, context=None, **vtvc_dict )
 \end{minted}
 %
-This function accepts a wide range of input formats through the \python{*vtvc} list and the \python{**vtvc_dict} keyword argument. The different possibilities are laid out in \cref{tab:inputSpecs}. The arguments \python{t} and \python{context} serve as defaults for cases where time and context are not specified individually for each variable.
+This function accepts a wide range of input formats through the \python{**vtvc_dict} keyword argument, whose possibilities are laid out in \cref{tab:inputSpecs}. The arguments \python{t} and \python{context} serve as defaults for cases where time and context are not specified individually for each variable.
+
+A variable is therefore always named as a keyword. Since that keyword namespace \emph{is} the variable namespace (\cref{sec:forwarding}), there is deliberately no second, positional way of naming one: an unrecognised keyword is read as a variable rather than rejected, so a parallel syntax would be a second thing for it to be confused with. Where the names are computed rather than written, the usual \python{**} unpacking applies, as in \python{create(**{name: value for ...})}.
  
 \begin{table}
     \centering
@@ -556,7 +558,7 @@ This function accepts a wide range of input formats through the \python{*vtvc} l
          \python{create(AOM_MOT=[0.1,1,"MOT"],AOM_imaging=[0.,1,"AI"])} & \small Two variables with different times and contexts \\\hline
          \python{create(AOM_MOT=[[0.1,1],[0.2,0]],context="MOT")} & \small The MOT AOM is turned on and then off with a single expression \\\hline
     \end{tabular}
-    \caption{The recommended input formats for \python{create}. More foundational forms also exist for programmatic use; see the API documentation \cite{wignertime_docs}.}
+    \caption{The input formats for \python{create}. Rows may also be assembled positionally rather than named, which the package uses internally when expanding a ramp into its points; see the API documentation \cite{wignertime_docs}.}
     \label{tab:inputSpecs}
 \end{table}
  

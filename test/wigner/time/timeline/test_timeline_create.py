@@ -42,8 +42,8 @@ def df__mixed():
 @pytest.mark.parametrize(
     "input",
     [
-        tl.create("AOM_imaging", 0.0, 0.0),
-        tl.create("AOM_imaging", [[0.0, 0.0]]),
+        tl._populate_timeline("AOM_imaging", 0.0, 0.0),
+        tl._populate_timeline("AOM_imaging", [[0.0, 0.0]]),
     ],
 )
 def test_createSimple(input, df_simple):
@@ -53,7 +53,7 @@ def test_createSimple(input, df_simple):
 @pytest.mark.parametrize(
     "input",
     [
-        tl.create(
+        tl._populate_timeline(
             [
                 ["AOM_imaging", [[0.0, 0.0]]],
                 ["AOM_imaging__V", [[0.0, 2]]],
@@ -61,7 +61,7 @@ def test_createSimple(input, df_simple):
             ],
             context="init",
         ),
-        tl.create(
+        tl._populate_timeline(
             [
                 ["AOM_imaging", 0.0],
                 ["AOM_imaging__V", 2],
@@ -70,7 +70,7 @@ def test_createSimple(input, df_simple):
             context="init",
             t=0.0,
         ),
-        tl.create(
+        tl._populate_timeline(
             ["AOM_imaging", 0.0],
             ["AOM_imaging__V", 2],
             ["AOM_repump", 1.0],
@@ -137,7 +137,7 @@ def test_createPrevious(input, df):
             AOM_imaging__V=[0.0, 2.0, "init"],
             AOM_repump=[0.0, 1, "init"],
         ),
-        tl.create(
+        tl._populate_timeline(
             ["AOM_imaging", [0.0, 0, "init"]],
             ["AOM_imaging__V", [0.0, 2.0, "init"]],
             ["AOM_repump", [0.0, 1, "init"]],
@@ -145,11 +145,11 @@ def test_createPrevious(input, df):
         tl._populate_timeline(
             ["AOM_imaging__V", [0.0, 2.0]],
             ["AOM_repump", [0.0, 1]],
-            timeline=tl.create(
+            timeline=tl._populate_timeline(
                 ["AOM_imaging", [0.0, 0, "init"]],
             ),
         ),
-        # tl.create(
+        # tl._populate_timeline(
         #     ["AOM_imaging", 0.0, 0, "init"],
         #     ["AOM_imaging__V", 0.0, 2.0, "init"],
         #     ["AOM_repump", 0.0, 1, "init"],
@@ -185,7 +185,7 @@ def test_createInheritContext(df__mixed):
 ###############################################################################
 
 
-tline = tl.create(
+tline = tl._populate_timeline(
     [
         ["AOM_imaging", [[0.0, 0.0]]],
         ["other_thing", [[0.0, 0.0]]],
@@ -199,7 +199,7 @@ tline = tl.create(
 @pytest.mark.parametrize(
     "input",
     [
-        tl.create(
+        tl._populate_timeline(
             [
                 ["AOM_imaging", [[0.0, 0.0]]],
                 ["other_thing", [[0.0, 0.0]]],
@@ -241,7 +241,7 @@ tline = tl.create(
 def test_createOrigin0(input):
     return wt_frame.assert_equal(
         input,
-        tl.create(
+        tl._populate_timeline(
             [
                 ["AOM_imaging", [[0.0, 0.0]]],
                 ["other_thing", [[0.0, 0.0]]],
@@ -254,7 +254,7 @@ def test_createOrigin0(input):
     )
 
 
-tline2 = tl.create(
+tline2 = tl._populate_timeline(
     [
         ["AOM_imaging", [[1.0, 1.0]]],
         ["AOM_imaging__V", [[0.0, 2]]],
@@ -262,7 +262,7 @@ tline2 = tl.create(
     context="init",
 )
 
-expected = tl.create(
+expected = tl._populate_timeline(
     [
         ["AOM_imaging", [[1.0, 1]]],
         ["AOM_imaging__V", [[0.0, 2]]],
@@ -271,7 +271,7 @@ expected = tl.create(
     ],
     context="init",
 )
-expected2 = tl.create(
+expected2 = tl._populate_timeline(
     [
         ["AOM_imaging", [[1.0, 1]]],
         ["AOM_imaging__V", [[0.0, 2]]],
@@ -334,7 +334,7 @@ if __name__ == "__main__":
     lib.reload(tl)
     lib.reload(origin)
 
-    tline = tl.create(
+    tline = tl._populate_timeline(
         [
             ["AOM_imaging", [[0.0, 0.0]]],
             ["AOM_imaging__V", [[0.0, 2]]],
