@@ -119,6 +119,15 @@ of a stack and withholds `timeline`/`origin`, `update` can appear anywhere insid
 `cascade` adds prefix-routed keyword forwarding (`MOT_duration=...` reaches `MOT`'s `duration`), so a
 whole experiment has a single point of contact for its nested parameters.
 
+**`stack` and `cascade` take their stages differently, and nothing in the syntax says so.** `stack`
+takes stages *already called* — `stack(timeline, MOT(duration=15))` — where everything but the
+timeline is bound (partial application, not currying: the remaining argument arrives in one call).
+`cascade` takes the functions *themselves* — `cascade(MOT, molasses, MOT_duration=15)` — and calls
+them with the routed keywords. So a stage reaches `cascade` bare and `stack` applied; they are not
+interchangeable, and `stack(timeline, MOT)` raises (D17). `cascade` returns whatever `stack` makes of
+the first stage's result — a timeline if that stage yields one (`init` ends in `create`), a deferred
+function otherwise (`MOT` ends in `update`) — so a `cascade` is itself stackable.
+
 **Deferred calls compose as siblings of a `stack`, never by nesting.** `expand(ramp(...))` looks like
 composition but passes a function in as `expand`'s `timeline`; write
 `stack(timeline, ramp(...), expand(...))` instead. `util.ensure_timeline` raises a `TypeError` naming

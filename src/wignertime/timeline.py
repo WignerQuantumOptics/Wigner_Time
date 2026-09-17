@@ -545,6 +545,11 @@ def stack(
 
     `ramp(…, timeline=update(…, timeline=timeline))`.
 
+    Constituents must **already have been called**: `stack` supplies only the timeline.
+    `stack(timeline, MOT(duration=15))`, never `stack(timeline, MOT)` -- the latter
+    raises. This is the opposite of `cascade`, which takes the stage functions themselves
+    and calls them with the keywords routed to each.
+
     Also, all key-word arguments that are passed to `stack` are passed through to the subsidiary functions. This is particularly convenient for creating shared 'contexts', e.g.
 
     `stack(
@@ -605,6 +610,32 @@ def cascade(*fs: list[Callable], **kws) -> Callable | wt_frame.CLASS:
     `kws` are routed to the associated functions by prefixing, e.g. `cascade(MOT, molasses, MOT_duration=1.0)` creates a `stack` of `MOT` and `molasses`, with `duration=1.0` passed into the `MOT` function before evaluation.
 
     The motivation for this feature is that different experimental contexts should be built modularly, but, at final composition, the user often just wants a single point of contact to add/change nested variables.
+
+    *How this differs from `stack`, which is easy to get wrong*
+
+    `stack` takes stages that have **already been called**; `cascade` takes the stage
+    functions **themselves** and calls them::
+
+        stack(timeline, MOT(duration=15), molasses())     # called here
+        cascade(MOT, molasses, MOT_duration=15)           # called by cascade
+
+    In the first, `MOT(duration=15)` has had every argument but `timeline` supplied, and
+    what it returns is a function of the timeline alone -- partial application, not
+    currying, since the remaining argument is supplied in one call rather than one at a
+    time. `stack` then threads the timeline through that chain.
+
+    In the second, nothing has been called: `cascade` routes `MOT_duration=15` to `MOT`,
+    calls it, and hands the results to `stack`. So a stage reaches `cascade` bare and
+    reaches `stack` applied, and the two are not interchangeable -- writing
+    `stack(timeline, MOT)` raises (see `_ensure_stackable`), and `cascade(MOT(...))`
+    fails because the result takes no keywords to route.
+
+    *What it returns*
+
+    Whatever `stack` makes of the first stage's result: a timeline if that stage returns
+    one -- `init` ends in `create`, so it does -- and a deferred function if it does not,
+    as `MOT` ending in `update` does not. So `cascade` is itself stackable, and a
+    `cascade` beginning mid-experiment composes like any other stage.
 
     Routing is **strict**: a keyword that names no stage, or that names one but is not a
     parameter of it, raises rather than being dropped. The alternative -- letting an

@@ -680,6 +680,37 @@ Two consequences beyond the bug:
 - A frame passed as a *constituent* rather than as the leading argument is now rejected with a message, instead of `'DataFrame' object is not callable` from inside the composition.
 
 
+### D18 — the backend hardcodes one digital module, the frontend models a list **[new, found 2026-09-17]**
+
+`adwin/internal.py::modules__digital` returns a **list**, and `SPECIFICATIONS__DEFAULT["modules"]` gives every module its own `bits`, so the frontend is written as though any number of modules could be digital. Declare a second one and it agrees:
+
+```python
+spec["modules"][2] = {"bits": 1, ...}
+modules__digital(spec)   # -> [1, 3]
+```
+
+The real-time program does not. Both digital calls name module 1 as a literal:
+
+```basic
+p2_digprog(1, 1111b)                                  ' lowinit
+p2_digout(1, data_22[digitalIdx], data_23[digitalIdx])  ' every update
+```
+
+So every digital update, whatever module it was assigned, is written to port 1. A second digital module produces silently wrong output: rows routed to a module the hardware never receives, appearing on another instead.
+
+The module column is not even absent from the transfer — it is sent and discarded. `core.create` writes the digital `(cycle, module, channel, digits)` tuples to `data_20..23`, but the `.bas` declares only `data_20`, `data_22` and `data_23`. **`data_21` is written to an array the real-time program never declares**, which is at best a wasted transfer and at worst an allocation the program did not ask for; which of the two cannot be determined here.
+
+Neither half is recorded anywhere — not in this document, `CLAUDE.md`, the manuscript, or the ADbasic source. `sec:adwin`'s listing shows `p2_digout(1, ...)` without remarking on the literal.
+
+Two ways to settle it, and they are opposites:
+
+1. **Accept the restriction and say so.** One digital module, named in the specification rather than assumed; `connection.new` or `adwin.internal.add` rejects a digital connection on any other. `data_21` then stops being transferred. Smallest change, and it matches the hardware the package has actually run on.
+2. **Honour the frontend's model.** `processUpdates` reads `data_21` and passes it to `p2_digout`. That is one more array read per digital update in the event loop, which the design spends carefully (`sec:adwin`), for a generality nothing currently needs.
+
+(1) unless a second digital module is actually planned. Either way the present state — a frontend that accepts what the backend silently ignores — is the one option that should not persist.
+
+**Not verified on hardware** (§E): what ADwin does with a write to an undeclared `data_21` is untested here.
+
 ---
 
 ## E. Testing constraints
