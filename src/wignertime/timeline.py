@@ -500,7 +500,6 @@ def ramp(
 
     # ===
     # TODO: It would be more efficient to do these checks earlier on (but more complicated).
-    # TODO: Move this check into expand?
 
     # `new1` and `new2` are assembled from different dictionaries and so do not hold
     # their variables in the same order: `new1` takes the explicitly started ones first
@@ -511,18 +510,40 @@ def ramp(
     # being disjoint by construction.
     new2__aligned = wt_frame.align_to(new2, new1["variable"])
 
+    # A ramp has two degeneracies and they are not the same thing. The mask here used to
+    # conflate them, compute cleaned frames, discard them, and then either drop the whole
+    # ramp silently or keep every degenerate row (A3). Settled by the maintainer,
+    # 2026-09-18:
+    #
+    # - A zero **duration** has no sensible expansion, since both boundaries occupy one
+    #   instant, and is almost always a slip in the caller's arithmetic -- a `duration`
+    #   that came out of a subtraction as 0. It raises, naming the variables.
+    #
+    # - A zero **value change** is a hold. It occupies time, so discarding it silently
+    #   shortens the timeline and pulls everything after it forward. It is kept and
+    #   expanded. The identical rows that produces are removed again by
+    #   `adwin.validate.drop_repeats` before the hardware, which keeps the first and last
+    #   row of each channel -- so the redundancy is paid for in the device-layer table
+    #   only, and that table is the thing the user is meant to be able to read.
     TOL = 1e-15
-    time_close = np.abs(new1["time"] - new2__aligned["time"]) < TOL
-    value_close = np.abs(new1["value"] - new2__aligned["value"]) < TOL
-    mask__offending = time_close | value_close
+    time__degenerate = np.abs(new1["time"] - new2__aligned["time"]) < TOL
 
-    # Remove offending rows from both DataFrames
-    new1_clean = new1[~mask__offending].reset_index(drop=True)
-    new2_clean = new2[~mask__offending].reset_index(drop=True)
-
-    # Check if either is now empty
-    if new1_clean.empty or new2_clean.empty:
-        return timeline
+    if time__degenerate.any():
+        raise ValueError(
+            "\n".join(
+                [
+                    "Zero-duration ramp for {}, at t = {}.".format(
+                        sorted(set(new1.loc[time__degenerate, "variable"])),
+                        sorted(set(new1.loc[time__degenerate, "time"])),
+                    ),
+                    "",
+                    "A ramp needs two distinct instants. Check `duration` (or `t2`) --"
+                    " a duration computed as a difference of two stage times is the"
+                    " usual way this comes out as zero. To command a value at a single"
+                    " instant, use `update`.",
+                ]
+            )
+        )
 
     # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
     return wt_frame.concat([timeline, new1, new2])

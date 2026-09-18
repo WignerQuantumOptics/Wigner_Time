@@ -249,8 +249,9 @@ name that shadows one (NEW-5).
    2025-03 translation of the old `wait` mechanism, and `ramp(v=target, t=..., duration=...)` says the
    same thing. **B1 done 2026-09-18** — the boundary frames are aligned on `variable` before being
    subtracted; the defect was not merely a wrong comparison but a silent deletion of the whole ramp,
-   because A3's early return acts on the bad mask. **A3 is the last item in this block** and is a
-   maintainer decision, not a defect to be fixed unilaterally.
+   because A3's early return acts on the bad mask. **A3 done 2026-09-18**, by maintainer
+   decision: the two degeneracies are split — a zero duration raises, a zero value change is a hold
+   and is kept. That closes the block.
 5. ~~Diagnostics: NEW-2, NEW-3, NEW-4, and the `Previous <var> not found` message.~~ **Done
    2026-09-18.** `previous` names an empty timeline; a variable with no history says so; the
    `ensure_pair` message names the origin rather than the helper, and `find` normalises once;

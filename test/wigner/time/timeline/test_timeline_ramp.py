@@ -398,16 +398,31 @@ def test_rampDoesNotRaise1(tl_anchor):
     tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=1.0))
 
 
-def test_rampDoesNotRaise2(tl_anchor):
-    return wt_frame.assert_equal(
-        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=0.0)), tl_anchor
-    )
+def test_ramp_of_zero_duration_raises(tl_anchor):
+    """
+    A3, settled 2026-09-18. Both boundaries would occupy one instant, so there is no
+    ramp to expand, and a `duration` that comes out as zero is almost always a slip in
+    the caller's arithmetic. Until then this returned the timeline untouched, so the
+    command simply was not there.
+    """
+    with pytest.raises(ValueError, match="Zero-duration ramp"):
+        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=0.0))
 
 
-def test_rampDoesNotRaise3(tl_anchor):
-    return wt_frame.assert_equal(
-        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=0.0, duration=1.0)), tl_anchor
-    )
+def test_a_flat_ramp_is_kept(tl_anchor):
+    """
+    The other half of A3: `lockbox_MOT__V` already sits at 0.0, so this ramp changes no
+    value -- but it *occupies a second*, and discarding it shortened the timeline and
+    pulled everything after it forward, silently. It is kept, and
+    `adwin.validate.drop_repeats` removes the resulting value redundancy before the
+    hardware.
+    """
+    result = tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=0.0, duration=1.0))
+
+    assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
+        [0.0, 0.0],
+        [1.0, 0.0],
+    ]
 
 
 def test_boundary_frames_are_compared_variable_by_variable():

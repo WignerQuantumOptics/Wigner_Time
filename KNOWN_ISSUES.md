@@ -39,7 +39,23 @@ Two distinct hazards, worth keeping separate:
 
 Signature checking only became safe once the operation layer stopped putting `**kwargs` on ordinary stages (§C, 2026-09-16): with every stage open, every split would have been accepted and the check would have bought nothing.
 
-### A3 — `ramp` computes cleaned frames and then discards them
+### A3 — `ramp` computes cleaned frames and then discards them — **RESOLVED AND FIXED 2026-09-18**
+
+**Maintainer decision: split the two degeneracies.** The mask conflated things that are not alike.
+
+- A zero **duration** has no sensible expansion, since both boundaries occupy one instant, and is almost always a slip in the caller's arithmetic — a `duration` that came out of a subtraction as 0. It now **raises**, naming the variables and the instant.
+- A zero **value change** is a *hold*. It occupies time, so discarding it shortened the timeline and pulled everything after it forward. It is now **kept and expanded**. The identical rows that produces are removed again by `adwin.validate.drop_repeats` before the hardware, which keeps the first and last row of each channel — so the redundancy is paid for in the device-layer table only, and that table is the thing the user is meant to be able to read.
+
+The verified symptom is gone. `cascade(demo.init, demo.MOT, demo.finish)` now carries its final ramps:
+
+```
+before: finalRamps variables = ['⚓_002']
+after:  finalRamps variables = [6 coils, lockbox_MOT__MHz, '⚓_002']
+```
+
+The full demo and the lab timeline hash identically before and after, neither containing a degenerate ramp. `test_rampDoesNotRaise2` and `...3` asserted the old silent drop and are rewritten as `test_ramp_of_zero_duration_raises` and `test_a_flat_ramp_is_kept`.
+
+The diagnosis follows.
 
 `timeline.ramp`. `new1_clean` and `new2_clean` are built by masking out degenerate rows (`mask__offending`), the emptiness of those cleaned frames gates an early `return timeline` — and then the function returns `wt_frame.concat([timeline, new1, new2])`, the *un*cleaned frames.
 

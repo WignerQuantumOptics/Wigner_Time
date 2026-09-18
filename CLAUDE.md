@@ -35,9 +35,9 @@ anything it covers. Read it before touching `timeline.py` or `internal/origin.py
   that experiment descriptions are inspectable data.
 - **Silent failures outrank visible ones.** A wrong answer that raises is a nuisance; one that returns
   quietly can sit in an experiment for months.
-- **Section C items are open API decisions — flag and ask, never settle unilaterally.** Same for the
-  intended behaviour of `ramp`'s degenerate-row filtering (A3): silently dropping a user's ramp may be
-  worse than expanding a degenerate one, and that call is the maintainers'.
+- **Section C items are open API decisions — flag and ask, never settle unilaterally.** (A3, the
+  degenerate-row filtering, was such a case and was settled on 2026-09-18: a zero duration raises, a
+  zero value change is a hold and is kept.)
 - **A green suite does not clear the ADwin backend.** Changes under `wignertime/adwin/` can only be
   checked for internal consistency; correctness must be verified on the rig. Say so explicitly rather
   than reporting such a change as done.
@@ -307,8 +307,8 @@ and a terminal `0.0`. **A8 was fixed the same day**: a start value stated in the
 written, and the value origin is resolved only for the variables whose start had to be inferred. The
 rule to keep in mind when writing a ramp is which form you are in — `ramp(v=target, t=..., duration=...)`
 starts from wherever the variable currently sits, while `ramp(v=[[t1, v1], [t2, v2]])` starts from `v1`,
-full stop. The live items left in `ramp`'s value handling are **B1** and **A3**, which sit in the same
-block and must be settled together, A3 currently masking B1.
+full stop. **B1 and A3 are both settled** (2026-09-18): the boundary frames are aligned on `variable` before
+being compared, a zero-duration ramp raises, and a flat ramp is kept as the hold it is.
 
 Not covered by `KNOWN_ISSUES.md`:
 
