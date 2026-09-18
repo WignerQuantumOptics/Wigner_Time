@@ -21,8 +21,32 @@ from wignertime.internal import dataframe as wt_frame
 #                                  CONSTANTS                                   #
 ###############################################################################
 
-_ORIGINS = ["anchor", "last", "variable"]
-"These origin labels are reserved for interpretation by the package. Other origin strings will be interpreted as`variable`s."
+_ORIGINS__TIME = ["anchor", "last", "variable"]
+"""
+Reserved origin labels admissible in the TIME slot. Every one of them names an instant.
+"""
+
+_ORIGINS__VALUE = ["variable"]
+"""
+Reserved origin labels admissible in the VALUE slot.
+
+Only `"variable"` survives the narrowing, because only it names a quantity of the right
+physical kind: the value *this* variable held. `"anchor"` and `"last"` are defined
+temporally, so the value they yield belongs to whichever variable happens to hold the
+relevant row -- a shutter's 0/1 added to a current in amps, silently. See KNOWN_ISSUES
+A7.
+"""
+
+_ORIGINS = _ORIGINS__TIME
+"""
+These origin labels are reserved for interpretation by the package. Other origin strings
+are interpreted as `variable`s, then as `context`s -- so a `variable` or `context` named
+after one of these would be unreachable as an origin, and the name is therefore refused
+where it is written (`timeline._populate_timeline`).
+"""
+
+_ORIGINS__BY_SLOT = {"time": _ORIGINS__TIME, "value": _ORIGINS__VALUE}
+"""The vocabulary admitted by each slot of an `origin` pair. `find` dispatches on this."""
 
 
 def error__unsupported_option(origin):
@@ -33,6 +57,33 @@ def error__unsupported_option(origin):
 
 def error__timeline(origin):
     return ValueError(f"Timeline not specified, but necessary for origin={origin}.")
+
+
+def error__slot__value(label, reason):
+    """
+    Refusal of a label that resolves perfectly well, but not to a *value*.
+
+    Raised rather than warned: unlike the time slot there is no sensible quantity to
+    fall back on, and the wrong one is indistinguishable from the right one once it has
+    been added to a current.
+    """
+    return ValueError(
+        "\n".join(
+            [
+                "{!r} cannot serve as a VALUE origin: {}.".format(label, reason),
+                "",
+                'The value slot admits a number, "variable", or the name of a variable.',
+                "",
+                "To take a value from a named instant, name the variable and let the"
+                " instant bound it in time:",
+                "",
+                '    origin=[{!r}, "variable"]'.format(label),
+                "",
+                "which reads the value this variable held there -- a time origin and a"
+                " value origin, rather than one label asked to be both.",
+            ]
+        )
+    )
 
 
 #############################################################################
@@ -125,6 +176,25 @@ def find(
 
     `time__max` is the (non origin-corrected) maximum time that should be considered when trying to find previous values.
 
+    The two slots admit different vocabularies
+    ------------------------------------------
+
+    ======  ======================================================================
+    time    a number, "anchor", "last", "variable", a variable name, a context name
+    value   a number, "variable", a variable name
+    ======  ======================================================================
+
+    The time slot asks *when*, and each of its options names an instant. The value slot
+    asks *how much, of what*, and only a variable names a quantity: `"anchor"`, `"last"`
+    and a context name all resolve to whichever variable happens to hold the row at that
+    instant, so they answer in the wrong units without saying so. They therefore raise
+    here rather than resolving (KNOWN_ISSUES A7, settled by the maintainer 2026-09-18).
+
+    Nothing is lost by the narrowing, because the intended reading is already sayable as
+    a pair: "the value `coil__A` held at the end of molasses" is `["molasses",
+    "variable"]` -- the context bounds the lookup in time, the variable names what is
+    looked up.
+
     Example origins:
     - [0.0,0.0]
     - 0.0
@@ -133,6 +203,7 @@ def find(
     - "last" (The row highest in time)
     - "AOM_shutter" (A variable name that is present in the dataframe)
     - "init" (A context name that is present in the dataframe)
+    - ["init", "variable"] (time from a context, value from each variable itself)
     """
 
     # TODO:
@@ -173,7 +244,20 @@ def find(
                     timeline, column=col__fil, variable=var, time__max=time__max
                 )[["time", "value"]].values
 
-    def _to_col_var(timeline, label):
+    def _to_col_var(timeline, label, slot="time"):
+        """
+        Maps an origin label onto a `[column, value]` filter for `previous`.
+
+        The two slots admit different vocabularies, because they ask different
+        questions. The time slot asks *when*, and anything naming an instant answers it.
+        The value slot asks *how much, of what*, and only a variable names a quantity:
+        `"anchor"`, `"last"` and context names each resolve to whichever variable
+        happens to hold the row at that instant, so they answer in the wrong units
+        without saying so.
+        """
+        if (label in _ORIGINS) and (label not in _ORIGINS__BY_SLOT[slot]):
+            raise error__slot__value(label, "it names an instant, not a quantity")
+
         if label == "anchor" and wt_anchor.is_available(timeline):
             return ["variable", label__anchor]
         elif label == "last":
@@ -181,6 +265,12 @@ def find(
         elif _is_available__variable(label):
             return ["variable", label]
         elif _is_available__context(label):
+            if slot == "value":
+                raise error__slot__value(
+                    label,
+                    "it is a context, and a context's last row may belong to any"
+                    " variable in it",
+                )
             anchor = wt_anchor.last(timeline, context=label)
             return ["variable", anchor] if (anchor is not None) else ["context", label]
         else:
@@ -193,25 +283,28 @@ def find(
 
         case [str(s1), None | float() as n1]:
             tv = [
-                _previous_vt(*([timeline, "time"] + _to_col_var(timeline, s1))),
+                _previous_vt(*([timeline, "time"] + _to_col_var(timeline, s1, "time"))),
                 n1,
             ]
         case [None | float() as n1, str(s1)]:
             tv = [
                 n1,
                 _previous_vt(
-                    *([timeline, "value"] + _to_col_var(timeline, s1)),
+                    *([timeline, "value"] + _to_col_var(timeline, s1, "value")),
                     time__max=n1 + time__max__relative,
                 ),
             ]
         case [str(s1), str(s2)] if (s1 == s2):
-            tv = _previous_vt(*([timeline, "both"] + _to_col_var(timeline, s1)))
+            # One label serving both slots, so it must satisfy the stricter vocabulary.
+            tv = _previous_vt(
+                *([timeline, "both"] + _to_col_var(timeline, s1, "value"))
+            )
         case [str(s1), str(s2)]:
-            t = _previous_vt(*([timeline, "time"] + _to_col_var(timeline, s1)))
+            t = _previous_vt(*([timeline, "time"] + _to_col_var(timeline, s1, "time")))
             tv = [
                 t,
                 _previous_vt(
-                    *([timeline, "value"] + _to_col_var(timeline, s2)),
+                    *([timeline, "value"] + _to_col_var(timeline, s2, "value")),
                     time__max=t + wt_config.TIME_RESOLUTION + time__max__relative,
                 ),
             ]

@@ -11,6 +11,8 @@ account is `docs/paper/main.tex`, `sec:origin` and appendix `sec:origin_full`.
 (34104ce) on 2026-09-03, not inferred from reading. Where behaviour contradicts the manuscript or the
 decision-tree figure, that is stated.
 
+**Step 1 of the suggested order landed 2026-09-18** (slot vocabularies and reserved words, A7/#105 and A9/#107). The Layer C2 table below therefore describes what the code did *before* that change; it is kept because the measurements are the argument for the narrowing. Rows now refused are marked **REFUSED**. Steps 2 and 3 are being taken together, per the maintainer's settlement of the lookup bound (see the note at the end of Layer C2).
+
 **Re-verified 2026-09-17.** The measured tables still hold, with one correction below and one
 substantive change: `create` no longer takes `origin` or `timeline` at all (#45 / C2), so Layer A has
 one fewer entry and one fewer defect. Every `NEW-n` identifier used here is tracked as a GitHub
@@ -18,8 +20,10 @@ issue — NEW-1 #123, NEW-2 #124, NEW-3 #115, NEW-4 #122, NEW-5 #107, NEW-6 #105
 NEW-8 #106, and NEW-9 inside #102 (A4) rather than as an item of its own.
 
 **The figure.** `docs/paper/graphic/origin-decision-tree-highlighted.png` is the authoritative
-diagram (`fig:origin`), and its caption at `main.tex:916` is the authoritative statement of which
-slots each option may serve. It presents resolution as one flat tree. This document splits it into **four layers**,
+diagram (`fig:origin`), and its caption is the authoritative statement of which slots each option
+may serve. **The caption was amended on 2026-09-18 to state the slot split; the image was not,
+and cannot be from here — it still draws one undivided tree, so it now contradicts its own
+caption and needs redrawing before submission.** It presents resolution as one flat tree. This document splits it into **four layers**,
 because the flat presentation hides where the defects live: the tree describes Layer C only, and says
 nothing about which default was selected (A), how a scalar becomes a pair (B), or how a resolved pair
 is applied (D).
@@ -98,11 +102,14 @@ Precedence is `"anchor"` → `"last"` → variable name → context name.
 
 ## Layer C2 — the value slot
 
-Same resolver, different meaning — and this is where the mechanism over-generates. The paper's
-position, from the `fig:origin` caption (`main.tex:916`), is: "With the exception of anchors, for
-which no value is defined, every option can serve as either a time or a value origin." So `"anchor"`
-in this slot is a defect against the documented design, while `"last"` and context names are
-licensed by it and narrowing them requires amending the manuscript.
+Same resolver, different meaning — and this is where the mechanism over-generated. The paper's
+position *was*, from the `fig:origin` caption: "With the exception of anchors, for which no value
+is defined, every option can serve as either a time or a value origin." That made `"anchor"` here a
+defect against the documented design, while `"last"` and context names were licensed by it.
+
+**Settled 2026-09-18.** The maintainer declared the caption defective, so all three were narrowed
+together and the caption rewritten. The table below records what the code did before that, because
+the measurements are the argument for the change.
 
 | given | resolves to | verdict |
 | --- | --- | --- |
@@ -110,9 +117,9 @@ licensed by it and narrowing them requires amending the manuscript.
 | a float | added to all values | correct |
 | `"variable"` | that variable's own last value, time-bounded | **meaningful** — `ramp`'s default |
 | an existing variable name | that variable's last value, time-bounded | **meaningful** |
-| `"anchor"` | `0.0` — the anchor row's dummy value | **NEW-6, a defect against the paper**: the caption says no value is defined for anchors |
-| `"last"` | the value of whichever variable holds the highest time | **NEW-6, licensed by the paper**: unit-mixing in practice — a shutter's 0/1 added to amps, silently |
-| a context name | the value of that context's last row, whatever variable that is | **NEW-6, licensed by the paper**: same |
+| `"anchor"` | `0.0` — the anchor row's dummy value | **REFUSED 2026-09-18** (#105) |
+| `"last"` | the value of whichever variable holds the highest time | **REFUSED 2026-09-18** (#105), with the caption amended |
+| a context name | the value of that context's last row, whatever variable that is | **REFUSED 2026-09-18** (#105), with the caption amended |
 | anything else | raises | correct |
 
 Measured, on a timeline with `coil__A` = 7.0 A, an anchor at t=5, and `shutter_MOT` = 1 at t=9:
@@ -152,6 +159,14 @@ differently in two branches, and both are defective.
   `find_every_origin`'s per-variable loop while `_update_future` mutates those same times. So which
   past value counts as "in effect" depends on what else is being resolved, and in what order. Adding
   an unrelated variable to a `ramp` call moved another variable's start value from 20.0 to 10.0.
+
+### The maintainer's settlement, 2026-09-18
+
+Two things were decided, and together they reduce steps 2 and 3 to one change rather than five patches.
+
+**The bound.** The value slot is *always* bounded by the resolved time origin — the value that variable held at that instant, never its last value in the timeline as a whole. The time slot is unbounded, because it resolves *to* the instant the bound is made of. This is already what the `[str, str]` branch does (measured: `["stage1", "variable"]` yields stage1's value, not the timeline's last), so it is the implementation that has to catch up with the design, not the reverse.
+
+**`None` versus `0.0`.** In either slot, `None` means *defer to the caller's default for this slot* and `0.0` means *absolute, no shift*. Today `None` means absolute, which is the whole mechanism of A6: a bare `"stage1"` pads to `["stage1", None]` and so cancels `ramp`'s value default. Under the new reading `[None, "variable"]` and `["anchor", "variable"]` coincide wherever an anchor exists, and the former is the better spelling, since it does not name a reference it cannot guarantee. Blast radius checked: nothing in the lab, the demo or the tests passes a `None` time slot through the public API; `test_origin.py:91` calls `find` directly, below where completion happens.
 
 ## Layer D — application of the resolved pair
 
@@ -215,8 +230,9 @@ name that shadows one (NEW-5).
 
 ## Suggested order
 
-1. Slot vocabularies and reserved-word handling (NEW-5, NEW-6). Pure validation — no behaviour change
-   for code that is already correct.
+1. ~~Slot vocabularies and reserved-word handling (NEW-5, NEW-6). Pure validation — no behaviour change
+   for code that is already correct.~~ **Done 2026-09-18.** 268 tests pass; the demo and the lab
+   timelines are unchanged, as they must be — the change only refuses, it never resolves differently.
 2. Bound unification and hoisting (NEW-7, B2).
 3. Per-slot default completion and the caller-owned chain (A6, A4, NEW-9, NEW-1). The real behaviour
    change. Blast radius is small: every existing `ramp` test already spells out both slots, which is

@@ -921,11 +921,13 @@ Leaving \python{origin=None} does not suppress the feature, but selects the firs
  
 Three strings have dedicated meanings:
  
-\python{"last"} – time or value is relative to the entry with the highest time recorded so far in the timeline.
+\python{"last"} – time is relative to the entry with the highest time recorded so far in the timeline.
  
-\python{"variable"} – each variable is placed relative to its own most recent entry, independently of the others.
+\python{"variable"} – each variable is placed relative to its own most recent entry, independently of the others. This is the one reserved string admissible in either slot.
  
 \python{"anchor"} – time is relative to the most recent anchor entry (\cref{sec:anchor}), i.e. a variable whose name contains the \faAnchor~symbol, or the configured equivalent in \python{wignertime.config}.
+ 
+\python{"last"} and \python{"anchor"} are defined temporally and are admissible in the time slot only, as is a context name; the reason is given in the caption of \cref{fig:origin}. Because these three strings are resolved before any variable or context of the same name, such a name would be unreachable as an origin, and the package therefore refuses it where it is written.
  
 Any other string is resolved contextually. If it matches a variable name, e.g. \python{"shutter_MOT"}, the last occurrence of that variable is used. If it matches a context name, e.g. \python{"MOT"}, the origin resolves to the anchor of that context if one is present, and to its final entry otherwise. Such flexibility carries some risk of obscuring the simplicity of the software, but these cases are implemented because they track user intuition; when in doubt, a numeric \python{(time, value)} coordinate is always unambiguous. \Cref{fig:origin} gives the resolution order in full, and \cref{tab:originSpecs} illustrates the possibilities on a single function.
  
@@ -936,7 +938,7 @@ The \python{ramp} function takes a second origin, \python{origin2}, following th
 \begin{figure}
   \centering
   \includegraphics[width=1.1\linewidth]{graphic/origin-decision-tree-highlighted.png}
-  \caption{\label{fig:origin} Resolution of an \python{origin}. With the exception of anchors, for which no value is defined, every option can serve as either a time or a value origin. The two highlighted paths are the cases that occur in nearly all user code: the default resolution to the most recent anchor, and the resolution of a context name to that context’s anchor (\cref{sec:origin}).}
+  \caption{\label{fig:origin} Resolution of an \python{origin}. The two slots admit different vocabularies. The time slot takes any of the options shown, each of which names an instant; the value slot takes a number, \python{"variable"}, or an explicit variable name. The remaining options -- \python{"anchor"}, \python{"last"} and a context name -- are refused there, because each resolves to whichever variable happens to hold the row at that instant, and so would answer in the wrong physical units. Nothing is lost, since the intended reading is already expressible as a pair: the value \python{coil__A} held at the end of the molasses stage is \python{origin=["molasses", "variable"]}, the context bounding the lookup in time and the variable naming what is looked up. The two highlighted paths are the cases that occur in nearly all user code: the default resolution to the most recent anchor, and the resolution of a context name to that context’s anchor (\cref{sec:origin}).}
 \end{figure}
  
 \begin{table}

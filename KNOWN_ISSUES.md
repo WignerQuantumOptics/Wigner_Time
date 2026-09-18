@@ -127,7 +127,13 @@ Fix direction, and it is an API decision: **`auto` should complete a partial ori
 - `sec:origin_full`: "No default in the package is value-relative; value origins are available … but are always requested explicitly." `ramp`'s start-point default `["anchor", "variable"]` *is* value-relative, and is the reason ramps chain correctly at all.
 - The same appendix's account of interweaving is accurate for `update` but not reachable for `ramp` through the shorthand it documents.
 
-### A7 — `"last"` and `"anchor"` are accepted as VALUE origins, where they are category errors **[new, found 2026-09-03]**
+### A7 — `"last"` and `"anchor"` are accepted as VALUE origins, where they are category errors — **RESOLVED AND FIXED 2026-09-18**
+
+**The maintainer opened both gates on 2026-09-18**: the `fig:origin` caption is defective here, so §G does not apply and the narrowing was carried out in full — `"anchor"`, `"last"` *and* context names now raise in the value slot. The caption and `sec:origin_full` were amended to state the split, and `_ORIGINS__TIME` / `_ORIGINS__VALUE` in `internal/origin.py` are now the vocabularies `find` dispatches on. `_to_col_var` takes a `slot` argument; the one-label-for-both-slots case (`[s, s]`) is validated against the stricter of the two.
+
+**Note for the manuscript:** `graphic/origin-decision-tree-highlighted.png` still draws the old, undivided tree. The caption now contradicts the image, so the figure needs redrawing before submission — it is not something the code can carry.
+
+Covered by `test/wigner/time/internal/test_origin_slots.py`. The diagnosis follows.
 
 Both keywords are defined temporally: `"last"` means the highest time recorded so far, `"anchor"` the time of the most recent anchor. Yet `origin.find` resolves both slots of the pair through the same `_to_col_var`, so both are accepted in the *value* slot, silently, with no interpretation that makes physical sense.
 
@@ -168,7 +174,9 @@ tl.ramp(timeline=base, coil__A=[[0.0, 1.0], [0.5, 3.0]])
 
 Fix direction: resolve the value origin only for variables in `df__no_start_points`, never for those in `df_1`. Settle together with B1 and A3, which sit in the same block of `ramp`.
 
-### A9 — reserved origin words silently shadow real context and variable names **[new, found 2026-09-03]**
+### A9 — reserved origin words silently shadow real context and variable names — **RESOLVED AND FIXED 2026-09-18**
+
+`_ORIGINS` is now derived from `_ORIGINS__TIME`, so there is one list rather than two that can drift, and `timeline._populate_timeline` refuses a `variable` or a `context` named after one of them — at the point the name is written, not where it later fails to resolve, because by then the timeline no longer records that anything else was meant. The diagnosis follows.
 
 `_to_col_var` tests `"anchor"`, then `"last"`, then variable names, then context names. So a context or variable actually named `anchor`, `last` or `variable` is unreachable as an origin, silently. Verified with a context literally named `anchor` whose rows sit at t=1, alongside a real anchor at t=5: `origin="anchor"` resolves to **5.0**, not 1.0.
 

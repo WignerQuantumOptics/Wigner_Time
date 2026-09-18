@@ -162,6 +162,37 @@ def _populate_timeline(
             )
         )
 
+    # `anchor`, `last` and `variable` are reserved as origin labels
+    # (`internal.origin._ORIGINS`), and `origin.find` tests them before it looks for a
+    # variable or a context of that name -- so a name colliding with one is silently
+    # unreachable as an origin (A9). Refused where the name is written rather than where
+    # it fails to resolve, because by then the timeline no longer records that anything
+    # else was meant.
+    names__shadowing = {
+        column: sorted(set(df_rows[column]) & set(wt_origin._ORIGINS))
+        for column in ("variable", "context")
+    }
+    if any(names__shadowing.values()):
+        raise ValueError(
+            "\n".join(
+                [
+                    "Reserved origin label used as a name: {}.".format(
+                        ", ".join(
+                            "{} {}".format(column, names)
+                            for column, names in names__shadowing.items()
+                            if names
+                        )
+                    ),
+                    "",
+                    "{} are reserved for `origin`, and are resolved before any variable"
+                    " or context of the same name -- so such a name could never be"
+                    " referred to.".format(", ".join(map(repr, wt_origin._ORIGINS))),
+                    "",
+                    "Rename it: `molasses_end` rather than `last`.",
+                ]
+            )
+        )
+
     df_rows = df_rows.astype(schema)
     new = wt_origin.update(df_rows, timeline, origin=origin)
 
