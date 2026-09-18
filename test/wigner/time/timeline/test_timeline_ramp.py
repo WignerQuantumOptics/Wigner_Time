@@ -98,11 +98,6 @@ def test_ramp0(args):
             origin2=["variable"],
         ),
         Munch(
-            lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
-            origin=["anchor", "variable"],
-            origin2=["variable"],
-        ),
-        Munch(
             lockbox_MOT__V=[50e-3, 5], origin=["last", "variable"], origin2=["variable"]
         ),
         Munch(
@@ -152,9 +147,40 @@ def test_ramp1(args):
     return wt_frame.assert_equal(tl_ramp, tl_check)
 
 
+def test_ramp_start_stated_explicitly(tl_anchor):
+    """
+    A start value written in the 2-D form is taken as written.
+
+    `tab:rampExamples` documents that form as being for cases where the start cannot be
+    inferred from `origin`, i.e. the user is overriding the inference -- so resolving the
+    value origin on top of it defeated the only reason to use it (A8/#106). Here
+    `lockbox_MOT__V` sits at 0.2, and the ramp must still start at the 0.0 that was
+    written.
+    """
+    timeline = tl._populate_timeline(
+        [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
+    )
+    result = tl.ramp(
+        timeline,
+        lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
+        origin=["anchor", "variable"],
+        context="init",
+    )
+    assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
+        [0.05, 0.0],
+        [0.10, 5.0],
+    ]
+
+
 def test_ramp_combined():
     """
-    Alternative to `wait`-ing 5s.
+    Hold at the variable's current value for 5 s, then ramp to 10 over 1 s.
+
+    This was written in 2025-03 (`2927057`) as a translation of the `wait` mechanism
+    that the origin machinery replaced, using the 2-D form with a start value of 0.0 as
+    an *offset* -- which worked only because the value origin was added on top of it
+    (A8). The 2-D form was never needed: `t` places the start point, and the default
+    origin supplies its value. All four spellings were measured equal on 2026-09-18.
     """
     tl_check = tl.create(
         lockbox_MOT__V=[
@@ -177,11 +203,7 @@ def test_ramp_combined():
 
     tl_ramp = tl.stack(
         tl._populate_timeline("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
-        tl.ramp(
-            lockbox_MOT__V=[[5.0, 0.0], [1.0, 10.0]],
-            origin=["lockbox_MOT__V", "lockbox_MOT__V"],
-            origin2=["variable"],
-        ),
+        tl.ramp(lockbox_MOT__V=10.0, t=5.0, duration=1.0),
     )
     return wt_frame.assert_equal(tl_check, tl_ramp)
 

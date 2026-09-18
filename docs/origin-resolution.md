@@ -244,10 +244,10 @@ name that shadows one (NEW-5).
    2026-09-18.** The blast radius estimate held: two tests changed, both of which had encoded the
    defects (`test_originAuto2` the implicit `None`, `test_stack` the absolute landing). The demo and
    lab timelines hash identically before and after.
-4. NEW-8, then B1 and A3 together — A3 currently masks B1. **NEW-8 is blocked**: the exemption was
-   implemented on 2026-09-18 and backed out, because it removes the "hold at the current value, then
-   ramp" idiom that `test_ramp_combined` relies on. See KNOWN_ISSUES A8 for the two readings and what
-   each costs.
+4. ~~NEW-8~~ **done 2026-09-18** — the value origin is resolved only for `df__no_start_points`. It was
+   briefly thought to be blocked on an idiom in `test_ramp_combined`; that test turned out to be a
+   2025-03 translation of the old `wait` mechanism, and `ramp(v=target, t=..., duration=...)` says the
+   same thing. Then B1 and A3 together — A3 currently masks B1.
 5. Diagnostics: ~~NEW-3~~ (done: `previous` names the empty timeline), NEW-2, NEW-4, and
    ~~the `Previous <var> not found` message~~ (done: a variable with no history now says so).
 

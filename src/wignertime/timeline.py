@@ -475,14 +475,21 @@ def ramp(
         timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS__RAMP
     )
 
-    # NOTE: the value origin is applied here to *every* start point, including one the
-    # user stated explicitly in the 2-D form -- that is A8/#106, still open. Fixing it
-    # by exempting `df_1` was tried on 2026-09-18 and backed out: the suite relies on
-    # the additive reading to express "hold at the current value for 5 s, then ramp"
-    # (`test_ramp_combined`), which the exemption would make inexpressible. See
-    # KNOWN_ISSUES A8.
-    new1 = wt_origin.update(
-        wt_frame.concat([df_1, df__no_start_points]), timeline, origin=origin
+    # A value origin belongs only to a start point that had to be *inferred*. `df_1`
+    # holds the ones the user stated explicitly, through the 2-D form that
+    # `tab:rampExamples` describes as being for cases where the start cannot be inferred
+    # from `origin` -- so adding the inferred value on top of them defeated the only
+    # reason to use the form: a stated 1.0 came out as 8.0 (A8/#106). Those rows take
+    # the time origin and nothing else.
+    #
+    # Nothing is lost by this. To start a ramp at the variable's current value but at a
+    # stated time, the 2-D form was never needed: `ramp(v=target, t=..., duration=...)`
+    # says it, and the default origin supplies the value.
+    new1 = wt_frame.concat(
+        [
+            wt_origin.update(df_1, timeline, origin=[origin[0], None]),
+            wt_origin.update(df__no_start_points, timeline, origin=origin),
+        ]
     )
     new1["function"] = function
     inherit.context(new1, timeline, context=context)

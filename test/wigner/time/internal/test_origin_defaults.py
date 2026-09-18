@@ -127,25 +127,28 @@ def test_an_explicit_anchor_without_one_says_so(tline):
 # --- B2: the lookup bound does not depend on what else is being resolved ------
 
 
-def test_a_start_value_does_not_depend_on_unrelated_variables():
+def test_the_bound_does_not_move_as_the_loop_runs():
     """
-    The bound was recomputed inside the per-variable loop while the loop mutated the
-    times it measured from, so adding an unrelated variable to the same `ramp` moved
-    another variable's start value -- 20.0 alone, 10.0 in company.
+    The bound was recomputed inside the per-variable loop, from the very frame
+    `_update_future` was mutating -- so once `x__A` had been shifted, the measured
+    minimum rose and `y__A` was resolved against a later instant than the one its rows
+    actually occupy.
+
+    Here the fragment starts at t=5.0, and `y__A` still held 2.0 then; it does not step
+    to 8.0 until t=7.0. Measured against `fba0fe0`, the commit before the hoist, this
+    gave 8.0.
     """
     base = tl.stack(
-        tl.create(b__A=10.0, a__A=0.0, t=0.0, context="s"),
+        tl.create(x__A=1.0, y__A=2.0, t=0.0, context="s"),
         tl.anchor(5.0, context="s"),
-        tl.update(b__A=20.0, t=6.0, context="s", origin=0.0),
+        tl.update(y__A=8.0, t=7.0, context="s", origin=0.0),
+        tl.update(x__A=9.0, t=10.0, context="s", origin=0.0),
     )
-    alone = tl.ramp(timeline=base, duration=1.0, b__A=[[0.5, 0.0], [0.5, 3.0]])
-    company = tl.ramp(
-        timeline=base, duration=1.0, b__A=[[0.5, 0.0], [0.5, 3.0]], a__A=1.0
+    new = tl.update(
+        base, origin=["anchor", "variable"], x__A=[[0.0, 0.0]], y__A=[[3.0, 0.0]]
     )
-    value__b = lambda t: t[(t["variable"] == "b__A") & (t["function"].notna())][
-        "value"
-    ].tolist()[0]
-    assert value__b(alone) == value__b(company) == pytest.approx(10.0)
+    assert new.iloc[-1]["variable"] == "y__A"
+    assert new.iloc[-1]["value"] == pytest.approx(2.0)
 
 
 def test_the_bound_is_the_instant_the_rows_will_occupy(tline):

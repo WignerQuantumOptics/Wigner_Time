@@ -299,10 +299,12 @@ and the verification results are recorded in the entries themselves.
 
 The trap that used to lead this section, **A4**, was fixed on 2026-09-18: a `ramp` onto an
 anchorless timeline no longer lands at absolute time, because `ramp`'s chain now has a `"last"` step
-and a terminal `0.0`. The live one in the same area is **A8/#106** — a value origin is added on top of
-a `ramp` start value the user stated explicitly — and it is **blocked on a maintainer decision**, not
-on implementation: the fix removes the "hold at the current value, then ramp" idiom that
-`test_ramp_combined` relies on. Read A8 before touching `ramp`'s value handling.
+and a terminal `0.0`. **A8 was fixed the same day**: a start value stated in the 2-D form is now taken as
+written, and the value origin is resolved only for the variables whose start had to be inferred. The
+rule to keep in mind when writing a ramp is which form you are in — `ramp(v=target, t=..., duration=...)`
+starts from wherever the variable currently sits, while `ramp(v=[[t1, v1], [t2, v2]])` starts from `v1`,
+full stop. The live items left in `ramp`'s value handling are **B1** and **A3**, which sit in the same
+block and must be settled together, A3 currently masking B1.
 
 Not covered by `KNOWN_ISSUES.md`:
 

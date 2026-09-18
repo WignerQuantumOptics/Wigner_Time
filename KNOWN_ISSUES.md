@@ -184,22 +184,25 @@ tl.ramp(timeline=base, coil__A=[[0.0, 1.0], [0.5, 3.0]])
 
 Fix direction: resolve the value origin only for variables in `df__no_start_points`, never for those in `df_1`. Settle together with B1 and A3, which sit in the same block of `ramp`.
 
-**Attempted and backed out, 2026-09-18 — this needs a maintainer decision.** The exemption is two lines and works, but it removes an idiom the suite itself relies on. `test_ramp_combined` is written as
+**RESOLVED AND FIXED 2026-09-18**, by the fix direction above.
+
+The exemption was first implemented, then backed out the same day on the grounds that it removed an idiom `test_ramp_combined` relied on — "hold at the current value for 5 s, then ramp", written with a stated start of `0.0` used as an *offset*. **That reasoning was wrong, and the maintainer spotted why**: the test dates from 2025-03 (`2927057`) and is a translation of the `wait` mechanism that the origin machinery replaced. The 2-D form was never needed for it. All of these were measured equal on 2026-09-18:
 
 ```python
-# 'Alternative to wait-ing 5s': hold at the current value for 5 s, then ramp to 10
-tl.ramp(lockbox_MOT__V=[[5.0, 0.0], [1.0, 10.0]],
-        origin=["lockbox_MOT__V", "lockbox_MOT__V"])
+base = tl._populate_timeline("lockbox_MOT__V", [[1.0, 1.0]], context="badger")
+
+tl.ramp(base, lockbox_MOT__V=[[5.0, 0.0], [1.0, 10.0]],
+        origin=["lockbox_MOT__V", "lockbox_MOT__V"], origin2=["variable"])  # the test, 2025
+tl.ramp(base, lockbox_MOT__V=[[5.0, 0.0], [1.0, 10.0]], origin=["lockbox_MOT__V", "variable"])
+tl.ramp(base, lockbox_MOT__V=10.0, t=5.0, duration=1.0)                        # idiomatic
+tl.ramp(base, lockbox_MOT__V=10.0, t=5.0, duration=1.0, origin=["last", "variable"])
+
+# all -> [[6.0, 1.0], [7.0, 10.0]]
 ```
 
-where the stated start value `0.0` is an **offset** from the variable's current value, not an absolute — the additive reading is what expresses "hold". Exempting `df_1` makes the start absolute, and there is then no way to say "start where it is now, but at *this* time", because the 2-D form has no spelling for "time stated, value inferred".
+`t` places the start point and the default origin supplies its value, which is exactly what "drop a ramp in at this moment, from wherever the variable is" means. So the 2-D form carries no second job, `tab:rampExamples` is honoured literally, and the exemption costs nothing.
 
-So the two readings are not both available, and choosing between them is an API decision:
-
-- **absolute** — `tab:rampExamples` is honoured literally, A8 closes, and the hold idiom needs a new spelling (e.g. `None` in the value position of a 2-D row, meaning "infer this one").
-- **additive** — the hold idiom survives, and `tab:rampExamples`'s "for cases where the start cannot be inferred from `origin`" has to be reworded, since the origin *is* still applied.
-
-Note that step 3 (2026-09-18) widened A8's reach: `ramp(..., origin=0.0)` now completes its value slot to `"variable"`, so a stated start value is displaced in cases where it previously was not. That makes the decision more urgent, not less.
+The test is rewritten to the idiomatic spelling, and `test_ramp_start_stated_explicitly` now pins the behaviour the issue is about: with `lockbox_MOT__V` sitting at 0.2, a ramp written from 0.0 starts at 0.0.
 
 ### A9 — reserved origin words silently shadow real context and variable names — **RESOLVED AND FIXED 2026-09-18**
 
