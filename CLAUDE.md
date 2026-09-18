@@ -151,12 +151,31 @@ hand-passed resolution is what reaches the hardware. For per-ramp resolution, ba
 
 ### Origins — why chaining is causal by default
 
-`internal/origin.py` is the heart of the package. An `origin` is a `[time, value]` pair where each
-slot may be a number or a string. Reserved strings: `anchor`, `last`, `variable` (a per-variable
-self-reference); anything else is resolved as a `variable` name, then as a `context`. `origin.update`
-shifts a newly built fragment's `time`/`value` per variable relative to the preceding timeline, which
-is what makes `stack(timeline, update(...), ramp(...))` join end-to-end without explicit times.
-Defaults live in `config.ORIGIN__DEFAULTS`.
+`internal/origin.py` is the heart of the package. An `origin` is a `[time, value]` pair.
+`origin.update` shifts a newly built fragment's `time`/`value` per variable relative to the preceding
+timeline, which is what makes `stack(timeline, update(...), ramp(...))` join end-to-end without
+explicit times.
+
+**The two slots admit different vocabularies** (2026-09-18, A7/#105):
+
+| slot | admits |
+| --- | --- |
+| time | a number, `"anchor"`, `"last"`, `"variable"`, a variable name, a context name |
+| value | a number, `"variable"`, a variable name |
+
+The time slot asks *when*; the value slot asks *how much, of what*, and only a variable names a
+quantity — `"anchor"`, `"last"` and a context name each resolve to whichever variable happens to hold
+the row at that instant, so they answered in the wrong units. They now raise. Nothing is lost: "the
+value `coil__A` held at the end of molasses" is `["molasses", "variable"]`. The `fig:origin` caption
+licensed the wider reading and was amended; **the figure image still draws the old undivided tree and
+needs redrawing.** `_ORIGINS` is the single list of reserved words, and a variable or context named
+after one is refused where it is written.
+
+**`None` in a slot means "defer to the default for this slot"; `0.0` means "absolute".** Do not
+conflate them — that conflation was A6. `config.ORIGIN__DEFAULTS` (for `update`/`anchor`) and
+`config.ORIGIN__DEFAULTS__RAMP` are **terminal chains**: each entry's time reference is tried in turn,
+and if none is satisfiable the origin is `0.0` with a warning. A partially stated origin keeps the
+default for the slot it omits.
 
 Three properties of the mechanism that are easy to break:
 
@@ -168,13 +187,15 @@ Three properties of the mechanism that are easy to break:
   `time__max__relative` plumbing in `origin.py` is for, and what makes interweaving see the state that
   physically precedes it.
 - **`ramp` is the exception that carries a value-relative default**, and it matters. It bypasses
-  `config.ORIGIN__DEFAULTS` for its own `[["anchor", "variable"]]`, because a ramp must look up where
-  the variable currently sits; `update` needs no value origin since its values are absolute. The paper
-  claims no default is value-relative (`sec:origin_full`) — that claim is wrong, see KNOWN_ISSUES A6.
-  The consequence to know before writing an interwoven ramp: `origin` given explicitly *replaces* that
-  default instead of completing it, and a bare context name pads to `[name, None]`, so
-  `ramp(..., origin="stage1")` silently starts the ramp from **0.0**. Write
-  `origin=["stage1", "variable"]`.
+  `config.ORIGIN__DEFAULTS` for `config.ORIGIN__DEFAULTS__RAMP`
+  (`[["anchor", "variable"], ["last", "variable"]]`), because a ramp must look up where the variable
+  currently sits; `update` needs no value origin since its values are absolute. Since 2026-09-18 an
+  explicitly given origin *completes* rather than replaces that default, so
+  `ramp(..., origin="stage1")` means what it reads as — time from `stage1`, value from the variable
+  itself. (It used to start the ramp from **0.0**, silently: A6.) `sec:origin_full` has been
+  corrected; it claimed no default in the package was value-relative.
+- **A ramp of a variable with no previous value raises**, because there is nothing to start from.
+  Set the variable before ramping it.
 
 *Anchors* are a non-physical variable named `⚓` (`config.LABEL__ANCHOR`), auto-numbered `⚓_001`, used
 as a time reference within a `context`. They deliberately have no `connection`, so
@@ -276,10 +297,12 @@ not re-report its section F. Its items were verified against the live repo on 20
 `origin.py` self-import) and E (the suite aborting when an optional extra was absent) were fixed then,
 and the verification results are recorded in the entries themselves.
 
-One live trap worth knowing before you write any `ramp`, because it is silent: **A4** — a `ramp` onto a
-timeline containing no `anchor` lands at absolute time, so it can be placed *before* the rows it was
-appended to. `ramp` passes an anchor-only `origin__defaults`, so the `config.ORIGIN__DEFAULTS`
-fallback does not save it. Following the "every stage ends with an anchor" convention masks it.
+The trap that used to lead this section, **A4**, was fixed on 2026-09-18: a `ramp` onto an
+anchorless timeline no longer lands at absolute time, because `ramp`'s chain now has a `"last"` step
+and a terminal `0.0`. The live one in the same area is **A8/#106** — a value origin is added on top of
+a `ramp` start value the user stated explicitly — and it is **blocked on a maintainer decision**, not
+on implementation: the fix removes the "hold at the current value, then ramp" idiom that
+`test_ramp_combined` relies on. Read A8 before touching `ramp`'s value handling.
 
 Not covered by `KNOWN_ISSUES.md`:
 
