@@ -408,3 +408,24 @@ def test_rampDoesNotRaise3(tl_anchor):
     return wt_frame.assert_equal(
         tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=0.0, duration=1.0)), tl_anchor
     )
+
+
+def test_boundary_frames_are_compared_variable_by_variable():
+    """
+    B1/#108. `new1` and `new2` do not hold their variables in the same order once the
+    1-D and 2-D input forms are mixed in one call: `new1` takes the explicitly started
+    variables first, `new2` the inferred ones. The degenerate-row mask subtracted them
+    positionally, so it compared one variable's boundary against another's.
+
+    Here nothing is degenerate -- `X__A` runs 7.0 -> 5.0 and `Y__A` 5.0 -> 7.0, at
+    different times -- but positionally each start matches the *other* variable's end in
+    value, so every row was flagged, and A3's early return then discarded the entire
+    ramp without a word. Measured on `5d5a0cd`: 0 rows added instead of 4.
+    """
+    base = tl.create(X__A=1.0, Y__A=5.0, t=0.0, context="s")
+    result = tl.ramp(
+        base, X__A=[[1.0, 7.0], [2.0, 5.0]], Y__A=7.0, duration=3.0, origin=0.0
+    )
+
+    assert len(result) - len(base) == 4
+    assert set(result[result["function"].notna()]["variable"]) == {"X__A", "Y__A"}

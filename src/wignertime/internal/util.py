@@ -85,7 +85,8 @@ def ensure_pair(l: list):
             return [None, None]
         case [*x] if len(l) > 2:
             raise ValueError(
-                f"Two many arguments to `ensure_pair`, {l} should be a pair."
+                "Too many elements in an origin: {!r}. An origin is a"
+                " `[time, value]` pair, so at most two.".format(l)
             )
         case _:
             raise ValueError(f"Unexpected argument to `ensure_pair`.")

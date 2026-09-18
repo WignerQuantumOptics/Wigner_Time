@@ -235,6 +235,10 @@ def find(
 
     Often, `None` will be returned for a value as it would be presumptuous to assume the same value origin for all devices.
 
+    N.B. `"variable"` is **not** resolved here: it is a placeholder for whichever variable
+    is being placed, and `origin.update` substitutes the actual name before calling this
+    function. It is listed among the reserved words because that is where users meet it.
+
     N.B. `variable` strings take precedence over `context`s and `context`s are special. For convenience, using a `context` as an `origin` will default to picking out an `anchor`, if available. If not, then the 'last' value of the context will be used.
 
     `time__max` is the (non origin-corrected) maximum time that should be considered when trying to find previous values.
@@ -272,7 +276,11 @@ def find(
     # TODO:
     # - More meaningful error if anchor is not available
 
-    o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))
+    # Normalised once, here. `find` used to do this twice -- once for the early return
+    # and again through `sanitize_origin` -- which left the "a string origin needs a
+    # timeline" check unable to gate the early return, and a reader unable to tell which
+    # normalisation was authoritative (D10/#124).
+    o = sanitize_origin(timeline, origin)
 
     if o == [None, None]:
         return [None, None]
@@ -321,6 +329,28 @@ def find(
         if (label in _ORIGINS) and (label not in _ORIGINS__BY_SLOT[slot]):
             raise error__slot__value(label, "it names an instant, not a quantity")
 
+        if label == "variable":
+            # `"variable"` is a placeholder, not a reference: it means "each variable
+            # relative to its own entry", which only has an answer once a variable has
+            # been named. `origin.update`'s per-variable loop substitutes the actual
+            # name before calling `find`, so `find` never sees it through the public
+            # API -- but it is listed in `_ORIGINS` and in this function's own
+            # docstring, so reaching here directly deserves better than
+            # `unsupported option` (D8/#122).
+            raise ValueError(
+                "\n".join(
+                    [
+                        '`origin="variable"` cannot be resolved by `origin.find`'
+                        " alone: it stands for whichever variable is being placed, and"
+                        " `find` resolves one origin for the frame as a whole.",
+                        "",
+                        "It is substituted per variable by `origin.update`, so it works"
+                        " through `update`, `ramp` and `anchor`. To resolve one here,"
+                        " name the variable.",
+                    ]
+                )
+            )
+
         if label == "anchor":
             if not wt_anchor.is_available(timeline):
                 raise ValueError(
@@ -365,8 +395,6 @@ def find(
             )
         else:
             raise error__unsupported_option(label)
-
-    o = sanitize_origin(timeline, origin)
 
     # The slots are resolved in order, because the value lookup is bounded by the time
     # origin: the value taken is the one *in effect at the instant the new rows will

@@ -502,9 +502,18 @@ def ramp(
     # TODO: It would be more efficient to do these checks earlier on (but more complicated).
     # TODO: Move this check into expand?
 
+    # `new1` and `new2` are assembled from different dictionaries and so do not hold
+    # their variables in the same order: `new1` takes the explicitly started ones first
+    # and the inferred ones after, `new2` the reverse. Subtracting them positionally
+    # therefore compared one variable's boundary against another's whenever the two
+    # input forms were mixed in a single call (B1/#108). Align on `variable` first --
+    # each frame holds exactly one row per variable, `df_1` and `df__no_start_points`
+    # being disjoint by construction.
+    new2__aligned = wt_frame.align_to(new2, new1["variable"])
+
     TOL = 1e-15
-    time_close = np.abs(new1["time"] - new2["time"]) < TOL
-    value_close = np.abs(new1["value"] - new2["value"]) < TOL
+    time_close = np.abs(new1["time"] - new2__aligned["time"]) < TOL
+    value_close = np.abs(new1["value"] - new2__aligned["value"]) < TOL
     mask__offending = time_close | value_close
 
     # Remove offending rows from both DataFrames

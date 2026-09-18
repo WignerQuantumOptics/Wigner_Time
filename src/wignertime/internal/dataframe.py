@@ -89,6 +89,16 @@ def subframe(df: CLASS, column: str, values: list, func: Callable | None = None)
     return df[df[column].isin(values)].reset_index(drop=True)
 
 
+def align_to(df, order, column="variable"):
+    """
+    Returns `df`, one row per entry of `order`, in that order.
+
+    For comparing two frames that hold the same keys in different orders. `order` must
+    contain no repeats, and every one of its entries must appear in `df`.
+    """
+    return df.set_index(column).loc[list(order)].reset_index()
+
+
 def row_from_max_column(df, column="time"):
     """
     Finds the maximum value of the column and returns the corresponding row.

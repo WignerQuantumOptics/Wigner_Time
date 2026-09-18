@@ -247,9 +247,14 @@ name that shadows one (NEW-5).
 4. ~~NEW-8~~ **done 2026-09-18** — the value origin is resolved only for `df__no_start_points`. It was
    briefly thought to be blocked on an idiom in `test_ramp_combined`; that test turned out to be a
    2025-03 translation of the old `wait` mechanism, and `ramp(v=target, t=..., duration=...)` says the
-   same thing. Then B1 and A3 together — A3 currently masks B1.
-5. Diagnostics: ~~NEW-3~~ (done: `previous` names the empty timeline), NEW-2, NEW-4, and
-   ~~the `Previous <var> not found` message~~ (done: a variable with no history now says so).
+   same thing. **B1 done 2026-09-18** — the boundary frames are aligned on `variable` before being
+   subtracted; the defect was not merely a wrong comparison but a silent deletion of the whole ramp,
+   because A3's early return acts on the bad mask. **A3 is the last item in this block** and is a
+   maintainer decision, not a defect to be fixed unilaterally.
+5. ~~Diagnostics: NEW-2, NEW-3, NEW-4, and the `Previous <var> not found` message.~~ **Done
+   2026-09-18.** `previous` names an empty timeline; a variable with no history says so; the
+   `ensure_pair` message names the origin rather than the helper, and `find` normalises once;
+   `"variable"` reaching `find` directly explains that it is substituted per variable upstream.
 
 ## Manuscript implications
 

@@ -249,7 +249,22 @@ Tracked as [#132](https://github.com/WignerQuantumOptics/Wigner_Time/issues/132)
 
 ## B. Correctness
 
-### B1 — `ramp`'s degenerate-row check aligns on index, not on variable — **misalignment VERIFIED; cartesian-expansion sub-claim withdrawn**
+### B1 — `ramp`'s degenerate-row check aligns on index, not on variable — **RESOLVED AND FIXED 2026-09-18**
+
+The two boundary frames are now aligned on `variable` (`dataframe.align_to`) before being subtracted. Each holds exactly one row per variable, `df_1` and `df__no_start_points` being disjoint by construction, so the alignment is total.
+
+**The consequence was worse than "a wrong comparison", because A3 turns it into a silent deletion.** Measured against `5d5a0cd`:
+
+```python
+base = tl.create(X__A=1.0, Y__A=5.0, t=0.0, context="s")
+tl.ramp(base, X__A=[[1.0, 7.0], [2.0, 5.0]], Y__A=7.0, duration=3.0, origin=0.0)
+# before: 0 rows added -- the entire ramp vanished
+# after:  4 rows added
+```
+
+Nothing there is degenerate. But positionally each variable's start matches the *other*'s end in value, so every row was flagged and A3's early return discarded the whole ramp. Pinned by `test_boundary_frames_are_compared_variable_by_variable`.
+
+The diagnosis follows.
 
 `np.abs(new1["time"] - new2["time"])` relies on pandas index alignment. `new1` is `concat([df_1, df__no_start_points])` and `new2` is `df_2`; there is no guarantee that position *i* in one refers to the same variable as position *i* in the other, particularly in the `max_ndim == 2` branch where the two frames are built from different subsets of `vtvc_dict`.
 
@@ -656,7 +671,11 @@ Still open in this group, and genuinely drift rather than defect: `sane_state` /
 
 1. **Land the pending decisions first.** The §C decision has two halves. *Event functions lose `**kwargs`* **landed 2026-09-16** (`19d41ad`), and the demo, the lab and the manuscript were rewritten together, so `sec:demonstration`, `sec:stacking`, `sec:interweaving` and `sec:forwarding` are already reconciled on that point. *`finish` derives the final state from the timeline* has not landed, and still rewrites `finish` in both the demo and `sec:demonstration`. The parameter-style divergence listed above is unaffected by either and remains the bulk of this item.
 
-### D8 — `"variable"` resolves only on one call path **[new, found 2026-09-03]**
+### D8 — `"variable"` resolves only on one call path — **RESOLVED AND FIXED 2026-09-18**
+
+Not by making `find` resolve it — it cannot, since `"variable"` means "whichever variable is being placed" and `find` resolves one origin for the frame as a whole. Instead `find` now says exactly that, and says where it *is* handled. `find` is testable in isolation for every origin it can meaningfully take, and the one it cannot no longer pretends to be a formatting error.
+
+The diagnosis follows.
 
 The literal string `"variable"` is not handled by `_to_col_var` at all. It is substituted for the actual variable name inside `origin.update`'s `find_every_origin` loop, before `find` is reached. So it works through `update`, `ramp` and `anchor`, and raises `variable is an unsupported option for 'origin'` when `origin.find` is called directly with it — even though `find` is the function whose docstring enumerates the reserved labels, and `_ORIGINS` lists `"variable"` among them.
 
@@ -666,7 +685,11 @@ Not user-visible today, but it means `find` cannot be tested or reused in isolat
 
 `graphic/origin-decision-tree-highlighted.png` (`fig:origin`) shows the default as `[["anchor", 0.0], ["last", 0.0]]`. `config.ORIGIN__DEFAULTS` is `[["anchor", None], ["last", None]]`. Numerically they agree, since a value origin of 0.0 and an absent value origin both leave values untouched, but they are different objects and only one is what the code does. Whichever way it is settled, the figure and the constant should say the same thing — and if the default stops living in `config`, as proposed, the figure's root node needs rewording rather than renumbering.
 
-### D10 — `ensure_pair` message typo, and `find` normalises twice **[new, found 2026-09-03]**
+### D10 — `ensure_pair` message typo, and `find` normalises twice — **RESOLVED AND FIXED 2026-09-18**
+
+The message now names the origin rather than the helper ("An origin is a `[time, value]` pair, so at most two"), and `find` normalises once, through `sanitize_origin`, so the timeline check does gate the early return.
+
+The diagnosis follows.
 
 `internal/util.ensure_pair` raises a message beginning "Two many arguments to" — "Two" for "Too". Reachable from user input: `origin=["a", "b", "c"]`.
 

@@ -220,7 +220,19 @@ def test_a_per_variable_self_reference_places_each_on_its_own_history(tline):
     most recent anchor rather than each variable's own last row.
     """
     assert points(
-        tl.ramp(timeline=tline, coil__A=9.0, t=5.0, duration=1.0, origin=["variable", "variable"])
+        tl.ramp(
+            timeline=tline,
+            coil__A=9.0,
+            t=5.0,
+            duration=1.0,
+            origin=["variable", "variable"],
+        )
     ) == points(
-        tl.ramp(timeline=tline, coil__A=9.0, t=5.0, duration=1.0, origin=["coil__A", "variable"])
+        tl.ramp(
+            timeline=tline,
+            coil__A=9.0,
+            t=5.0,
+            duration=1.0,
+            origin=["coil__A", "variable"],
+        )
     )
