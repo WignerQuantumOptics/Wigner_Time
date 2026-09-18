@@ -23,15 +23,25 @@ from wignertime.demo import full_experiment as ex
 
 @pytest.fixture
 def dfseq():
+    """
+    The ramp starts at t=10.0: the timeline holds no anchor, so `ramp` falls to the
+    `"last"` step of its default chain and `t=5.0` is a displacement from the last
+    entry, at t=5.0.
+
+    Until 2026-09-18 the chain had no `"last"` step, so it fell off the end and the rows
+    landed in *absolute* time -- here at t=5.0, which coincided with the last entry only
+    by arithmetic accident. That is A4: the same call on a timeline whose last entry sat
+    at t=7.0 would have placed the ramp before it, silently.
+    """
     return frame.new(
         [
             [0.0, "lockbox_MOT__V", 0.000000, ""],
             [5.0, "lockbox_MOT__V", 0.000000, ""],
-            [5.0, "lockbox_MOT__V", 0.000000, ""],
-            [5.2, "lockbox_MOT__V", 0.045177, ""],
-            [5.4, "lockbox_MOT__V", 0.500000, ""],
-            [5.6, "lockbox_MOT__V", 0.954823, ""],
-            [5.8, "lockbox_MOT__V", 1.000000, ""],
+            [10.0, "lockbox_MOT__V", 0.000000, ""],
+            [10.2, "lockbox_MOT__V", 0.045177, ""],
+            [10.4, "lockbox_MOT__V", 0.500000, ""],
+            [10.6, "lockbox_MOT__V", 0.954823, ""],
+            [10.8, "lockbox_MOT__V", 1.000000, ""],
         ],
         columns=["time", "variable", "value", "context"],
     )
@@ -62,11 +72,11 @@ def test_stack__kws(dfseq):
             [
                 [0.0, "lockbox_MOT__V", 0.000000, ""],
                 [5.0, "lockbox_MOT__V", 0.000000, ""],
-                [5.0, "lockbox_MOT__V", 0.000000, "test"],
-                [5.2, "lockbox_MOT__V", 0.045177, "test"],
-                [5.4, "lockbox_MOT__V", 0.500000, "test"],
-                [5.6, "lockbox_MOT__V", 0.954823, "test"],
-                [5.8, "lockbox_MOT__V", 1.000000, "test"],
+                [10.0, "lockbox_MOT__V", 0.000000, "test"],
+                [10.2, "lockbox_MOT__V", 0.045177, "test"],
+                [10.4, "lockbox_MOT__V", 0.500000, "test"],
+                [10.6, "lockbox_MOT__V", 0.954823, "test"],
+                [10.8, "lockbox_MOT__V", 1.000000, "test"],
             ],
             columns=["time", "variable", "value", "context"],
         ),

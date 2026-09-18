@@ -11,7 +11,9 @@ account is `docs/paper/main.tex`, `sec:origin` and appendix `sec:origin_full`.
 (34104ce) on 2026-09-03, not inferred from reading. Where behaviour contradicts the manuscript or the
 decision-tree figure, that is stated.
 
-**Step 1 of the suggested order landed 2026-09-18** (slot vocabularies and reserved words, A7/#105 and A9/#107). The Layer C2 table below therefore describes what the code did *before* that change; it is kept because the measurements are the argument for the narrowing. Rows now refused are marked **REFUSED**. Steps 2 and 3 are being taken together, per the maintainer's settlement of the lookup bound (see the note at the end of Layer C2).
+**Steps 1 to 3 of the suggested order landed 2026-09-18.** Layers A, B (as read by `auto`), C2 and the lookup bound have all changed; the tables below describe the code *before* those changes and are kept because the measurements are the argument for them. What replaced each is recorded inline. Remaining: step 4 (A8 — **blocked on a maintainer decision**, see KNOWN_ISSUES; then B1 and A3) and step 5 (diagnostics NEW-2 and NEW-4).
+
+**Step 1** (slot vocabularies and reserved words, A7/#105 and A9/#107). The Layer C2 table below therefore describes what the code did *before* that change; it is kept because the measurements are the argument for the narrowing. Rows now refused are marked **REFUSED**. Steps 2 and 3 are being taken together, per the maintainer's settlement of the lookup bound (see the note at the end of Layer C2).
 
 **Re-verified 2026-09-17.** The measured tables still hold, with one correction below and one
 substantive change: `create` no longer takes `origin` or `timeline` at all (#45 / C2), so Layer A has
@@ -56,8 +58,11 @@ Defects:
   2026-09-16**: `create` initialises a timeline from scratch and now takes neither argument, which is
   the signature `sec:functions` documented all along. There is nothing for it to be relative to, so
   no default applies. To extend a timeline, use `update`.
-- **NEW-1** — the figure's root node reads `[["anchor", 0.0], ["last", 0.0]]`; the config has `None`
-  in both value slots. Figure and code disagree.
+- ~~**NEW-1** — the figure's root node reads `[["anchor", 0.0], ["last", 0.0]]`; the config has `None`
+  in both value slots.~~ **Settled 2026-09-18**: they no longer disagree in substance, because
+  `None` now means "defer to the default for this slot" while `0.0` means "absolute" — and for a
+  value slot whose default is absolute, the two coincide. The figure still needs redrawing for the
+  slot split (see **The figure**), and its root node should read `None` when it is.
 
 ## Layer B — normalisation to a `[time, value]` pair
 
@@ -233,12 +238,18 @@ name that shadows one (NEW-5).
 1. ~~Slot vocabularies and reserved-word handling (NEW-5, NEW-6). Pure validation — no behaviour change
    for code that is already correct.~~ **Done 2026-09-18.** 268 tests pass; the demo and the lab
    timelines are unchanged, as they must be — the change only refuses, it never resolves differently.
-2. Bound unification and hoisting (NEW-7, B2).
-3. Per-slot default completion and the caller-owned chain (A6, A4, NEW-9, NEW-1). The real behaviour
-   change. Blast radius is small: every existing `ramp` test already spells out both slots, which is
-   precisely why A6 was never caught.
-4. NEW-8, then B1 and A3 together — A3 currently masks B1.
-5. Diagnostics: NEW-2, NEW-3, NEW-4, and the `Previous <var> not found` message.
+2. ~~Bound unification and hoisting (NEW-7, B2).~~ **Done 2026-09-18.** One bound for both
+   branches, built from the *resolved* time origin and computed once before the loop.
+3. ~~Per-slot default completion and the caller-owned chain (A6, A4, NEW-9, NEW-1).~~ **Done
+   2026-09-18.** The blast radius estimate held: two tests changed, both of which had encoded the
+   defects (`test_originAuto2` the implicit `None`, `test_stack` the absolute landing). The demo and
+   lab timelines hash identically before and after.
+4. NEW-8, then B1 and A3 together — A3 currently masks B1. **NEW-8 is blocked**: the exemption was
+   implemented on 2026-09-18 and backed out, because it removes the "hold at the current value, then
+   ramp" idiom that `test_ramp_combined` relies on. See KNOWN_ISSUES A8 for the two readings and what
+   each costs.
+5. Diagnostics: ~~NEW-3~~ (done: `previous` names the empty timeline), NEW-2, NEW-4, and
+   ~~the `Previous <var> not found` message~~ (done: a variable with no history now says so).
 
 ## Manuscript implications
 

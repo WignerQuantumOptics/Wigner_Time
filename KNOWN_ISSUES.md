@@ -65,6 +65,11 @@ Physically the dropped ramp is usually a flat line, so little is lost directly; 
 
 ### A4 — `origin.auto` falls through to an implicit `None`, and `ramp` walks into it — **VERIFIED REACHABLE, highest severity**
 
+**RESOLVED AND FIXED 2026-09-18.** The maintainer chose the second of the two options: fall back, not raise. `auto`'s time default is now a **terminal chain**, and `ramp` owns `config.ORIGIN__DEFAULTS__RAMP = [["anchor", "variable"], ["last", "variable"]]` -- the `"last"` step it never had. Where nothing in the chain is satisfiable the time origin is `0.0` **with a warning**, so `auto` can no longer return `None` implicitly. NEW-9 goes with it: an explicit `origin="anchor"` on an anchorless timeline now raises a message naming the missing anchor rather than `anchor is an unsupported option`, while the *default* path falls through the chain as documented -- the two paths now differ deliberately rather than accidentally.
+
+The diagnosis follows.
+
+
 `internal/origin.auto`. When `origin is None` and every entry in `origin__defaults` contains `"anchor"` but no anchor is available in the timeline, the loop `continue`s past every option and the function returns `None` implicitly.
 
 Downstream, `origin=None` makes `find` return `[None, None]` and `update` return the timeline untouched — so the rows land at absolute time rather than relative to anything, without complaint.
@@ -104,6 +109,11 @@ Whether it stays silent depends on the origin machinery downstream. With `update
 Fix direction is A1's: validate keywords against the constituents' signatures and raise, listing the unmatched ones. See §C “Design intent”: this is layer 2, and the forwarding idiom does not use it. Note one implementation cost – `stack`'s constituents are opaque `lambda x, **kwargs__new` closures, so signature validation requires `function__lambda` to expose the function it wraps first. The two should be settled together, and C1 is the same decision a third time — `stack`, `cascade` and the core functions all inherit their permissiveness from `**kwargs` forwarding, and it is worth deciding the policy once rather than three times.
 
 ### A6 — an interwoven `ramp` silently loses its value origin and starts from zero **[new, found 2026-09-02; recalled by the maintainer as a long-standing design debate with T. W. Clark]**
+
+**RESOLVED AND FIXED 2026-09-18**, by the fix direction below: `auto` completes a partial origin **per slot** rather than replacing it wholesale. The vocabulary change that makes this coherent is that **`None` in a slot now means *defer to the default for this slot*, and `0.0` means *absolute***; previously `None` meant absolute, which is precisely why a bare context name cancelled `ramp`'s value default. Measured after the change: `ramp(..., origin="stage1")` starts from 2.0, the value the variable held in `stage1`, and agrees with `origin=["stage1", "variable"]` exactly. B2 was settled in the same commit, as required.
+
+The diagnosis follows.
+
 
 `ramp` is the only core function that *needs* a value origin: a ramp runs from wherever the variable currently sits to the target, so the start value has to be looked up. That is why it does not use `config.ORIGIN__DEFAULTS` but passes its own `origin__defaults=[["anchor", "variable"]]` — time from the anchor, **value from the variable's own previous value**. `update` needs nothing of the kind, because its values are absolute.
 
@@ -174,6 +184,23 @@ tl.ramp(timeline=base, coil__A=[[0.0, 1.0], [0.5, 3.0]])
 
 Fix direction: resolve the value origin only for variables in `df__no_start_points`, never for those in `df_1`. Settle together with B1 and A3, which sit in the same block of `ramp`.
 
+**Attempted and backed out, 2026-09-18 — this needs a maintainer decision.** The exemption is two lines and works, but it removes an idiom the suite itself relies on. `test_ramp_combined` is written as
+
+```python
+# 'Alternative to wait-ing 5s': hold at the current value for 5 s, then ramp to 10
+tl.ramp(lockbox_MOT__V=[[5.0, 0.0], [1.0, 10.0]],
+        origin=["lockbox_MOT__V", "lockbox_MOT__V"])
+```
+
+where the stated start value `0.0` is an **offset** from the variable's current value, not an absolute — the additive reading is what expresses "hold". Exempting `df_1` makes the start absolute, and there is then no way to say "start where it is now, but at *this* time", because the 2-D form has no spelling for "time stated, value inferred".
+
+So the two readings are not both available, and choosing between them is an API decision:
+
+- **absolute** — `tab:rampExamples` is honoured literally, A8 closes, and the hold idiom needs a new spelling (e.g. `None` in the value position of a 2-D row, meaning "infer this one").
+- **additive** — the hold idiom survives, and `tab:rampExamples`'s "for cases where the start cannot be inferred from `origin`" has to be reworded, since the origin *is* still applied.
+
+Note that step 3 (2026-09-18) widened A8's reach: `ramp(..., origin=0.0)` now completes its value slot to `"variable"`, so a stated start value is displaced in cases where it previously was not. That makes the decision more urgent, not less.
+
 ### A9 — reserved origin words silently shadow real context and variable names — **RESOLVED AND FIXED 2026-09-18**
 
 `_ORIGINS` is now derived from `_ORIGINS__TIME`, so there is one list rather than two that can drift, and `timeline._populate_timeline` refuses a `variable` or a `context` named after one of them — at the point the name is written, not where it later fails to resolve, because by then the timeline no longer records that anything else was meant. The diagnosis follows.
@@ -232,6 +259,11 @@ Fix direction: match on `variable` explicitly (merge or set the index to `variab
 
 ### B2 — `find_every_origin` is order-dependent
 
+**RESOLVED AND FIXED 2026-09-18.** `time__max__relative` is computed once, before the per-variable loop. The reproduction now gives 10.0 either way -- and 10.0 is also the physically right answer, since the ramp starts at t=5.5 and `b__A` does not step to 20.0 until t=6.0.
+
+The diagnosis follows.
+
+
 `internal/origin.update`. Inside the per-variable loop, `time__max__relative=timeline__future["time"].min()` is recomputed on each iteration — but `_update_future` mutates `timeline__future` in place, so earlier iterations shift the times that later iterations measure against. The result therefore depends on the iteration order of `timeline__future["variable"].unique()`, which is insertion order, which is user-input order.
 
 Also note the function reassigns `timeline__future` locally and returns nothing; the caller relies on in-place mutation through the shared object. It works, but the rebinding is misleading — either return the frame and use the return value, or drop the rebinding.
@@ -284,6 +316,11 @@ Fix direction: check group size explicitly and raise naming the offending variab
 
 ### B7 — a value-only origin against a variable raises a raw `TypeError` **[new, found 2026-09-03]**
 
+**RESOLVED AND FIXED 2026-09-18.** `find` now resolves the time slot first and builds one bound from the **resolved** time -- the instant the new rows will occupy -- for both branches. `origin=[None, "variable"]` is consequently usable, and is the honest spelling of `ramp`'s own default. The related rough edge is also addressed: a variable with no history now gets a message saying so, instead of `<var> is an unsupported option for 'origin'`.
+
+The diagnosis follows.
+
+
 In `find`'s `[None | float, str]` branch the value lookup's bound is `n1 + time__max__relative`. When the time slot is `None` — the caller asked for a value origin and no time origin — that is `None + float`:
 
 ```python
@@ -303,11 +340,35 @@ Fix direction: give both branches one definition of the bound, namely the instan
 
 ### B8 — `"last"` on an empty timeline raises an opaque pandas error **[new, found 2026-09-03]**
 
+**RESOLVED AND FIXED 2026-09-18.** Guarded in `origin.previous`, which now names the empty timeline and points at `origin=0.0`. The default path no longer reaches it at all: `"last"` is skipped as unsatisfiable and the chain runs to its terminal `0.0`.
+
+The diagnosis follows.
+
+
 `origin="last"` resolves through `previous` to `dataframe.row_from_max_column`, which is `df.loc[df[column][::-1].idxmax()]`. On an empty frame that is `ValueError: attempt to get argmax of an empty sequence`, with nothing to connect it to origins, timelines, or the user's call.
 
 It is reachable through the documented default, since `config.ORIGIN__DEFAULTS` falls back to `"last"` — so `update` on an empty timeline takes this path. This is the hole that a terminal `0.0` step in the default chain would close (`docs/origin-resolution.md`, suggested semantics item 3).
 
 Fix direction: guard in `previous`, and either raise naming the timeline as empty or fall back to 0.0 with a warning, consistent with whatever the default chain decides.
+
+---
+
+### B9 — a ramp's sampling depends on where it sits on the time axis **[new, found 2026-09-18]**
+
+`internal/util.range__inclusive` computed its point count as `math.ceil((stop - start) / step) + 1`. `stop - start` is a difference of *absolute* times, so it carries floating-point noise whose sign depends on the interval's position, and a bare `ceil` turns that noise into a different number of points.
+
+Measured, for a nominally 0.8 s ramp at `time_resolution=0.2`:
+
+```
+ 5.0 ->  5.8   duration 0.7999999999999998   5 points, step 0.20
+10.0 -> 10.8   duration 0.8000000000000007   6 points, step 0.16
+```
+
+The endpoints and the tanh shape are right either way, so nothing looks wrong — but the effective resolution, the row count, and hence the ADwin array occupancy are not reproducible: moving a stage earlier or later silently changes the sampling of every ramp after it, and in one of the two cases the `time_resolution` that was asked for is not the one delivered.
+
+**Found by** the A4 fix shifting a test ramp from t=5.0 to t=10.0, which changed its row count from 5 to 6. The origin change was innocent; this was underneath it all along.
+
+**FIXED 2026-09-18** in the same commit, because an honest test of the A4 fix was not possible otherwise: the interval count is rounded first and the ceiling taken only where the quotient is genuinely not whole (`math.isclose`, `rel_tol=1e-9`). Both placements now give 5 points at step 0.2, and no other row count in the suite, the demo or the lab changed.
 
 ---
 

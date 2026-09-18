@@ -122,9 +122,27 @@ def range__inclusive(start, stop, step):
     Numpy's `arange`, but including the final value.
 
     Adapting arange, by adding the step size, leads to awkward corner cases, so we use a modified `linspace` instead.
+
+    The interval count is rounded before the ceiling is taken, because `stop - start` is
+    a difference of absolute times and so carries floating-point noise whose sign
+    depends on where the interval sits on the axis. Bare `ceil` turned that noise into a
+    different number of points: a nominally 0.8 s ramp at a resolution of 0.2 s gave 5
+    points (step 0.2) at t=5.0 and 6 points (step 0.16) at t=10.0. The endpoints and the
+    shape were right either way, but the sampling -- and hence the row count reaching
+    the hardware -- depended on when the ramp happened to be scheduled. See
+    KNOWN_ISSUES B9.
     """
     # Uses `math` because it returns an integer rather than a float.
-    num = np.abs(math.ceil((stop - start) / step) + 1)
+    intervals = (stop - start) / step
+    intervals__whole = round(intervals)
+    num = np.abs(
+        (
+            intervals__whole
+            if math.isclose(intervals, intervals__whole, rel_tol=1e-9)
+            else math.ceil(intervals)
+        )
+        + 1
+    )
     return np.linspace(start, stop, num=num)
 
 

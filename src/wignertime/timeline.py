@@ -385,7 +385,7 @@ def ramp(
     t2=None,
     context=None,
     origin=None,
-    origin2=["variable"],
+    origin2=["variable", 0.0],
     function=wt_ramp_function.tanh,
     **vtvc_dict,
 ) -> wt_frame.CLASS | Callable:
@@ -471,8 +471,16 @@ def ramp(
         df__no_start_points.loc[:, "time"] = t
         df__no_start_points.loc[:, "value"] = 0.0
 
-    origin = wt_origin.auto(timeline, origin, origin__defaults=[["anchor", "variable"]])
+    origin = wt_origin.auto(
+        timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS__RAMP
+    )
 
+    # NOTE: the value origin is applied here to *every* start point, including one the
+    # user stated explicitly in the 2-D form -- that is A8/#106, still open. Fixing it
+    # by exempting `df_1` was tried on 2026-09-18 and backed out: the suite relies on
+    # the additive reading to express "hold at the current value for 5 s, then ramp"
+    # (`test_ramp_combined`), which the exemption would make inexpressible. See
+    # KNOWN_ISSUES A8.
     new1 = wt_origin.update(
         wt_frame.concat([df_1, df__no_start_points]), timeline, origin=origin
     )

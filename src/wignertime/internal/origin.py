@@ -9,7 +9,6 @@ This is important for inferring what the user means when they want to add rows t
 """
 
 from copy import deepcopy
-import numpy as np
 
 from wignertime import config as wt_config
 from wignertime.config import wtlog
@@ -106,6 +105,21 @@ def previous(
 
     Raises ValueError if the specified variable, or timeline, doesn't exist.
     """
+    if timeline is None or timeline.empty:
+        raise ValueError(
+            "\n".join(
+                [
+                    "Nothing to resolve {}against: the timeline is empty.".format(
+                        "`{}` ".format(variable) if variable is not None else ""
+                    ),
+                    "",
+                    "An origin is a reference to something already written. On an empty"
+                    " timeline there is nothing to refer to, so give a number instead"
+                    " -- `origin=0.0` places the rows in absolute time.",
+                ]
+            )
+        )
+
     if time__max is not None:
         tline = timeline[timeline["time"] <= time__max]
     else:
@@ -130,26 +144,75 @@ def previous(
             return tl__filtered.iloc[index]
 
 
+def _is_satisfiable__time(timeline, label):
+    """Whether this time reference has anything to refer to in this timeline."""
+    if label == "anchor":
+        return wt_anchor.is_available(timeline)
+    if label == "last":
+        return (timeline is not None) and (not timeline.empty)
+    return True
+
+
 def auto(timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS):
     """
-    For choosing an origin, based on user input and defaults.
+    Completes a partial `origin` from the caller's defaults, **slot by slot**.
 
+    `None` in a slot means *defer to the default for this slot*. `0.0` means *absolute
+    -- no shift*. Keeping those two apart is the whole of A6: a bare string pads to
+    `[s, None]` (`util.ensure_pair`), and while `None` meant "absolute" that silently
+    cancelled `ramp`'s value default, so the documented interweaving idiom
+    `ramp(..., origin="stage1")` started the ramp from zero. Completing per slot makes it
+    mean what it reads as -- time from `stage1`, value from the variable itself.
+
+    The time default is a **chain owned by the caller**, not a single constant: each
+    entry's time slot is tried in turn and the first one this timeline can satisfy is
+    taken. The chain is terminal -- if nothing is satisfiable the time origin is `0.0`,
+    with a warning. It can therefore no longer return `None` implicitly, which is A4: a
+    `ramp` onto an anchorless timeline used to fall off the end of its own single-entry
+    chain and land in absolute time, *before* the rows it was appended to.
+
+    The value default is taken from the same entry, so a caller states the pair it wants
+    once: `[["anchor", "variable"], ["last", "variable"]]` for `ramp`, whose start value
+    must be looked up; `[["anchor", None], ["last", None]]` for `update` and `anchor`,
+    whose values are absolute.
 
     NOTE: Assumes that origin__defaults is a list of pairs.
     """
-    # TODO: Rename to be clearer
+    o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))
 
-    if (origin is None) and (origin__defaults is not None):
-        for od in origin__defaults:
-            if "anchor" in np.array(od).flatten():
-                if wt_anchor.is_available(timeline):
-                    return od
-                else:
-                    continue
-            else:
-                return od
-    else:
-        return origin
+    if origin__defaults is None:
+        return o
+
+    entry = None
+    for od in origin__defaults:
+        candidate = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(od))
+        if isinstance(candidate[0], str) and not _is_satisfiable__time(
+            timeline, candidate[0]
+        ):
+            continue
+        entry = candidate
+        break
+
+    if entry is None:
+        entry = [
+            0.0,
+            (
+                wt_util.ensure_pair(
+                    wt_util.ensure_iterable_with_None(origin__defaults[-1])
+                )[1]
+                if origin__defaults
+                else None
+            ),
+        ]
+        if o[0] is None:
+            wtlog.warning(
+                "No time origin could be resolved from %s, so the new rows are placed "
+                "in absolute time. This timeline has neither an anchor nor any entry to "
+                "be relative to; state `origin=0.0` to say so deliberately.",
+                origin__defaults,
+            )
+
+    return [entry[i] if o[i] is None else o[i] for i in (0, 1)]
 
 
 def sanitize_origin(timeline, orig):
@@ -258,7 +321,14 @@ def find(
         if (label in _ORIGINS) and (label not in _ORIGINS__BY_SLOT[slot]):
             raise error__slot__value(label, "it names an instant, not a quantity")
 
-        if label == "anchor" and wt_anchor.is_available(timeline):
+        if label == "anchor":
+            if not wt_anchor.is_available(timeline):
+                raise ValueError(
+                    "`origin='anchor'` was asked for, but this timeline holds no"
+                    " anchor. Close the preceding stage with `anchor(duration)`, or"
+                    " name what to be relative to -- `origin='last'`, a context, a"
+                    " variable, or a number."
+                )
             return ["variable", label__anchor]
         elif label == "last":
             return ["variable", None]
@@ -273,45 +343,75 @@ def find(
                 )
             anchor = wt_anchor.last(timeline, context=label)
             return ["variable", anchor] if (anchor is not None) else ["context", label]
+        elif slot == "value":
+            # Reached most often through `ramp`'s `"variable"` default, once
+            # `find_every_origin` has substituted the actual name: the variable is being
+            # ramped but has no history to start from. `error__unsupported_option` reads
+            # as though the name were malformed, which sends the reader to the wrong
+            # place entirely.
+            raise ValueError(
+                "\n".join(
+                    [
+                        "No previous value of {!r} to start from: it does not appear in"
+                        " this timeline.".format(label),
+                        "",
+                        "A ramp runs from where the variable currently sits, so it needs"
+                        " one. Either set the variable before ramping it, or state both"
+                        " ends -- `{}=[[t_start, value_start], [t_end, value_end]]`"
+                        " -- and give an absolute value origin,"
+                        " `origin=[<time>, 0.0]`.".format(label),
+                    ]
+                )
+            )
         else:
             raise error__unsupported_option(label)
 
     o = sanitize_origin(timeline, origin)
-    match o:
-        case [float(), float()] | [float(), None] | [None, float()] as lst:
-            tv = lst
 
-        case [str(s1), None | float() as n1]:
-            tv = [
-                _previous_vt(*([timeline, "time"] + _to_col_var(timeline, s1, "time"))),
-                n1,
-            ]
-        case [None | float() as n1, str(s1)]:
-            tv = [
-                n1,
-                _previous_vt(
-                    *([timeline, "value"] + _to_col_var(timeline, s1, "value")),
-                    time__max=n1 + time__max__relative,
-                ),
-            ]
-        case [str(s1), str(s2)] if (s1 == s2):
-            # One label serving both slots, so it must satisfy the stricter vocabulary.
-            tv = _previous_vt(
-                *([timeline, "both"] + _to_col_var(timeline, s1, "value"))
-            )
-        case [str(s1), str(s2)]:
-            t = _previous_vt(*([timeline, "time"] + _to_col_var(timeline, s1, "time")))
-            tv = [
-                t,
-                _previous_vt(
-                    *([timeline, "value"] + _to_col_var(timeline, s2, "value")),
-                    time__max=t + wt_config.TIME_RESOLUTION + time__max__relative,
-                ),
-            ]
+    # The slots are resolved in order, because the value lookup is bounded by the time
+    # origin: the value taken is the one *in effect at the instant the new rows will
+    # occupy*, not the variable's last value in the timeline as a whole. That is what
+    # lets an operation be interwoven and still see the state that physically precedes
+    # it (`sec:origin_full`).
+    #
+    # There is now one definition of that bound instead of two (B7/#114). The numeric
+    # branch used to build it from the *raw* time slot, so `[None, "variable"]` was
+    # `None + float` -- a `TypeError` that made a value-only origin unusable through the
+    # public API -- and the two branches disagreed about what "in effect" meant.
+    time__relative = 0.0 if time__max__relative is None else time__max__relative
 
+    match o[0]:
+        case None:
+            t = None
+        case bool():
+            raise error__unsupported_option(o)
+        case float() | int():
+            t = o[0]
+        case str(s):
+            t = _previous_vt(*([timeline, "time"] + _to_col_var(timeline, s, "time")))
         case _:
             raise error__unsupported_option(o)
-    return tv
+
+    match o[1]:
+        case None:
+            v = None
+        case bool():
+            raise error__unsupported_option(o)
+        case float() | int():
+            v = o[1]
+        case str(s):
+            v = _previous_vt(
+                *([timeline, "value"] + _to_col_var(timeline, s, "value")),
+                # `TIME_RESOLUTION` makes the bound inclusive of a row sitting exactly
+                # at the origin instant, against floating-point drift.
+                time__max=(0.0 if t is None else t)
+                + time__relative
+                + wt_config.TIME_RESOLUTION,
+            )
+        case _:
+            raise error__unsupported_option(o)
+
+    return [t, v]
 
 
 def update(
@@ -351,12 +451,18 @@ def update(
         Now allows for `timeline__future` to deal with values 'inside' `timeline__past`.
         """
 
+        # Computed **once**, before the loop. `_update_future` mutates the very times
+        # this is measured from, so recomputing it per variable made the answer depend
+        # on what else was being resolved, and in what order: adding an unrelated
+        # variable to a `ramp` call moved another variable's start value (B2/#109).
+        time__max__relative = timeline__future["time"].min()
+
         for var in timeline__future["variable"].unique():
 
             _t0, _v0 = find(
                 timeline__past,
                 origin=[var if e == "variable" else e for e in input],
-                time__max__relative=timeline__future["time"].min(),
+                time__max__relative=time__max__relative,
             )
             timeline__future = _update_future(
                 timeline__future,
