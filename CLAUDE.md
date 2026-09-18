@@ -67,8 +67,11 @@ citation recorded in `KNOWN_ISSUES.md` still lands on the same line — so paper
 notes remain valid as written.
 
 For the `origin` mechanism specifically, read `docs/origin-resolution.md` first: it maps every branch
-of the resolution as *implemented*, in four layers, with the defect in each. `sec:origin` and
-`sec:origin_full` describe the intended design, which the code does not currently match.
+of the resolution in four layers, and since 2026-09-18 it is a record rather than a plan — every defect
+it catalogues is fixed, each entry saying what replaced it, and the measurements are kept because they
+are the argument for the design. `sec:origin` and `sec:origin_full` now match the code. The one thing
+outstanding is not code: `fig:origin`'s image contradicts its own amended caption and has to be
+redrawn (#123).
 
 ## Architecture
 

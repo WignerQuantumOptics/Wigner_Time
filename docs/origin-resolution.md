@@ -1,17 +1,25 @@
 # Origin resolution: the complete branch map
 
-Reference for the `origin` mechanism as **implemented**, branch by branch, with the defects found in
-each and a suggested target semantics.
+Reference for the `origin` mechanism branch by branch.
 
-**Status.** Developer reference, not published documentation — it cites unfixed defects by their
+**Every item in it is now implemented (2026-09-18).** The document is therefore no longer a plan but
+a record: each table describes the code *as it was*, because the measurements in them are the
+argument for what replaced it, and each entry says what it became. Read **The semantics, as
+implemented** for the design as it now stands; read the tables when you want to know why.
+
+One thing outstanding, and it is not code: `fig:origin` needs redrawing (#123). Its caption was
+amended and the image was not, so they now contradict each other.
+
+**Status.** Developer reference, not published documentation — it cites defects by their
 `KNOWN_ISSUES.md` identifiers and is deliberately absent from the `mkdocs.yml` nav. The user-facing
-account is `docs/paper/main.tex`, `sec:origin` and appendix `sec:origin_full`.
+account is `docs/paper/main.tex`, `sec:origin` and appendix `sec:origin_full`, and since
+2026-09-18 the two agree.
 
 **Provenance.** Every row below was verified by direct experiment against branch `drop_repeats`
 (34104ce) on 2026-09-03, not inferred from reading. Where behaviour contradicts the manuscript or the
 decision-tree figure, that is stated.
 
-**Steps 1 to 3 of the suggested order landed 2026-09-18.** Layers A, B (as read by `auto`), C2 and the lookup bound have all changed; the tables below describe the code *before* those changes and are kept because the measurements are the argument for them. What replaced each is recorded inline. Remaining: step 4 (A8 — **blocked on a maintainer decision**, see KNOWN_ISSUES; then B1 and A3) and step 5 (diagnostics NEW-2 and NEW-4).
+**All five steps of the suggested order landed on 2026-09-18**, in seven commits from `fba0fe0` to `dcda171`. The suite went 248 -> 288, and the demo and lab timelines hash identically throughout: every change either refuses something that was silently wrong, or corrects a case neither of them exercises.
 
 **Step 1** (slot vocabularies and reserved words, A7/#105 and A9/#107). The Layer C2 table below therefore describes what the code did *before* that change; it is kept because the measurements are the argument for the narrowing. Rows now refused are marked **REFUSED**. Steps 2 and 3 are being taken together, per the maintainer's settlement of the lookup bound (see the note at the end of Layer C2).
 
@@ -38,22 +46,32 @@ is applied (D).
 | --- | --- |
 | `create` | **not applicable — it takes no `origin` and no `timeline`** (#45, 2026-09-16) |
 | `update`, `anchor` | `config.ORIGIN__DEFAULTS = [["anchor", None], ["last", None]]` |
-| `ramp` (start point) | its own `[["anchor", "variable"]]` — anchor-only, and value-relative |
-| `ramp` (`origin2`) | literal `["variable"]`; `auto` not called |
+| `ramp` (start point) | its own `[["anchor", "variable"]]` — anchor-only, and value-relative. **Now `config.ORIGIN__DEFAULTS__RAMP = [["anchor", "variable"], ["last", "variable"]]`** |
+| `ramp` (`origin2`) | literal `["variable"]`; `auto` not called. **Now `["variable", 0.0]`** — the value slot stated rather than left to be read as `None`, since a ramp's end value is always absolute |
 
-`auto` returns an explicitly supplied origin **untouched**; otherwise it returns the first default
-entry whose anchor requirement is satisfiable. Running off the end of the list returns `None`
-implicitly.
+`auto` returned an explicitly supplied origin **untouched**; otherwise the first default entry whose
+anchor requirement was satisfiable, and running off the end of the list returned `None` implicitly.
+
+**Now:** `auto` normalises the given origin to a pair and fills, per slot, whichever slot the caller
+left as `None`. The time default is a chain — each entry's time reference tried in turn, skipping
+what this timeline cannot satisfy — and it is **terminal**: if nothing is satisfiable the time
+origin is `0.0`, with a warning. The value default comes from the same entry. `auto` can no longer
+return `None` implicitly.
 
 Defects:
 
-- **A6** — an explicit origin *replaces* the default wholesale instead of completing it. Since a bare
+- ~~**A6** — an explicit origin *replaces* the default wholesale instead of completing it. Since a bare
   string normalises to `[s, None]` (Layer B), `ramp(..., origin="stage1")` silently loses its value
-  default and starts the ramp from `0.0`.
-- **A4** — the fall-through. `ramp`'s anchor-only default has no `"last"` step, so on an anchorless
-  timeline `auto` returns `None` and the rows land at absolute time.
-- **NEW-9** — the same condition is handled two different ways: an *explicit* `origin="anchor"` on an
-  anchorless timeline raises `anchor is an unsupported option`, while the *default* path is silent.
+  default and starts the ramp from `0.0`.~~ **Fixed 2026-09-18** (#104), by per-slot completion. The
+  vocabulary change that makes it coherent: `None` in a slot means *defer*, `0.0` means *absolute*.
+- ~~**A4** — the fall-through. `ramp`'s anchor-only default has no `"last"` step, so on an anchorless
+  timeline `auto` returns `None` and the rows land at absolute time.~~ **Fixed 2026-09-18** (#102) —
+  the maintainer chose fall-back over raise, so `ramp` gained the `"last"` step and the chain gained
+  a terminal `0.0` with a warning.
+- ~~**NEW-9** — the same condition is handled two different ways: an *explicit* `origin="anchor"` on an
+  anchorless timeline raises `anchor is an unsupported option`, while the *default* path is silent.~~
+  **Fixed 2026-09-18.** The explicit path raises a message naming the missing anchor; the default
+  path walks the chain, as documented. They now differ deliberately rather than accidentally.
 - ~~**C2** — `create` consults no default at all, even when given a timeline.~~ **Resolved
   2026-09-16**: `create` initialises a timeline from scratch and now takes neither argument, which is
   the signature `sec:functions` documented all along. There is nothing for it to be relative to, so
@@ -73,15 +91,15 @@ Defects:
 | `None` | `[None, None]` | |
 | `[]` | `[None, None]` | undocumented |
 | `0.5` | `[0.5, None]` | a single value is a **time** origin |
-| `"ctx"` | `["ctx", None]` | strings are not treated as iterable — this is A6's mechanism |
+| `"ctx"` | `["ctx", None]` | strings are not treated as iterable — this was A6's mechanism; the padding is unchanged, but `None` now means *defer*, so the padding no longer cancels anything |
 | `["a"]` | `["a", None]` | |
 | `["a", "b"]` | unchanged | |
 | `("a", "b")` | unchanged, still a tuple | works via sequence patterns; undocumented |
-| `["a", "b", "c"]` | `ValueError` | **NEW-2**: message reads "Two many arguments" |
+| `["a", "b", "c"]` | `ValueError` | ~~**NEW-2**: message reads "Two many arguments"~~ **Fixed 2026-09-18** (#124): it now names the origin rather than the helper |
 
-`find` performs this normalisation **twice** — once at the top for the `[None, None]` early return,
-then again through `sanitize_origin`. Harmless, but it means `sanitize_origin`'s timeline check does
-not gate the early return.
+~~`find` performs this normalisation **twice** — once at the top for the `[None, None]` early return,
+then again through `sanitize_origin`.~~ **Fixed 2026-09-18** (#124): once, through `sanitize_origin`,
+so the "a string origin needs a timeline" check does gate the early return.
 
 ## Layer C1 — the time slot
 
@@ -91,19 +109,20 @@ Resolved by `origin.find` via `_to_col_var`.
 | --- | --- | --- |
 | `None` | no time shift | |
 | a float | that number, added to all times | |
-| `"anchor"` | the time of the most recent anchor-labelled row | raises if no anchor exists (NEW-9) |
-| `"last"` | the time of the highest-time row | **NEW-3**: on an empty timeline, `ValueError: attempt to get argmax of an empty sequence`, raised from `dataframe.row_from_max_column` |
-| `"variable"` | per variable: that variable's own most recent time | **NEW-4**: substituted only inside `origin.update`'s per-variable loop; passed straight to `find` it raises |
+| `"anchor"` | the time of the most recent anchor-labelled row | raises if no anchor exists — **since 2026-09-18 with a message that says so**, rather than `unsupported option` |
+| `"last"` | the time of the highest-time row | ~~**NEW-3**: on an empty timeline, `ValueError: attempt to get argmax of an empty sequence`~~ **Fixed 2026-09-18** (#115): `previous` names the empty timeline. The default path no longer reaches it — `"last"` is skipped as unsatisfiable and the chain runs to its terminal `0.0` |
+| `"variable"` | per variable: that variable's own most recent time | **NEW-4**: substituted only inside `origin.update`'s per-variable loop. **Settled 2026-09-18** (#122): `find` *cannot* resolve it — it means "whichever variable is being placed", and `find` resolves one origin for the frame as a whole — so it now says that, and says where the substitution happens |
 | an existing variable name | that variable's most recent time | |
 | an existing context name | that context's anchor if it has one, else its last row | matches the figure |
 | anything else | `error__unsupported_option` | loud, correct |
 
 Precedence is `"anchor"` → `"last"` → variable name → context name.
 
-- **NEW-5** — reserved words shadow real names. With a context literally named `anchor` (rows at
-  t=1) and a real anchor at t=5, `origin="anchor"` resolves to **5.0**. A context named `anchor`,
-  `last` or `variable` is unreachable as an origin. `_ORIGINS = ["anchor", "last", "variable"]` exists
-  in `origin.py` to document exactly this and is referenced nowhere.
+- ~~**NEW-5** — reserved words shadow real names. With a context literally named `anchor` (rows at
+  t=1) and a real anchor at t=5, `origin="anchor"` resolves to **5.0**.~~ **Fixed 2026-09-18**
+  (#107). `_ORIGINS` is now derived from `_ORIGINS__TIME` rather than being a third list that can
+  drift, and `timeline._populate_timeline` refuses a variable or context named after one of them —
+  at the point the name is written, not where it later fails to resolve.
 
 ## Layer C2 — the value slot
 
@@ -152,22 +171,29 @@ origin=["anchor", "last"]  -> 0.0   bound is the anchor's own instant, and the
 ### The time bound on value lookups
 
 The bound exists so that an interwoven operation sees the state that *physically precedes* it, rather
-than the variable's last value in the timeline as a whole (`sec:origin_full`). It is computed
-differently in two branches, and both are defective.
+than the variable's last value in the timeline as a whole (`sec:origin_full`). It *was* computed
+differently in two branches, and both were defective.
+
+**Now there is one rule.** The time slot is resolved first, and the bound is
+`resolved_t + fragment's earliest new time + TIME_RESOLUTION` — the instant the new rows will
+occupy — computed **once**, before the per-variable loop.
 
 | branch | bound | defect |
 | --- | --- | --- |
 | `[float, str]` | `n1 + time__max__relative` | **NEW-7**: if `n1 is None`, `TypeError: unsupported operand type(s) for +: 'NoneType' and 'float'`. So a value-only origin against a variable is unusable through the public API. If `n1` is small, the bound excludes every past row and the error is `Previous <var> not found`, naming neither the bound nor the instant. |
 | `[str, str]` | `resolved_t + TIME_RESOLUTION + time__max__relative` | |
 
-- **B2** — `time__max__relative` is `timeline__future["time"].min()`, recomputed **inside**
-  `find_every_origin`'s per-variable loop while `_update_future` mutates those same times. So which
-  past value counts as "in effect" depends on what else is being resolved, and in what order. Adding
-  an unrelated variable to a `ramp` call moved another variable's start value from 20.0 to 10.0.
+- ~~**B2** — `time__max__relative` is `timeline__future["time"].min()`, recomputed **inside**
+  `find_every_origin`'s per-variable loop while `_update_future` mutates those same times.~~
+  **Fixed 2026-09-18** (#109) by hoisting. It was not merely inconsistent but wrong: in the
+  regression case a variable now resolves to the value it actually held at the fragment's instant,
+  where before the loop's own mutation pushed the bound past a later step.
 
 ### The maintainer's settlement, 2026-09-18
 
-Two things were decided, and together they reduce steps 2 and 3 to one change rather than five patches.
+Two things were decided, and together they reduced steps 2 and 3 to one change rather than five
+patches. Both are implemented; the present tense below is the design as it now stands, except where
+it says "today", which describes what was replaced.
 
 **The bound.** The value slot is *always* bounded by the resolved time origin — the value that variable held at that instant, never its last value in the timeline as a whole. The time slot is unbounded, because it resolves *to* the instant the bound is made of. This is already what the `[str, str]` branch does (measured: `["stage1", "variable"]` yields stage1's value, not the timeline's last), so it is the implementation that has to catch up with the design, not the reverse.
 
@@ -179,21 +205,31 @@ Two things were decided, and together they reduce steps 2 and 3 to one change ra
 variable is named, globally otherwise. The paper's own example confirms additive value semantics
 (`origin=[1.0, 4.0]` with a value of 0.5 gives 4.5).
 
-- **NEW-8** — the value origin is added on top of an **explicitly stated** ramp start value. With
-  `coil__A` last known at 7.0, `ramp(coil__A=[[0.0, 1.0], [0.5, 3.0]])` produces a start value of
-  **8.0**, not 1.0 — yet `tab:rampExamples` documents that exact form as "for cases where the start
-  cannot be inferred from `origin`".
-- **B1** — `ramp`'s degenerate-row mask aligns `new1` against `new2` by position, but with mixed
-  1-D/2-D input the two frames carry different variable orders, so it compares one variable's time
-  against another's.
-- **A3** — the cleaned frames are computed and then discarded. When *every* row is degenerate the
-  early return drops the whole ramp silently.
+- ~~**NEW-8** — the value origin is added on top of an **explicitly stated** ramp start value.~~
+  **Fixed 2026-09-18** (#106): resolved only for `df__no_start_points`. Briefly thought to be blocked
+  on an idiom in `test_ramp_combined`; that test turned out to be a 2025-03 translation of the old
+  `wait` mechanism, and `ramp(v=target, t=..., duration=...)` says the same thing.
+- ~~**B1** — `ramp`'s degenerate-row mask aligns `new1` against `new2` by position, but with mixed
+  1-D/2-D input the two frames carry different variable orders.~~ **Fixed 2026-09-18** (#108) by
+  aligning on `variable` first. The consequence was worse than a wrong comparison, because A3 turned
+  the mask into a deletion: a call in which nothing was degenerate lost its **entire** ramp, because
+  positionally each variable's start matched the *other*'s end in value.
+- ~~**A3** — the cleaned frames are computed and then discarded.~~ **Settled and fixed 2026-09-18**
+  (#101), by maintainer decision: the two degeneracies are not alike and are now split. A zero
+  **duration** raises; a zero **value change** is a *hold*, occupies time, and is kept and expanded,
+  the redundancy being removed again by `drop_repeats` before the hardware.
+- **A12** — found while reviewing that guard, and the worst of the three. A **negative** duration was
+  accepted, and because `expand` sorts each ramp's rows by time before pairing them, the endpoints
+  were silently **exchanged**: `ramp(c__A=9.0, duration=-1.0)` left the variable at its old value
+  rather than at 9.0, and laid the transition across the second *preceding* the origin. **Fixed
+  2026-09-18** (#135): the guard tests the signed duration rather than its magnitude.
 
 ---
 
-## Suggested target semantics
+## The semantics, as implemented
 
-Stated positively, as the thing to implement rather than as a list of patches.
+Stated positively. This was written as a target and is now a description: all six items landed on
+2026-09-18, and the notes under each say what it cost to get there.
 
 **1. Split the vocabulary by slot.** This is the central change.
 
@@ -208,15 +244,20 @@ is already expressible as `["molasses", "variable"]` — time from that context'
 this variable bounded by that instant. `"variable"` ends up the only reserved word valid in both
 slots. Several branches of `find`'s match become unreachable and can go.
 
-Only the `"anchor"` third of this is a straight defect — the `fig:origin` caption already says no
-value is defined for anchors, so returning `0.0` contradicts the documented design. Narrowing
-`"last"` and context names needs that caption amended first, and is therefore the maintainer's
-call rather than a bug fix.
+Only the `"anchor"` third of this was a straight defect — the `fig:origin` caption already said no
+value is defined for anchors, so returning `0.0` contradicted the documented design. Narrowing
+`"last"` and context names needed that caption amended first. **The maintainer declared the caption
+defective on 2026-09-18**, so all three were narrowed together and the caption rewritten; the image
+still has to follow (#123).
 
 **2. Defaults complete a partial origin per slot, rather than replacing it.** For each slot, if the
 caller left it `None`, take the caller's default for that slot. `update` and `anchor` default the
 value slot to absolute; `ramp` defaults it to `"variable"`. This closes A6 and makes
 `ramp(..., origin="stage1")` mean what it reads as.
+
+The vocabulary this rests on, and the part most likely to surprise: **`None` in a slot means *defer*
+to the default for that slot, and `0.0` means *absolute***. They used to mean the same thing, which
+is exactly why the padding of a bare string cancelled `ramp`'s value default.
 
 **3. The time default is a chain owned by the caller, not a config constant:**
 `anchor` → `last` → `0.0` with a warning. Keeping the `"last"` step matters — dropping it would place
@@ -225,15 +266,25 @@ rows *before* the timeline they were appended to, which is A4's symptom merely m
 
 **4. One definition of the lookup bound**, for both branches: *the instant the new rows will occupy
 once the time origin is applied*. This removes NEW-7 and makes the two branches agree. Compute
-`time__max__relative` once, before the loop (B2).
+`time__max__relative` once, before the loop (B2). The time slot is resolved first, so that it can
+be what the bound is built from; the time slot itself is never bounded, because it resolves *to*
+the instant.
 
 **5. Never apply a value origin to a row whose start value the user stated explicitly** — resolve it
 only for variables in `df__no_start_points`, never for `df_1` (NEW-8).
 
 **6. Promote `_ORIGINS` to the single source of reserved words**, and reject a variable or context
-name that shadows one (NEW-5).
+name that shadows one (NEW-5). It is now derived from `_ORIGINS__TIME`, the wider of the two slot
+vocabularies, so there is no third list to drift.
 
-## Suggested order
+**7. Guards on `ramp`'s boundaries, added alongside the above.** Not part of the origin mechanism,
+but in the same block of `ramp` and settled with it: a ramp must end after it begins (zero and
+negative durations both raise, A3 and A12), a ramp whose value does not change is a *hold* and is
+kept, a start value stated in the 2-D form is taken as written, and a variable with no previous
+entry has no start point and raises. All four are now stated in the manuscript, in
+`sec:functions`'s "What a ramp refuses".
+
+## The order it was done in
 
 1. ~~Slot vocabularies and reserved-word handling (NEW-5, NEW-6). Pure validation — no behaviour change
    for code that is already correct.~~ **Done 2026-09-18.** 268 tests pass; the demo and the lab
@@ -259,15 +310,36 @@ name that shadows one (NEW-5).
 
 ## Manuscript implications
 
-- The narrowing in (1) needs the `fig:origin` caption amended, not just the figure. The caption
-  (`main.tex:916`) reads "With the exception of anchors, for which no value is defined, every option
-  can serve as either a time or a value origin" — so it already excludes `anchor` from the value slot
-  (which the code does not honour: it returns the anchor's dummy 0.0), but it positively licenses
-  `"last"` and context names there. Narrowing those is therefore a manuscript change requiring the
-  maintainer's assent, not a bug fix. The figure's leaf wording leans the same way as the narrowing:
-  `"last"` and `"anchor"` are described as *times*, the value-capable leaves neutrally as *entities*.
-- `sec:origin_full` states "No default in the package is value-relative; value origins … are always
-  requested explicitly." This is already false: `ramp`'s start-point default is
-  `["anchor", "variable"]`, and that is the reason ramps chain correctly at all.
-- `sec:origin` and `sec:origin_full` both describe the default as anchor-else-most-recent-entry, with
-  no terminal fallback and no warning. Item (3) adds both, so both sentences need extending.
+All of these were carried out on 2026-09-18, so this section now records **what changed in
+`docs/paper/main.tex` and what still has to** — the latter being one item, and not a text edit.
+
+Done:
+
+- **The `fig:origin` caption.** It read "With the exception of anchors, for which no value is defined,
+  every option can serve as either a time or a value origin", which excluded `anchor` from the value
+  slot (the code did not honour even that, returning the anchor's dummy `0.0`) but positively licensed
+  `"last"` and context names there. Narrowing those was a manuscript change, not a bug fix; **the
+  maintainer declared the caption defective and opened the gate**. It now states the slot split, and
+  says why nothing is lost: `["molasses", "variable"]` expresses what a context in the value slot was
+  reaching for.
+- **`sec:origin_full`'s claim that no default is value-relative.** It was false, and had been all
+  along: `ramp`'s start-point default is value-relative, and that is the reason ramps chain. The
+  sentence now names the exception before making the general statement.
+- **The default described as anchor-else-most-recent-entry, in both `sec:origin` and
+  `sec:origin_full`.** Both now carry the terminal step — absolute time with a warning — and the
+  appendix additionally states that the slots are completed independently, and hence that `None` means
+  "use the default here" while absolute placement is `0.0`.
+- **`origin2`'s default**, quoted in `sec:origin_full` as `["variable"]`, now `["variable", 0.0]`.
+- **A new paragraph in `sec:functions`, "What a ramp refuses"**, covering the guards settled with this
+  block: zero and negative durations raise, a flat ramp is a hold and is kept, a variable with no
+  previous entry has no start point, and a stated start value is taken as written.
+
+Outstanding, and it blocks submission:
+
+- **`graphic/origin-decision-tree-highlighted.png` has to be redrawn** (#123). Its caption was amended
+  and the image was not, so the figure now contradicts itself. Three things need to change in it: the
+  root node should read `None` rather than `0.0` in the value slots; the resolution should be shown
+  per slot rather than as one flat tree serving both; and the chain should show its terminal step. The
+  figure's existing leaf wording already leans the right way — `"last"` and `"anchor"` are described
+  as *times*, the value-capable leaves neutrally as *entities* — so the redraw is a clarification of
+  what it was reaching for, not a reversal.
