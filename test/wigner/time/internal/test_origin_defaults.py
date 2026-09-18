@@ -175,3 +175,52 @@ def test_an_empty_timeline_says_it_is_empty():
 def test_a_variable_with_no_history_says_so(tline):
     with pytest.raises(ValueError, match="No previous value of 'fresh__A'"):
         tl.ramp(timeline=tline, fresh__A=1.0, duration=0.5, origin=0.0)
+
+
+# --- a variable appearing for the first time in a ramp ------------------------
+#
+# A ramp runs from where the variable currently sits, so a variable with no history has
+# no start. Before the per-slot completion (2026-09-18) an explicit `origin=0.0` left
+# the value slot empty and the ramp began at 0.0 -- an invented physical assumption (0 A
+# on an uninitialised coil is a command, not a neutral default). Completion gives the
+# value slot `"variable"`, so the same call now refuses, and the two ways of saying what
+# was meant are both explicit.
+
+
+def test_a_ramp_of_an_unset_variable_refuses(tline):
+    with pytest.raises(ValueError, match="No previous value of 'fresh__A'"):
+        tl.ramp(timeline=tline, fresh__A=5.0, duration=0.5)
+
+
+def test_a_ramp_of_an_unset_variable_refuses_even_with_a_time_origin(tline):
+    """This one used to start the ramp at 0.0 without comment."""
+    with pytest.raises(ValueError, match="No previous value of 'fresh__A'"):
+        tl.ramp(timeline=tline, fresh__A=5.0, duration=0.5, origin=0.0)
+
+
+def test_an_unset_variable_can_start_from_a_stated_value(tline):
+    """An absolute value origin: defer the time to the default, state the value."""
+    assert points(
+        tl.ramp(timeline=tline, fresh__A=5.0, duration=0.5, origin=[None, 0.0])
+    ) == [[3.5, 0.0], [4.0, 5.0]]
+
+
+def test_an_unset_variable_can_state_both_ends(tline):
+    """The other escape, and the one the 2-D form exists for."""
+    assert points(tl.ramp(timeline=tline, fresh__A=[[0.0, 0.0], [0.5, 5.0]])) == [
+        [3.5, 0.0],
+        [4.0, 5.0],
+    ]
+
+
+def test_a_per_variable_self_reference_places_each_on_its_own_history(tline):
+    """
+    `["variable", "variable"]` is the general form of what the 2025-era tests spelled by
+    naming one variable in both slots. It differs from the default, which follows the
+    most recent anchor rather than each variable's own last row.
+    """
+    assert points(
+        tl.ramp(timeline=tline, coil__A=9.0, t=5.0, duration=1.0, origin=["variable", "variable"])
+    ) == points(
+        tl.ramp(timeline=tline, coil__A=9.0, t=5.0, duration=1.0, origin=["coil__A", "variable"])
+    )

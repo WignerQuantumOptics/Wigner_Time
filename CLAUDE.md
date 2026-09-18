@@ -195,7 +195,11 @@ Three properties of the mechanism that are easy to break:
   itself. (It used to start the ramp from **0.0**, silently: A6.) `sec:origin_full` has been
   corrected; it claimed no default in the package was value-relative.
 - **A ramp of a variable with no previous value raises**, because there is nothing to start from.
-  Set the variable before ramping it.
+  Set the variable first, or say what the start is: `origin=[None, 0.0]` (defer the time to the
+  default, state the value) or the 2-D form `v=[[t1, v1], [t2, v2]]`. Note the behaviour change of
+  2026-09-18: before per-slot completion, `ramp(..., origin=0.0)` on an unset variable left the value
+  slot empty and started the ramp at **0.0** without comment. Zero amps on an uninitialised coil is a
+  command, not a neutral default, so it now refuses and names both escapes.
 
 *Anchors* are a non-physical variable named `⚓` (`config.LABEL__ANCHOR`), auto-numbered `⚓_001`, used
 as a time reference within a `context`. They deliberately have no `connection`, so

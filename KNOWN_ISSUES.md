@@ -112,6 +112,15 @@ Fix direction is A1's: validate keywords against the constituents' signatures an
 
 **RESOLVED AND FIXED 2026-09-18**, by the fix direction below: `auto` completes a partial origin **per slot** rather than replacing it wholesale. The vocabulary change that makes this coherent is that **`None` in a slot now means *defer to the default for this slot*, and `0.0` means *absolute***; previously `None` meant absolute, which is precisely why a bare context name cancelled `ramp`'s value default. Measured after the change: `ramp(..., origin="stage1")` starts from 2.0, the value the variable held in `stage1`, and agrees with `origin=["stage1", "variable"]` exactly. B2 was settled in the same commit, as required.
 
+**One user-visible consequence, for the record.** Completion gives `ramp` a value origin in cases that previously had none, so a ramp of a variable with **no previous value** now refuses where `origin=0.0` used to start it silently at 0.0. Verified against `fba0fe0`:
+
+```
+before:  tl.ramp(base, fresh__A=5.0, duration=0.5, origin=0.0)  ->  [[0.0, 0.0], [0.5, 5.0]]
+after:   the same call                                          ->  ValueError, naming fresh__A
+```
+
+Zero on an uninitialised coil or lockbox is a command, not a neutral default, so refusing is the better answer — and both ways of saying what was meant are explicit and unchanged: `origin=[None, 0.0]`, or the 2-D form stating both ends. The default-origin path already refused before, just with `fresh__A is an unsupported option for 'origin'`. Pinned by `test_origin_defaults.py`.
+
 The diagnosis follows.
 
 
