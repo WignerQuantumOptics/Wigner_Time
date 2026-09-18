@@ -615,6 +615,8 @@ By default, \python{ramp} stores only the start and end time-value pairs along w
  
 Like \python{update}, \python{ramp} inherits the \python{context} of the preceding entry by default (\cref{sec:context}), but this can always be overridden explicitly.
  
+\paragraph{What a ramp refuses} A ramp is a transition between two distinct instants, and the two ways of not supplying one are refused rather than interpreted. A \python{duration} of zero leaves both boundaries on the same instant; a negative one places the end before the start, where -- since \python{expand} orders each ramp's boundaries in time -- it would quietly exchange them, so that the variable finished at its previous value rather than at the target and the transition was laid over whatever preceded it. Both raise, naming the variables concerned. A ramp whose \emph{value} does not change is a different matter and is not refused: it is a hold, it occupies time, and discarding it would shorten the timeline and draw everything after it forward. The redundant rows it expands into are removed again by the filtering of \cref{sec:adwin} before they reach the hardware, so the cost is borne by the device layer alone. Finally, because a ramp begins wherever its variable currently sits, a variable with no previous entry has no starting point at all; this too raises, and the remedy is either to set the variable beforehand or to state both ends explicitly, as in the last row of \cref{tab:rampExamples}. Where they are stated, they are taken as written: the value origin is resolved only for those variables whose starting point had to be inferred.
+ 
 Examples are given in \cref{tab:rampExamples}.
  
 \begin{table*}

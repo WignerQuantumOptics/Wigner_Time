@@ -519,6 +519,12 @@ def ramp(
     #   instant, and is almost always a slip in the caller's arithmetic -- a `duration`
     #   that came out of a subtraction as 0. It raises, naming the variables.
     #
+    # - A **negative** duration is the same error with a sign, and was the worse of the
+    #   two while it went unchecked. `expand` sorts each ramp's boundaries by time, so a
+    #   backwards ramp had its endpoints silently *swapped*: `ramp(c__A=9.0,
+    #   duration=-1.0)` left the variable at its old value, not at 9.0, and placed the
+    #   transition a second in the past, on top of whatever preceded it. It raises too.
+    #
     # - A zero **value change** is a hold. It occupies time, so discarding it silently
     #   shortens the timeline and pulls everything after it forward. It is kept and
     #   expanded. The identical rows that produces are removed again by
@@ -526,21 +532,26 @@ def ramp(
     #   row of each channel -- so the redundancy is paid for in the device-layer table
     #   only, and that table is the thing the user is meant to be able to read.
     TOL = 1e-15
-    time__degenerate = np.abs(new1["time"] - new2__aligned["time"]) < TOL
+    duration__actual = new2__aligned["time"] - new1["time"]
+    time__degenerate = np.abs(duration__actual) < TOL
+    time__reversed = duration__actual < -TOL
 
-    if time__degenerate.any():
+    if time__degenerate.any() or time__reversed.any():
         raise ValueError(
             "\n".join(
                 [
-                    "Zero-duration ramp for {}, at t = {}.".format(
-                        sorted(set(new1.loc[time__degenerate, "variable"])),
-                        sorted(set(new1.loc[time__degenerate, "time"])),
+                    "A ramp must end after it begins.",
+                    "",
+                    "  zero duration : {}".format(
+                        sorted(set(new1.loc[time__degenerate, "variable"])) or "none"
+                    ),
+                    "  ends earlier  : {}".format(
+                        sorted(set(new1.loc[time__reversed, "variable"])) or "none"
                     ),
                     "",
-                    "A ramp needs two distinct instants. Check `duration` (or `t2`) --"
-                    " a duration computed as a difference of two stage times is the"
-                    " usual way this comes out as zero. To command a value at a single"
-                    " instant, use `update`.",
+                    "Check `duration` (or `t2`) -- a duration computed as a difference"
+                    " of two stage times is the usual way this comes out wrong. To"
+                    " command a value at a single instant, use `update`.",
                 ]
             )
         )

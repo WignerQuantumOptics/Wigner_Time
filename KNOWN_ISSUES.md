@@ -44,6 +44,7 @@ Signature checking only became safe once the operation layer stopped putting `**
 **Maintainer decision: split the two degeneracies.** The mask conflated things that are not alike.
 
 - A zero **duration** has no sensible expansion, since both boundaries occupy one instant, and is almost always a slip in the caller's arithmetic — a `duration` that came out of a subtraction as 0. It now **raises**, naming the variables and the instant.
+- A **negative** duration is the same error with a sign, and was the worse of the two: `expand` sorts each ramp's boundaries by time, so the endpoints were silently exchanged. See A12.
 - A zero **value change** is a *hold*. It occupies time, so discarding it shortened the timeline and pulled everything after it forward. It is now **kept and expanded**. The identical rows that produces are removed again by `adwin.validate.drop_repeats` before the hardware, which keeps the first and last row of each channel — so the redundancy is paid for in the device-layer table only, and that table is the thing the user is meant to be able to read.
 
 The verified symptom is gone. `cascade(demo.init, demo.MOT, demo.finish)` now carries its final ramps:
@@ -260,6 +261,27 @@ Verified that the nested and keyword forms now produce identical frames, and tha
 **Fixed by raising**, naming the keywords that would have been lost. No merge is sensible: the two forms each carry their own `t`/`context` handling, and the keyword namespace is deliberately open (`sec:forwarding`), so a dropped keyword cannot be told from an intended variable.
 
 Tracked as [#132](https://github.com/WignerQuantumOptics/Wigner_Time/issues/132).
+
+---
+
+### A12 — a negative ramp duration silently swaps the ramp's endpoints **[new, found 2026-09-18]**
+
+Raised by the maintainer while reviewing the A3 guard: *what happens when a ramp's duration is negative?*
+
+Nothing refused it, and the result was not merely a ramp in the wrong place. `timeline.expand` sorts each ramp's rows with `sort_values(by=["variable", "time"])` before pairing them, so a backwards ramp had its start and end **exchanged**. Measured on `bb55695`, with `c__A` sitting at 4.0 and an anchor at t=8.0:
+
+```python
+tl.ramp(base, c__A=9.0, duration=1.0)
+#   ramp 4.0 -> 9.0 over t = 8.0 .. 9.0        final value 9.0
+tl.ramp(base, c__A=9.0, duration=-1.0)
+#   ramp 9.0 -> 4.0 over t = 7.0 .. 8.0        final value 4.0
+```
+
+So a sign slip in a computed duration left the variable **at its old value rather than at the target**, and laid the transition across the second *preceding* the origin, on top of whatever was already there. Nothing warned, and the resulting timeline is internally consistent, so it would have run.
+
+`internal/util.range__inclusive` compounds it: its `np.abs(... + 1)` makes the point count meaningless for a negative interval — `ri(5.0, 4.0, 0.2)` gives 4 points at a spacing of 0.333, and `ri(5.0, 4.5, 0.2)` gives a single point. Moot once the case raises, but worth knowing if that function is ever used elsewhere.
+
+**FIXED 2026-09-18**, alongside A3 and by the same reasoning: the guard tests the signed duration rather than its magnitude, so zero and negative are refused together, each listed separately in the message. Pinned by `test_ramp_of_negative_duration_raises`.
 
 ---
 

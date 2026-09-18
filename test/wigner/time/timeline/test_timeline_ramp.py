@@ -405,8 +405,23 @@ def test_ramp_of_zero_duration_raises(tl_anchor):
     the caller's arithmetic. Until then this returned the timeline untouched, so the
     command simply was not there.
     """
-    with pytest.raises(ValueError, match="Zero-duration ramp"):
+    with pytest.raises(ValueError, match="must end after it begins"):
         tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=0.0))
+
+
+def test_ramp_of_negative_duration_raises(tl_anchor):
+    """
+    The same error with a sign, and it was the worse of the two: `expand` sorts each
+    ramp's boundaries by time, so a backwards ramp had its endpoints silently *swapped*.
+    Measured on `bb55695`, with `c__A` sitting at 4.0:
+
+        ramp(c__A=9.0, duration=-1.0)  ->  ramp 9.0 -> 4.0, one second in the past
+
+    i.e. the variable finished at its old value rather than at the target, and the
+    transition landed on top of whatever preceded it. Nothing said so.
+    """
+    with pytest.raises(ValueError, match="must end after it begins"):
+        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=-1.0))
 
 
 def test_a_flat_ramp_is_kept(tl_anchor):

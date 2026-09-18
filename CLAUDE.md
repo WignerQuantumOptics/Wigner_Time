@@ -194,6 +194,10 @@ Three properties of the mechanism that are easy to break:
   `ramp(..., origin="stage1")` means what it reads as — time from `stage1`, value from the variable
   itself. (It used to start the ramp from **0.0**, silently: A6.) `sec:origin_full` has been
   corrected; it claimed no default in the package was value-relative.
+- **A ramp must end after it begins**: zero and negative durations both raise. The negative case was
+  the dangerous one — `expand` sorts each ramp's boundaries by time, so the endpoints were silently
+  exchanged and the variable finished at its *old* value (A12). A ramp whose value does not change is
+  not an error: it is a hold, and is kept.
 - **A ramp of a variable with no previous value raises**, because there is nothing to start from.
   Set the variable first, or say what the start is: `origin=[None, 0.0]` (defer the time to the
   default, state the value) or the 2-D form `v=[[t1, v1], [t2, v2]]`. Note the behaviour change of
