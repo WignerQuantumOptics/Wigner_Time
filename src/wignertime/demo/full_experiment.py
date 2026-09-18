@@ -10,7 +10,6 @@ As well as providing conveniences, the functions can be used to document the int
 from munch import Munch
 
 from wignertime.adwin import connection as adcon
-from wignertime.adwin import core as adwin
 from wignertime import file as wtf
 from wignertime import timeline as tl
 from wignertime import device
@@ -24,7 +23,7 @@ from wignertime import ramp_function
 # Connections, devices and constants can be read from a separate file(s) (they won't change much). They are all collected together here for demonstration purposes only.
 
 """
-'connections' allows us to label physical links (inputs and outputs) between devices and the timing system. By using labels that follow a particular regex, defined within the `variable` module, we can separate out the design and the implementation of our experiment.
+'connections' allows us to label physical links (inputs and outputs) between devices and the timing system. By using labels that follow a particular regex, configurable as `config.VARIABLE__REGEX`, we can separate out the design and the implementation of our experiment.
 """
 connections = adcon.new(
     ["shutter_MOT", 1, 11],
@@ -50,17 +49,17 @@ connections = adcon.new(
 )
 
 """
-`devices` stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable.
+`devices` stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable. A linear conversion is the factor taking the unit *to* volts, so a device whose permitted range spans the controller's full output is `10 / limit` — `10 / 5.0` for a coil driven over +/-5 A by a +/-10 V DAC.
 
 These specifications are deliberately separated from `connection`s because they represent physical properties and conversions that are independent of the particular DAC wiring.
 """
 devices = device.new(
-    ["coil_compensationX__A", 1 / 3.0, -3, 3],
-    ["coil_compensationY__A", 1 / 3.0, -3, 3],
-    ["coil_MOTlower__A", 1 / 2.0, -5, 5],
-    ["coil_MOTupper__A", 1 / 2.0, -5, 5],
-    ["coil_MOTlowerPlus__A", 1 / 2.0, -5, 5],
-    ["coil_MOTupperPlus__A", 1 / 2.0, -5, 5],
+    ["coil_compensationX__A", 10 / 3.0, -3, 3],
+    ["coil_compensationY__A", 10 / 3.0, -3, 3],
+    ["coil_MOTlower__A", 10 / 5.0, -5, 5],
+    ["coil_MOTupper__A", 10 / 5.0, -5, 5],
+    ["coil_MOTlowerPlus__A", 10 / 5.0, -5, 5],
+    ["coil_MOTupperPlus__A", 10 / 5.0, -5, 5],
     ["lockbox_MOT__MHz", 0.05, -200, 200],
     ["trigger_TC__V", 1.0, -10, 10],
     [
@@ -179,7 +178,7 @@ def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
     )
 
 
-def MOT(duration=15, lA=-1.0, uA=-0.98, **kwargs):
+def MOT(duration=15, lA=-1.0, uA=-0.98, timeline=None):
     """
     Creates a Magneto-Optical Trap.
     """
@@ -191,19 +190,21 @@ def MOT(duration=15, lA=-1.0, uA=-0.98, **kwargs):
             coil_MOTupper__A=uA,
             #
             origin=0.0,
-            **kwargs,
+            timeline=timeline,
         ),
         tl.anchor(duration, origin=0.0),
         context="MOT",
     )
 
 
-def MOT__off(**kwargs):
-    return tl.update(shutter_MOT=0, AOM_MOT=0, shutter_repump=0, AOM_repump=0, **kwargs)
+def MOT__off(timeline=None):
+    return tl.update(
+        shutter_MOT=0, AOM_MOT=0, shutter_repump=0, AOM_repump=0, timeline=timeline
+    )
 
 
 def MOT__detuned_growth(
-    duration=100e-3, duration__ramp=10e-3, detuning__MHz=-5, **kwargs
+    duration=100e-3, duration__ramp=10e-3, detuning__MHz=-5, timeline=None
 ):  # pt=3,
     """
     Final stage of MOT collection with detuned MOT beams for increased capture range.
@@ -213,7 +214,7 @@ def MOT__detuned_growth(
             lockbox_MOT__MHz=detuning__MHz,
             duration=duration__ramp,
             #            fargs={"ti": pt},
-            **kwargs,
+            timeline=timeline,
         ),
         tl.anchor(duration),
         context="MOT",
@@ -226,7 +227,7 @@ def molasses(
     duration__lockbox_ramp=1e-3,
     toMHz=-90,  # coil_pt=3, lockbox_pt=3,
     delay=0,  # arbitrary delay to shutter for ad hoc compensation of small drifts
-    **kwargs
+    timeline=None,
 ):
     """
     For slowing down the atoms by creating an optical density.
@@ -238,7 +239,7 @@ def molasses(
             coil_MOTupper__A=0,
             duration=duration__coil_ramp,
             #            fargs={"ti": coil_pt},
-            **kwargs,
+            timeline=timeline,
         ),
         tl.ramp(
             lockbox_MOT__MHz=toMHz,
@@ -261,7 +262,7 @@ def optical_pumping(
     delay1=0,
     delay2=0,
     delay__repump=0,  # arbitrary delays to shutters for ad hoc compensation of small drifts
-    **kwargs
+    timeline=None,
 ):
     """
     Creates an experimental timeline for optical pumping.
@@ -280,7 +281,7 @@ def optical_pumping(
             coil_MOTupper__A=-i,
             duration=duration__coil_ramp,
             #            fargs={"ti": pt},
-            **kwargs,
+            timeline=timeline,
         ),
         tl.update(AOM_OP=[[-0.1, 0], [duration__coil_ramp, 1], [duration__full, 0]]),
         tl.update(
@@ -305,7 +306,7 @@ def optical_pumping(
     )
 
 
-def pull_coils(duration, l, u, lp=0, up=0, pt=3, **kwargs):
+def pull_coils(duration, l, u, lp=0, up=0, pt=3, timeline=None, t=None, context=None):
     """
     Controls the concentric coil pairs responsible for 'pulling' the atoms.
     """
@@ -318,7 +319,9 @@ def pull_coils(duration, l, u, lp=0, up=0, pt=3, **kwargs):
             origin, terminus, time_resolution, pt
         ),
         duration=duration,
-        **kwargs,
+        timeline=timeline,
+        t=t,
+        context=context,
     )
 
 
@@ -329,13 +332,15 @@ def magnetic_trapping(
     duration__strengthen=3e-3,
     ls=-4.8,
     us=-4.7,
-    **kwargs
+    timeline=None,
 ):
     """
     Does what it says on the tin.
     """
     return tl.stack(
-        pull_coils(duration__initial, li, ui, context="magnetic_trapping", **kwargs),
+        pull_coils(
+            duration__initial, li, ui, context="magnetic_trapping", timeline=timeline
+        ),
         pull_coils(duration__strengthen, ls, us, t=duration__initial),
         tl.anchor(duration__initial + duration__strengthen),
         context="magnetic_trapping",
@@ -393,9 +398,16 @@ timeline__demo = tl.cascade(
 #                   Running the experiment
 ###########################################################################
 
+# from wignertime.adwin import core as adwin
+#
 # wtf.save(timeline__demo)
 # machine = adwin.create(timeline__demo, connections, devices)
 # machine.Start_Process(1)
 
 # NOTE:
 # ^^^ The above lines are commented out for the sake of automated testing.
+#
+# `adwin.core` is imported here rather than at the top of the module because it
+# requires the optional `ADwin` extra. Importing it at module scope would make
+# this demo – and every test that builds a timeline from it – unimportable for
+# anyone who installed the package without that extra.

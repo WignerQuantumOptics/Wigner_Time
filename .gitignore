@@ -4,3 +4,5 @@ poetry.lock
 timeline__demo*
 *.ipynb
 jupyter.log
+desktop.ini
+Thumbs.db

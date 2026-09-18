@@ -63,6 +63,22 @@ def isnull(o):
     return pd.isnull(o)
 
 
+def not_numeric(column):
+    """
+    A boolean mask of the entries that cannot be read as a number.
+    """
+    return pd.to_numeric(column, errors="coerce").isna()
+
+
+def fill_null(df, column: str, value):
+    """
+    Replace nulls in `column` with `value`, returning a new frame.
+    """
+    dff = df.copy()
+    dff[column] = dff[column].fillna(value)
+    return dff
+
+
 def subframe(df: CLASS, column: str, values: list, func: Callable | None = None):
     """
     Returns a filtered df, where func(`column`) has values in `values`.
@@ -71,6 +87,16 @@ def subframe(df: CLASS, column: str, values: list, func: Callable | None = None)
         return df[df[column].map(func).isin(values)].reset_index(drop=True)
 
     return df[df[column].isin(values)].reset_index(drop=True)
+
+
+def align_to(df, order, column="variable"):
+    """
+    Returns `df`, one row per entry of `order`, in that order.
+
+    For comparing two frames that hold the same keys in different orders. `order` must
+    contain no repeats, and every one of its entries must appear in `df`.
+    """
+    return df.set_index(column).loc[list(order)].reset_index()
 
 
 def row_from_max_column(df, column="time"):
@@ -138,6 +164,35 @@ def insert_dataframes(df: CLASS, indices: list[int], dfs: list[CLASS]) -> CLASS:
 
 def duplicated(df, subset=["time", "variable"], keep="last"):
     return df.duplicated(subset=subset, keep=keep)
+
+
+def mask__changed(
+    df,
+    subset: list,
+    column__value: str,
+    column__order: str,
+    do_keep_edges: bool = True,
+):
+    """
+    A boolean mask, index-aligned with `df`, that is True where `column__value` differs from the previous row of the same `subset` group, once that group is ordered by `column__order`.
+
+    The first row of every group is always True, as it has no predecessor. When `do_keep_edges`, the last row of every group is True as well, so that the temporal extent of each group survives any filtering built on this mask.
+
+    NOTE: Requires a unique index, which is the case for every frame produced by the ADwin conversion chain.
+    """
+    if df.empty:
+        return pd.Series(dtype=bool, index=df.index)
+
+    ordered = df.sort_values(by=list(subset) + [column__order], kind="stable")
+    grouped = ordered.groupby(list(subset), sort=False)[column__value]
+
+    value__previous = grouped.shift()
+    changed = ordered[column__value].ne(value__previous) | value__previous.isna()
+
+    if do_keep_edges:
+        changed = changed | grouped.shift(-1).isna()
+
+    return changed.reindex(df.index, fill_value=False).astype(bool)
 
 
 def replace_column__filtered(

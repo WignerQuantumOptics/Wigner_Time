@@ -2,20 +2,21 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from copy import deepcopy
-import pandas as pd
 
 from wignertime.internal import origin as wt_origin
 
-# TODO: Fix dependance on pandas
-
 
 def _mask__no_context(timeline):
-    if "context" in timeline.columns:
-        mask = timeline["context"] == ""
-    else:
-        mask = pd.Series(True, index=timeline.index)
+    """
+    Rows whose context is the empty string, i.e. those that should inherit one.
 
-    return mask
+    `context` is a required column (`timeline._SCHEMA`) and the empty string is its
+    minimum value, so there is no case here for a timeline that lacks it -- see #28.
+    This used to fall back to "every row" when the column was absent, which promised a
+    tolerance the rest of the pipeline did not honour: such a frame raised `KeyError`
+    four lines further down.
+    """
+    return timeline["context"] == ""
 
 
 def context(

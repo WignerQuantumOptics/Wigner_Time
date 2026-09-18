@@ -3,7 +3,11 @@ from munch import Munch
 import numpy as np
 
 from wignertime import ramp_function, timeline as tl
-from wignertime.adwin import display
+
+# NOTE: the commented-out `display` call below needs
+# `from wignertime.adwin import display`, and with it the optional `display`
+# extra. It is not imported at module scope so that these tests remain runnable
+# without that extra.
 from wignertime.internal import dataframe as wt_frame
 
 import pathlib as pl
@@ -30,7 +34,7 @@ def dfseq():
 
 @pytest.fixture
 def tl_anchor():
-    return tl.create(
+    return tl._populate_timeline(
         [
             ["lockbox_MOT__V", 0.0],
             ["⚓_001", 0.0],
@@ -61,7 +65,7 @@ def tl_anchor():
     ],
 )
 def test_ramp0(args):
-    timeline = tl.create(
+    timeline = tl._populate_timeline(
         [
             ["lockbox_MOT__V", 0.0, 0.0],
             ["⚓_001", 0.0, 0.0],
@@ -69,7 +73,7 @@ def test_ramp0(args):
         context="init",
     )
     tl_ramp = tl.ramp(timeline, **args)
-    tl_check = tl.create(
+    tl_check = tl._populate_timeline(
         [
             ["lockbox_MOT__V", [0.0, 0.0, "init"]],
             ["⚓_001", [0.0, 0.0, "init"]],
@@ -94,11 +98,6 @@ def test_ramp0(args):
             origin2=["variable"],
         ),
         Munch(
-            lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
-            origin=["anchor", "variable"],
-            origin2=["variable"],
-        ),
-        Munch(
             lockbox_MOT__V=[50e-3, 5], origin=["last", "variable"], origin2=["variable"]
         ),
         Munch(
@@ -109,12 +108,12 @@ def test_ramp0(args):
     ],
 )
 def test_ramp1(args):
-    timeline = tl.create(
+    timeline = tl._populate_timeline(
         [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
     )
 
     tl_ramp = tl.ramp(timeline, **args, context="init")
-    tl_check = tl.create(
+    tl_check = tl._populate_timeline(
         [
             ["lockbox_MOT__V", [50e-3, 0.2]],
             [
@@ -148,9 +147,40 @@ def test_ramp1(args):
     return wt_frame.assert_equal(tl_ramp, tl_check)
 
 
+def test_ramp_start_stated_explicitly(tl_anchor):
+    """
+    A start value written in the 2-D form is taken as written.
+
+    `tab:rampExamples` documents that form as being for cases where the start cannot be
+    inferred from `origin`, i.e. the user is overriding the inference -- so resolving the
+    value origin on top of it defeated the only reason to use it (A8/#106). Here
+    `lockbox_MOT__V` sits at 0.2, and the ramp must still start at the 0.0 that was
+    written.
+    """
+    timeline = tl._populate_timeline(
+        [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
+    )
+    result = tl.ramp(
+        timeline,
+        lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
+        origin=["anchor", "variable"],
+        context="init",
+    )
+    assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
+        [0.05, 0.0],
+        [0.10, 5.0],
+    ]
+
+
 def test_ramp_combined():
     """
-    Alternative to `wait`-ing 5s.
+    Hold at the variable's current value for 5 s, then ramp to 10 over 1 s.
+
+    This was written in 2025-03 (`2927057`) as a translation of the `wait` mechanism
+    that the origin machinery replaced, using the 2-D form with a start value of 0.0 as
+    an *offset* -- which worked only because the value origin was added on top of it
+    (A8). The 2-D form was never needed: `t` places the start point, and the default
+    origin supplies its value. All four spellings were measured equal on 2026-09-18.
     """
     tl_check = tl.create(
         lockbox_MOT__V=[
@@ -172,12 +202,8 @@ def test_ramp_combined():
     ] = ramp_function.tanh
 
     tl_ramp = tl.stack(
-        tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
-        tl.ramp(
-            lockbox_MOT__V=[[5.0, 0.0], [1.0, 10.0]],
-            origin=["lockbox_MOT__V", "lockbox_MOT__V"],
-            origin2=["variable"],
-        ),
+        tl._populate_timeline("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
+        tl.ramp(lockbox_MOT__V=10.0, t=5.0, duration=1.0),
     )
     return wt_frame.assert_equal(tl_check, tl_ramp)
 
@@ -189,7 +215,7 @@ def test_ramp_combined():
 def test_ramp_start(tl_anchor, args):
     tl_ramp = tl.ramp(tl_anchor, lockbox_MOT__V=args, duration=100e-3)
 
-    tl_check = tl.create(
+    tl_check = tl._populate_timeline(
         [
             ["lockbox_MOT__V", [0.0, 0.0, "init"]],
             ["⚓_001", [0.0, 0.0, "init"]],
@@ -211,7 +237,7 @@ def test_ramp_start(tl_anchor, args):
 # def test_ramp_start2(tl_anchor, args):
 #     tl_ramp = tl.ramp(tl_anchor, lockbox_MOT__V=args, duration=0.0)
 
-#     tl_check = tl.create(
+#     tl_check = tl._populate_timeline(
 #         [
 #             ["lockbox_MOT__V", [0.0, 0.0, "init"]],
 #             ["⚓_001", [0.0, 0.0, "init"]],
@@ -227,7 +253,7 @@ def test_ramp_start(tl_anchor, args):
 
 def test_ramp_expand():
     tl_ramp = tl.stack(
-        tl.create("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
+        tl._populate_timeline("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
         tl.ramp(
             lockbox_MOT__V=[1.0, 10.0],
             origin=["lockbox_MOT__V", "lockbox_MOT__V"],
@@ -252,7 +278,7 @@ def test_ramp_expand():
 
 def test_random_ramp():
     tl_ramp = tl.stack(
-        tl.create(
+        tl._populate_timeline(
             ["device_pump", [0.0, 0.0, "ADwin_Init"]],
             ["lockbox_MOT__V", [1.0, 00.0, "ADwin_Init"]],
             ["lockbox_MOT__V", [2.0, 10.0, "blah"]],
@@ -372,13 +398,64 @@ def test_rampDoesNotRaise1(tl_anchor):
     tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=1.0))
 
 
-def test_rampDoesNotRaise2(tl_anchor):
-    return wt_frame.assert_equal(
-        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=0.0)), tl_anchor
-    )
+def test_ramp_of_zero_duration_raises(tl_anchor):
+    """
+    A3, settled 2026-09-18. Both boundaries would occupy one instant, so there is no
+    ramp to expand, and a `duration` that comes out as zero is almost always a slip in
+    the caller's arithmetic. Until then this returned the timeline untouched, so the
+    command simply was not there.
+    """
+    with pytest.raises(ValueError, match="must end after it begins"):
+        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=0.0))
 
 
-def test_rampDoesNotRaise3(tl_anchor):
-    return wt_frame.assert_equal(
-        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=0.0, duration=1.0)), tl_anchor
+def test_ramp_of_negative_duration_raises(tl_anchor):
+    """
+    The same error with a sign, and it was the worse of the two: `expand` sorts each
+    ramp's boundaries by time, so a backwards ramp had its endpoints silently *swapped*.
+    Measured on `bb55695`, with `c__A` sitting at 4.0:
+
+        ramp(c__A=9.0, duration=-1.0)  ->  ramp 9.0 -> 4.0, one second in the past
+
+    i.e. the variable finished at its old value rather than at the target, and the
+    transition landed on top of whatever preceded it. Nothing said so.
+    """
+    with pytest.raises(ValueError, match="must end after it begins"):
+        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=-1.0))
+
+
+def test_a_flat_ramp_is_kept(tl_anchor):
+    """
+    The other half of A3: `lockbox_MOT__V` already sits at 0.0, so this ramp changes no
+    value -- but it *occupies a second*, and discarding it shortened the timeline and
+    pulled everything after it forward, silently. It is kept, and
+    `adwin.validate.drop_repeats` removes the resulting value redundancy before the
+    hardware.
+    """
+    result = tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=0.0, duration=1.0))
+
+    assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
+        [0.0, 0.0],
+        [1.0, 0.0],
+    ]
+
+
+def test_boundary_frames_are_compared_variable_by_variable():
+    """
+    B1/#108. `new1` and `new2` do not hold their variables in the same order once the
+    1-D and 2-D input forms are mixed in one call: `new1` takes the explicitly started
+    variables first, `new2` the inferred ones. The degenerate-row mask subtracted them
+    positionally, so it compared one variable's boundary against another's.
+
+    Here nothing is degenerate -- `X__A` runs 7.0 -> 5.0 and `Y__A` 5.0 -> 7.0, at
+    different times -- but positionally each start matches the *other* variable's end in
+    value, so every row was flagged, and A3's early return then discarded the entire
+    ramp without a word. Measured on `5d5a0cd`: 0 rows added instead of 4.
+    """
+    base = tl.create(X__A=1.0, Y__A=5.0, t=0.0, context="s")
+    result = tl.ramp(
+        base, X__A=[[1.0, 7.0], [2.0, 5.0]], Y__A=7.0, duration=3.0, origin=0.0
     )
+
+    assert len(result) - len(base) == 4
+    assert set(result[result["function"].notna()]["variable"]) == {"X__A", "Y__A"}
