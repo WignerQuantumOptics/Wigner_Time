@@ -766,7 +766,15 @@ Marked DEPRECATED in its own docstring; delegates to `wt_origin.previous`. The c
 
 `ramp(..., origin2=["variable"])`. Not mutated in the current body, so harmless today, but it is a latent trap.
 
-### D4 — Incorrect variadic annotations
+### D4 — Incorrect variadic annotations — **RESOLVED AND FIXED 2026-09-20**
+
+`*fs: Callable` in both, and in `sec:stacking`, which reproduces both signatures verbatim.
+
+**The sweep that followed found two more paper-code divergences**, in `ramp`'s listing: `origin2` was shown as `["variable"]`, which the per-slot work had changed to `["variable", 0.0]` two days earlier, and the parameter order had `t2` after `context` and `origin` rather than before. Both corrected.
+
+All six signatures the manuscript shows — `create`, `update`, `ramp`, `anchor`, `stack`, `cascade` — now agree with the code on parameter names, order and defaults. What differs is only how each is written: the paper uses source-level forms (`wt_frame.CLASS`, `wt_ramp_function.tanh`) where `inspect.signature` renders resolved objects, and omits the `timeline` annotation on `update`. `expand` is not shown, so losing `num__bounds` (B6) left nothing to reconcile.
+
+One thing deliberately left: a commented-out predecessor of `stack` sits just above it in `timeline.py`, carrying the same wrong annotation. It is dead, it predates the keyword forwarding and every guard, and it turns up in any grep for these annotations — but deleting a comment the maintainer may be keeping is not a fix.
 
 `stack(timeline_or_f, *fs: list[Callable], ...)` and `cascade(*fs: list[Callable], ...)` annotate each individual argument as a *list* of callables. Should be `*fs: Callable`.
 

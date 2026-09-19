@@ -588,10 +588,10 @@ def ramp(
     timeline=None,
     duration=None,
     t=None,
+    t2=None,
     context=None,
     origin=None,
-    t2=None,
-    origin2=["variable"],
+    origin2=["variable", 0.0],
     function=
       wt_ramp_function.tanh,
     **vtvc_dict
@@ -696,7 +696,7 @@ The core functions \python{update}, \python{ramp} and \python{anchor} share a sp
 This is central to the user experience of Wigner Time. Stages such as optical pumping or absorption imaging can be defined once, generically, and inserted anywhere within a specific timeline. Rather than threading timelines through nested \python{timeline=...} keyword arguments, such building blocks can be composed using \python{stack}:
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none, linenos=false]{python}
-def stack(timeline_or_f: wt_frame.CLASS | Callable, *fs: list[Callable], **kws) 
+def stack(timeline_or_f: wt_frame.CLASS | Callable, *fs: Callable, **kws) 
   -> Callable | wt_frame.CLASS:
 \end{minted}
 %
@@ -767,7 +767,7 @@ The brevity of this declaration follows from a series of design decisions. Since
 A further useful function for stacking is \python{cascade}:
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none, linenos=false]{python}
-def cascade(*fs: list[Callable], **kws) -> Callable | wt_frame.CLASS:
+def cascade(*fs: Callable, **kws) -> Callable | wt_frame.CLASS:
 \end{minted}
 %
 This serves a similar purpose to \python{stack} at the outer layer of composition, but with the added feature that keywords are selectively forwarded to the underlying functions by name prefix.

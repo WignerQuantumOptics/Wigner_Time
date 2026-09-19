@@ -666,7 +666,7 @@ def _ensure_stackable(f):
 
 
 def stack(
-    timeline_or_f: wt_frame.CLASS | Callable, *fs: list[Callable], **kws
+    timeline_or_f: wt_frame.CLASS | Callable, *fs: Callable, **kws
 ) -> Callable | wt_frame.CLASS:
     """
     For chaining modifications to the timeline in a composable way.
@@ -799,7 +799,7 @@ def _route_keyword(key, names__by_length, stages__by_name):
     return None, near_misses
 
 
-def cascade(*fs: list[Callable], **kws) -> Callable | wt_frame.CLASS:
+def cascade(*fs: Callable, **kws) -> Callable | wt_frame.CLASS:
     """
     Similarly to `stack`, a convenience that combines an arbitrary chain of functions with an arbitrary selection of associated keywords.
 
