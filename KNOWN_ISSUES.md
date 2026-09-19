@@ -782,7 +782,13 @@ One thing deliberately left: a commented-out predecessor of `stack` sits just ab
 
 Carries a TODO to remove the pandas dependence. Relevant to the polars-backed path; not urgent.
 
-### D6 — `national_instruments/__init__.py` does not parse **[new, found 2026-09-01]**
+### D6 — `national_instruments/__init__.py` does not parse — **RESOLVED AND FIXED 2026-09-20 (maintainer)**
+
+A missing comma between the message and `UserWarning`, so the two became one expression and the module did not parse.
+
+Verified: it now imports and emits the intended `UserWarning`, `pyflakes` and `black` are clean on it, and `test_national_instruments.py` covers it — nothing did, which is why a placeholder nobody imports could sit broken.
+
+One thing this did **not** do, contrary to what might be assumed: unblock the linter. `pyflakes src` reports per file, so the rest of the package was always being checked — 30 lines of output before the fix, 27 after, the difference being the syntax error itself. The 26 unused imports it lists elsewhere are pre-existing and untouched.
 
 `src/wignertime/national_instruments/__init__.py` has a missing comma between the message and `UserWarning` in its `warnings.warn(...)` call. The module is a syntax error: `import wignertime.national_instruments` raises `SyntaxError`, and `black` cannot format the file (it is the one "cannot format" entry in a whole-repo run).
 
