@@ -359,7 +359,15 @@ Because the bound is recomputed as `timeline__future["time"].min()` inside the l
 
 Fix direction: compute the minimum once, before the loop.
 
-### B3 — `previous` sorts a filtered slice in place
+### B3 — `previous` sorts a filtered slice in place — **RESOLVED AND FIXED 2026-09-19**
+
+Rebound rather than sorted in place, as the fix direction said. The two branches it replaces returned the same expression anyway, so the sort is now the only thing conditional on monotonicity.
+
+**Measured before changing it, and the severity was not quite as recorded.** On pandas 2.3.3 the answer was *correct* in both copy-on-write modes; what it did was raise `SettingWithCopyWarning` with CoW off. So this was not a wrong answer waiting to happen so much as a reliance on behaviour pandas documents as undefined — which is exactly what #88 will settle one way or the other.
+
+The existing `sort_by` tests did not catch it because getting the right answer was never the problem; the new one asserts the caller's frame is untouched and that nothing warns.
+
+The diagnosis follows.
 
 `internal/origin.previous`. `tl__filtered` is a boolean-mask slice of `tline`; `tl__filtered.sort_values(sort_by, inplace=True)` on such a slice is unreliable under copy-on-write and may either warn, no-op, or write through to the parent depending on pandas version. pandas 3.x makes CoW unconditional.
 

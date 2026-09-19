@@ -55,3 +55,32 @@ def test_previousContext(input_value):
     return frame.assert_series_equal(
         origin.previous(input_value, variable="blah", column="context"), row
     )
+
+
+def test_previous_sorting_does_not_touch_the_caller_or_warn():
+    """
+    B3/#110. `tl__filtered` is a boolean-mask slice, and `sort_values(inplace=True)` on
+    one is undefined: pandas 2 answers correctly but raises `SettingWithCopyWarning`, and
+    pandas 3 makes copy-on-write unconditional (#88). Rebinding instead is both correct
+    and quiet.
+
+    The existing `sort_by` tests do not catch it, because getting the right answer was
+    never the problem.
+    """
+    import warnings
+
+    timeline = tl.create(
+        a__A=[[3.0, 30.0], [1.0, 10.0], [2.0, 20.0]],
+        b__A=[[0.5, 5.0]],
+        context="s",
+    )
+    before = timeline.copy()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        row = tl.previous(timeline, variable="a__A", sort_by="time")
+
+    assert row["time"] == pytest.approx(3.0)
+    assert row["value"] == pytest.approx(30.0)
+    assert [w.category.__name__ for w in caught] == []
+    frame.assert_equal(timeline, before)

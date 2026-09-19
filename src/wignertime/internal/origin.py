@@ -136,12 +136,14 @@ def previous(
 
     if sort_by is None:
         return wt_frame.row_from_max_column(tl__filtered)
-    else:
-        if not tl__filtered[sort_by].is_monotonic_increasing:
-            tl__filtered.sort_values(sort_by, inplace=True)
-            return tl__filtered.iloc[index]
-        else:
-            return tl__filtered.iloc[index]
+
+    # Rebound rather than sorted in place: `tl__filtered` is a boolean-mask slice, and
+    # `inplace=True` on one is undefined -- pandas 2 answers correctly but raises
+    # `SettingWithCopyWarning`, and pandas 3 makes copy-on-write unconditional (B3, #88).
+    # The two branches this replaces returned the same expression anyway.
+    if not tl__filtered[sort_by].is_monotonic_increasing:
+        tl__filtered = tl__filtered.sort_values(sort_by)
+    return tl__filtered.iloc[index]
 
 
 def _is_satisfiable__time(timeline, label):
