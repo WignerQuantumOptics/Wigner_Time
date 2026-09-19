@@ -274,6 +274,22 @@ Tracked as [#132](https://github.com/WignerQuantumOptics/Wigner_Time/issues/132)
 
 ---
 
+### A13 — `ramp` silently discards a third point **[new, found 2026-09-20]** — **FIXED 2026-09-20**
+
+Found while examining B6 at the maintainer's prompting. `ramp`'s 2-D branch reads `v[0]` and `v[1]` and never looks further, so a variable given three points became a ramp between the first two:
+
+```python
+tl.ramp(base, c__A=[[0.0, 1.0], [0.5, 5.0], [1.0, 9.0]])
+#  1.0  1.0
+#  1.5  5.0      <- the third point silently discarded
+```
+
+The `case _:` guard only fires for `ndim > 2`, so a *longer* list of pairs is not deep enough to reach it. **`ramp`'s own docstring asserts the opposite**: "Supplying a different number of points will result in an error."
+
+This is A10's defect — `create` reading a positional row of more than two elements and dropping the rest — in the one function that sweep did not reach. Fixed the same way: the count is checked against what the interpolating function takes, and the refusal names the variable, its count, and the function's.
+
+---
+
 ### A12 — a negative ramp duration silently swaps the ramp's endpoints **[new, found 2026-09-18]**
 
 Raised by the maintainer while reviewing the A3 guard: *what happens when a ramp's duration is negative?*
@@ -419,7 +435,23 @@ This matters more than it looks: the "timeline as inspectable data" story depend
 
 Fix direction: operate on a copy.
 
-### B6 — `expand` assumes exactly `num__bounds` rows per group
+### B6 — `expand` assumes exactly `num__bounds` rows per group — **RESOLVED AND FIXED 2026-09-20**
+
+Fixed by removing the argument rather than by checking it. **The maintainer's observation settled the shape of this**: `num__bounds` is the number of points the interpolating function is defined by — and "bounds" is exact only for two, where start and end really are the boundaries, which is the one case in which the number need not be stated at all. A third point is an interior control point, not a bound. So the name was wrong precisely where the parameter would have earned its keep.
+
+It also did not belong to `expand`. How many points a ramp is made of is a property of its *function*: `tanh` takes two, an interpolation with interior control points would take more. It is now declared on the function (`ramp_function.with_points`, read by `ramp_function.points`, defaulting to two so a hand-written lambda needs no ceremony) and read from the `function` column. Being derived, it can no longer disagree with the data.
+
+Grouping is now **per variable** rather than a stride across the whole frame. The old global stride meant one variable with an odd number of rows misaligned the pairing of every variable after it; per variable the arithmetic is local and the offender has a name:
+
+```
+before:  ValueError: not enough values to unpack (expected 2, got 1)
+after:   ValueError: c__A has 3 ramp row(s), which is not a whole number of
+                     ramps: tanh makes each one out of 2.
+```
+
+`num__bounds` is **removed, not renamed**, and passing it raises: left in the signature's place it would have been swallowed by `**function_args` and filtered out against the ramp function's signature, so a caller still passing it would have been ignored without a word.
+
+Verified unchanged: the demo and lab timelines hash identically, `convert` produces the same 8261 analogue and 35 digital tuples, and two ramps of one variable still expand.
 
 `_pt_start, _pt_end = _group[["time", "value"]].values` unpacks assuming two rows. Groups are formed by `_dff.index // num__bounds` after a reset, so an odd total row count leaves a final group of one and the unpack raises a bare `ValueError` with no indication of which variable is malformed.
 
@@ -754,7 +786,7 @@ One-character fix, no design question. Left unfixed only because it fell outside
 
 `docs/paper/main.tex` is canonical. Where the code and the manuscript disagree, **the code changes.** This is the same direction as §G: the manuscript is not to be edited to match the code.
 
-**Scope to settle before starting.** The paper fixes the naming of everything it *shows*; for library internals it never shows there is no paper version to reconcile to, so those are out of scope by construction. Proposed reading: reconcile the public API surface, the demo, and the ADbasic listing; leave internal identifiers (`num__bounds`, `column__value`, `timeline__past`, `mask__changed`) alone. Confirm this before renaming anything, because the alternative reading — that the paper's single-underscore style governs internals too — is a very large change.
+**Scope to settle before starting.** The paper fixes the naming of everything it *shows*; for library internals it never shows there is no paper version to reconcile to, so those are out of scope by construction. Proposed reading: reconcile the public API surface, the demo, and the ADbasic listing; leave internal identifiers (`column__value`, `timeline__past`, `mask__changed`) alone. (`num__bounds`, listed here until 2026-09-20, no longer exists — see B6.) Confirm this before renaming anything, because the alternative reading — that the paper's single-underscore style governs internals too — is a very large change.
 
 Do not conflate the two naming systems:
 

@@ -489,3 +489,77 @@ def test_ramp_leaves_the_timeline_it_was_given_alone():
     ends = result[result["function"].notna()].groupby("variable")["value"].last()
     assert ends["c__A"] == pytest.approx(9.0)
     assert ends["d__A"] == pytest.approx(7.0)
+
+
+# --- how many points a ramp is made of (B6/#113, A13) -------------------------
+
+
+def test_a_ramp_function_declares_how_many_points_it_takes():
+    """
+    The number belongs to the interpolating function, not to the caller expanding it.
+    An undeclared one is taken to want two, which keeps a hand-written
+    `lambda origin, terminus, time_resolution: ...` working without ceremony.
+    """
+    assert ramp_function.points(ramp_function.tanh) == 2
+    assert ramp_function.points(ramp_function.linear) == 2
+    assert ramp_function.points(lambda origin, terminus, time_resolution: None) == 2
+
+    @ramp_function.with_points(3)
+    def spline(origin, middle, terminus, time_resolution=1e-6):
+        raise NotImplementedError
+
+    assert ramp_function.points(spline) == 3
+
+
+def test_a_third_point_is_refused_rather_than_discarded(tl_anchor):
+    """
+    A13. `ramp` read the first two points and dropped the rest in silence, while its own
+    docstring promised an error -- the defect A10 fixed in `create`, in the one function
+    that sweep did not reach.
+    """
+    with pytest.raises(ValueError, match="needs 2 point"):
+        tl.ramp(tl_anchor, lockbox_MOT__V=[[0.0, 1.0], [0.5, 5.0], [1.0, 9.0]])
+
+
+def test_expand_no_longer_takes_num__bounds(tl_anchor):
+    """
+    Removed rather than renamed. Left in place it would have been swallowed by
+    `**function_args` and filtered out against the ramp function's signature, so a caller
+    still passing it would have been ignored without a word.
+    """
+    timeline = tl.ramp(tl_anchor, lockbox_MOT__V=5.0, duration=1.0)
+    with pytest.raises(TypeError, match="no longer takes `num__bounds`"):
+        tl.expand(timeline, num__bounds=2, time_resolution=0.1)
+
+
+def test_expand_names_the_variable_whose_ramp_rows_do_not_pair(tl_anchor):
+    """
+    B6. The old global stride meant one variable with an odd number of rows misaligned
+    the pairing of every variable after it, and surfaced as a bare
+    `ValueError: not enough values to unpack (expected 2, got 1)`.
+    """
+    timeline = tl.ramp(tl_anchor, lockbox_MOT__V=5.0, duration=1.0)
+    timeline.loc[len(timeline)] = [
+        2.0,
+        "lockbox_MOT__V",
+        3.0,
+        "init",
+        ramp_function.tanh,
+    ]
+
+    with pytest.raises(ValueError, match="lockbox_MOT__V has 3 ramp row"):
+        tl.expand(timeline, time_resolution=0.1)
+
+
+def test_two_ramps_of_one_variable_still_expand(tl_anchor):
+    """Grouping per variable must still chunk that variable's rows, not merge them."""
+    timeline = tl.stack(
+        tl_anchor,
+        tl.ramp(lockbox_MOT__V=5.0, duration=1.0),
+        tl.ramp(lockbox_MOT__V=0.0, duration=1.0, t=2.0),
+    )
+    expanded = tl.expand(timeline, time_resolution=0.25)
+    values = expanded[expanded["variable"] == "lockbox_MOT__V"]["value"].tolist()
+
+    assert values[-1] == pytest.approx(0.0)
+    assert max(values) == pytest.approx(5.0)

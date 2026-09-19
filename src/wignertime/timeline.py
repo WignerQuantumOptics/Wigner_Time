@@ -443,7 +443,52 @@ def ramp(
             )
 
         case 2:
+            # How many points a ramp is made of belongs to the interpolating function,
+            # not to this call: `tanh` is defined by two, and an interpolation with
+            # interior control points would want more.
+            points__required = wt_ramp_function.points(function)
+
+            # Anything past the first two used to be read and silently dropped -- three
+            # points gave a ramp between the first two, with the third discarded, while
+            # this function's own docstring promised an error. The same defect A10 fixed
+            # in `create`, in the one function that sweep did not reach (A13).
+            counts__wrong = {
+                k: len(v)
+                for k, v in _vtvcs.items()
+                if v.ndim == 2 and len(v) != points__required
+            }
+            if counts__wrong:
+                raise ValueError(
+                    "\n".join(
+                        [
+                            "{} needs {} point(s) per variable, and got: {}.".format(
+                                getattr(function, "__name__", repr(function)),
+                                points__required,
+                                ", ".join(
+                                    "{} with {}".format(k, n)
+                                    for k, n in sorted(counts__wrong.items())
+                                ),
+                            ),
+                            "",
+                            "A ramp is a start point, an end point, and an interpolation"
+                            " between them. To hold a value and then move, use two"
+                            " ramps; to command several instants, use `update`.",
+                        ]
+                    )
+                )
+
             _vtvc_1d = {k: v for k, v in _vtvcs.items() if v.ndim != 2}
+            if _vtvc_1d and points__required != 2:
+                raise ValueError(
+                    "{} needs {} points per variable, so every one of them must be"
+                    " stated: {} gave only an end value, which is a shorthand that"
+                    " only works when the single missing point is the start.".format(
+                        getattr(function, "__name__", repr(function)),
+                        points__required,
+                        ", ".join(sorted(_vtvc_1d)),
+                    )
+                )
+
             _vtvc_2d_0 = {k: v[0] for k, v in _vtvcs.items() if v.ndim == 2}
             _vtvc_2d_1 = {k: v[1] for k, v in _vtvcs.items() if v.ndim == 2}
 
@@ -917,20 +962,29 @@ def _message__unroutable(unroutable, names__by_length):
     )
 
 
-def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Callable:
+def expand(timeline=None, **function_args) -> wt_frame.CLASS | Callable:
     """
     Converts the functions marked in the timeline into individual rows, i.e. applies the functions to the given data.
 
     This is generally a 'one-way' operation and so should only be carried out before the timeline is implemented on a device.
 
-    `num__bounds` refers to the number of points (and so rows) needed to define the ramp function in the first place. Currently, this is implicitly assumed to be two, i.e. that `ramp`s are simply defined by the origin, terminus and expansion function.
-
-    # NOTE: Not implemented for `num__bounds` != 2
+    How many rows make up one ramp is read from the ramp function itself
+    (`ramp_function.points`), not passed in. It used to be the `num__bounds` argument,
+    which could be given a number the data did not match and was named for the two-point
+    case in which it need not have been given at all -- start and end are the *bounds*
+    only while there is nothing between them (B6).
     """
     timeline = wt_util.ensure_timeline(timeline, "expand", columns__required=_SCHEMA)
 
     if timeline is None:
         return wt_util.function__lambda(kwargs=["function_args"])
+
+    if "num__bounds" in function_args:
+        raise TypeError(
+            "`expand` no longer takes `num__bounds`: how many points a ramp is made of"
+            " is a property of its interpolating function, and is read from it. Declare"
+            " it with `ramp_function.with_points(n)` if you are writing one."
+        )
 
     if "function" not in timeline.columns:
         # TODO: Add test for this 'feature'
@@ -938,42 +992,60 @@ def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Ca
 
     _mask_fs = timeline["function"].notna()
     _dff = timeline[_mask_fs].sort_values(by=["variable", "time"])
-
-    # Work out where the ramps start
     _indices_drop = _dff.index
-    _inds__start = _dff.iloc[::num__bounds].index
-
-    # Mark the beginning and end points (allowing for the number of points per ramp specification to increase in the future)
-    _dff = _dff.reset_index(drop=True)
-    _dff["ramp_group"] = _dff.index // num__bounds
-
-    # Fill out the values
-    _dfs = []
 
     # For adding back in the value of other columns, based on the first row, like `context` etc. Written this way to allow for more, unknown columns to continue.
-    _columns__keep = _dff.columns.drop(
-        ["time", "value", "variable", "function", "ramp_group"]
-    )
+    _columns__keep = _dff.columns.drop(["time", "value", "variable", "function"])
 
-    for _, _group in _dff.groupby("ramp_group"):
-        _pt_start, _pt_end = _group[["time", "value"]].values
+    # Grouped per variable rather than by striding the whole frame. The old global stride
+    # meant one variable with an odd number of rows silently misaligned the pairing of
+    # *every* variable after it, and the failure surfaced as a bare
+    # `ValueError: not enough values to unpack` from the tuple assignment, naming
+    # nothing (B6). Per variable, the arithmetic is local and the offender has a name.
+    _inds__start = []
+    _dfs = []
+    for variable, rows in _dff.groupby("variable", sort=False):
+        points__required = wt_ramp_function.points(rows["function"].iloc[0])
 
-        # Apply the ramp function
-        # - Only pass on the kwargs that the function accepts
-        func = wt_util.function__filtered_kws(
-            _group["function"].tolist()[0], **function_args
-        )
+        if len(rows) % points__required:
+            raise ValueError(
+                "\n".join(
+                    [
+                        "{} has {} ramp row(s), which is not a whole number of ramps:"
+                        " {} makes each one out of {}.".format(
+                            variable,
+                            len(rows),
+                            getattr(
+                                rows["function"].iloc[0],
+                                "__name__",
+                                repr(rows["function"].iloc[0]),
+                            ),
+                            points__required,
+                        ),
+                        "",
+                        "A ramp row is one carrying a `function`. Rows written by hand"
+                        " into that column, or a `function` left on a row that was"
+                        " meant to be a plain entry, are the usual causes.",
+                    ]
+                )
+            )
 
-        # The internal constructor, because this is the one caller that assembles rows
-        # rather than being handed them: `create` takes keywords only.
-        _dfs.append(
-            _populate_timeline(
-                [
-                    _group["variable"].tolist()[0],
-                    func(_pt_start, _pt_end),
-                ],
-            ).assign(**_group.iloc[0][_columns__keep].to_dict())
-        )
+        for i in range(0, len(rows), points__required):
+            group = rows.iloc[i : i + points__required]
+            _inds__start.append(group.index[0])
+
+            # Only pass on the kwargs that the function accepts
+            func = wt_util.function__filtered_kws(
+                group["function"].iloc[0], **function_args
+            )
+
+            # The internal constructor, because this is the one caller that assembles
+            # rows rather than being handed them: `create` takes keywords only.
+            _dfs.append(
+                _populate_timeline(
+                    [variable, func(*group[["time", "value"]].values)],
+                ).assign(**group.iloc[0][_columns__keep].to_dict())
+            )
 
     # Dropped into a new frame rather than in place. Every other function here returns a
     # new timeline and leaves its argument alone, and the "description is data" story

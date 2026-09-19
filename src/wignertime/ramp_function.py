@@ -7,6 +7,49 @@ from wignertime import config as wt_config
 from wignertime.internal import util as wt_util
 
 
+ATTRIBUTE__POINTS = "__wigner_time_points__"
+"""
+How many time-value pairs a ramp function interpolates between.
+
+This belongs to the function, not to the caller expanding it: `tanh` is defined by two
+points, and an interpolation wanting interior control points would be defined by more.
+`expand` used to take the number as an argument instead (`num__bounds`), which meant it
+could be given a value the data did not match, and could not be told apart from the
+caller's other keywords. See KNOWN_ISSUES B6.
+
+The name it replaces was wrong as well as misplaced: for two points "bounds" is exact,
+since start and end *are* the boundaries -- but that is the one case where the number
+need not be stated at all. A third point is an interior control point, not a bound.
+"""
+
+POINTS__DEFAULT = 2
+"""Assumed of a ramp function that does not say, which is every hand-written one."""
+
+
+def with_points(number):
+    """
+    Declare how many time-value pairs a ramp function interpolates between.
+
+    Decorating is optional: an undeclared function is taken to want `POINTS__DEFAULT`,
+    which keeps a user's `lambda origin, terminus, time_resolution: ...` working without
+    ceremony.
+    """
+
+    def decorate(f):
+        setattr(f, ATTRIBUTE__POINTS, number)
+        return f
+
+    return decorate
+
+
+def points(f) -> int:
+    """
+    How many time-value pairs `f` interpolates between. See `ATTRIBUTE__POINTS`.
+    """
+    return getattr(f, ATTRIBUTE__POINTS, POINTS__DEFAULT)
+
+
+@with_points(2)
 def linear(
     origin: list[float],
     terminus: list[float],
@@ -37,6 +80,7 @@ def _tanh__scaled(x: np.ndarray, sharpness=3):
     )
 
 
+@with_points(2)
 def tanh(
     origin: list[float],
     terminus: list[float],
