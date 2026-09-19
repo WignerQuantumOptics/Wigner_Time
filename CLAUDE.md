@@ -183,6 +183,15 @@ conflate them — that conflation was A6. `config.ORIGIN__DEFAULTS` (for `update
 and if none is satisfiable the origin is `0.0` with a warning. A partially stated origin keeps the
 default for the slot it omits.
 
+**Do not propose replacing `origin` with separate `t0`/`v0` keywords.** It is a reasonable idea and
+it was declined on 2026-09-19 (#74), on the merits rather than for inertia: the two slots really are
+independent now, and splitting would delete the normalisation layer whose string-padding rule was A6's
+mechanism. What settles it is `ramp.origin2`, which places the *end* point and does not decompose into
+the same scheme — `ramp` would carry `t0`, `v0` and two more for the end, alongside the `t`, `t2` and
+`duration` it already has. A ramp's second reference is a different kind of thing from its first, and a
+flat `t0`/`v0` vocabulary would flatten that. The same issue's second half, a `default` sentinel in
+place of `None`, was resolved rather than declined: `None` now carries one meaning, not two.
+
 Three properties of the mechanism that are easy to break:
 
 - **The flexibility exists only at construction time and never leaks into the data.** Once resolved,
