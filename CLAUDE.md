@@ -57,7 +57,10 @@ before any non-trivial design decision. Useful section map: `sec:definitions` (t
 
 The manuscript is now committed and self-contained under `docs/paper/`, imported from Overleaf:
 `main.tex`, `SciPost.cls`, `SciPost_bibstyle.bst`, `WignerTime.bib`, and all five figures under
-`docs/paper/graphic/`. Every `\includegraphics` target and the `\bibliography{WignerTime.bib}` call
+`docs/paper/graphic/`. One of those figures is **generated, not drawn**: `fig:origin` comes from
+`graphic/origin_resolution_figure.py`, so a change to the origin mechanism should be carried into the
+manuscript by rerunning it. It checks its own text for overflow and refuses to write a figure that
+does not fit. The others are still static images. Every `\includegraphics` target and the `\bibliography{WignerTime.bib}` call
 resolve. No LaTeX toolchain is installed here, so a build has not been demonstrated — and note that
 `minted` requires `pygmentize` and `-shell-escape`. Build from inside `docs/paper/`; the figure paths
 are relative to it.

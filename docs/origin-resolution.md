@@ -7,8 +7,10 @@ a record: each table describes the code *as it was*, because the measurements in
 argument for what replaced it, and each entry says what it became. Read **The semantics, as
 implemented** for the design as it now stands; read the tables when you want to know why.
 
-One thing outstanding, and it is not code: `fig:origin` needs redrawing (#123). Its caption was
-amended and the image was not, so they now contradict each other.
+`fig:origin` was redrawn on 2026-09-19 (#123) and is now generated rather than drawn:
+`docs/paper/graphic/origin_resolution_figure.py` writes `origin-resolution.pdf`. It is vector, and
+it is regenerable, so the next change to the mechanism does not leave the manuscript behind. The
+PNG it replaces is still in the tree; delete it once the new figure has been seen in a build.
 
 **Status.** Developer reference, not published documentation — it cites defects by their
 `KNOWN_ISSUES.md` identifiers and is deliberately absent from the `mkdocs.yml` nav. The user-facing
@@ -29,11 +31,11 @@ one fewer entry and one fewer defect. Every `NEW-n` identifier used here is trac
 issue — NEW-1 #123, NEW-2 #124, NEW-3 #115, NEW-4 #122, NEW-5 #107, NEW-6 #105, NEW-7 #114,
 NEW-8 #106, and NEW-9 inside #102 (A4) rather than as an item of its own.
 
-**The figure.** `docs/paper/graphic/origin-decision-tree-highlighted.png` is the authoritative
-diagram (`fig:origin`), and its caption is the authoritative statement of which slots each option
-may serve. **The caption was amended on 2026-09-18 to state the slot split; the image was not,
-and cannot be from here — it still draws one undivided tree, so it now contradicts its own
-caption and needs redrawing before submission.** It presents resolution as one flat tree. This document splits it into **four layers**,
+**The figure.** `docs/paper/graphic/origin-resolution.pdf` is the authoritative diagram
+(`fig:origin`), and its caption is the authoritative statement of which slots each option may
+serve. It is drawn per slot, which is the whole point of the redraw: the mind-map it replaced
+presented resolution as one flat tree serving both, which is exactly the over-generation that
+A7 was about. It presents resolution as one flat tree. This document splits it into **four layers**,
 because the flat presentation hides where the defects live: the tree describes Layer C only, and says
 nothing about which default was selected (A), how a scalar becomes a pair (B), or how a resolved pair
 is applied (D).
@@ -334,12 +336,17 @@ Done:
   block: zero and negative durations raise, a flat ramp is a hold and is kept, a variable with no
   previous entry has no start point, and a stated start value is taken as written.
 
-Outstanding, and it blocks submission:
+Also done, 2026-09-19:
 
-- **`graphic/origin-decision-tree-highlighted.png` has to be redrawn** (#123). Its caption was amended
-  and the image was not, so the figure now contradicts itself. Three things need to change in it: the
-  root node should read `None` rather than `0.0` in the value slots; the resolution should be shown
-  per slot rather than as one flat tree serving both; and the chain should show its terminal step. The
-  figure's existing leaf wording already leans the right way — `"last"` and `"anchor"` are described
-  as *times*, the value-capable leaves neutrally as *entities* — so the redraw is a clarification of
-  what it was reaching for, not a reversal.
+- **`fig:origin` redrawn** (#123), as `graphic/origin-resolution.pdf`. Vector, and *generated*:
+  `graphic/origin_resolution_figure.py` writes it, so the next change to the mechanism can be carried
+  into the manuscript by rerunning one script rather than by reopening a mind-mapping tool. Three
+  things changed in the content: the root node reads `None` rather than `0.0`; resolution is drawn
+  per slot rather than as one flat tree serving both; and the default is shown as a terminal chain.
+  The figure's old leaf wording already leaned the right way — `"last"` and `"anchor"` described as
+  *times*, the value-capable leaves neutrally as *entities* — so the redraw makes explicit what it
+  was reaching for. The caption now gives the reason for the split rather than repeating the
+  contents, which the figure carries itself.
+
+  `origin-decision-tree-highlighted.png` is still in the tree, unreferenced. Delete it once the new
+  figure has been seen in a build.
