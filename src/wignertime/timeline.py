@@ -975,8 +975,14 @@ def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Ca
             ).assign(**_group.iloc[0][_columns__keep].to_dict())
         )
 
-    timeline.drop(index=_indices_drop, inplace=True)
-    timeline.drop(columns=["function"], inplace=True)
+    # Dropped into a new frame rather than in place. Every other function here returns a
+    # new timeline and leaves its argument alone, and the "description is data" story
+    # depends on a frame not changing under whoever is holding it -- `expand` was the one
+    # exception, and it took both the ramp rows and the `function` column with it (B5).
+    #
+    # `adwin.core.convert` was unharmed only by accident of pipeline order:
+    # `remove_unconnected_variables` runs first and hands `expand` a fresh frame.
+    timeline = timeline.drop(index=_indices_drop).drop(columns=["function"])
 
     # Add the values back into the main timeline
     return wt_frame.insert_dataframes(timeline, _inds__start, _dfs)

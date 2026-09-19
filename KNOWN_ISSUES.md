@@ -399,7 +399,19 @@ The diagnosis follows.
 
 Fix direction: `.copy()` at construction.
 
-### B5 — `expand` mutates the caller's dataframe
+### B5 — `expand` mutates the caller's dataframe — **RESOLVED AND FIXED 2026-09-19**
+
+Dropped into a new frame rather than in place, as the fix direction said.
+
+**Checked first that nothing relied on the overwriting** (maintainer's instruction), and nothing does: every caller uses the return value. `adwin.core.convert` takes it as a `compose` constituent; the tests take it through `stack`; the lab never calls `expand` at all. `convert` was unharmed even so, but only by accident of pipeline order — `remove_unconnected_variables` runs first and hands `expand` a fresh frame — so `test_convert_leaves_the_timeline_it_was_given_alone` now pins that rather than leaving it to chance.
+
+**One caller was damaged by it**, and it is the package's own: `internal/doc/demo.ipynb` expands `timeline` in one cell, expands it again in the next — silently a no-op by then, the ramps having already been removed from it — and hands `timeline` to `to_data` two cells later, by which point its ramp rows and `function` column are gone. That notebook is stale in other ways (it imports `wigner.time`, the pre-rename package), so this is evidence of intent rather than a live break.
+
+**And a landmine worth naming.** `demo.timeline__demo` is a module-level object that the tests import. A single `expand` on it stripped it for every later user in the same process — 99 rows to 57, no `function` column. Nothing does that today; nothing stopped it either.
+
+Measured after the change: the caller's frame is untouched, `convert` produces the same 8261 analogue and 35 digital tuples, and expanding twice now gives the same answer both times.
+
+The diagnosis follows.
 
 `timeline.expand` calls `timeline.drop(index=..., inplace=True)` and `timeline.drop(columns=["function"], inplace=True)` on the argument. Every other main function in this module is non-mutating and returns a new frame; `expand` breaks that contract, so a caller who keeps a reference to the pre-expansion timeline finds it corrupted.
 

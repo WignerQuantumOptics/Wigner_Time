@@ -207,3 +207,44 @@ def test_cascade_stays_permissive_where_the_target_has_kwargs():
     assert 0.5 in set(
         built.loc[built["variable"] == "coil_MOTlower__A", "value"]
     ), "injection through `init` into `default_state` must still work"
+
+
+def test_expand_leaves_the_timeline_it_was_given_alone():
+    """
+    B5/#112. `expand` dropped the ramp rows and the `function` column from its *argument*,
+    in place -- the one core function that did not leave its input alone. The "description
+    is data" story depends on a frame not changing under whoever is holding it.
+
+    `demo.timeline__demo` is a module-level object imported by tests, so a single
+    `expand` on it used to strip it for every later user in the process: 99 rows to 57,
+    and no `function` column.
+    """
+    timeline = tl.stack(
+        tl.create(c__A=2.0, t=0.0, context="s"),
+        tl.anchor(1.0, context="s"),
+        tl.ramp(c__A=9.0, duration=0.5),
+    )
+    before = timeline.copy()
+
+    expanded = tl.expand(timeline, time_resolution=0.1)
+
+    wt_frame.assert_equal(timeline, before)
+    assert "function" in timeline.columns
+    assert len(expanded) > len(timeline)
+
+    # And so expanding twice gives the same answer, rather than the second call silently
+    # returning a frame whose ramps have already been stripped out of it.
+    wt_frame.assert_equal(expanded, tl.expand(timeline, time_resolution=0.1))
+
+
+def test_convert_leaves_the_timeline_it_was_given_alone():
+    """
+    `adwin.core.convert` expands internally. It was unharmed by B5 only by accident of
+    pipeline order -- `remove_unconnected_variables` runs first and hands `expand` a fresh
+    frame -- so it is worth pinning rather than assuming.
+    """
+    from wignertime.adwin import core
+
+    before = ex.timeline__demo.copy()
+    core.convert(ex.timeline__demo, ex.connections, ex.devices)
+    wt_frame.assert_equal(ex.timeline__demo, before)
