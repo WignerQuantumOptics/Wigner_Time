@@ -459,3 +459,33 @@ def test_boundary_frames_are_compared_variable_by_variable():
 
     assert len(result) - len(base) == 4
     assert set(result[result["function"].notna()]["variable"]) == {"X__A", "Y__A"}
+
+
+def test_ramp_leaves_the_timeline_it_was_given_alone():
+    """
+    B4/#111, and the invariant behind it: `ramp` derives its start points from the same
+    frame the end points come from, overwriting their time and value. Were that a slice
+    rather than a copy, the write would reach the end points and zero the values the
+    ramp is aiming at.
+
+    Also the package-wide rule -- no in-place modification, every core function returns a
+    new timeline -- which nothing else pins for `ramp`.
+    """
+    import warnings
+
+    base = tl.stack(
+        tl.create(c__A=2.0, d__A=3.0, t=0.0, context="s"),
+        tl.anchor(1.0, context="s"),
+    )
+    before = base.copy()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = tl.ramp(base, c__A=9.0, d__A=[[0.0, 1.0], [0.5, 7.0]], duration=0.5)
+
+    assert [w.category.__name__ for w in caught] == []
+    wt_frame.assert_equal(base, before)
+
+    ends = result[result["function"].notna()].groupby("variable")["value"].last()
+    assert ends["c__A"] == pytest.approx(9.0)
+    assert ends["d__A"] == pytest.approx(7.0)

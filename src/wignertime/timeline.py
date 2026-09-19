@@ -464,7 +464,13 @@ def ramp(
     df_1 = wt_frame.new(rows1, columns=_SCHEMA.keys()).astype(_SCHEMA)
     df_2 = wt_frame.new(rows2, columns=_SCHEMA.keys()).astype(_SCHEMA)
 
-    df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])]
+    # Copied, not sliced. These rows are about to have their time and value overwritten
+    # to make start points out of them, and they are a *subset of `df_2`*, which is the
+    # frame the end points come from. Writing through would therefore zero the very end
+    # values the ramp is aiming at. It does not today -- measured in both copy-on-write
+    # modes -- but "does not today" is the whole of B4/#111, and pandas 3 makes
+    # copy-on-write unconditional (#88).
+    df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])].copy()
     if t is None:
         df__no_start_points.loc[:, ["time", "value"]] = 0.0
     else:

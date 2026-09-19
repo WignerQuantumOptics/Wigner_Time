@@ -375,7 +375,23 @@ The diagnosis follows.
 
 Fix direction: `tl__filtered = tl__filtered.sort_values(sort_by)`.
 
-### B4 — `ramp` writes through a slice
+### B4 — `ramp` writes through a slice — **RESOLVED AND FIXED 2026-09-19**
+
+`df__no_start_points` is taken with `.copy()`. What makes the write dangerous rather than merely untidy is that those rows are a **subset of `df_2`**, the frame the *end* points come from, and they are about to have their time and value overwritten to turn them into start points — so writing through would zero the very end values the ramp is aiming at.
+
+**It did not, in either copy-on-write mode**, measured on pandas 2.3.3 before the change:
+
+```
+tl.ramp(base, c__A=9.0, duration=0.5)
+  CoW off:  [[1.0, 2.0], [1.5, 9.0]]   warnings: none
+  CoW on :  [[1.0, 2.0], [1.5, 9.0]]   warnings: none
+```
+
+Unlike B3, which warned. So this was fixed on the strength of the fix being one word rather than of a reproduction — "does not today" being the whole of the issue, and #88 making copy-on-write unconditional.
+
+`test_ramp_leaves_the_timeline_it_was_given_alone` pins the invariant behind it, which nothing else did for `ramp`: no in-place modification, every core function returns a new timeline.
+
+The diagnosis follows.
 
 `df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])]` is a view-or-copy, and the following `.loc[:, ["time", "value"]] = 0.0` assigns into it. Same CoW exposure as B3.
 
