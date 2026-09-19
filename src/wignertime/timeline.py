@@ -651,6 +651,16 @@ def stack(
     for f in (timeline_or_f, *fs):
         _ensure_stackable(f)
 
+    constituents = list(fs)
+    if not isinstance(timeline_or_f, wt_frame.CLASS):
+        constituents.insert(0, timeline_or_f)
+
+    keywords__available = _keywords_available(constituents)
+    if keywords__available is not None:
+        unplaced = sorted(k for k in kws if k not in keywords__available)
+        if unplaced:
+            raise TypeError(_message__unplaced(unplaced, keywords__available))
+
     fs__wrapped = [lambda x, f=f: f(x, **kws) for f in fs]
     composed = funcy.compose(*reversed(fs__wrapped))
 
@@ -658,7 +668,55 @@ def stack(
         return composed(timeline_or_f)
 
     wrapped_first = lambda x: timeline_or_f(x, **kws)
-    return wt_util.mark_deferred(funcy.compose(*reversed(fs__wrapped), wrapped_first))
+    return wt_util.mark_keywords(
+        wt_util.mark_deferred(funcy.compose(*reversed(fs__wrapped), wrapped_first)),
+        keywords__available or (),
+    )
+
+
+def _keywords_available(constituents):
+    """
+    The keywords this stack's constituents can between them consume, or `None` if none of
+    them says.
+
+    A constituent that does not record a set is **neutral** -- it neither vouches for a
+    keyword nor objects to one. `noop` and a hand-written `lambda tline: ...` are of that
+    kind, and treating them as permissive instead would switch the guard off for any
+    stack containing one, which the lab's conditional stages make common.
+    """
+    sets = [
+        declared
+        for declared in (wt_util.keywords_declared(f) for f in constituents)
+        if declared is not None
+    ]
+    return set().union(*sets) if sets else None
+
+
+def _message__unplaced(unplaced, keywords__available):
+    """
+    Say that a forwarded keyword reached no constituent, and why that is not harmless.
+    """
+    return "\n".join(
+        [
+            "`stack` could not place {} keyword(s): {}.".format(
+                len(unplaced), ", ".join(repr(k) for k in unplaced)
+            ),
+            "",
+            "A keyword given to `stack` is forwarded to every constituent, and the core",
+            "functions read an unrecognised keyword as a *variable name*. So an unplaced",
+            "keyword does not merely go unused: the parameter you meant to set stays at",
+            "its default, and a variable of that name enters the timeline, to be dropped",
+            "again without comment at export for having no connection.",
+            "",
+            "Placeable here: {}.".format(
+                ", ".join(sorted(keywords__available)) or "nothing"
+            ),
+            "",
+            "To set a parameter of one stage rather than all of them, call that stage",
+            "with it -- `stack(timeline, MOT(duration=15))` -- or use `cascade`, which",
+            "routes `MOT_duration=15` by prefix.",
+        ]
+    )
 
 
 def _route_keyword(key, names__by_length, stages__by_name):
@@ -743,6 +801,9 @@ def cascade(*fs: list[Callable], **kws) -> Callable | wt_frame.CLASS:
     #
     # NOTE: keyed by `__name__`, so a stage appearing twice receives the same keywords
     # both times. That is relied upon; see `KNOWN_ISSUES.md` §C.
+    for f in fs:
+        _ensure_cascadable(f)
+
     stages__by_name = {f.__name__: f for f in fs}
     names__by_length = sorted(stages__by_name, key=len, reverse=True)
 
@@ -761,6 +822,58 @@ def cascade(*fs: list[Callable], **kws) -> Callable | wt_frame.CLASS:
 
     # Apply keywords to function stack
     return stack(*[f(**args__dict.get(f.__name__, {})) for f in fs])
+
+
+def _ensure_cascadable(f):
+    """
+    Refuse a `cascade` argument that is not a stage function.
+
+    The mirror of `_ensure_stackable`, and it catches the mistake that machinery makes
+    easy: `stack` takes a leading timeline and `cascade` does not, so
+    `cascade(timeline, MOT)` reads as reasonable and used to fail with
+    `AttributeError: 'DataFrame' object has no attribute '__name__'`, from the
+    dictionary comprehension that keys stages by name -- naming neither cascade, nor the
+    timeline, nor the difference between the two.
+    """
+    if isinstance(f, wt_frame.CLASS):
+        raise TypeError(
+            "\n".join(
+                [
+                    "`cascade` does not take a timeline. `stack` is the one that does.",
+                    "",
+                    "    stack(timeline, MOT(duration=15), molasses())",
+                    "    cascade(init, MOT, molasses, MOT_duration=15)",
+                    "",
+                    "`cascade` takes the stage functions themselves and calls them, so",
+                    "the timeline comes from the first stage -- `init`, ending in",
+                    "`create`. To cascade onto an existing timeline, stack the two:",
+                    "`stack(timeline, cascade(MOT, molasses, ...))`.",
+                ]
+            )
+        )
+
+    if wt_util.is_deferred(f):
+        raise TypeError(
+            "\n".join(
+                [
+                    "`cascade` was given a stage that has already been called.",
+                    "",
+                    "    cascade(MOT, molasses, MOT_duration=15)     # not MOT(...)",
+                    "",
+                    "`cascade` supplies the arguments itself, by routing its keywords to",
+                    "the stage named in each prefix; a stage that has already been",
+                    "called has none left to route, and would be keyed under",
+                    "`<lambda>`. Use `stack` for stages you have called yourself.",
+                ]
+            )
+        )
+
+    if not callable(f) or not hasattr(f, "__name__"):
+        raise TypeError(
+            "`cascade` takes named stage functions; {!r} is neither. Keywords are"
+            " routed by the stage's `__name__`, so an anonymous callable cannot"
+            " receive any.".format(f)
+        )
 
 
 def _message__unroutable(unroutable, names__by_length):

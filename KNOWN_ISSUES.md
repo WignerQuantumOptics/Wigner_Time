@@ -108,7 +108,17 @@ Fix direction: `auto` should not be able to return `None` implicitly. Either rai
 
 **Addendum, 2026-09-03.** The same condition is handled two ways, worth fixing in one go: an *explicit* `origin="anchor"` on an anchorless timeline raises `anchor is an unsupported option for 'origin'` (verified), because `_to_col_var` falls through the variable and context lookups to its error branch. The *default* path, meeting the same absent anchor, is silent. Whichever is chosen — raise, or fall back with a warning — the two paths should agree.
 
-### A5 — `stack` turns an unrecognised keyword into a phantom variable **[new, found 2026-09-02]**
+### A5 — `stack` turns an unrecognised keyword into a phantom variable — **RESOLVED AND FIXED 2026-09-19**
+
+**Unblocked by C1**, which was settled on 2026-09-16, and fixed here on the rule the maintainer approved: a keyword forwarded by `stack` must be **declared as a named parameter** by at least one constituent. Not "accepted by" — every core function takes `**vtvc_dict`, so "accepted" is true of everything and would leave the defect exactly where it was.
+
+The implementation cost this entry predicted was real and is paid: a constituent is an opaque closure by the time `stack` sees it, so each now records what its chain can consume (`util.ATTRIBUTE__KEYWORDS`) — `function__lambda` from the wrapped function's signature, `stack` as the union over its own constituents, which is what makes a nested stage answer for the stages inside it.
+
+The subtlety worth keeping: a constituent that records nothing is **neutral**, not permissive. `noop` absorbs any keyword and does nothing with it, so treating it as permissive would switch the guard off for every stack containing one — and the lab's conditional stages put one in constantly. Neutral means it neither vouches for a keyword nor objects to it, so `stack(base, update(...), noop, typo=3.0)` still raises.
+
+Where *no* constituent records a set there is nothing to check against and the guard stays off, which keeps a hand-written `lambda tline: ...` usable.
+
+Covered by `test/wigner/time/timeline/test_forwarded_keywords.py`. The diagnosis follows.
 
 `timeline.stack` forwards every keyword it is given to every constituent, which is the documented convenience for a shared `context`. But the core functions absorb unrecognised keywords into `**vtvc_dict`, where a keyword *is* a variable name. So a keyword that matches no parameter is not rejected — it becomes a row.
 
@@ -434,6 +444,36 @@ The endpoints and the tanh shape are right either way, so nothing looks wrong �
 **Found by** the A4 fix shifting a test ramp from t=5.0 to t=10.0, which changed its row count from 5 to 6. The origin change was innocent; this was underneath it all along.
 
 **FIXED 2026-09-18** in the same commit, because an honest test of the A4 fix was not possible otherwise: the interval count is rounded first and the ceiling taken only where the quotient is genuinely not whole (`math.isclose`, `rel_tol=1e-9`). Both placements now give 5 points at step 0.2, and no other row count in the suite, the demo or the lab changed.
+
+---
+
+### B10 — `stack` cannot forward a keyword into a nested stage **[new, found 2026-09-19]**
+
+`stack` wraps each constituent as `lambda x, f=f: f(x, **kws)`, and composes them. The composed object therefore takes **only** the timeline — so when an outer `stack` forwards a keyword into it, it raises:
+
+```python
+tl.stack(base, tl.update(a__A=1.0), context="MOT")     # fine
+tl.stack(base, demo.MOT(), context="MOT")              # TypeError
+#   stack.<locals>.<lambda>() got an unexpected keyword argument 'context'
+```
+
+Since every user-written stage is itself a `stack`, the documented idiom works exactly one level deep. `sec:context` says "any keyword passed to `stack` is forwarded to all of its constituents … so a single `context="MOT"` labels every row that stack produces", and that is not true of a stack of stages, which is the normal case.
+
+**Loud, not silent** — it raises, and the message names a lambda rather than the mechanism, which is the only reason it took this long to notice. **Verified pre-existing**: identical on `85d4b82`, before the A5 guard, so it is not a consequence of that work. The A5 guard passes such a call through, correctly, and it then fails here.
+
+**Latent in practice**: neither the demo nor the lab forwards any keyword to `stack`, so nothing in either repository exercises it. That is also why the manuscript's claim has stood unchallenged.
+
+Fix direction: replace the `funcy.compose` of single-argument wrappers with an explicit closure that threads the keywords through every constituent —
+
+```python
+def _composed(x, **kws__new):
+    kws__all = {**kws, **kws__new}
+    for f in constituents:
+        x = f(x, **kws__all)
+    return x
+```
+
+Note that `funcy.compose` cannot do this on its own: it passes one value between stages, so keywords given to the composed function reach the innermost constituent only. Since the case currently raises, nothing can depend on the present behaviour.
 
 ---
 

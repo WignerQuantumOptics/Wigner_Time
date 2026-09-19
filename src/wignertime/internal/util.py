@@ -89,7 +89,10 @@ def ensure_pair(l: list):
                 " `[time, value]` pair, so at most two.".format(l)
             )
         case _:
-            raise ValueError(f"Unexpected argument to `ensure_pair`.")
+            raise ValueError(
+                "Not something an origin can be made from: {!r}. An origin is a number,"
+                " a string, or a `[time, value]` pair of them.".format(l)
+            )
 
 
 def ensure_2d(input_data):
@@ -260,6 +263,63 @@ callable it knows how to apply.
 """
 
 
+ATTRIBUTE__KEYWORDS = "__wigner_time_keywords__"
+"""
+Records which keywords a deferred timeline function's chain can actually consume.
+
+`stack` forwards every keyword it is given to every constituent, and the core functions
+read an unrecognised keyword as a *variable name* -- so a misspelt one does not go
+unused, it becomes a row (KNOWN_ISSUES A5). To refuse that, `stack` has to know what its
+constituents would do with a keyword, and it cannot: a constituent is an opaque closure
+by the time it arrives. So the information is recorded when the closure is built, by
+`function__lambda` from the wrapped function's signature and by `stack` as the union over
+its own constituents, which is what makes a nested stage answer for the stages inside it.
+
+Absence means *neutral*, not *permissive*: `noop` and a hand-written
+`lambda tline: ...` neither vouch for a keyword nor object to it.
+"""
+
+
+def mark_keywords(f, names):
+    """
+    Record the keywords `f`'s chain can consume, and return it. See
+    `ATTRIBUTE__KEYWORDS`.
+    """
+    setattr(f, ATTRIBUTE__KEYWORDS, frozenset(names))
+    return f
+
+
+def keywords_declared(f):
+    """
+    The keywords `f`'s chain can consume, or `None` where it does not say.
+    """
+    return getattr(f, ATTRIBUTE__KEYWORDS, None)
+
+
+def keywords__named(f) -> frozenset | None:
+    """
+    The parameters `f` declares by name.
+
+    Deliberately excludes `**kwargs`: a core function collects unrecognised keywords into
+    `**vtvc_dict`, where they become variables, so "would be accepted" and "means
+    something here" are different questions and this asks the second. Contrast
+    `accepts_keyword`, which asks the first.
+
+    `None` where the signature cannot be read, so the caller can tell "declares nothing"
+    from "cannot say".
+    """
+    try:
+        parameters = inspect.signature(f).parameters.values()
+    except (TypeError, ValueError):
+        return None
+
+    return frozenset(
+        p.name
+        for p in parameters
+        if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
+    )
+
+
 def mark_deferred(f):
     """
     Tag `f` as a deferred timeline function and return it. See `ATTRIBUTE__DEFERRED`.
@@ -421,7 +481,7 @@ def function__lambda(lambda_key="timeline", kwargs=["vtvc_dict"]):
     else:
         raise ValueError("Function `f` needs to have arguments in `function__lambda`.")
 
-    return mark_deferred(
+    deferred = mark_deferred(
         lambda x, **kwargs__new: f(
             **{
                 k: x,
@@ -430,3 +490,6 @@ def function__lambda(lambda_key="timeline", kwargs=["vtvc_dict"]):
             }
         )
     )
+    # What the closure hides, recorded before it closes: `stack` needs to know which
+    # keywords this constituent can consume, and once wrapped there is no way to ask.
+    return mark_keywords(deferred, keywords__named(f) or ())
