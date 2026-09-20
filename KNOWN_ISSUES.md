@@ -6,11 +6,29 @@ Standing checklist for code work. Written for an agent picking up the repository
 
 **Priority order.** Silent failures rank above visible ones. A wrong answer that raises is a nuisance; a wrong answer that returns quietly can sit in an experiment for months.
 
-Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 — so verification has *not* renumbered them, and sections A and B are consequently no longer in strict severity order. **A4 is now the most severe open item in this document**: it was expected to be unreachable and turns out to be reachable through `ramp`, silently, on any anchorless timeline. Read A4 first.
+Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 — so verification has *not* renumbered them, and sections A and B are consequently no longer in strict severity order. **Sections A and B are now resolved apart from B10**, which raises rather than misleading, so the open work is in sections C and D. Resolved entries are kept, with an account of what replaced each, because the measurements are the argument for the design that replaced it.
 
 **Origins have their own reference.** `docs/origin-resolution.md` maps every branch of the origin mechanism as implemented, in four layers, with the defect in each. Read it before touching `internal/origin.py` — the items below give the defects, that document gives the shape.
 
 **Do not "fix" by adding try/except or defensive branching.** This library's value proposition is that experiment descriptions are inspectable data. Failures should be loud and early, at the point where the user's intent was ambiguous — not absorbed downstream.
+
+## How work is tracked
+
+Every item here has a GitHub issue, and the two carry different things. **This file holds the diagnosis, the measurement and the reasoning; the issue holds the state.** Annotate both — an issue with neither milestone nor label is invisible to every view that matters.
+
+**Milestones say _when_.** Their descriptions on GitHub are authoritative; reproduced here because they are otherwise recorded nowhere in the repository.
+
+| milestone | what belongs in it |
+| --- | --- |
+| `10 — paper` | Must land before the SciPost paper is published: silent-failure defects, anything that falsifies `docs/paper/main.tex`, and the decisions those depend on. |
+| `20 — internal API` | The #9 subtree — dataframe backend abstraction, public/internal API separation, util reorganisation. Deliberately deferred past the paper. |
+| `30 — reach & polish` | Hardware breadth, display and ergonomics, performance, outreach. Nothing here blocks publication. |
+
+**Labels say _what kind_.** `silent` (a wrong answer with no error — outranks visible failures, and puts the item in `10 — paper` by default); `paper-affecting` (falsifies a claim in `main.tex`, so §G applies and the *code* changes); `consistency` (causes mental friction); and the area tags `ux`, `performance`, `docs`, `adwin`, `origin`.
+
+**The section letters here are not the labels.** A is silent failures, B correctness, C open decisions, D structural — but a D item can be `silent` (D11, D14, D15, D18 all are), so set the label from the behaviour rather than from the letter.
+
+**Two gaps, as of 2026-09-20.** There is no label for an *open decision*, which §C consists entirely of (#97, #53, #85, #121); one would carry "flag and ask, never settle unilaterally" onto the tracker, where it is currently invisible. And none for compatibility work (#88, Pandas 3). Both are proposals, not decisions.
 
 ---
 
@@ -80,7 +98,7 @@ The full demo is unaffected only because its intermediate stages move those valu
 
 Physically the dropped ramp is usually a flat line, so little is lost directly; the hazard is that its `duration` vanishes with it, so anything later placed relative to `"last"` rather than to an anchor shifts. Raising, rather than dropping, would surface the real condition: a ramp was requested to a value the variable already holds.
 
-### A4 — `origin.auto` falls through to an implicit `None`, and `ramp` walks into it — **VERIFIED REACHABLE, highest severity**
+### A4 — `origin.auto` falls through to an implicit `None`, and `ramp` walks into it — **RESOLVED AND FIXED 2026-09-18**
 
 **RESOLVED AND FIXED 2026-09-18.** The maintainer chose the second of the two options: fall back, not raise. `auto`'s time default is now a **terminal chain**, and `ramp` owns `config.ORIGIN__DEFAULTS__RAMP = [["anchor", "variable"], ["last", "variable"]]` -- the `"last"` step it never had. Where nothing in the chain is satisfiable the time origin is `0.0` **with a warning**, so `auto` can no longer return `None` implicitly. NEW-9 goes with it: an explicit `origin="anchor"` on an anchorless timeline now raises a message naming the missing anchor rather than `anchor is an unsupported option`, while the *default* path falls through the chain as documented -- the two paths now differ deliberately rather than accidentally.
 
@@ -135,7 +153,7 @@ Whether it stays silent depends on the origin machinery downstream. With `update
 
 Fix direction is A1's: validate keywords against the constituents' signatures and raise, listing the unmatched ones. See §C “Design intent”: this is layer 2, and the forwarding idiom does not use it. Note one implementation cost – `stack`'s constituents are opaque `lambda x, **kwargs__new` closures, so signature validation requires `function__lambda` to expose the function it wraps first. The two should be settled together, and C1 is the same decision a third time — `stack`, `cascade` and the core functions all inherit their permissiveness from `**kwargs` forwarding, and it is worth deciding the policy once rather than three times.
 
-### A6 — an interwoven `ramp` silently loses its value origin and starts from zero **[new, found 2026-09-02; recalled by the maintainer as a long-standing design debate with T. W. Clark]**
+### A6 — an interwoven `ramp` silently loses its value origin and starts from zero — **RESOLVED AND FIXED 2026-09-18**
 
 **RESOLVED AND FIXED 2026-09-18**, by the fix direction below: `auto` completes a partial origin **per slot** rather than replacing it wholesale. The vocabulary change that makes this coherent is that **`None` in a slot now means *defer to the default for this slot*, and `0.0` means *absolute***; previously `None` meant absolute, which is precisely why a bare context name cancelled `ramp`'s value default. Measured after the change: `ramp(..., origin="stage1")` starts from 2.0, the value the variable held in `stage1`, and agrees with `origin=["stage1", "variable"]` exactly. B2 was settled in the same commit, as required.
 
@@ -206,7 +224,7 @@ The figure's leaf wording already leans that way: `"last"` and `"anchor"` are de
 
 Fix direction: split the vocabulary by slot. The time slot admits a number, `"anchor"`, `"last"`, `"variable"`, a variable name or a context name; the value slot admits a number, `"variable"` or a variable name, and **raises** on the rest. Raise rather than warn — unlike the time slot there is no sensible value to fall back to. Nothing is lost, because "the value `coil__A` held at the end of molasses" is already `["molasses", "variable"]`. See `docs/origin-resolution.md` for the full branch map.
 
-### A8 — a value origin is added on top of an explicitly stated `ramp` start value **[new, found 2026-09-03]**
+### A8 — a value origin is added on top of an explicitly stated `ramp` start value — **RESOLVED AND FIXED 2026-09-18**
 
 `ramp`'s value origin defaults to `"variable"`, and `_update_future` applies it **additively**. That is right for a variable whose start point was inferred, but it is applied just as readily to a start value the user stated explicitly in the 2-D input form.
 
@@ -290,7 +308,7 @@ This is A10's defect — `create` reading a positional row of more than two elem
 
 ---
 
-### A12 — a negative ramp duration silently swaps the ramp's endpoints **[new, found 2026-09-18]**
+### A12 — a negative ramp duration silently swaps the ramp's endpoints — **RESOLVED AND FIXED 2026-09-18**
 
 Raised by the maintainer while reviewing the A3 guard: *what happens when a ramp's duration is negative?*
 
@@ -348,7 +366,7 @@ The consequence is currently masked by A3: `mask__offending` is computed and the
 
 Fix direction: match on `variable` explicitly (merge or set the index to `variable`) rather than relying on positional alignment.
 
-### B2 — `find_every_origin` is order-dependent
+### B2 — `find_every_origin` is order-dependent — **RESOLVED AND FIXED 2026-09-18**
 
 **RESOLVED AND FIXED 2026-09-18.** `time__max__relative` is computed once, before the per-variable loop. The reproduction now gives 10.0 either way -- and 10.0 is also the physically right answer, since the ramp starts at t=5.5 and `b__A` does not step to 20.0 until t=6.0.
 
@@ -457,7 +475,7 @@ Verified unchanged: the demo and lab timelines hash identically, `convert` produ
 
 Fix direction: check group size explicitly and raise naming the offending variable. This becomes load-bearing if `num__bounds != 2` is ever implemented.
 
-### B7 — a value-only origin against a variable raises a raw `TypeError` **[new, found 2026-09-03]**
+### B7 — a value-only origin against a variable raises a raw `TypeError` — **RESOLVED AND FIXED 2026-09-18**
 
 **RESOLVED AND FIXED 2026-09-18.** `find` now resolves the time slot first and builds one bound from the **resolved** time -- the instant the new rows will occupy -- for both branches. `origin=[None, "variable"]` is consequently usable, and is the honest spelling of `ramp`'s own default. The related rough edge is also addressed: a variable with no history now gets a message saying so, instead of `<var> is an unsupported option for 'origin'`.
 
@@ -481,7 +499,7 @@ A related rough edge in the same expression: when the bound is small enough to e
 
 Fix direction: give both branches one definition of the bound, namely the instant the new rows will occupy once the time origin is applied. That removes the `None` arithmetic and makes the branches agree. Do it together with B2, which is in the same expression.
 
-### B8 — `"last"` on an empty timeline raises an opaque pandas error **[new, found 2026-09-03]**
+### B8 — `"last"` on an empty timeline raises an opaque pandas error — **RESOLVED AND FIXED 2026-09-18**
 
 **RESOLVED AND FIXED 2026-09-18.** Guarded in `origin.previous`, which now names the empty timeline and points at `origin=0.0`. The default path no longer reaches it at all: `"last"` is skipped as unsatisfiable and the chain runs to its terminal `0.0`.
 
@@ -496,7 +514,7 @@ Fix direction: guard in `previous`, and either raise naming the timeline as empt
 
 ---
 
-### B9 — a ramp's sampling depends on where it sits on the time axis **[new, found 2026-09-18]**
+### B9 — a ramp's sampling depends on where it sits on the time axis — **RESOLVED AND FIXED 2026-09-18**
 
 `internal/util.range__inclusive` computed its point count as `math.ceil((stop - start) / step) + 1`. `stop - start` is a difference of *absolute* times, so it carries floating-point noise whose sign depends on the interval's position, and a bare `ceil` turns that noise into a different number of points.
 
