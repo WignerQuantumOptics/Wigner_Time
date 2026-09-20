@@ -796,9 +796,19 @@ Nothing imports it, which is why the suite never noticed. But it ships in the wh
 
 One-character fix, no design question. Left unfixed only because it fell outside the scope of the 2026-09-01 pass.
 
-### D7 — Reconcile all code to the paper version **[maintainer decision, 2026-09-02]**
+### D7 — Settle what `__` separates, then reconcile code, labs and paper in one pass **[maintainer decision, 2026-09-02; scope reopened and sharpened 2026-09-20]**
 
 `docs/paper/main.tex` is canonical. Where the code and the manuscript disagree, **the code changes.** This is the same direction as §G: the manuscript is not to be edited to match the code.
+
+**Renamed 2026-09-20, because the item turned out to be a naming decision with a reconciliation attached rather than the reverse.** Two questions have to be answered before anything is renamed; the full reasoning and measurements are in the comments on [#121](https://github.com/WignerQuantumOptics/Wigner_Time/issues/121).
+
+1. **Does `__` separate qualifiers, or only units?** The paper is not uniformly single-underscore — it writes `to__MHz` — so its rule is `__` before a unit, `_` between words. The package's is `__` before a qualifier *or* a unit. Evidence against the package's: `__` carries both meanings inside one call (`coil_MOTlower__A=0` beside `duration=duration__coil_ramp`, in `demo.molasses`); it forces camelCase inside snake_case (`lag__MOTshutter`, `AOM_OPaux`); the package applies it inconsistently anyway (`time_resolution` against `time__max`); and "is this a unit?" has an answer where "is this a qualifier?" does not. **Recommendation: units only.**
+
+2. **Should the variable grammar become `<device>__<UID>__<unit>`?** Maintainer's proposal, with `<device>` and `<unit>` free of `_`. That last restriction is what makes it safe: measured over all 31 real names in the demo, the lab and the anchor label, **none** parses under the new grammar and all are refused, because every valid old analogue name has a `_` before its `__`. Without the restriction, every old analogue name would silently reread as *digital*. It also converts a silent misparse into a loud one for underscored devices (`power_supply_X__V` currently gives `device=power`). **Recommendation: adopt, and note that the anchor label `⚓_001` is in the refused set — `timeline.anchor` builds it as `"{}_{:03d}"` and would need `"{}__{:03d}"`.**
+
+**Both touch the same identifiers, the same `demo/full_experiment.py` and the same manuscript listings, so they should be one pass.** `fig:timeline__example` shows variable names and regenerates from the demo. And the device field should be *consumed* by something before it is committed to — `adwin/display.py` groups by unit, and grouping by device too would exercise the distinction; a field nothing reads will drift under any spelling.
+
+**The lab situation, from the maintainer (2026-09-20).** Lab1 is switching to pure snake_case, `__` as the unit separator only, but is stalled, so still changeable. Lab2 is greenfield. Timing therefore favours deciding now: once the manuscript is submitted the paper is fixed, and a later code change reopens the divergence permanently rather than closing it.
 
 **Scope to settle before starting.** The paper fixes the naming of everything it *shows*; for library internals it never shows there is no paper version to reconcile to, so those are out of scope by construction. Proposed reading: reconcile the public API surface, the demo, and the ADbasic listing; leave internal identifiers (`column__value`, `timeline__past`, `mask__changed`) alone. (`num__bounds`, listed here until 2026-09-20, no longer exists — see B6.) Confirm this before renaming anything, because the alternative reading — that the paper's single-underscore style governs internals too — is a very large change.
 
