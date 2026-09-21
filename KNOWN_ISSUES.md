@@ -329,6 +329,41 @@ So a sign slip in a computed duration left the variable **at its old value rathe
 
 ---
 
+### A14 — a mistyped device name silently disables that device's safety limits **[new, found 2026-09-21]**
+
+`device.new` validates nothing about the variable name — neither that it is well formed, nor that anything else refers to it. `connection.new` does the first; `device.new` does neither. Raised by the maintainer as something previously tracked; it was not, here or on the tracker. D7 notes in passing that names are "enforced by `config.VARIABLE__REGEX` and by `connection.new`", which is the closest anything came to recording the asymmetry.
+
+The tidiness half is that `device.new(["notavariable", 1.0, -1, 1])` is accepted where `adcon.new` refuses it. The dangerous half is a **correctly-shaped name that refers to nothing**:
+
+```python
+connections = adcon.new(["coil_MOT__A", 4, 1])
+devices     = device.new(["coil_MOTT__A", 2.0, -5.0, 5.0])   # one transposed letter
+timeline    = tl.create(coil_MOT__A=500.0, t=0.0, context="s")
+
+device.check_within_range(device.add(timeline, devices))
+#  -> passes. 500 A accepted on a coil declared +/-5 A.
+```
+
+The device row joins to nothing, the variable arrives with no bounds, and `check_within_range` reads absent bounds as "no device entry — a digital line, typically — and is skipped". The stated purpose of `value__min`/`value__max` is error-checking before values reach real devices, and one transposed letter turns it off in silence.
+
+**Validating the shape is not enough**, because `coil_MOTT__A` is well formed. Two checks are wanted: shape, in `device.new`, as parity with `connection.new`; and *correspondence*, somewhere that sees both tables — `adwin/internal.add` or `adwin.core.convert`, the one point hardware enters.
+
+**The correspondence check is viable.** Measured across both repositories, the relation is exactly 1:1 and nothing enforces it:
+
+```
+demo: 9 analogue connections, 9 devices   lab: 8 analogue connections, 8 devices
+   analogue but no device  : none            analogue but no device  : none
+   device but no connection: none            device but no connection: none
+```
+
+**The decision in it**, and the reason this is not simply fixed: an analogue variable with a connection but no device has neither calibration nor limits on a channel that will be driven — recommend raising. A device with no connection is dead weight and almost certainly a typo, but harmless in itself, and one could legitimately keep calibrations for hardware not currently wired. It is nevertheless the half that catches the transposition above. What has to be settled is whether "digital line" remains the only licensed reason for a variable to reach the hardware unbounded.
+
+Note also that `device.new` wraps its frame construction in a bare `except:` which discards the cause and re-raises `"=== Input to 'device' not well formatted ==="`. That is the pattern §"loud and early" forbids, and it would swallow whatever the name validation reports unless narrowed first — the same fault fixed in `adwin/connection.py` on 2026-09-11.
+
+Tracked as [#141](https://github.com/WignerQuantumOptics/Wigner_Time/issues/141).
+
+---
+
 ## B. Correctness
 
 ### B1 — `ramp`'s degenerate-row check aligns on index, not on variable — **RESOLVED AND FIXED 2026-09-18**
