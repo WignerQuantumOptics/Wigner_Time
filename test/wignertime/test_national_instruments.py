@@ -12,7 +12,12 @@ import warnings
 
 
 def test_the_placeholder_warns_rather_than_failing_to_parse():
-    module = importlib.import_module("wignertime.national_instruments")
+    # Suppressed deliberately: importing the module is what emits the warning, and if
+    # this is the first import in the process it would escape the block below and be
+    # reported against the suite. The reload is the part under test.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        module = importlib.import_module("wignertime.national_instruments")
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")

@@ -100,3 +100,27 @@ def test_save_load__increment_name(timeline__demo):
     t3 = Path("timeline__demo__003.parquet").exists()
 
     assert t1 and t2 and t3
+
+
+@pytest.mark.parametrize("suffix", [".parquet", ".csv", ".json", ".pickle", ".feather"])
+def test_save_load__nulls_survive_the_round_trip(suffix, timeline__demo__function):
+    """
+    A missing value must come back as the same thing it went in as, whichever format was
+    chosen.
+
+    It did not: an in-memory timeline holds `nan` where a column does not apply — what
+    `concat` leaves when a frame without a `function` column is joined to one that has
+    it — while parquet, JSON and feather returned `None` and CSV and pickle returned
+    `nan`. `assert_frame_equal` merely *warned* about the mismatch, and says it will stop
+    treating the two as matching, so the comparison above would have become an error
+    without anyone having changed anything. `file.load` now settles on one
+    representation.
+    """
+    written = file.save(timeline__demo__function, "round_trip" + suffix)
+    back = file.load(str(written))
+
+    def kinds(column):
+        return {type(v) for v in column if not callable(v) and not isinstance(v, str)}
+
+    assert kinds(back["function"]) == kinds(timeline__demo__function["function"])
+    assert not any(v is None for v in back["function"])

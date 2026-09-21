@@ -13,7 +13,7 @@ from collections.abc import Callable
 from copy import deepcopy
 
 import pandas as pd
-from numpy import identity
+from numpy import nan
 
 CLASS = pd.DataFrame
 
@@ -68,6 +68,27 @@ def not_numeric(column):
     A boolean mask of the entries that cannot be read as a number.
     """
     return pd.to_numeric(column, errors="coerce").isna()
+
+
+def normalise_nulls(df: CLASS) -> CLASS:
+    """
+    Give every missing value in an object column the same representation, `nan`.
+
+    A timeline built in memory carries `nan` wherever a column does not apply -- that is
+    what `concat` leaves behind when a frame without a `function` column is joined to one
+    that has it. Round-tripping through parquet, JSON or feather brings those back as
+    `None` instead, while CSV and pickle keep `nan`, so a loaded timeline was not equal to
+    the one saved and the difference depended on the format chosen.
+
+    `pandas.testing.assert_frame_equal` currently warns that it will stop treating the two
+    as matching, so this would have become an error rather than a warning. The distinction
+    carries no meaning here -- both say "no value" -- so `file.load` settles on one.
+    """
+    dff = df.copy()
+    for column in dff.columns:
+        if dff[column].dtype == object:
+            dff[column] = dff[column].where(dff[column].notna(), nan)
+    return dff
 
 
 def fill_null(df, column: str, value):
@@ -229,10 +250,10 @@ def for_input(df):
     rows = df.values.tolist()
     col_names = df.columns.tolist()
 
-    source = f"pd.DataFrame([\n"
+    source = "pd.DataFrame([\n"
     for row in rows:
         source += f"    {row},\n"
-    source += f"], columns={col_names})"
+    source += "], columns={})".format(col_names)
     return source
 
 

@@ -217,25 +217,30 @@ def load(path: str | Path) -> wt_frame.CLASS:
 
     match suffix:
         case ".pkl" | ".pickle":
-            return wt_frame.read_pickle(path)
+            df = wt_frame.read_pickle(path)
 
         case ".csv":
-            return wt_frame.read_csv(path)
+            df = wt_frame.read_csv(path)
 
         case ".json":
-            return wt_frame.read_json(path)
+            df = wt_frame.read_json(path)
 
         case ".parquet":
             if not (_has_module("pyarrow") or _has_module("fastparquet")):
                 raise ImportError(
                     "Reading parquet requires 'pyarrow' or 'fastparquet'."
                 )
-            return wt_frame.read_parquet(path)
+            df = wt_frame.read_parquet(path)
 
         case ".feather":
             if not _has_module("pyarrow"):
                 raise ImportError("Reading feather requires 'pyarrow'.")
-            return wt_frame.read_feather(path)
+            df = wt_frame.read_feather(path)
 
         case _:
             raise ValueError(f"Unsupported file suffix: {suffix}")
+
+    # Parquet, JSON and feather return a missing value as `None` where the in-memory
+    # timeline holds `nan`; CSV and pickle keep `nan`. Settle on one, so that a
+    # round-trip is faithful whichever format was chosen.
+    return wt_frame.normalise_nulls(df)
