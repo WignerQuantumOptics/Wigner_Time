@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 poetry install --with dev --all-extras   # what CI does
 poetry run pytest                        # whole suite, from the repo root
-poetry run pytest test/wigner/time/test_drop_repeats.py                              # one file
-poetry run pytest test/wigner/time/test_drop_repeats.py::test_channels_are_independent  # one test
+poetry run pytest test/wignertime/test_drop_repeats.py                              # one file
+poetry run pytest test/wignertime/test_drop_repeats.py::test_channels_are_independent  # one test
 poetry run pytest -k ramp                # by name
 
 poetry run black src test                # formatter used throughout
@@ -22,8 +22,10 @@ There is no pytest configuration and no `conftest.py`; the suite relies on the p
 (`poetry install`) and on being run from the repo root.
 
 `test_file.py` writes through `file.save`, which resolves relative paths against the cwd and
-auto-increments rather than overwriting. Running the suite therefore leaves `timeline__demo*.{parquet,csv,json,pickle,feather}`
-in the repo root, one new numbered set per run. They are gitignored and safe to delete.
+auto-increments rather than overwriting. It therefore runs each of its tests in a fresh `tmp_path`
+(an autouse `monkeypatch.chdir`), so the suite leaves nothing in the repo root and pytest bounds the
+growth by keeping only the last three runs. Before 2026-09-21 it wrote fourteen files per run into
+the root, which also made two of its own assertions vacuous — see the fixture's docstring.
 
 ## Working rules
 
@@ -308,8 +310,8 @@ cycle numbers. Rows in these contexts have **no meaningful time**, so they are v
   notebooks, not built documentation; `docs/` is the mkdocs source (`docs/index.md` duplicates the
   README, so changes to the overview belong in both). The paper lives in its own self-contained
   subtree, `docs/paper/`; neither it nor `docs/origin-resolution.md` is in `mkdocs.yml`'s nav.
-- Tests live under `test/wigner/time/`, mirroring the *old* package name — the package was renamed to
-  `wignertime` and the test tree wasn't. Tests build frames as literal row lists and compare with
+- Tests live under `test/wignertime/`, mirroring the package. (They sat under `test/wigner/time/`,
+  the pre-rename name, until 2026-09-21.) Tests build frames as literal row lists and compare with
   `wt_frame.assert_equal`; behaviour with many input shapes is covered via `@pytest.mark.parametrize`
   over calls to `tl.create` and friends.
 

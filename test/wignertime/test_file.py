@@ -9,6 +9,28 @@ from wignertime.internal import dataframe as frame
 from wignertime.demo import full_experiment as demo
 
 
+@pytest.fixture(autouse=True)
+def _in_a_directory_of_its_own(tmp_path, monkeypatch):
+    """
+    Run each test in a fresh directory.
+
+    `file.save` resolves a relative path against the cwd and, on a collision, appends
+    `__002`, `__003`, … rather than overwriting. Run from the repository root that left
+    fourteen files there per run, the numbered ones accumulating without limit — and it
+    made two of the tests below dishonest:
+
+    - `test_save_load__autoname` saved, found the name taken, wrote `…__00N` instead, and
+      then loaded the *original* — an artefact of some earlier run. It was comparing
+      against a file it had not written.
+    - `test_save_load__increment_name` asserted that `…__002` and `…__003` exist, which
+      after the first run they already did, whoever had made them.
+
+    A fresh directory per test fixes the pollution, bounds the growth (pytest keeps the
+    last three runs and discards the rest), and makes both assertions mean what they say.
+    """
+    monkeypatch.chdir(tmp_path)
+
+
 @pytest.fixture
 def timeline__demo():
     return tl.cascade(
