@@ -329,7 +329,16 @@ So a sign slip in a computed duration left the variable **at its old value rathe
 
 ---
 
-### A14 — a mistyped device name silently disables that device's safety limits **[new, found 2026-09-21]**
+### A14 — a mistyped device name silently disables that device's safety limits — **RESOLVED AND FIXED 2026-09-21**
+
+**Maintainer's decision: both directions raise** — "it has to be both ways for it to make real sense". `device.check_correspondence(connections, devices)` is called from `adwin.internal.add`, which is where the two tables meet and where hardware enters. `device.new` also validates the name shape now, as parity with `connection.new`, and its bare `except:` is narrowed so that the name check can be seen at all.
+
+**The check found two inconsistencies in our own fixtures**, which is the argument for it:
+
+- `test_adwin.test_convert` declared a device for `lockbox_MOT__V` where the connection and the timeline both used `lockbox_MOT__MHz`. Orphaned, and nothing had noticed.
+- `_digital_only()` declared `coil_unused__A` — the name says it was never meant to correspond to anything. It was standing in for "a devices table with no analogue channels", which turned out to be inexpressible: `device.new()` raised. A purely digital apparatus is a legitimate description, so it now returns an empty table.
+
+Demo and lab timelines hash identically and `convert` produces the same 8261 analogue and 35 digital tuples, which is expected: the correspondence was already exactly 1:1 in both. Covered by `test_device.py`.
 
 `device.new` validates nothing about the variable name — neither that it is well formed, nor that anything else refers to it. `connection.new` does the first; `device.new` does neither. Raised by the maintainer as something previously tracked; it was not, here or on the tracker. D7 notes in passing that names are "enforced by `config.VARIABLE__REGEX` and by `connection.new`", which is the closest anything came to recording the asymmetry.
 

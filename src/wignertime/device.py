@@ -10,6 +10,7 @@ The unit range is used for conversion and the saftey range is for sanity checkin
 import numpy as np
 import pandas as pd
 
+from wignertime import variable as wt_variable
 from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import util as wt_util
 
@@ -63,19 +64,101 @@ def new(*variable_toV_min_max) -> wt_frame.CLASS:
                 f"Invalid list of devices {args}: the number of arguments should be less than 5."
             )
 
+    # A purely digital apparatus has no devices at all, and that is a legitimate table
+    # rather than a mistake -- `check_correspondence` expects exactly this where nothing
+    # analogue is connected. Without the early return, `ensure_2d(())` yields one empty
+    # row and the arity check rejects it.
+    if not variable_toV_min_max:
+        return wt_frame.new_schema([], SCHEMA)
+
     input4 = [process_input(args) for args in wt_util.ensure_2d(variable_toV_min_max)]
 
+    # Narrowed from a bare `except:` that discarded the cause and reported only
+    # "=== Input to 'device' not well formatted ===". It would also have swallowed the
+    # name check below (A14). The same fault was fixed in `adwin/connection.py` on
+    # 2026-09-11.
     try:
         new = wt_frame.new_schema(input4, SCHEMA)
+    except (TypeError, ValueError, KeyError) as e:
+        raise ValueError(
+            "Input to `device.new` is not well formatted: {}. Each device is"
+            " `[variable, to_V]`, `[variable, to_V, value__min]` or"
+            " `[variable, to_V, value__min, value__max]`.".format(e)
+        ) from e
 
-        # convert dtype to float if possible (i.e. no functions)
-        if pd.to_numeric(new["to_V"], errors="coerce").notna().all():
-            new["to_V"] = new["to_V"].astype(float)
+    # Parity with `connection.new`, which has always refused a malformed name. Catches a
+    # name that could not denote a variable at all; it cannot catch one that is well
+    # formed but denotes nothing, which is what `check_correspondence` is for (A14).
+    _ensure_valid_names(new)
 
-    except:
-        raise ValueError("=== Input to 'device' not well formatted ===")
+    # convert dtype to float if possible (i.e. no functions)
+    if pd.to_numeric(new["to_V"], errors="coerce").notna().all():
+        new["to_V"] = new["to_V"].astype(float)
 
     return new
+
+
+def _ensure_valid_names(devices):
+    offenders = [v for v in devices["variable"] if not wt_variable.is_valid(v)]
+    if offenders:
+        raise ValueError(
+            "Device name(s) {} do not follow the naming convention"
+            " `<device>_<UID>(__<unit>)` set by `config.VARIABLE__REGEX`.".format(
+                offenders
+            )
+        )
+    return devices
+
+
+def check_correspondence(connections, devices):
+    """
+    Checks that the `device` and `connection` tables describe the same apparatus.
+
+    The two are deliberately separate — recalibrating a device and rewiring the apparatus
+    are independent operations — but they are not independent *vocabularies*, and nothing
+    used to notice when they drifted apart. A single transposed letter in a device name
+    left the variable with no bounds at all, and `check_within_range` reads absent bounds
+    as "a digital line" and skips it: 500 A passed on a coil declared +/-5 A (A14).
+
+    Both directions raise, because each catches a different half of that:
+
+    - an **analogue variable with a connection but no device** will be driven with neither
+      a calibration nor limits;
+    - a **device with no connection** is the other end of the same typo. It is harmless in
+      itself, since nothing reads it, but tolerating it is what let the first case happen
+      quietly.
+
+    A digital line has no unit and needs no device, so it is not expected to have one.
+    """
+    names__connected = set(connections["variable"])
+    names__calibrated = set(devices["variable"])
+
+    analogue = {
+        v for v in names__connected if wt_variable.unit(v) != "digital"
+    } - names__calibrated
+    orphaned = names__calibrated - names__connected
+
+    if analogue or orphaned:
+        raise ValueError(
+            "\n".join(
+                [
+                    "The `device` and `connection` tables do not describe the same apparatus.",
+                    "",
+                    "  connected, analogue, but no device : {}".format(
+                        sorted(analogue) or "none"
+                    ),
+                    "  a device, but nothing connected    : {}".format(
+                        sorted(orphaned) or "none"
+                    ),
+                    "",
+                    "An analogue channel without a device has neither a conversion nor"
+                    " safety limits, and `check_within_range` cannot tell that from a"
+                    " digital line. A device naming nothing connected is usually the"
+                    " other end of the same misspelling.",
+                ]
+            )
+        )
+    return True
 
 
 def add(timeline, devices):
@@ -89,7 +172,9 @@ def check_within_range(timeline, columns__bounds=["value__min", "value__max"]):
     """
     Considers whether the `timeline` `value`s fall inside device safety ranges (see SCHEMA). Raises an error if not, naming every variable that offends rather than only the first.
 
-    A variable with no bounds at all is one that has no entry in `device`s – a digital line, typically – and is skipped. A variable with only one bound is checked against that bound alone.
+    A variable with no bounds at all is one that has no entry in `device`s – a digital line – and is skipped. A variable with only one bound is checked against that bound alone.
+
+    "Typically" until 2026-09-21: an analogue variable could reach here unbounded through a mistyped device name, and this function could not tell that from a digital line, so it passed it. `check_correspondence`, called from `adwin.internal.add`, now rules that out on the path to hardware (A14).
 
     ASSUMES: That a `value` column is present, and that the timeline has already been joined to `device`s.
     """
@@ -129,9 +214,7 @@ def check_within_range(timeline, columns__bounds=["value__min", "value__max"]):
     if violations:
         raise ValueError(
             "The following variables were given values outside their device safety range. Please provide values only inside it:\n"
-            + "\n".join(
-                "  {}: {} is {} the limit of {}".format(*v) for v in violations
-            )
+            + "\n".join("  {}: {} is {} the limit of {}".format(*v) for v in violations)
         )
 
     return True

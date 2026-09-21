@@ -207,7 +207,6 @@ def test_convert():
     )
 
     devices = device.new(
-        ["lockbox_MOT__V", 1.0],
         ["lockbox_MOT__MHz", 0.05],
     )
 
@@ -307,7 +306,9 @@ class _MachineRecording:
 
 def _digital_only():
     conns = adcon.new(["shutter_MOT", 1, 11], ["AOM_MOT", 1, 1])
-    devs = device.new(["coil_unused__A", 2.0, -5, 5])
+    devs = (
+        device.new()
+    )  # nothing analogue is connected, so there is nothing to calibrate
     timeline = tl.stack(
         tl.create(shutter_MOT=1, AOM_MOT=1, t=0.0, context="run"),
         tl.update(shutter_MOT=0, t=1.0),

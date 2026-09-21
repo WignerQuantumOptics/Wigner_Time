@@ -139,6 +139,11 @@ def add(timeline, connections, devices, machine_specifications=SPECIFICATIONS__D
 
     wtl.debug("Got to `adwin.core.add`")
 
+    # Here because this is where the two tables meet, and because conversion is the one
+    # point at which hardware enters. Neither `connection.new` nor `device.new` can do it
+    # alone: each sees only its own vocabulary (A14).
+    device.check_correspondence(connections, devices)
+
     dff = wt_frame.join(timeline, connections)
     dff = wt_frame.join(dff, devices)
     dff = dff.sort_values(by=["time"], ignore_index=True)
