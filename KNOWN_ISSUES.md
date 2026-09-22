@@ -892,18 +892,7 @@ Regression tests: `test_util.py::test_ensure_pair_never_returns_its_argument` (f
 
 So there is no second instance of D3 in the package. Both checks are scripts rather than tests; the argument for not making them permanent is that `ensure_pair` now removes the hazard at the point where origins — the only place the pattern concentrated — pass through, and a bespoke AST test carries a real false-positive rate, as the one above shows.
 
-**A second, different hazard turned up in the same sweep, and it is worth separating because it is not about mutation at all.** Twelve signatures default a parameter to a *mutable module global* rather than to a literal:
-
-| global | defaulted in |
-| --- | --- |
-| `adwin.internal.SPECIFICATIONS__DEFAULT` | `adwin.core.convert`, `adwin.core.create`, `adwin.internal.add`, `add_cycle`, `to_tuples` |
-| `conversion.SPECIFICATIONS__DEFAULT` | `conversion.add`, `_add_linear`, `_add_function` |
-| `adwin.CONTEXTS__SPECIAL` | `adwin.internal.add_cycle`, `adwin.validate.special_contexts` |
-| `adwin.SCHEMA`, `adwin.display.SYMBOL_QUANTITY` | `adwin.validate.types`, `display.quantities` |
-
-Each is bound at import, so **rebinding the global would silently fail to reach any of them**, while mutating it in place would reach all of them. That is the asymmetry removed from `origin.auto` above. It is currently latent rather than a broken promise: only `config.VARIABLE__REGEX` is documented as rebindable, and it is genuinely read on every call. But `machine_specifications` is exactly the thing a user has to change for their own rig (D21), and the supported route — passing it explicitly — is the one D15 says `adwin.core.create` ignores.
-
-**Not settled here.** Making these `None`-defaulted and read at call time is a consistent policy and touches twelve signatures, so it is an API decision rather than a fix. The natural place is the single ADwin pass that D21 describes, where five of the twelve are being opened anyway.
+**A second and different hazard turned up in the same sweep** — a default that *names* a mutable config global rather than building a literal. Same syntax, different failure, different fix, so it is filed separately as **D23** rather than folded in here.
 
 Tracked as [#117](https://github.com/WignerQuantumOptics/Wigner_Time/issues/117).
 
@@ -1187,6 +1176,28 @@ Direction, from the review and **not settled**: ship the console inside the dist
 Cheap to close from Python, and it belongs there rather than in ADbasic: `adwin.core.create` can call `Process_Status(10)` and refuse to start a sequence while the console process is running. That is one call, on a path that already talks to the machine, and it converts a convention into a guarantee. It should land with the console, not after it.
 
 Bearing on this document: once the console is in the package its defects are ours, and the review lists several of the kind catalogued here — `pd.merge` padding with `NaN` so that an `is None` test sent every digital channel down the analogue branch (A-class, and it broke precisely the path that would derive console tables from ours); `int()` truncating a DAC code toward zero instead of rounding; and `safety_range` present in the schema and read nowhere, with `unit_range` doing both jobs.
+
+### D23 — a default that names a config global is bound at import, so rebinding it does nothing **[new, found 2026-09-22]**
+
+**Not D3, despite looking identical.** D3 is a *mutation* hazard: a mutable default can be corrupted by an in-place write, and the fix was to stop `ensure_pair` handing back its caller's object — no signature changed. This is a *configuration* hazard: the object is never mutated, and the failure is that the supported way of changing it silently does not work. Twelve signatures, an API policy decision, and a different label. Folding the two together would have made D3's record dishonest, since the defect it names is fixed and verified.
+
+| global | defaulted in |
+| --- | --- |
+| `adwin.internal.SPECIFICATIONS__DEFAULT` | `adwin.core.convert`, `adwin.core.create`, `adwin.internal.add`, `add_cycle`, `to_tuples` |
+| `conversion.SPECIFICATIONS__DEFAULT` | `conversion.add`, `_add_linear`, `_add_function` |
+| `adwin.CONTEXTS__SPECIAL` | `adwin.internal.add_cycle`, `adwin.validate.special_contexts` |
+| `adwin.SCHEMA`, `adwin.display.SYMBOL_QUANTITY` | `adwin.validate.types`, `display.quantities` |
+
+Each is bound at import, so **rebinding the global would silently fail to reach any of them**, while mutating it in place would reach all of them. That is the asymmetry removed from `origin.auto` above. It is currently latent rather than a broken promise: only `config.VARIABLE__REGEX` is documented as rebindable, and it is genuinely read on every call. But `machine_specifications` is exactly the thing a user has to change for their own rig (D21), and the supported route — passing it explicitly — is the one D15 says `adwin.core.create` ignores.
+
+**Not settled here.** Making these `None`-defaulted and read at call time is a consistent policy and touches twelve signatures, so it is an API decision rather than a fix. The natural place is the single ADwin pass that D21 describes, where five of the twelve are being opened anyway.
+
+**Recommendation, not a decision.** `None`-default and read the global inside the body, as `variable.py` already does for `config.VARIABLE__REGEX` and as `origin.auto` now does by requiring the argument outright. That is twelve signatures, five of which the D21 pass opens anyway, so the cost is mostly in the other seven.
+
+**Counter-argument worth stating**, because it is not obviously wrong: these globals are not advertised as rebindable, and the supported route for `machine_specifications` is the parameter. On that reading the right fix is D15 — make the parameter actually work — and leaving the defaults alone is harmless. What makes it worth doing anyway is that the two knobs then behave the same way as `VARIABLE__REGEX`, which *is* advertised, and a user who finds one of them working by rebinding has no way to know the others do not.
+
+Tracked as [#144](https://github.com/WignerQuantumOptics/Wigner_Time/issues/144).
+
 
 ---
 
