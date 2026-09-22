@@ -997,11 +997,23 @@ Harmless on the setups tested, where every analog module is ±10 V/16-bit — wh
 
 Found while verifying the conversion arithmetic end to end for the lab's device table.
 
-### D12 — digital modules are identified by `bits == True` **[new, found 2026-09-12]**
+### D12 — digital modules are identified by `bits == True` — **RESOLVED AND FIXED 2026-09-22**
 
-`adwin/internal.py::modules__digital` selects modules with `m.get("bits", False) == True`. The digital module is declared with `bits: 1`, and is matched only because `1 == True` in Python.
+`adwin/internal.py::modules__digital` selected modules with `m.get("bits", False) == True`. The digital module is declared `bits: 1` and was matched only because `1 == True` in Python.
 
-It works, and module 1 does come out as the digital one. But the test expresses "has exactly one bit" as a comparison against a boolean, so a module declared `bits: 2` would not be caught, and the intent is not recoverable from the code. `m.get("bits") == 1` would say it.
+**Be precise about what this cost, because it is less than it looks and the entry above overstated it.** `x == True` and `x == 1` are the same test for every number — there is no value on which they disagree — so the answer was never wrong, and the claim that "a module declared `bits: 2` would not be caught" is true of both spellings equally. What was wrong is that "is one bit wide" was written as a comparison against a boolean, which leaves the intent unrecoverable from the code: a reader cannot tell whether the field is a width or a flag, and the two imply different things about a module of any other width.
+
+**Fixed as `m["bits"] == 1`, and the docstring now states the derivation** — a digital line is one bit wide, so a module of one-bit channels is a digital module.
+
+**Why derive rather than declare.** The obvious alternative, a `kind: "digital"` field beside `bits`, was considered and rejected: it makes two sources of truth for one fact, and `{"kind": "digital", "bits": 16}` has no right answer. That is the same argument that keeps module and channel numbers out of the device conversions, and the same failure D22 describes in the console's parallel apparatus table.
+
+**One behaviour did change.** A module declaring no `bits` at all used to fall through as analogue; it now raises, naming the offending module numbers. Reading an under-specified module as analogue is a guess about hardware, and the wrong guess puts a 16-bit conversion on a digital line. Nothing in the repository or in either lab passes a partial specification, so the blast radius is nil — verified: `SPECIFICATIONS__DEFAULT` gives every module its `bits`, and the Lab2 fixture deep-copies it and changes only `cycle_period`.
+
+**Forward-compatible with D11.** `bits` currently has exactly *one* consumer in the package, this function, so the field's name promises a resolution while its only use is a kind test. D11's fix gives it its second consumer, as the resolution `conversion.add` should be using per module. The two readings agree — a one-bit module genuinely has one-bit resolution — so `== 1` does not have to be revisited then.
+
+Tests in `test_adwin.py`: the shipped specification resolves to `[1]`; widths 2, 8, 16 and 32 are not digital; and an unstated width raises. **Honest about which is which**: only the last is a regression test. The others pass against the old code too — necessarily, since the old and new comparisons agree — and are pins recording the boundary the old spelling could not express. Verified by reverting: 1 failed, 5 passed.
+
+Tracked as [#126](https://github.com/WignerQuantumOptics/Wigner_Time/issues/126).
 
 ### D13 — `cycle_period__normal__us` is named in microseconds and holds seconds — **RESOLVED AND FIXED 2026-09-15**
 

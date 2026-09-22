@@ -67,18 +67,44 @@ SPECIFICATIONS__DEFAULT = {
 
 def modules__digital(machine_specifications):
     """
-    The list of modules that govern digital connections.
+    The module numbers carrying digital connections, derived from the specifications.
 
-    Currently, this just returns a static list, based on a specific lab setup.
+    A digital line is one bit wide, so a module of one-bit channels is a digital module.
+    This is a *derivation* rather than a declaration, deliberately: a `kind` field beside
+    `bits` would be a second source of truth, and a module declared
+    `{"kind": "digital", "bits": 16}` would have no right answer. The same reasoning
+    keeps module and channel numbers out of the device conversions.
+
+    Until 2026-09-22 the test read `m.get("bits", False) == True`, which picks out the
+    digital module only because `1 == True` in Python (D12/#126). Note what that did and
+    did not cost: `x == True` and `x == 1` agree for every number, so the answer was
+    never wrong -- what was wrong was that "is one bit wide" was written as a comparison
+    against a boolean, leaving the intent unrecoverable from the code.
+
+    A module that declares no `bits` at all now raises rather than being taken for
+    analogue, which is the one behaviour that changed. Silently reading an
+    under-specified module as analogue is a guess about hardware, and it would put a
+    16-bit conversion on a digital line.
 
     NOTE: Modules are numbered from 1 (unlike Python lists).
-    """
 
-    return [
-        i + 1
-        for i, m in enumerate(machine_specifications["modules"])
-        if m.get("bits", False) == True
-    ]
+    NOTE: Nothing here restricts how many modules may be digital, and the real-time
+    program cannot honour more than one -- both `p2_digprog` and `p2_digout` name module
+    1 as a literal. See D18/#133, which is an open decision rather than an oversight.
+    """
+    modules = machine_specifications["modules"]
+
+    modules__unspecified = [i + 1 for i, m in enumerate(modules) if "bits" not in m]
+    if modules__unspecified:
+        raise ValueError(
+            "Module(s) {} declare no `bits`, so whether they are digital cannot be"
+            " determined. Every entry of `machine_specifications['modules']` needs its"
+            " width: 1 for a digital module, 16 for the usual analogue one.".format(
+                modules__unspecified
+            )
+        )
+
+    return [i + 1 for i, m in enumerate(modules) if m["bits"] == 1]
 
 
 def add_cycle(

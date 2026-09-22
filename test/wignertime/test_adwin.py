@@ -355,3 +355,36 @@ def test_create_refuses_a_timeline_with_no_run():
             devs,
             machine=_MachineRecording(),
         )
+
+
+###############################################################################
+#   D12 / #126 -- "digital" is derived from the module's width
+###############################################################################
+
+
+def test_modules__digital_reads_the_shipped_specification():
+    """Module 1 is the one-bit module in `SPECIFICATIONS__DEFAULT`; the rest are 16-bit."""
+    assert adi.modules__digital(adi.SPECIFICATIONS__DEFAULT) == [1]
+
+
+@pytest.mark.parametrize("width", [2, 8, 16, 32])
+def test_modules__digital_only_one_bit_wide_is_digital(width):
+    """
+    A pin rather than a regression test: `x == True` and `x == 1` agree for every
+    number, so this passed before D12 was fixed too. It records the boundary the
+    old spelling could not express -- that the test is on the *width*, not on a
+    module being flagged.
+    """
+    specifications = {"modules": [{"bits": width}, {"bits": 1}]}
+    assert adi.modules__digital(specifications) == [2]
+
+
+def test_modules__digital_refuses_a_module_of_unstated_width():
+    """
+    The one behaviour D12 changed. A module with no `bits` used to fall through as
+    analogue, which is a guess about hardware -- and the wrong one puts a 16-bit
+    conversion on a digital line.
+    """
+    specifications = {"modules": [{"bits": 1}, {"voltage_range": [-10.0, 10.0]}]}
+    with pytest.raises(ValueError, match=r"Module\(s\) \[2\] declare no `bits`"):
+        adi.modules__digital(specifications)
