@@ -1066,6 +1066,18 @@ Note that the extra being installed is *not* the same as the hardware being pres
 
 ---
 
+### A real experiment is frozen in the suite **[added 2026-09-22]**
+
+`test/wignertime/fixtures/lab2/` holds a timeline written by **Dániel Varga** for the Lab2 atom-cavity apparatus, taken out of the running experiment on 2026-09-21. 13 KB — description, connections, devices — for a run driving ten analogue and fourteen digital channels over 12.5 s, expanding to 885 601 rows at 2 µs. `test_lab2_regression.py` runs it end to end and checksums the result.
+
+It is worth more than the demo for this purpose, because it was **not written to suit the package**. It carries an apparatus table predating the `to_V` port; a variable (`dispenser__A`) the current naming default refuses, so the test rebinds `config.VARIABLE__REGEX` — the only exercise that mechanism gets anywhere; an analogue channel connected but uncalibrated, which is A14's first real-apparatus case; and ramps whose interpolation was a *closure*, which no durable format can store.
+
+**The checksums pin today's output, not the rig's.** Two deliberate changes account for every difference from what the machine was given, both measured: `drop_repeats`, new on this branch, removes 82.7% of the analogue rows (disabling it reproduces the archived count exactly); and B9 moved the sample grid, so digits differ by at most 20 parts in 65 536 and only on the five channels it touched. Digital output is identical value for value. See the fixture's own `README.md`.
+
+The suite cost is about 4 s, run once per module through scoped fixtures.
+
+---
+
 ## F. Resolved — do not re-report
 
 - **`drop_repeats`** in `adwin/validate.py` — designed and committed.
