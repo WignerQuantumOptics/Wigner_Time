@@ -1076,6 +1076,12 @@ It is worth more than the demo for this purpose, because it was **not written to
 
 The suite cost is about 4 s, run once per module through scoped fixtures.
 
+**The description was also rebuilt from Lab2's own source, and reproduces exactly** (2026-09-22). Running their stage code and their parameters against the present package gives all 131 rows bit-identical — variables, contexts, times, values — and the same 60 rows carrying a ramp function with the same three sharpnesses. So the origin work of 2026-09-18 (per-slot completion, the terminal chains, the unified bound, A4, A6, A8, B2) changed nothing about what an existing experiment produces. Lab2 uses no string origins, its only two `origin=0.0` are on an `update` and an `anchor` rather than a ramp, and its only 2-D inputs are on `update`, so none of the changed paths is reached.
+
+The whole incompatibility across 488 lines of lab code was: the package rename; `connection.connection` becoming `adwin.connection.new`, which is the one genuine API change; and rebinding `config.VARIABLE__REGEX` for `dispenser__A`. `tl.stack`, `tl.update`, `tl.ramp`, `tl.anchor` and `tl.create` all still take what they took.
+
+The reconstruction lives beside the takeout, not here: it is operation-layer code, and 600 lines of one lab's physics in `test/` would rot against the API exactly as the manuscript's demo listing did (D7). The repository keeps the data; the takeout keeps the derivation.
+
 ---
 
 ## F. Resolved — do not re-report
