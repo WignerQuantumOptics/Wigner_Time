@@ -12,9 +12,9 @@ from copy import deepcopy
 
 from wignertime import config as wt_config
 from wignertime.config import wtlog
+from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import util as wt_util
 from wignertime.internal.timeline import anchor as wt_anchor
-from wignertime.internal import dataframe as wt_frame
 
 ###############################################################################
 #                                  CONSTANTS                                   #
@@ -155,7 +155,7 @@ def _is_satisfiable__time(timeline, label):
     return True
 
 
-def auto(timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS):
+def auto(timeline, origin, origin__defaults):
     """
     Completes a partial `origin` from the caller's defaults, **slot by slot**.
 
@@ -177,6 +177,16 @@ def auto(timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS):
     once: `[["anchor", "variable"], ["last", "variable"]]` for `ramp`, whose start value
     must be looked up; `[["anchor", None], ["last", None]]` for `update` and `anchor`,
     whose values are absolute.
+
+    `origin__defaults` is **required**, and deliberately has no default of its own.
+    Defaulting it to `wt_config.ORIGIN__DEFAULTS` bound that object at import time, so
+    rebinding the config attribute -- which is how `config.VARIABLE__REGEX` is documented
+    to work, and how the Lab2 regression fixture uses it -- would silently have had no
+    effect here, while mutating it in place would have. Two config knobs that look alike
+    should not behave oppositely. Every call site in `timeline.py` already reads the
+    attribute at call time and passes it explicitly, so nothing is lost.
+
+    Pass `None` to complete nothing and take the origin as given.
 
     NOTE: Assumes that origin__defaults is a list of pairs.
     """

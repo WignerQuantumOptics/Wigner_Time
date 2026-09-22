@@ -236,3 +236,48 @@ def test_a_per_variable_self_reference_places_each_on_its_own_history(tline):
             origin=["coil__A", "variable"],
         )
     )
+
+
+###############################################################################
+#   D3 / #117
+###############################################################################
+
+
+def test_ramp_default_origin2_survives_being_used():
+    """
+    `ramp`'s `origin2` default is one list, shared by every call for the life of the
+    process. Pin that a ramp cannot disturb it -- this is the failure D3 described as
+    latent, and it would be silent: every later ramp in the session would take its end
+    point from whatever the first one left behind.
+    """
+    import inspect
+
+    from wignertime import timeline as tl
+
+    default = inspect.signature(tl.ramp).parameters["origin2"].default
+    assert default == ["variable", 0.0]
+
+    base = tl.anchor(1.0, timeline=tl.create(coil__A=0.0))
+    for _ in range(3):
+        base = tl.anchor(
+            1.0, timeline=tl.ramp(coil__A=5.0, duration=1.0, timeline=base)
+        )
+
+    assert inspect.signature(tl.ramp).parameters["origin2"].default == ["variable", 0.0]
+
+
+def test_auto_requires_its_defaults():
+    """
+    `origin__defaults` has no signature default, so the rebindable
+    `config.ORIGIN__DEFAULTS` is never captured at import time. Rebinding it must reach
+    `ramp`/`update`/`anchor`, as rebinding `config.VARIABLE__REGEX` reaches `variable`.
+    """
+    import inspect
+
+    with pytest.raises(TypeError):
+        wt_origin.auto(None, None)
+
+    assert (
+        inspect.signature(wt_origin.auto).parameters["origin__defaults"].default
+        is inspect.Parameter.empty
+    )

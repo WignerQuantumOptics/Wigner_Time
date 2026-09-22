@@ -5,12 +5,12 @@
 The inevitable `util` module for miscellaneous functions that haven't been organized yet.
 """
 
+import inspect
+import math
 from collections.abc import Iterable, Sequence
 from typing import Callable, OrderedDict
-import inspect
 
 import numpy as np
-import math
 
 from wignertime.config import wtlog
 from wignertime.internal import dataframe as wt_frame
@@ -75,10 +75,23 @@ def ensure_pair(l: list):
     [x,y]     -> [x,y]
     [x]       -> [x,None]
     []        -> [None,None]
+
+    Always a **new** list, never the argument. This is the package's single
+    normalisation point for origins, so returning the caller's own object here was
+    what made a mutable default argument dangerous anywhere else (D3/#117): a
+    signature default such as `ramp`'s `origin2=["variable", 0.0]` is one object
+    shared by every call, and handing it onwards unwrapped meant any later in-place
+    write would have rewritten the default for the life of the process. Nothing wrote
+    to it, so nothing had gone wrong -- but the asymmetry was real, since the
+    one-element and empty cases below already built a fresh list and only the
+    two-element case did not.
+
+    A tuple is normalised to a list with everything else, so an immutable default is
+    a legitimate way of writing one and does not produce a differently-typed origin.
     """
     match l:
         case [*x] if len(l) == 2:
-            return l
+            return [l[0], l[1]]
         case [x]:
             return [x, None]
         case []:

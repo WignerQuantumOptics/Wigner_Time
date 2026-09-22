@@ -857,9 +857,34 @@ The snapshot of `internal/origin.py` imports `wignertime.internal.origin as wt_o
 
 Marked DEPRECATED in its own docstring; delegates to `wt_origin.previous`. The comment asks whether it should be deleted in favour of the internal implementation. Decide as part of settling the public API surface, not ad hoc.
 
-### D3 — Mutable default argument
+### D3 — Mutable default argument — **RESOLVED AND FIXED 2026-09-22**
 
-`ramp(..., origin2=["variable"])`. Not mutated in the current body, so harmless today, but it is a latent trap.
+`ramp(..., origin2=["variable", 0.0])` is one list object, created once at import and shared by every call for the life of the process.
+
+**The diagnosis was right and incomplete.** It was indeed not mutated — measured: three ramps in a row leave the default equal to `["variable", 0.0]`, and neither `origin.auto`, `sanitize_origin`, `update` nor `find_every_origin` writes through it; each builds a new list. But the entry treated it as a property of `ramp`'s signature, and the exposure was not there. It was in `util.ensure_pair`, which is the package's **single** normalisation point for origins and which returned the caller's own object in one of its four cases:
+
+```python
+case [*x] if len(l) == 2:
+    return l          # the argument itself
+case [x]:
+    return [x, None]  # a new list
+case []:
+    return [None, None]
+```
+
+So a two-element origin — which every stated origin and every default is — travelled through the origin machinery as an alias of whatever the caller held, while a one-element one did not. That asymmetry had no reason behind it and was the whole of the risk: any future in-place write anywhere downstream would have rewritten a *signature default*, and the failure would have been silent and durable, every later ramp in the session taking its end point from whatever the first one left behind.
+
+**Fixed at that point rather than at the signature.** `ensure_pair` now builds a new pair in every branch, so no caller's object is retained anywhere in the origin machinery — for `origin`, `origin2`, the entries of `ORIGIN__DEFAULTS`, or any origin-shaped default added later. It also normalises a tuple to a list, which makes an immutable default a legitimate way of writing one without producing a differently-typed origin.
+
+`ramp`'s signature is therefore **unchanged**, deliberately. `origin2=["variable", 0.0]` is what `sec:origin_full` shows and what D4 reconciled on 2026-09-20; a tuple would be the only tuple in a package that writes every origin as a `[time, value]` list, and would imply a distinction that does not exist. Changing it would have reopened a paper divergence to fix a hazard that is better removed one layer down.
+
+**A second import-time capture, found while verifying this and fixed with it.** `origin.auto` had `origin__defaults=wt_config.ORIGIN__DEFAULTS` as a signature default, binding that object at import. `config.VARIABLE__REGEX` is documented as a rebindable default and is read on every call — the Lab2 regression fixture depends on exactly that — whereas rebinding `config.ORIGIN__DEFAULTS` would silently have had no effect on `auto`, while mutating it in place would have. Two config knobs that look alike behaving oppositely is the trap, not the aliasing.
+
+`origin__defaults` is now **required**, in the spirit of C3: every call site in `timeline.py` already read the attribute at call time and passed it explicitly, and all four tests did too, so the default was doing nothing but holding a stale reference. Passing `None` still means "complete nothing".
+
+Regression tests: `test_util.py::test_ensure_pair_never_returns_its_argument` (four shapes) and `::test_ensure_pair_normalises_a_tuple_to_a_list`; `test_origin_defaults.py::test_ramp_default_origin2_survives_being_used` and `::test_auto_requires_its_defaults`. **Verified non-vacuous**: reverting the one-line change fails three of them and leaves the one-element and empty cases passing, which is exactly the asymmetry described. Suite 324 → 331 passed (seven new: `ensure_pair` over four shapes, the tuple, and the two above).
+
+Tracked as [#117](https://github.com/WignerQuantumOptics/Wigner_Time/issues/117).
 
 ### D4 — Incorrect variadic annotations — **RESOLVED AND FIXED 2026-09-20**
 
