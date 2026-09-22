@@ -884,6 +884,27 @@ So a two-element origin — which every stated origin and every default is — t
 
 Regression tests: `test_util.py::test_ensure_pair_never_returns_its_argument` (four shapes) and `::test_ensure_pair_normalises_a_tuple_to_a_list`; `test_origin_defaults.py::test_ramp_default_origin2_survives_being_used` and `::test_auto_requires_its_defaults`. **Verified non-vacuous**: reverting the one-line change fails three of them and leaves the one-element and empty cases passing, which is exactly the asymmetry described. Suite 324 → 331 passed (seven new: `ensure_pair` over four shapes, the tuple, and the two above).
 
+**The rest of the package was then swept for the same pattern, two ways, because one instance is a bug and a habit is a design problem.**
+
+*Statically*, by AST: every parameter carrying a mutable default, against every in-place write in its own function body — item assignment, `del`, augmented assignment, and the mutating methods of `list`/`dict`/`set`. **33 mutable defaults; 32 with no write.** The one hit, `util.function__lambda(kwargs=["vtvc_dict"])` calling `kwargs.pop(...)`, is a false positive: the name is rebound two lines earlier (`kwargs = args_in_function(...)`), so the `.pop` is on that result. The default list itself reaches only `flatten_keys`, which iterates it and never writes — and which shallow-copies its *other* argument with a comment saying why.
+
+*Empirically*, by canary: deep-copy every mutable default and every mutable module global, run the whole suite, compare. **None of the 27 tracked objects changed across 337 tests.** (The scan also flags `__builtins__`, which is an artefact of walking module globals.)
+
+So there is no second instance of D3 in the package. Both checks are scripts rather than tests; the argument for not making them permanent is that `ensure_pair` now removes the hazard at the point where origins — the only place the pattern concentrated — pass through, and a bespoke AST test carries a real false-positive rate, as the one above shows.
+
+**A second, different hazard turned up in the same sweep, and it is worth separating because it is not about mutation at all.** Twelve signatures default a parameter to a *mutable module global* rather than to a literal:
+
+| global | defaulted in |
+| --- | --- |
+| `adwin.internal.SPECIFICATIONS__DEFAULT` | `adwin.core.convert`, `adwin.core.create`, `adwin.internal.add`, `add_cycle`, `to_tuples` |
+| `conversion.SPECIFICATIONS__DEFAULT` | `conversion.add`, `_add_linear`, `_add_function` |
+| `adwin.CONTEXTS__SPECIAL` | `adwin.internal.add_cycle`, `adwin.validate.special_contexts` |
+| `adwin.SCHEMA`, `adwin.display.SYMBOL_QUANTITY` | `adwin.validate.types`, `display.quantities` |
+
+Each is bound at import, so **rebinding the global would silently fail to reach any of them**, while mutating it in place would reach all of them. That is the asymmetry removed from `origin.auto` above. It is currently latent rather than a broken promise: only `config.VARIABLE__REGEX` is documented as rebindable, and it is genuinely read on every call. But `machine_specifications` is exactly the thing a user has to change for their own rig (D21), and the supported route — passing it explicitly — is the one D15 says `adwin.core.create` ignores.
+
+**Not settled here.** Making these `None`-defaulted and read at call time is a consistent policy and touches twelve signatures, so it is an API decision rather than a fix. The natural place is the single ADwin pass that D21 describes, where five of the twelve are being opened anyway.
+
 Tracked as [#117](https://github.com/WignerQuantumOptics/Wigner_Time/issues/117).
 
 ### D4 — Incorrect variadic annotations — **RESOLVED AND FIXED 2026-09-20**
