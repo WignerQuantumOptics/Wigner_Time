@@ -24,15 +24,27 @@ Every item here has a GitHub issue, and the two carry different things. **This f
 | `20 — internal API` | The #9 subtree — dataframe backend abstraction, public/internal API separation, util reorganisation. Deliberately deferred past the paper. |
 | `30 — reach & polish` | Hardware breadth, display and ergonomics, performance, outreach. Nothing here blocks publication. |
 
+**Types say _what the work is_.** Org-level GitHub issue *types*, not labels, and a separate axis from both of the others — which is why a search for a "decision label" finds nothing and the wrong conclusion was drawn here until 2026-09-22.
+
+| type | what it means |
+| --- | --- |
+| `Bug` | An unexpected problem or behavior |
+| `Task` | A specific piece of work |
+| `Feature` | A request, idea, or new functionality |
+| `Decision` | An open API or design decision that must be settled before dependent work can proceed |
+
+`Decision` is the tracker's counterpart of §C, and carries "flag and ask, never settle unilaterally" onto GitHub. Set it on anything whose entry here offers two options rather than a fix. Open `Decision` issues as of 2026-09-22: **#53, #85, #97, #133, #143, #144**.
+
 **Labels say _what kind_.** `silent` (a wrong answer with no error — outranks visible failures, and puts the item in `10 — paper` by default); `paper-affecting` (falsifies a claim in `main.tex`, so §G applies and the *code* changes); `consistency` (causes mental friction); and the area tags `ux`, `performance`, `docs`, `adwin`, `origin`.
 
 **The section letters here are not the labels.** A is silent failures, B correctness, C open decisions, D structural — but a D item can be `silent` (D11, D14, D15, D18 all are), so set the label from the behaviour rather than from the letter.
 
-**Two gaps, as of 2026-09-20, still open.** There is no label for an *open decision*, which §C consists entirely of (#53, #85, #121); one would carry "flag and ask, never settle unilaterally" onto the tracker, where it is currently invisible. And none for compatibility work (#88, Pandas 3). Both are proposals, not decisions.
+**One gap, not two — the first was an error of mine, corrected 2026-09-22.** This paragraph claimed there was nothing on the tracker for an open decision. There is: the `Decision` issue **type** above, in use since before the claim was written (#83, #95–#98). It was missed because the search was for a *label*, and types are a third axis. Every open issue now carries a type; the ten that did not were all filed from here, the same oversight as the milestones before them. The real remaining gap is compatibility work (#88, Pandas 3), which has no label and no obvious type.
 
-**What `paper-affecting` currently covers, as of 2026-09-22.** Three issues carry the label — #136 (B10), #121 (D7), #85 — and on review that undercounts by one. **#133 (D18) belongs in the set**: `main.tex:808` states that "ADwin is modular, so which channel types are available is a question of which modules are installed, not of the control software", and a backend that writes every digital update to module 1 makes that false for a second digital module. Two further paper items are tracked by no issue at all:
+**What `paper-affecting` currently covers, as of 2026-09-22.** Four issues carry the label — #136 (B10), #121 (D7), #85, and #143 (`t` vs `time`, filed the same day) — and on review that undercounts. **#133 (D18) belongs in the set**: `main.tex:808` states that "ADwin is modular, so which channel types are available is a question of which modules are installed, not of the control software", and a backend that writes every digital update to module 1 makes that false for a second digital module. Two further paper items are tracked by no issue at all:
 
 - the manuscript in `docs/paper/` has **twelve commits of local changes since the arXiv import** (`fdd2e0d`) that have not been carried back to Overleaf — see `docs/paper/CHANGES-since-arXiv.md`;
+- **#142 is very likely a fifth**, though it is not labelled: it proposes replacing `origin=None` with a visible default, and `sec:functions` shows `origin=None` in the signatures of `update`, `ramp` and `anchor`. Flagged on the issue rather than labelled unilaterally, since it is the maintainer's own;
 - `sec:discussion` carries a **commented-out paragraph** (`main.tex:882`) describing bit-flip-timed ramps, per Kowalski *et al.*, as future work. `drop_repeats` now argues it achieves the equivalent on the hardware's own grid, so the paragraph is stale as written and is worth reviving rather than left commented. Distinct from #87, which is about doing the expansion that way in `expand`.
 
 ---
@@ -1191,6 +1203,26 @@ Bearing on this document: once the console is in the package its defects are our
 Each is bound at import, so **rebinding the global would silently fail to reach any of them**, while mutating it in place would reach all of them. That is the asymmetry removed from `origin.auto` above. It is currently latent rather than a broken promise: only `config.VARIABLE__REGEX` is documented as rebindable, and it is genuinely read on every call. But `machine_specifications` is exactly the thing a user has to change for their own rig (D21), and the supported route — passing it explicitly — is the one D15 says `adwin.core.create` ignores.
 
 **Not settled here.** Making these `None`-defaulted and read at call time is a consistent policy and touches twelve signatures, so it is an API decision rather than a fix. The natural place is the single ADwin pass that D21 describes, where five of the twelve are being opened anyway.
+
+**Interacts directly with [#142](https://github.com/WignerQuantumOptics/Wigner_Time/issues/142), which pulls the other way.** That issue asks for `origin=ORIGIN_DEFAULT` in place of `origin=None`, so that a signature shows when a default is effective. Read literally it would introduce *this* defect on the three most-used signatures in the package, and would break what the Lab2 fixture relies on — that rebinding a `config` attribute takes effect.
+
+**Both are satisfied by one design**: the signature names an immutable **sentinel**, not the config value, and the body reads the config at call time.
+
+```python
+ORIGIN__DEFAULT = Sentinel("ORIGIN__DEFAULT")
+
+def ramp(..., origin=ORIGIN__DEFAULT):
+    if origin is ORIGIN__DEFAULT:
+        origin = wt_config.ORIGIN__DEFAULTS__RAMP    # read now, not at import
+```
+
+The signature then announces that a default is effective, rebinding still works, nothing mutable is captured at import, and `None` stays free to mean what it means per slot. Measured while checking #142's second claim, that the default cannot easily be turned off — it can, but the spelling differs by function, which nothing at the call site says:
+
+```
+ramp(origin=0.0)        -> [0.0, "variable"]   # time absolute, value still from the variable
+ramp(origin=[0.0, 0.0]) -> [0.0, 0.0]          # fully off
+update(origin=0.0)      -> [0.0, None]         # fully off, update having no value default
+```
 
 **Recommendation, not a decision.** `None`-default and read the global inside the body, as `variable.py` already does for `config.VARIABLE__REGEX` and as `origin.auto` now does by requiring the argument outright. That is twelve signatures, five of which the D21 pass opens anyway, so the cost is mostly in the other seven.
 
