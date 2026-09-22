@@ -6,7 +6,7 @@ Standing checklist for code work. Written for an agent picking up the repository
 
 **Priority order.** Silent failures rank above visible ones. A wrong answer that raises is a nuisance; a wrong answer that returns quietly can sit in an experiment for months.
 
-Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 — so verification has *not* renumbered them, and sections A and B are consequently no longer in strict severity order. **Sections A and B are now resolved apart from B10**, which raises rather than misleading, so the open work is in sections C and D. Resolved entries are kept, with an account of what replaced each, because the measurements are the argument for the design that replaced it.
+Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 — so verification has *not* renumbered them, and sections A and B are consequently no longer in strict severity order. **Section A is closed. Section B is closed apart from B10**, which raises rather than misleading, and **B11**, which is new on 2026-09-22 and is the only item here whose failure mode is physical rather than numerical. The rest of the open work is in sections C and D, and the D items cluster: D11, D14, D15, D18, D19, D20, D21 are all the ADwin backend, and are best done in one pass (see D21 and #94). Resolved entries are kept, with an account of what replaced each, because the measurements are the argument for the design that replaced it.
 
 **Origins have their own reference.** `docs/origin-resolution.md` maps every branch of the origin mechanism as implemented, in four layers, with the defect in each. Read it before touching `internal/origin.py` — the items below give the defects, that document gives the shape.
 
@@ -28,7 +28,12 @@ Every item here has a GitHub issue, and the two carry different things. **This f
 
 **The section letters here are not the labels.** A is silent failures, B correctness, C open decisions, D structural — but a D item can be `silent` (D11, D14, D15, D18 all are), so set the label from the behaviour rather than from the letter.
 
-**Two gaps, as of 2026-09-20.** There is no label for an *open decision*, which §C consists entirely of (#97, #53, #85, #121); one would carry "flag and ask, never settle unilaterally" onto the tracker, where it is currently invisible. And none for compatibility work (#88, Pandas 3). Both are proposals, not decisions.
+**Two gaps, as of 2026-09-20, still open.** There is no label for an *open decision*, which §C consists entirely of (#53, #85, #121); one would carry "flag and ask, never settle unilaterally" onto the tracker, where it is currently invisible. And none for compatibility work (#88, Pandas 3). Both are proposals, not decisions.
+
+**What `paper-affecting` currently covers, as of 2026-09-22.** Three issues carry the label — #136 (B10), #121 (D7), #85 — and on review that undercounts by one. **#133 (D18) belongs in the set**: `main.tex:808` states that "ADwin is modular, so which channel types are available is a question of which modules are installed, not of the control software", and a backend that writes every digital update to module 1 makes that false for a second digital module. Two further paper items are tracked by no issue at all:
+
+- the manuscript in `docs/paper/` has **twelve commits of local changes since the arXiv import** (`fdd2e0d`) that have not been carried back to Overleaf — see `docs/paper/CHANGES-since-arXiv.md`;
+- `sec:discussion` carries a **commented-out paragraph** (`main.tex:882`) describing bit-flip-timed ramps, per Kowalski *et al.*, as future work. `drop_repeats` now argues it achieves the equivalent on the hardware's own grid, so the paragraph is stale as written and is worth reviving rather than left commented. Distinct from #87, which is about doing the expansion that way in `expand`.
 
 ---
 
@@ -605,6 +610,34 @@ def _composed(x, **kws__new):
 
 Note that `funcy.compose` cannot do this on its own: it passes one value between stages, so keywords given to the composed function reach the innermost constituent only. Since the case currently raises, nothing can depend on the present behaviour.
 
+**Provenance.** The items below come from a review of `resources/ADwin/WignerTimeADwin.bas` carried out in a chat session (2026-09-22) alongside a rewrite of the lab's manual console, and were **re-verified here against the file as it stands** on the same date. The review's handoff document is attached to [#94](https://github.com/WignerQuantumOptics/Wigner_Time/issues/94). Two of its findings are not reproduced below, because they are already accounted for:
+
+- its §2.2 (the scan reads past the filled region, producing a spurious `p2_dac` built from a previous run's data) **was fixed by `790528e`**, which bounded the outer test as well as the `until`. The review was reading a pre-`790528e` copy. Its proposed remedy — Python writing a terminator past the filled region — is therefore unnecessary. What remains is an out-of-bounds *read* inside the `until` if ADbasic does not short-circuit `or`; that read stays inside the allocation and its result is discarded.
+- its §2.4 (one digital module hardcoded) is **D18** / [#133](https://github.com/WignerQuantumOptics/Wigner_Time/issues/133), reached independently. The agreement is worth recording: two readings of the same file, without contact, produced the same finding down to the `data_21` observation.
+
+### B11 — an interrupted run does not restore the default state **[new, found 2026-09-22]**
+
+`finish:` calls `processUpdates(2147483647)`, and the guard that gates the dispatch tests only the row at the *current* index:
+
+```basic
+if ( (analogIdx <= analogArrayDim) and (data_10[analogIdx] = cc) ) then
+```
+
+- **Normal completion.** `event:` ends through `if (cyclecount > endCC) then end`, by which point `analogIdx` has walked past every ordinary row and sits on the first `ADwin_Finish` row, whose cycle *is* 2147483647. The equality holds and the finish rows fire. Works.
+- **`Stop_Process` during a run.** `analogIdx` is somewhere in the middle of the array, `data_10[analogIdx]` holds an ordinary cycle count, the equality fails, and **the finish rows never fire.** The process stops wherever it was, leaving coils energised, shutters open and AOMs driven — whatever the timeline happened to be commanding at that instant.
+
+The guarantee is therefore available in exactly the case where it is not needed and absent in the case it exists for. The lab's `finish()` docstring states the opposite in as many words — *"the default state will be actuated even when the process is interrupted"* — so this is a documented promise the backend does not keep, and `CONTEXTS__SPECIAL`'s `ADwin_Finish` is the frontend half of the same promise.
+
+**This is the item to settle before the package is public**, and not for tidiness: aborting a run is the ordinary response to something going wrong, which is exactly when an apparatus should not be left driven. It is the one entry in this document whose failure mode is physical rather than numerical.
+
+Not a *silent* failure in this document's sense — nothing returns a wrong answer — but it outranks either category, because the operator has an explicit reason to believe the opposite of what happens.
+
+Fix direction from the review, **not approved, and a §C decision because it changes the Python/ADwin array contract**: stop reusing the playback arrays for teardown. Put the finish rows in arrays of their own (`data_30..33`; a few hundred entries suffice), applied unconditionally from index 1 in `Finish:`. The playback path then has no special final case, and the sentinel cycle 2147483647 stops doing structural work, which also relieves D19.
+
+The cheaper alternative — have `Finish:` scan forward for the sentinel before dispatching — keeps the contract but adds an unbounded loop to the teardown path and leaves the sentinel load-bearing. Recorded as the fallback, not the recommendation.
+
+**Not verified on hardware** (§E). The reasoning is from the source and from the cycle numbers Python emits.
+
 ---
 
 ## C. Open API decisions — do not settle unilaterally
@@ -1050,6 +1083,48 @@ Two ways to settle it, and they are opposites:
 (1) unless a second digital module is actually planned. Either way the present state — a frontend that accepts what the backend silently ignores — is the one option that should not persist.
 
 **Not verified on hardware** (§E): what ADwin does with a write to an undeclared `data_21` is untested here.
+
+### D19 — cycle-count sentinels share a namespace with the time axis, and `cyclecount` wraps into it **[new, found 2026-09-22]**
+
+`-2` (lowinit), `-1` (init) and `2^31-1` (finish) are control-flow markers carried in the same column as ordinary cycle counts, and `cyclecount` is a `long` incremented once per executed event. Two consequences, of different weight:
+
+- A timeline producing cycle `-1` would fire during `init:`. Unreachable from ordinary input — but note that the lab's `init()` passes `t=-1e-6`, which at a 1 µs cycle period *is* `-1`, so the Python layer is already overriding time for the special contexts, and the comment there ("time is simply a placeholder here") admits this rather than preventing it.
+- `cyclecount` wraps at 2^31 — **35.8 minutes at 1 µs**, 3 hours at 5 µs — and it wraps *negative*, into sentinel territory. `if (cyclecount > endCC) then end` is then false, so the run does not stop: it continues into cycles `-2` and `-1` and replays the lowinit and init rows mid-experiment.
+
+Beyond any real sequence today. Worth a guard on the Python side, where `adwin.core.create` already knows `time_end__cycles` and can refuse; that costs one comparison and needs no ADbasic change.
+
+Structural rather than urgent — but B11's recommended fix removes the `2^31-1` sentinel, which is the half of this that does structural work.
+
+### D20 — nothing enforces the sorted-ascending invariant the backend depends on **[new, found 2026-09-22]**
+
+`processUpdates` advances `analogIdx` and `digitalIdx` monotonically and never rewinds, so **any row out of cycle order is silently skipped**. The invariant is real and load-bearing; it holds today by construction in `adwin/internal.py`, and is asserted nowhere. Nothing would notice if a future change to `validate.all`, to `drop_repeats`, or to the concatenation in `core.create` disturbed it.
+
+One line in `adwin.validate`, over a column that is already materialised. That pass is also the natural home for the other static checks the review proposes (its §3.1): row counts against `Par_4`/`Par_5`, no ordinary row colliding with a sentinel, and the maximum number of rows sharing a single cycle against the per-cycle budget — the last being the event-overrun check done statically, before the hardware, rather than discovered after.
+
+### D21 — the cycle period is stated in two places and read from neither **[sharpens D14, 2026-09-22]**
+
+D14 recorded that `Initial_Processdelay = 5000` in the `.bas` header and `cycle_period = 5e-6` in `adwin/internal.py` must agree, and that nothing checks it. Verified more precisely now, and the situation is worse than "unchecked":
+
+- **Python never sets or reads the Processdelay.** There is no `Set_Processdelay` or `Get_Processdelay` anywhere in `src/`. The machine runs at whatever the deployed `.bas` was compiled with, and the package has no way to find out.
+- `Initial_Processdelay = 5000` is 5 µs on a T12 (1 ns per unit) and 16.7 µs on a T11 (3.33 ns per unit). **The header is not self-describing**: the same number means different things on the two processor generations, and neither file records which is assumed.
+- The manuscript quotes **1 µs** (`main.tex:375`, `:839`), which is neither. So the rig is running something other than what either file in this repository states, and nothing here records what.
+- **D15 closes the loop.** `adwin.core.create` accepts `machine_specifications` and does not forward it to `convert`, so a user who supplies the rig's actual cycle period has it used for the `time_end` that is *printed* and not for the `cycle` column that is *uploaded*. The one visible number agrees with the user's intent while the data does not.
+
+So the package cannot currently be told the machine's cycle period, and the value it assumes is contradicted by its own paper. With D15 this is the most consequential item in the ADwin group: an error here is a **uniform rescaling of every time in the experiment**, which reads as physics rather than as a bug.
+
+The remedy is the review's §3.1 check, and it is cheap, because the driver already exposes what is needed: `Get_Processdelay(1)` and `Processor_Type()` give the real cycle period, which is asserted against the specification at load and **refuses** rather than warns. That single check is worth more than the rest of the ADwin group put together, and it turns the paper's 1 µs from a quoted number into a verified one.
+
+### D22 — the manual console is a second, divergent apparatus description **[new, found 2026-09-22; this is #94]**
+
+The lab's manual console (`console.py` plus `ExperimentalSetupConsole.bas`, ADwin process 10) gives direct access to channels during alignment. It maintains **its own** connection table, with its own `unit_range` and `safety_range` columns, parallel to this package's `connections` and `devices`. Two parameterisations of one physical map, each maintained by hand.
+
+They can disagree silently, and at least one pair wants checking: `coil_MOTlower__A` has `to_V = 10/5.0` over ±5 A in the lab's `devices`, and `unit_range=(-5, 5)` in the console's table. Whether those agree depends on the DAC full scale, which the review could not establish.
+
+The harder half is that `device.new` accepts an **arbitrary callable** — the demo's `AOM_science__trans` reads a calibration file through `conversion.function_from_file` — and the console assumes a single linear map. Deriving console entries from `devices` without routing them through the same conversion path would put the wrong voltage on every calibrated channel, quietly.
+
+Direction, from the review and **not settled**: ship the console inside the distribution as `wignertime.console` behind a `console` extra, with the `.bas` as package data; have it *consume* `connections`, `devices`, `variable` and `device.check_within_range`, and derive its ranges rather than restate them. Scope limited to the static description — the console needs no notion of a timeline, and the dependency runs one way only. Which of `unit_range` or the `device` conversion is authoritative, and how the console reaches a non-linear calibration, is a **§C decision**.
+
+Bearing on this document: once the console is in the package its defects are ours, and the review lists several of the kind catalogued here — `pd.merge` padding with `NaN` so that an `is None` test sent every digital channel down the analogue branch (A-class, and it broke precisely the path that would derive console tables from ours); `int()` truncating a DAC code toward zero instead of rounding; and `safety_range` present in the schema and read nowhere, with `unit_range` doing both jobs.
 
 ---
 

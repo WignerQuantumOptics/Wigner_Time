@@ -67,16 +67,18 @@ resolve. No LaTeX toolchain is installed here, so a build has not been demonstra
 `minted` requires `pygmentize` and `-shell-escape`. Build from inside `docs/paper/`; the figure paths
 are relative to it.
 
-The Overleaf import is byte-identical to the copy analysed on 2026-09-01/02 — 1453 lines, and every
-citation recorded in `KNOWN_ISSUES.md` still lands on the same line — so paper references in these
-notes remain valid as written.
+**The committed manuscript has diverged from Overleaf, and Overleaf is the one the co-authors edit.**
+The arXiv version was imported at `fdd2e0d` (2026-09-15, 1458 lines); twelve commits have changed it
+since, `+117 / −45` lines plus a new generated figure, and **none of that has been carried back.**
+`docs/paper/CHANGES-since-arXiv.md` is the inventory for doing so, with a `latexdiff` recipe at the
+end. Until it is carried across, line numbers quoted in these notes and in `KNOWN_ISSUES.md` are
+against the *committed* file and no longer match Overleaf.
 
 For the `origin` mechanism specifically, read `docs/origin-resolution.md` first: it maps every branch
 of the resolution in four layers, and since 2026-09-18 it is a record rather than a plan — every defect
 it catalogues is fixed, each entry saying what replaced it, and the measurements are kept because they
-are the argument for the design. `sec:origin` and `sec:origin_full` now match the code. The one thing
-outstanding is not code: `fig:origin`'s image contradicts its own amended caption and has to be
-redrawn (#123).
+are the argument for the design. `sec:origin` and `sec:origin_full` now match the code, and so does `fig:origin`:
+it was redrawn and made generated on 2026-09-19 (#123, closed). The origin block is finished.
 
 ## Architecture
 
@@ -106,7 +108,11 @@ Three named layers, with movement in both directions as an explicit goal:
 
 `device` and `connection` are two separate tables on purpose: recalibrating a device and rewiring
 the apparatus are independent operations, each touching one place. Never fold module/channel numbers
-into device conversions or vice versa.
+into device conversions or vice versa. **They must still answer for each other**: since 2026-09-21
+`device.check_correspondence(connections, devices)` raises in *both* directions — a device with no
+connection, and an analogue connection with no device. The second is the dangerous one (A14): a
+mistyped device name used to leave `check_within_range` with nothing to check, so the variable ran
+with its safety limits silently absent.
 
 ### The dual-return idiom
 
@@ -311,7 +317,11 @@ cycle numbers. Rows in these contexts have **no meaningful time**, so they are v
   README, so changes to the overview belong in both). The paper lives in its own self-contained
   subtree, `docs/paper/`; neither it nor `docs/origin-resolution.md` is in `mkdocs.yml`'s nav.
 - Tests live under `test/wignertime/`, mirroring the package. (They sat under `test/wigner/time/`,
-  the pre-rename name, until 2026-09-21.) Tests build frames as literal row lists and compare with
+  the pre-rename name, until 2026-09-21.) `test/wignertime/fixtures/lab2/` freezes a **real**
+  experiment — Dániel Varga's Lab2 atom-cavity run, taken off the rig on 2026-09-21 — as 13 KB of
+  parquet, and `test_lab2_regression.py` runs it end to end and checksums the output. When one of
+  those checksums moves, the pipeline changed; see the fixture's own `README.md` for what the
+  numbers mean and why they are today's output rather than the rig's. Tests build frames as literal row lists and compare with
   `wt_frame.assert_equal`; behaviour with many input shapes is covered via `@pytest.mark.parametrize`
   over calls to `tl.create` and friends.
 
@@ -333,13 +343,14 @@ being compared, a zero-duration ramp raises, and a flat ramp is kept as the hold
 
 Not covered by `KNOWN_ISSUES.md`:
 
-- `internal/constructor.py` calls `tl.previous_time`, which no longer exists — that module is dead code.
+- `internal/constructor.py` calls `tl.previous_time`, which no longer exists. Nothing in the package
+  or the suite imports it; its only importers are `internal/doc/demonstration.py` and
+  `internal/experimental/demonstration.py`, which are scratch notes. Dead code, but with references.
 - `internal/timeline/validate.py` is documented as out of date with respect to the current schema
   (it references `unit_range`/`safety_range` columns that `device.py` no longer produces).
-- `black` does not currently pass on the repo: `device.py`, `internal/dataframe.py`,
-  `internal/doc/diagnosticsDemo.py` and `test_check_within_range.py` want reformatting (the first two
-  and the last are from the two most recent commits, so this branch introduced them). Format files you
-  touch; a repo-wide `black` run would bury your diff.
+- `black` passes on everything except `src/wignertime/internal/doc/diagnosticsDemo.py`, which is a
+  scratch notebook rather than package code (checked 2026-09-22: 1 file would be reformatted, 57 left
+  alone). Format files you touch; a repo-wide `black` run would bury your diff.
 - **The paper's demo listing (`sec:demonstration`) is a cleaned-up variant of
   `src/wignertime/demo/full_experiment.py`, not a copy of it**, and the two have drifted: the paper
   uses single-underscore parameter names (`duration_coil_ramp`, `lag_MOT_shutter`,
