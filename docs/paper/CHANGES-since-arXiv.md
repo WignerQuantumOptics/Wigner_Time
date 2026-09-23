@@ -1,10 +1,10 @@
 # Manuscript changes since the arXiv version
 
 Base: **`fdd2e0d`**, "Import the arXiv version of the manuscript from Overleaf" (2026-09-15).
-Compiled here against `HEAD` on 2026-09-22.
+Compiled here against `HEAD` on 2026-09-22; updated for the register pass of 2026-09-23 (§7).
 
-Twelve commits have touched `docs/paper/` since. Net: `main.tex` **+117 / −45** lines, plus one
-new generated figure and the script that generates it.
+Twelve commits have touched `docs/paper/` since, followed by that pass. Net: `main.tex`
+**+73 / −50** lines, plus one new generated figure and the script that generates it.
 
 **These changes exist only in git. Overleaf still holds the arXiv text.** This file is the
 inventory for carrying them across; a mechanical diff is described at the end.
@@ -46,19 +46,21 @@ is expressible as a pair — `origin=["molasses", "variable"]`.
 
 ## 2. Substantive prose — new passages
 
-Eight paragraphs are new (`ramp` and `anchor` live inside `sec:functions` and `sec:anchor`; there is no `sec:ramp`). Each states behaviour that the package now enforces and the manuscript
-did not describe.
+Eight passages are new: five whole paragraphs, and three sentences added to existing ones
+(`ramp` and `anchor` live inside `sec:functions` and `sec:anchor`; there is no `sec:ramp`). Each
+states behaviour that the package now enforces and the manuscript did not describe. The openings
+quoted are those after the register pass of §7.
 
 | § | passage | why |
 | --- | --- | --- |
-| `sec:functions` | "A variable is therefore always named as a keyword…" | the positional input forms were withdrawn (`093c05f`) |
-| `sec:functions` | **"What a ramp refuses"** — a whole paragraph | zero and negative durations now raise; a flat ramp is a hold and is kept; a ramp of an unset variable raises (`dcda171`) |
+| `sec:functions` | "Any other keyword is read as the name of a variable…" — one sentence, closing the paragraph after the `create` signature | the positional input forms were withdrawn (`093c05f`) |
+| `sec:functions` | **"What a ramp refuses"** — a whole paragraph, three sentences | zero and negative durations now raise; a flat ramp is a hold and is kept; a ramp of an unset variable raises (`dcda171`) |
 | `sec:anchor` | "Note that `t` is required…" + a two-line `minted` example | `t` became required; the two idioms differ by ~0.1 s in the paper's own demo from `optical_pumping` onwards (`771f5d3`) |
 | `sec:stacking` | "The two take their stages differently…" | `stack` takes stages already called, `cascade` takes them bare — nothing in the syntax said so (`2b5bca1`) |
-| `sec:stacking` | "Note the explicit `timeline=None`…" | a stage must declare what it forwards, rather than collecting it in `**kwargs` (`19d41ad`) |
+| `sec:stacking` | "`MOT` also takes a `timeline` argument…" — three sentences, closing the paragraph after the `MOT` listing | a stage must declare what it forwards, rather than collecting it in `**kwargs` (`19d41ad`) |
 | `sec:stacking` | "Routing is strict…" | `cascade` now refuses a keyword it cannot place (`93796b7`) |
 | `sec:interweaving` | "This gives a practical criterion for what a stage should declare…" | when a stage takes `origin` and when it should not |
-| `sec:forwarding` | "The open namespace stops there, and deliberately." | `**kwargs` is confined to the `default_state` path |
+| `sec:forwarding` | "Only these three functions accept arbitrary keywords…" — one sentence, closing the "Keyword forwarding provides a third way" paragraph | `**kwargs` is confined to the `default_state` path |
 
 ---
 
@@ -125,7 +127,8 @@ All six signatures the manuscript shows now agree with the code.
 `origin2=["variable"]` → `origin2=["variable", 0.0]`.
 
 `tab:inputSpecs`'s caption no longer advertises the positional forms as available for
-programmatic use; it says the package uses them internally when expanding a ramp.
+programmatic use. After the register pass (§7) it simply refers to the API documentation; before
+it, it said that the package uses those forms internally when expanding a ramp.
 
 ---
 
@@ -158,6 +161,39 @@ listing as published does not run).
   future work. `drop_repeats` now argues for the equivalent on the hardware's own grid; the
   paragraph is stale as commented and worth reviving.
 - **The 1 µs claim** (`:375`, `:839`) is quoted, not verified. See `KNOWN_ISSUES.md` D21.
+
+---
+
+## 7. Register and typography pass (2026-09-23)
+
+The prose added since the arXiv version had been written as developer notes: too long, and using
+vocabulary a physicist does not know ("namespace", "positional", "placement argument", "call site",
+"terminal chain"). It also recounted behavior the package used to have. The passages of §2 were
+rewritten to the rules now kept in `WRITING.md` at the repository root. The main cuts:
+
+- **"What a ramp refuses"** goes from eight sentences to three. The account of what a negative
+  duration used to do, and the note about which filter removes a hold's redundant rows, are gone.
+- **"Routing is strict"** goes from four sentences to two. The matching rules are replaced by the
+  demo's own case: `MOT` begins `MOT_detuned_growth`.
+- The `create` and `sec:forwarding` additions each shrink to a single sentence, and the
+  `tab:inputSpecs` caption no longer mentions an internal input form.
+
+Typography was brought into line with the rest of the manuscript: `--` and `—` became `–`,
+straight apostrophes became `’`, and `\(\sim0.1\,\)s` became "about 0.1\,s".
+
+**Carrying this across touches text Overleaf already has**, not only text it lacks. These are edits
+to arXiv sentences, so a diff against Overleaf will show them:
+
+| where | change |
+| --- | --- |
+| Acknowledgements | `Anthropic's` → `Anthropic’s` |
+| `sec:forwarding`, first paragraph | `--` → `–` (twice) |
+| `sec:forwarding`, "Keyword forwarding provides a third way" | "keyword namespace *is* the variable namespace" → "reads any keyword it does not itself recognize as a variable"; "terminal" → "final"; "initialises" → "initializes" (this paragraph was already in §3) |
+| `sec:forwarding`, "The three keywords given in…" | `--` → `–` |
+| `sec:forwarding`, "Nothing here is a library feature" | "keeps one namespace deliberately open: the terminal `**vtvc_dict`" → "`create`, `update` and `ramp` deliberately read any keyword they do not recognize as a variable"; "terminal call" → "final `create` or `update` call"; "rather than raising" → "rather than raising an error"; `--` → `–` (twice) |
+
+The `sec:forwarding` appendix is where "namespace" first entered the manuscript. It was already
+there in the arXiv version.
 
 ---
 

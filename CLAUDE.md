@@ -47,6 +47,14 @@ anything it covers. Read it before touching `timeline.py` or `internal/origin.py
   inaccurate or hard to state, stop and report it. Do not edit the paper to match the code. If a
   behaviour is awkward to describe in prose, that is a signal to change the code.
 
+**Reader-facing prose follows `WRITING.md`**: the paper, `README.md`, `docs/index.md`, onboarding
+documents and the front pages of the documentation. They are written for physicists who write Python,
+not for developers. That means no programming vocabulary the arXiv text does not already use, no
+history of the code, and Unicode typography (`–`, never `--`). The history and mechanism that fill
+this file and `KNOWN_ISSUES.md` do not belong there. Docstrings may be more technical. Prose written
+in this environment has drifted into developer-note style before (2026-09-23), so check new paper
+text against the arXiv version's voice.
+
 ## Primary reference
 
 `docs/paper/main.tex` is the most comprehensive description of the project: a SciPost Physics Codebases
@@ -68,8 +76,9 @@ resolve. No LaTeX toolchain is installed here, so a build has not been demonstra
 are relative to it.
 
 **The committed manuscript has diverged from Overleaf, and Overleaf is the one the co-authors edit.**
-The arXiv version was imported at `fdd2e0d` (2026-09-15, 1458 lines); twelve commits have changed it
-since, `+117 / −45` lines plus a new generated figure, and **none of that has been carried back.**
+The arXiv version was imported at `fdd2e0d` (2026-09-15, 1458 lines); twelve commits and a register
+pass (2026-09-23) have changed it since, `+73 / −50` lines plus a new generated figure, and **none of
+that has been carried back.**
 `docs/paper/CHANGES-since-arXiv.md` is the inventory for doing so, with a `latexdiff` recipe at the
 end. Until it is carried across, line numbers quoted in these notes and in `KNOWN_ISSUES.md` are
 against the *committed* file and no longer match Overleaf.

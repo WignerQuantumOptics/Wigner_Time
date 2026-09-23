@@ -542,10 +542,8 @@ The three main convenience functions are \python{create}, which initialises a ne
 def create( t=0.0, context=None, **vtvc_dict )
 \end{minted}
 %
-This function accepts a wide range of input formats through the \python{**vtvc_dict} keyword argument, whose possibilities are laid out in \cref{tab:inputSpecs}. The arguments \python{t} and \python{context} serve as defaults for cases where time and context are not specified individually for each variable.
+This function accepts a wide range of input formats through the \python{**vtvc_dict} keyword argument, whose possibilities are laid out in \cref{tab:inputSpecs}. The arguments \python{t} and \python{context} serve as defaults for cases where time and context are not specified individually for each variable. Any other keyword is read as the name of a variable – a property put to use in \cref{sec:forwarding}.
 
-A variable is therefore always named as a keyword. Since that keyword namespace \emph{is} the variable namespace (\cref{sec:forwarding}), there is deliberately no second, positional way of naming one: an unrecognised keyword is read as a variable rather than rejected, so a parallel syntax would be a second thing for it to be confused with. Where the names are computed rather than written, the usual \python{**} unpacking applies, as in \python{create(**{name: value for ...})}.
- 
 \begin{table}
     \centering
     \begin{tabular}{l|p{15em}}
@@ -558,7 +556,7 @@ A variable is therefore always named as a keyword. Since that keyword namespace 
          \python{create(AOM_MOT=[0.1,1,"MOT"],AOM_imaging=[0.,1,"AI"])} & \small Two variables with different times and contexts \\\hline
          \python{create(AOM_MOT=[[0.1,1],[0.2,0]],context="MOT")} & \small The MOT AOM is turned on and then off with a single expression \\\hline
     \end{tabular}
-    \caption{The input formats for \python{create}. Rows may also be assembled positionally rather than named, which the package uses internally when expanding a ramp into its points; see the API documentation \cite{wignertime_docs}.}
+    \caption{The input formats for \python{create}; see the API documentation \cite{wignertime_docs} for details.}
     \label{tab:inputSpecs}
 \end{table}
  
@@ -615,7 +613,7 @@ By default, \python{ramp} stores only the start and end time-value pairs along w
  
 Like \python{update}, \python{ramp} inherits the \python{context} of the preceding entry by default (\cref{sec:context}), but this can always be overridden explicitly.
  
-\paragraph{What a ramp refuses} A ramp is a transition between two distinct instants, and the two ways of not supplying one are refused rather than interpreted. A \python{duration} of zero leaves both boundaries on the same instant; a negative one places the end before the start, where -- since \python{expand} orders each ramp's boundaries in time -- it would quietly exchange them, so that the variable finished at its previous value rather than at the target and the transition was laid over whatever preceded it. Both raise, naming the variables concerned. A ramp whose \emph{value} does not change is a different matter and is not refused: it is a hold, it occupies time, and discarding it would shorten the timeline and draw everything after it forward. The redundant rows it expands into are removed again by the filtering of \cref{sec:adwin} before they reach the hardware, so the cost is borne by the device layer alone. Finally, because a ramp begins wherever its variable currently sits, a variable with no previous entry has no starting point at all; this too raises, and the remedy is either to set the variable beforehand or to state both ends explicitly, as in the last row of \cref{tab:rampExamples}. Where they are stated, they are taken as written: the value origin is resolved only for those variables whose starting point had to be inferred.
+\paragraph{What a ramp refuses} A ramp must end after it begins: a zero or negative \python{duration} raises an error. A ramp whose value does not change is not an error but a hold, and occupies time like any other ramp. Since a ramp starts from the current value of its variable, ramping a variable that has not yet been set also raises an error; either set it beforehand, or state the starting point explicitly, as in the last row of \cref{tab:rampExamples}.
  
 Examples are given in \cref{tab:rampExamples}.
  
@@ -664,14 +662,14 @@ Anchors are useful because key experimental time instants are often necessarily 
  
 An anchor is simply a special row in the timeline – one whose \python{variable} entry does \emph{not} correspond to a connection and contains the designated anchor symbol (\faAnchor~ by default). It can therefore be added using the convenience function above or by any other means of adding a row. It is recommended that all user-defined stages end with an anchor whose \python{context} denotes the stage.
 
-Note that \python{t} is required, and is a displacement from whatever the \python{origin} resolves to rather than an absolute time. Since the default origin is the most recent anchor where one exists, \python{t} is normally a duration measured from the end of the \emph{preceding stage} – which is precisely what allows a stage to write rows past its own closing anchor, as \python{optical_pumping} does when it reinitialises its shutters, without dragging the following stage along with them. Where the intention is instead to mark the end of everything written so far, that is a different instant and is asked for explicitly:
+Note that \python{t} is required, and is a displacement from whatever the \python{origin} resolves to rather than an absolute time. Since the default origin is the most recent anchor where one exists, \python{t} is normally a duration measured from the end of the \emph{preceding stage} – which is precisely what allows a stage to write rows past its own closing anchor, as \python{optical_pumping} does when it reinitializes its shutters, without dragging the following stage along with them. Where the intention is instead to mark the end of everything written so far, that is a different instant and is asked for explicitly:
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none, linenos=false]{python}
 anchor(0.0, origin="last")   # here, at the last entry in the timeline
 anchor(0.0)                  # here, at the most recent anchor
 \end{minted}
 %
-The two coincide until some stage writes past its own anchor, and then they do not: in the example of \cref{sec:demonstration} they differ by \(\sim0.1\,\)s from \python{optical_pumping} onwards. Which is meant is therefore stated at the call site rather than defaulted to.
+The two coincide until some stage writes past its own anchor, and then they do not: in the example of \cref{sec:demonstration} they differ by about 0.1\,s from \python{optical_pumping} onwards. Which of the two is meant should therefore always be stated.
  
 \subsection{Context}
 \label{sec:context}
@@ -726,7 +724,7 @@ def MOT(duration, lower_current, upper_current, timeline=None):
         context="MOT"
     )
 \end{minted}
-Since no timeline is supplied, this returns a deferred function that can be slotted into any later timeline. Note the explicit \python{timeline=None}: a stage declares the placement arguments it forwards, exactly as the core functions do, and it is this that makes it both directly callable and composable. A stage should not collect them in \python{**kwargs} -- there, the keyword namespace of the terminal \python{create} or \python{update} call \emph{is} the variable namespace (\cref{sec:functions}), so a mistyped argument is silently read as a new variable rather than rejected. The one place an open namespace is wanted is \python{default_state}, where that reading is the entire point (\cref{sec:forwarding}).
+Since no timeline is supplied, this returns a deferred function that can be slotted into any later timeline. \python{MOT} also takes a \python{timeline} argument, which it passes on to its first constituent, so that it can be called on a timeline directly, just like the core functions. Such arguments are better named explicitly than collected in \python{**kwargs}: \python{update} and \python{ramp} read any keyword they do not recognize as a variable name (\cref{sec:functions}), so a misspelled argument would become a new variable without any error. The exception is the default state of the apparatus, where this is exactly what is wanted (\cref{sec:forwarding}).
  
 Similarly, triggering a camera is a useful abstraction, parameterized by the time instant and the duration of the exposition:
 \begin{minted}[frame=none]{python}
@@ -772,7 +770,7 @@ def cascade(*fs: Callable, **kws) -> Callable | wt_frame.CLASS:
 %
 This serves a similar purpose to \python{stack} at the outer layer of composition, but with the added feature that keywords are selectively forwarded to the underlying functions by name prefix.
 
-The two take their stages differently, and the distinction is worth stating because the syntax does not advertise it. \python{stack} takes stages that have \emph{already been called} -- \python{stack(timeline, MOT(duration=15))} -- where every argument but the timeline has been supplied and what remains is a function of the timeline alone. \python{cascade} takes the stage functions \emph{themselves} -- \python{cascade(MOT, molasses, MOT_duration=15)} -- and calls them, having routed each keyword to its stage. A stage therefore reaches \python{cascade} bare and reaches \python{stack} applied, and the two are not interchangeable. What \python{cascade} returns is whatever \python{stack} makes of the first stage's result: a timeline where that stage produces one, and otherwise a deferred function, so a \python{cascade} is itself composable. Once a good set of modular functions with default arguments is established, it is often useful to adjust specific nested parameters from a single point of contact. This is achieved by prefixing keywords with the function name, e.g.
+The two take their stages differently, and the distinction is worth stating because the syntax does not advertise it. \python{stack} takes stages that have \emph{already been called} – \python{stack(timeline, MOT(duration=15))} – where every argument but the timeline has been supplied and what remains is a function of the timeline alone. \python{cascade} takes the stage functions \emph{themselves} – \python{cascade(MOT, molasses, MOT_duration=15)} – and calls them, having routed each keyword to its stage. A stage therefore reaches \python{cascade} bare and reaches \python{stack} applied, and the two are not interchangeable. What \python{cascade} returns is whatever \python{stack} makes of the first stage’s result: a timeline where that stage produces one, and otherwise a deferred function, so a \python{cascade} is itself composable. Once a good set of modular functions with default arguments is established, it is often useful to adjust specific nested parameters from a single point of contact. This is achieved by prefixing keywords with the function name, e.g.
 %
 \begin{minted}[frame=none]{python}
 tl.cascade(
@@ -785,7 +783,7 @@ tl.cascade(
 )
 \end{minted}
 %
-Routing is strict. A keyword that names no stage, or that names one but is not a parameter of it, raises rather than being quietly dropped -- a dropped keyword would leave the stage on its default, which is a physically different sequence that nonetheless runs. The check is derived rather than configured: a split is accepted when the target declares the parameter, or when it collects \python{**kwargs} and is therefore deliberately open, as \python{default_state} and the functions wrapping it are (\cref{sec:forwarding}). Matching is anchored to the start of the keyword and to an underscore boundary, so a parameter that merely contains a stage name is not captured by it, and where two stage names both anchor the longer one is preferred.
+Routing is strict: a keyword that matches no stage, or none of the parameters of the stage it matches, raises an error – unless that stage accepts arbitrary keywords, as \python{init} and \python{finish} do (\cref{sec:forwarding}). Where one stage name begins another, as \python{MOT} begins \python{MOT_detuned_growth} in \cref{sec:demonstration}, the longer name is tried first.
 %
     
  
@@ -795,7 +793,7 @@ Stacking is a powerful technique for composing linear timelines, where each stag
  
 Returning to the example above (\cref{sec:stacking}), the \python{trigger_camera} function need not follow linearly from the MOT stage. By supplying \python{origin="initialization"}, the camera trigger can be placed relative to the initial anchor instead. Such \emph{interweaving} is particularly valuable for inserting diagnostic operations into an existing timeline without restructuring it.
 
-This gives a practical criterion for what a stage should declare. A stage that is meant to be \emph{placed} takes \python{origin}; a stage that forms a link in a causal chain does not. The preparation sequence of \cref{sec:demonstration} is of the second kind -- each of \python{MOT}, \python{molasses}, \python{optical_pumping} and \python{magnetic_trapping} acts on the physical state the previous one left behind, so there is no meaningful freedom in where it goes, and an \python{origin} argument would exist only to be given wrongly. The diagnostics of \cref{sec:forwarding} are of the first kind, and every one of them declares it. The signature therefore says which a stage is, and that is worth preserving as the operation layer grows.
+This gives a practical criterion for what a stage should declare. A stage that is meant to be \emph{placed} takes \python{origin}; a stage that forms a link in a causal chain does not. The preparation sequence of \cref{sec:demonstration} is of the second kind – each of \python{MOT}, \python{molasses}, \python{optical_pumping} and \python{magnetic_trapping} acts on the physical state the previous one left behind, so there is no meaningful freedom in where it goes, and an \python{origin} argument would exist only to be given wrongly. The diagnostics of \cref{sec:forwarding} are of the first kind, and every one of them declares it. The signature therefore says which a stage is, and that is worth preserving as the operation layer grows.
  
 For further examples, see \cref{sec:demonstration,sec:parameter_scan}.
  
@@ -900,7 +898,7 @@ It is in this context that Wigner Time offers tools that are unusually composabl
 \section*{Acknowledgements}
 T. W. Clark would like to acknowledge and thank the informal contribution of the Clojure community in general, as well as the Clojure data science community in particular, who have been working to bring data-oriented programming into the mainstream.
 
-A systematic review of the codebase was carried out with the assistance of Anthropic's Claude Code, which surfaced a number of latent defects – several of them silent, in the sense that they yield a physically wrong timeline without raising an error, and had survived more than two years of daily use.
+A systematic review of the codebase was carried out with the assistance of Anthropic’s Claude Code, which surfaced a number of latent defects – several of them silent, in the sense that they yield a physically wrong timeline without raising an error, and had survived more than two years of daily use.
 These are catalogued in the repository and are being addressed. The tool was used for review, verification and documentation; the design decisions, and the final judgement on each finding, remained with the authors.
 
 \paragraph{Funding information}
@@ -919,7 +917,7 @@ The \python{origin} argument accepts
     \item a \python{str}: dynamically resolved to a timeline-dependent value (see below)
     \item an \python{Iterable} of two values, following the same options for each: sets the numerical zero of the time and value columns independently
 \end{itemize}
-Leaving \python{origin=None} does not suppress the feature, but selects the first applicable option in \python{wignertime.config.ORIGIN__DEFAULTS} – by default the most recent anchor if one exists, and the most recent entry otherwise. The list is a chain and it is terminal: should neither be available, as on an empty timeline, the new entries are placed in absolute time and a warning is emitted. The two slots are completed independently, so a partially stated origin keeps the default for the slot it leaves out – \python{origin="molasses"} passed to \python{ramp} takes its time from that context and its value from the variable itself. Consequently \python{None} in a slot means “use the default here”, and absolute placement is requested with \python{0.0}, not with \python{None}.
+Leaving \python{origin=None} does not suppress the feature, but selects the first applicable option in \python{wignertime.config.ORIGIN__DEFAULTS} – by default the most recent anchor if one exists, and the most recent entry otherwise. The options are tried in order, and should neither be available, as on an empty timeline, the new entries are placed in absolute time and a warning is emitted. The two slots are completed independently, so a partially stated origin keeps the default for the slot it leaves out – \python{origin="molasses"} passed to \python{ramp} takes its time from that context and its value from the variable itself. Consequently \python{None} in a slot means “use the default here”, and absolute placement is requested with \python{0.0}, not with \python{None}.
  
 Three strings have dedicated meanings:
  
@@ -929,18 +927,18 @@ Three strings have dedicated meanings:
  
 \python{"anchor"} – time is relative to the most recent anchor entry (\cref{sec:anchor}), i.e. a variable whose name contains the \faAnchor~symbol, or the configured equivalent in \python{wignertime.config}.
  
-\python{"last"} and \python{"anchor"} are defined temporally and are admissible in the time slot only, as is a context name; the reason is given in the caption of \cref{fig:origin}. Because these three strings are resolved before any variable or context of the same name, such a name would be unreachable as an origin, and the package therefore refuses it where it is written.
+\python{"last"} and \python{"anchor"} are defined temporally and are admissible in the time slot only, as is a context name; the reason is given in the caption of \cref{fig:origin}. Because these three strings take precedence over any variable or context of the same name, no variable or context may be named after one of them.
  
 Any other string is resolved contextually. If it matches a variable name, e.g. \python{"shutter_MOT"}, the last occurrence of that variable is used. If it matches a context name, e.g. \python{"MOT"}, the origin resolves to the anchor of that context if one is present, and to its final entry otherwise. Such flexibility carries some risk of obscuring the simplicity of the software, but these cases are implemented because they track user intuition; when in doubt, a numeric \python{(time, value)} coordinate is always unambiguous. \Cref{fig:origin} gives the resolution order in full, and \cref{tab:originSpecs} illustrates the possibilities on a single function.
  
 Where a value origin is resolved against a variable, the lookup is bounded in time: the value taken is the one in effect at the origin instant, not the variable’s last value in the timeline as a whole. This is what allows an operation to be interwoven into the middle of an existing timeline and still see the state that physically precedes it.
  
-The \python{ramp} function takes a second origin, \python{origin2}, following the same specification and governing the end point of the transition. Its default, \python{["variable", 0.0]}, refers the end point’s \emph{time} to the start point of the same variable, and its value slot to nothing at all, since the end value of a ramp is always stated. Together that is what makes \python{duration} and a target value a complete specification of a ramp. The start point is the exception: its default is \python{[["anchor", "variable"], ["last", "variable"]]}, whose value slot refers the ramp's starting value to the variable's own previous value. A ramp must look up where the variable currently sits, and this default is what makes ramps chain. Elsewhere no default is value-relative, and value origins are available – as in the last row of \cref{tab:rampExamples} – but are always requested explicitly.
+The \python{ramp} function takes a second origin, \python{origin2}, following the same specification and governing the end point of the transition. Its default, \python{["variable", 0.0]}, refers the end point’s \emph{time} to the start point of the same variable, and its value slot to nothing at all, since the end value of a ramp is always stated. Together that is what makes \python{duration} and a target value a complete specification of a ramp. The start point is the exception: its default is \python{[["anchor", "variable"], ["last", "variable"]]}, whose value slot refers the ramp’s starting value to the variable’s own previous value. A ramp must look up where the variable currently sits, and this default is what makes ramps chain. Elsewhere no default is value-relative, and value origins are available – as in the last row of \cref{tab:rampExamples} – but are always requested explicitly.
  
 \begin{figure}
   \centering
   \includegraphics[width=0.95\linewidth]{graphic/origin-resolution.pdf}
-  \caption{\label{fig:origin} Resolution of an \python{origin}. The two slots admit different vocabularies because they ask different questions: the time slot asks \emph{when}, and every option shown names an instant, whereas the value slot asks \emph{how much, of what}, and only a variable names a quantity. \python{"anchor"}, \python{"last"} and a context name are therefore refused there — each would resolve to whichever variable happened to hold the row at that instant, and so would answer in the wrong physical units. Nothing is lost, since the intended reading is already expressible as a pair: the value \python{coil__A} held at the end of the molasses stage is \python{origin=["molasses", "variable"]}, the context bounding the lookup in time and the variable naming what is looked up. The two highlighted branches are the cases that occur in nearly all user code: the default, which resolves to the most recent anchor, and the resolution of a context name to that context’s anchor (\cref{sec:origin}).}
+  \caption{\label{fig:origin} Resolution of an \python{origin}. The two slots admit different vocabularies because they ask different questions: the time slot asks \emph{when}, and every option shown names an instant, whereas the value slot asks \emph{how much, of what}, and only a variable names a quantity. \python{"anchor"}, \python{"last"} and a context name are therefore refused there – each would resolve to whichever variable happened to hold the row at that instant, and so would answer in the wrong physical units. Nothing is lost, since the intended reading is already expressible as a pair: the value \python{coil__A} held at the end of the molasses stage is \python{origin=["molasses", "variable"]}, the context bounding the lookup in time and the variable naming what is looked up. The two highlighted branches are the cases that occur in nearly all user code: the default, which resolves to the most recent anchor, and the resolution of a context name to that context’s anchor (\cref{sec:origin}).}
 \end{figure}
  
 \begin{table}
@@ -1037,7 +1035,7 @@ connections = adcon.new(
 )
  
 """
-`devices` stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable. A linear conversion is the factor taking the unit *to* volts, so a device whose permitted range spans the controller's full output is `10 / limit` — `10 / 5.0` for a coil driven over +/-5 A by a +/-10 V DAC.
+`devices` stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable. A linear conversion is the factor taking the unit *to* volts, so a device whose permitted range spans the controller's full output is `10 / limit` – `10 / 5.0` for a coil driven over +/-5 A by a +/-10 V DAC.
  
 These specifications are deliberately separated from `connection`s because they represent physical properties and conversions that are independent of the particular DAC wiring.
 """
@@ -1374,13 +1372,11 @@ backend.Start_Process(1) # assuming that the ADwin backend program is loaded on 
 \section{Extending the default state from a downstream module}
 \label{sec:forwarding}
 
-A recurring situation in the operation layer is that a module does not describe a new experiment, but \emph{extends} an existing one with additional hardware. In our laboratory a diagnostics module adds absorption-imaging equipment -- an imaging shutter, an imaging AOM and a camera trigger -- to the base cold-atom experiment of \cref{sec:demonstration}. These three channels take no part in preparing the sample, but they are nonetheless part of the apparatus, and like every other channel they require a defined state at both ends of a run (\cref{sec:context}).
+A recurring situation in the operation layer is that a module does not describe a new experiment, but \emph{extends} an existing one with additional hardware. In our laboratory a diagnostics module adds absorption-imaging equipment – an imaging shutter, an imaging AOM and a camera trigger – to the base cold-atom experiment of \cref{sec:demonstration}. These three channels take no part in preparing the sample, but they are nonetheless part of the apparatus, and like every other channel they require a defined state at both ends of a run (\cref{sec:context}).
 
 There are two unsatisfying ways to arrange this. The base \python{default_state} can be edited to mention the imaging hardware, which couples the base experiment to equipment it never uses and makes that one function the place where every future module must intervene. Or the diagnostics module can declare a default state of its own, which duplicates the base specification and reintroduces precisely the divergence that having a single \python{default_state} exists to prevent (\cref{sec:discussion}).
 
-Keyword forwarding provides a third way. \python{default_state} accepts \python{**kwargs} and passes them to its terminal \python{create} or \python{update} call, where -- because that call's keyword namespace \emph{is} the variable namespace (\cref{sec:functions}) -- an unrecognised keyword is read as a variable-value pair. The two stages that wrap it, \python{init} and \python{finish}, forward \python{**kwargs} in the same way, so a keyword that neither consumes falls through to the default state and initialises a variable at both ends of the run.
-
-The open namespace stops there, and deliberately. An ordinary stage declares the placement arguments it forwards and nothing else (\cref{sec:stacking}), because in a stage the same mechanism is a liability rather than a feature: a mistyped argument would be read as a new variable and silently written into the middle of the experiment, where -- unlike in the default state -- there is no reason to want one. Confining \python{**kwargs} to this one path is also what allows \python{cascade} to check its routing against the target's signature.
+Keyword forwarding provides a third way. \python{default_state} accepts \python{**kwargs} and passes them on to its final \python{create} or \python{update} call, which reads any keyword it does not itself recognize as a variable and its value (\cref{sec:functions}). The two stages that wrap it, \python{init} and \python{finish}, forward \python{**kwargs} in the same way, so a keyword that neither consumes falls through to the default state and initializes a variable at both ends of the run. Only these three functions accept arbitrary keywords; ordinary stages name their arguments explicitly, since there a misspelled argument would otherwise become a new variable (\cref{sec:stacking}).
 
 \begin{minted}[fontsize=\scriptsize, breaklines, breakanywhere, frame=none]{python}
 # experiment.py - the base apparatus
@@ -1419,9 +1415,9 @@ def finish(**kwargs):
     return experiment.finish(shutter_imaging=0, AOM_imaging=1, trigger_camera=0, **kwargs)
 \end{minted}
 
-The three keywords given in \python{diagnostics.init} are consumed by nothing on the way down: \python{experiment.init} passes them on, and \python{default_state} adds them to its \python{create} call. The base experiment file is untouched, the base state is stated exactly once, and \python{diagnostics.finish} does the same against \python{experiment.finish}, so that the added channels are defined at the end of a run as well as at its beginning. The connection table is extended in the same spirit -- the diagnostics module declares only its own three channels and concatenates them onto the ones it inherits. This is the module referred to as \python{di} in \cref{sec:parameter_scan}.
+The three keywords given in \python{diagnostics.init} are consumed by nothing on the way down: \python{experiment.init} passes them on, and \python{default_state} adds them to its \python{create} call. The base experiment file is untouched, the base state is stated exactly once, and \python{diagnostics.finish} does the same against \python{experiment.finish}, so that the added channels are defined at the end of a run as well as at its beginning. The connection table is extended in the same spirit – the diagnostics module declares only its own three channels and concatenates them onto the ones it inherits. This is the module referred to as \python{di} in \cref{sec:parameter_scan}.
 
-Nothing here is a library feature. It is ordinary Python keyword forwarding, available because stages are ordinary functions rather than objects with fixed interfaces, and because the library keeps one namespace deliberately open: the terminal \python{**vtvc_dict}. The cost of that openness is that a misspelled keyword arriving at the terminal call is still a legal variable name, and so creates a variable rather than raising. The connection table is what bounds the consequence -- a variable with no matching connection cannot reach the hardware, and is removed during conversion (\cref{sec:connectionlayer}) -- which is a further reason to treat that table, rather than the stage functions, as the authoritative statement of what the apparatus is.
+Nothing here is a library feature. It is ordinary Python keyword forwarding, available because stages are ordinary functions rather than objects with fixed interfaces, and because \python{create}, \python{update} and \python{ramp} deliberately read any keyword they do not recognize as a variable. The cost of that openness is that a misspelled keyword reaching the final \python{create} or \python{update} call is still a legal variable name, and so creates a variable rather than raising an error. The connection table is what bounds the consequence – a variable with no matching connection cannot reach the hardware, and is removed during conversion (\cref{sec:connectionlayer}) – which is a further reason to treat that table, rather than the stage functions, as the authoritative statement of what the apparatus is.
 
 \section{Parameter scanning}
 \label{sec:parameter_scan}
