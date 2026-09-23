@@ -16,6 +16,8 @@ Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 �
 
 Every item here has a GitHub issue, and the two carry different things. **This file holds the diagnosis, the measurement and the reasoning; the issue holds the state.** Annotate both — an issue with neither milestone nor label is invisible to every view that matters.
 
+**An issue is closed when it is resolved on the main development branch**, not when that branch reaches `main`. The branch is currently `issue#94`, which will eventually be merged into `claude_code` (maintainer, 2026-09-23). Closing as work lands is also what makes a parent issue's sub-issue count show progress. The roadmap at #94 is tracked that way.
+
 **Milestones say _when_.** Their descriptions on GitHub are authoritative; reproduced here because they are otherwise recorded nowhere in the repository.
 
 | milestone | what belongs in it |
@@ -1110,7 +1112,7 @@ They agree today, so this is latent. But it is exactly the pair that drifts when
 
 Worth noting what makes this more than pedantry: the same reasoning is why the maintainer could dismiss a suspected 5× cycle-period discrepancy immediately — a timeline that took five times as long as expected would be noticed at once. That argument protects against a *change* in the ratio, not against the two values having been inconsistent from the start, and only while someone is watching the clock.
 
-### D15 — `adwin.core.create` silently ignores two of its own arguments **[new, found 2026-09-11]** — **FIXED 2026-09-23 on `issue#94`, not yet merged (#129)**
+### D15 — `adwin.core.create` silently ignores two of its own arguments **[new, found 2026-09-11]** — **FIXED 2026-09-23 on `issue#94` (#129, closed)**
 
 **Fixed** by making the cycle period an argument rather than an entry of the specification (roadmap step 2 at #94). `convert(timeline, connections, devices, cycle_period, ...)` takes it with no default, uses it both to sample ramps (unless `time_resolution` says otherwise) and to compute cycles, and `create` passes on `cycle_period`, `machine_specifications` and `time_resolution`, printing the run length with the same period it uploads. A specification that still carries `cycle_period` is refused by `internal.specifications`: accepting it with the period unused would be this defect again, one layer down. `create` alone still assumes a period when given none, `core.CYCLE_PERIOD__ASSUMED` (5 µs), so that the paper's `adwin.create(timeline, connections, devices)` keeps running; that goes when `create` reads the period off the machine (roadmap step 5, D21). Pinned by `test_create_uploads_at_the_period_it_is_given` and `test_create_converts_against_the_specification_it_is_given`. The unconditional print is untouched, and belongs with step 5, which changes what `create` returns.
 
@@ -1186,7 +1188,7 @@ Two ways to settle it, and they are opposites:
 
 **Not verified on hardware** (§E): what ADwin does with a write to an undeclared `data_21` is untested here.
 
-### D19 — cycle-count sentinels share a namespace with the time axis, and `cyclecount` wraps into it **[new, found 2026-09-22; this is #146]**
+### D19 — cycle-count sentinels share a namespace with the time axis, and `cyclecount` wraps into it **[new, found 2026-09-22; this is #146]** — **GUARDED 2026-09-23 on `issue#94` (#146, closed; the structural half rides on B11, #148)**
 
 `-2` (lowinit), `-1` (init) and `2^31-1` (finish) are control-flow markers carried in the same column as ordinary cycle counts, and `cyclecount` is a `long` incremented once per executed event. Two consequences, of different weight:
 
@@ -1201,7 +1203,7 @@ Structural rather than urgent — but B11's recommended fix removes the `2^31-1`
 
 **Guarded on the Python side 2026-09-23, on `issue#94`** (roadmap step 3 at #94). `adwin.validate.cycles` runs first in `validate.all` and refuses any row outside the special contexts that falls outside `adwin.CYCLES__RUN = (0, 2**31 - 2)`. That covers all three consequences: collision with −1 and −2, the silenced array, and the wrap (the last playable row is 2^31 − 2, since the counter is incremented once past it). `add_cycle` now computes the column in 64 bits and `validate.types` narrows it only after the check; before, the cast to `int32` came first and would have wrapped a too-late row into a plausible-looking one. A row less than half a cycle before zero rounds to zero and is accepted. The namespace itself is unchanged, so the structural half remains, and remains B11's to relieve.
 
-### D20 — nothing enforces the sorted-ascending invariant the backend depends on **[new, found 2026-09-22; this is #147]** — **FIXED 2026-09-23 on `issue#94`, not yet merged**
+### D20 — nothing enforces the sorted-ascending invariant the backend depends on **[new, found 2026-09-22; this is #147]** — **FIXED 2026-09-23 on `issue#94` (#147, closed)**
 
 **Fixed**, and the mechanism below corrected. `adwin.validate.ascending` checks each converted array just before `convert` returns it, and names the first row out of order, counting from 1 as the controller does. The arrays are checked, rather than the timeline, because they are the contract with the machine. The order is established by the sort in `internal.to_tuples`, and that sort, not anything upstream, is what a future change could disturb. So the check guards the only stage that can break the order.
 
