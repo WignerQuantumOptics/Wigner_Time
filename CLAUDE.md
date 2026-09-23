@@ -293,13 +293,19 @@ by `util.function__filtered_kws`; that is how `time_resolution` reaches `ramp_fu
 **The cycle period belongs to the machine, not to the package**, so `convert` has no default for it
 and the machine specifications may not carry one. Both labs run **T12** processors, at **1 ns per
 `Processdelay` tick** (maintainer, 2026-09-23): Lab1 at 5 µs (`Initial_Processdelay = 5000`, as
-committed), Lab2 at 2 µs. The roadmap at #94 has `create` read the period off the machine on every
-call, and never set it, because an ADbasic program can overwrite its own `Processdelay`. Until then
-`create` alone assumes `core.CYCLE_PERIOD__ASSUMED`.
+committed), Lab2 at 2 µs. `adwin.PROCESSDELAY__RATE` is the one hardware constant the package
+keeps, and it knows only the T12; any other processor is refused by name.
 
-`adwin/core.py::create` then pushes that into `Par_1..3` and `Data_10..13` / `Data_20..23` of the
-machine. The consumer is `resources/ADwin/WignerTimeADwin.bas` (ADbasic, real-time side); its
-`#define`s and `data_NN` array meanings must stay in sync with `core.create`. Par, FPar and Data
+`adwin/core.py::upload(timeline, connections, devices, machine, process)` is the only way to the
+machine. It reads the period off the machine on every call, as `Get_Processdelay(process)` over the
+processor's rate, and never sets it, because an ADbasic program can overwrite its own
+`Processdelay`. It converts at that period, pushes the result into `Par_1..3` and
+`Data_10..13` / `Data_20..23`, starts nothing, and returns an `Upload` log: machine, process,
+processor, Processdelay, period, last cycle and the arrays. The log is a named tuple whose first two
+fields are the machine and the process, so it serves wherever the lab's `(machine, process)` pair
+does. (It was `create` until 2026-09-23; renamed because it neither creates anything nor should be
+confused with `timeline.create`.) The consumer is `resources/ADwin/WignerTimeADwin.bas` (ADbasic,
+real-time side); its `#define`s and `data_NN` array meanings must stay in sync with `core.upload`. Par, FPar and Data
 numbers are shared by every process on the machine, and processes can start and stop one another;
 `WignerTimeADwinADC.bas` (process 4) is a copy of the sequencer that plays the same arrays.
 
@@ -314,7 +320,7 @@ move logic back into ADbasic to save rows are going the wrong way.
 Two distinct kinds of filtering, easy to confuse: `drop_duplicates` removes *temporal* collisions
 (two rows for one variable rounding to the same cycle); `drop_repeats` removes *value* redundancy
 (a row commanding a channel to the value it already holds), grouped by physical channel rather than
-by variable, and always keeping the first and last row of each channel — `core.create` derives the
+by variable, and always keeping the first and last row of each channel — `core.upload` derives the
 run length from the highest non-special cycle, and tanh ramp tails are flat.
 
 `adwin/__init__.py::CONTEXTS__SPECIAL` (`ADwin_LowInit`, `ADwin_Init`, `ADwin_Finish`) map to sentinel

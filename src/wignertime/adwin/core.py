@@ -4,6 +4,7 @@
 import funcy
 import numpy as np
 import importlib.util
+from typing import NamedTuple
 
 if not importlib.util.find_spec("ADwin"):
     raise ImportError("Wigner Time's adwin modules require `ADwin` to be installed.")
@@ -16,16 +17,86 @@ from wignertime.adwin import connection
 from wignertime.adwin import internal as ad
 from wignertime.adwin import validate as wt_validate
 
-CYCLE_PERIOD__ASSUMED = 5e-6
-"""
-The cycle period `create` assumes when it is not given one, in seconds: that of the
-committed `WignerTimeADwin.bas`, whose `Initial_Processdelay = 5000` is 5 us at the
-T12's 1 ns tick.
 
-Transitional. The period belongs to the program loaded on the machine, and `create`,
-which holds the machine, is to read it from there on every call (#94). `convert` may run
-without a machine, so it has no default at all.
-"""
+class Upload(NamedTuple):
+    """
+    The log of one `upload`: where the timeline went, at what period, and what was written.
+
+    The first two fields are the machine and the process, in the order of the
+    `(machine, process)` pair that routines starting the controller take -- the camera
+    routines of `sec:parameter_scan` among them -- so an `Upload` can be passed wherever
+    such a pair is expected.
+
+    `cycle__last` is what `Par_1` was set to, the cycle of the last row outside the
+    special contexts, and `time__last` is the same instant in seconds. `analogue` and
+    `digital` are the arrays as written, `(cycle, module, channel, digits)` per row.
+    """
+
+    machine: ADwin.ADwin
+    process: int
+    processor: str
+    processdelay: int
+    cycle_period: float
+    cycle__last: int
+    analogue: list
+    digital: list
+
+    @property
+    def time__last(self):
+        return self.cycle__last * self.cycle_period
+
+    def __repr__(self):
+        # The arrays run to hundreds of thousands of rows, so they are counted, not shown.
+        return (
+            "Upload(process={}, processor={!r}, processdelay={}, cycle_period={!r},"
+            " cycle__last={}, time__last={!r}, rows={} analogue + {} digital)".format(
+                self.process,
+                self.processor,
+                self.processdelay,
+                self.cycle_period,
+                self.cycle__last,
+                self.time__last,
+                len(self.analogue),
+                len(self.digital),
+            )
+        )
+
+
+def _timing(machine, process):
+    """`(processor, processdelay, cycle_period)` of `process`, as the machine reports them."""
+    processor = machine.Processor_Type()
+    if processor not in wt_adwin.PROCESSDELAY__RATE:
+        raise ValueError(
+            "The controller reports a {!r} processor, and how fast its Processdelay counts"
+            " is not known here: `adwin.PROCESSDELAY__RATE` covers {}. Add it there once"
+            " the rate is confirmed; guessing would rescale every time in the"
+            " experiment.".format(processor, list(wt_adwin.PROCESSDELAY__RATE))
+        )
+
+    processdelay = machine.Get_Processdelay(process)
+    if not processdelay > 0:
+        raise ValueError(
+            "Process {} reports a Processdelay of {!r}, so it has no cycle period. Is the"
+            " backend loaded as process {}?".format(process, processdelay, process)
+        )
+
+    return (
+        processor,
+        processdelay,
+        processdelay / wt_adwin.PROCESSDELAY__RATE[processor],
+    )
+
+
+def read_cycle_period(machine, process):
+    """
+    The cycle period of `process` on `machine`, in seconds: its `Processdelay`, read off the
+    machine, divided by the rate at which the processor counts it.
+
+    Read, never set. An ADbasic program can overwrite its own `Processdelay`, so a value
+    written from here is not one the machine is bound to keep. For the same reason this
+    shows the value before any the program sets for itself once started.
+    """
+    return _timing(machine, process)[2]
 
 
 def link_device(DeviceNo=1, raiseExceptions=1, useNumpyArrays=0):
@@ -93,34 +164,33 @@ def convert(
     )(timeline)
 
 
-def create(
+def upload(
     timeline,
     connections,
     devices,
-    machine: ADwin.ADwin | None = None,
+    machine: ADwin.ADwin,
+    process: int,
     machine_specifications=None,
-    cycle_period=None,
     time_resolution=None,
-) -> ADwin.ADwin:
+) -> Upload:
     """
-    For a given ADwin.ADwin machine object, combines the given timeline, connections and devices, converts the result to an ADwin-compatible format and initializes the machine for data collection.
+    Converts a timeline for `process` on `machine` and writes it into the machine's memory,
+    ready for the process to be started. Returns the `Upload` log of what was written.
 
-    `machine_specifications`, `cycle_period` and `time_resolution` are passed on to
-    `convert`, and the same period gives the run length printed here, so the number
-    reported and the data uploaded cannot disagree. They used to: neither argument
-    reached `convert`, while the specification still set the printed length (D15/#129).
-    Without a `cycle_period`, `CYCLE_PERIOD__ASSUMED` is used.
+    The cycle period is read off the machine (`read_cycle_period`), never given: a wrong
+    one rescales every time in the experiment, which reads as physics rather than as an
+    error. That is why the machine and the process are both required. The process is the
+    one whose `Processdelay` sets the period, so it must be the one started afterwards;
+    the arrays themselves are shared by every process on the machine.
 
-    NOTE: Stateful.
+    `machine_specifications` and `time_resolution` are passed on to `convert`.
+
+    NOTE: Stateful. It writes `Par_1..3` and the data arrays, and starts nothing.
     """
     # TODO:
     # - Should we prepare all of the possible variables or does this waste memory?
 
-    if machine is None:
-        machine = link_device()
-
-    if cycle_period is None:
-        cycle_period = CYCLE_PERIOD__ASSUMED
+    processor, processdelay, cycle_period = _timing(machine, process)
 
     output = convert(
         timeline,
@@ -150,13 +220,11 @@ def create(
             "dropped for want of a `connection`, or the timeline may describe only "
             "initial and final states.".format(list(wt_adwin.CONTEXTS__SPECIAL))
         )
-    time_end__cycles = cycles__run.max()
+    cycle__last = int(cycles__run.max())
 
-    # TODO: make this a log instead of a print statement
-    print("=== time_end: {}s ===".format(time_end__cycles * cycle_period))
-
-    # TODO: What's happening below should be explained here
-    machine.Set_Par(1, int(time_end__cycles))
+    # `endCC`, `analogArrayDim` and `digitalArrayDim` in `WignerTimeADwin.bas`: the event
+    # loop ends after the last cycle, and the counts say how far into each array to read.
+    machine.Set_Par(1, cycle__last)
     machine.Set_Par(2, len(output[0]))
     machine.Set_Par(3, len(output[1]))
 
@@ -174,4 +242,13 @@ def create(
                     [row[offset] for row in rows], data__first + offset, 1, len(rows)
                 )
 
-    return machine
+    return Upload(
+        machine=machine,
+        process=process,
+        processor=processor,
+        processdelay=processdelay,
+        cycle_period=cycle_period,
+        cycle__last=cycle__last,
+        analogue=output[0],
+        digital=output[1],
+    )

@@ -287,16 +287,26 @@ def test_to_tuples_separates_modules_despite_numpy_scalars():
 
 class _MachineRecording:
     """
-    Stands in for `ADwin.ADwin`, recording what `core.create` would transfer.
+    Stands in for `ADwin.ADwin`, recording what `core.upload` would transfer.
 
     The hardware calls are the part of the export that cannot be exercised here
     (`KNOWN_ISSUES` §E), so this covers the argument assembly around them and nothing
-    more: which parameters are set, and which data arrays are written.
+    more: which parameters are set, which data arrays are written, and what is read.
+    It reports a T12 with process 1 at Lab1's 5 us unless told otherwise.
     """
 
-    def __init__(self):
+    def __init__(self, processor="T12", processdelay=None):
         self.par = {}
         self.data = {}
+        self.processor = processor
+        self.processdelay = {1: 5000} if processdelay is None else processdelay
+
+    def Processor_Type(self):
+        return self.processor
+
+    def Get_Processdelay(self, process):
+        # The driver answers for any process number; an empty slot reads as nothing.
+        return self.processdelay.get(process, 0)
 
     def Set_Par(self, number, value):
         self.par[number] = value
@@ -317,7 +327,7 @@ def _digital_only():
     return timeline, conns, devs
 
 
-def test_create_transfers_an_empty_analogue_set_as_a_count_of_zero():
+def test_upload_transfers_an_empty_analogue_set_as_a_count_of_zero():
     """
     #73. An empty set used to raise `IndexError: too many indices` while computing the
     end cycle -- before any `Set_Par` -- so nothing was transferred at all and the
@@ -327,39 +337,40 @@ def test_create_transfers_an_empty_analogue_set_as_a_count_of_zero():
     be set precisely because the arrays are never cleared (#8).
     """
     machine = _MachineRecording()
-    adwin.create(*_digital_only(), machine=machine)
+    adwin.upload(*_digital_only(), machine, 1)
 
     assert machine.par[2] == 0, "analogue count must be transferred as zero"
     assert machine.par[3] == 3, "digital count unaffected"
     assert sorted(machine.data) == [20, 21, 22, 23], "only the digital arrays written"
 
 
-def test_create_transfers_both_sets_when_both_are_populated():
+def test_upload_transfers_both_sets_when_both_are_populated():
     machine = _MachineRecording()
-    adwin.create(demo.timeline__demo, demo.connections, demo.devices, machine=machine)
+    adwin.upload(demo.timeline__demo, demo.connections, demo.devices, machine, 1)
 
     assert sorted(machine.data) == [10, 11, 12, 13, 20, 21, 22, 23]
     assert machine.par[2] == len(machine.data[10][0]) > 0
     assert machine.par[3] == len(machine.data[20][0]) > 0
 
 
-def test_create_refuses_a_timeline_with_no_run():
+def test_upload_refuses_a_timeline_with_no_run():
     """
     Every update in a special context means the experiment has no duration, and the end
     cycle cannot be derived. That used to be a bare `ValueError: zero-size array`.
     """
     _, conns, devs = _digital_only()
     with pytest.raises(ValueError, match="nothing to run"):
-        adwin.create(
+        adwin.upload(
             tl.create(shutter_MOT=1, t=-1e-6, context="ADwin_LowInit"),
             conns,
             devs,
-            machine=_MachineRecording(),
+            _MachineRecording(),
+            1,
         )
 
 
 ###############################################################################
-#   D15 / #129 -- the cycle period is an argument, and `create` passes it on
+#   D15 / #129, D14 / #128 -- the period is read off the machine, never given
 ###############################################################################
 
 
@@ -371,31 +382,89 @@ def test_convert_has_no_default_cycle_period():
     assert parameter.default is inspect.Parameter.empty
 
 
-def test_create_uploads_at_the_period_it_is_given():
-    """
-    D15: `create(..., time_resolution=...)` expanded at the default period, and a
-    period given through the specification set the printed run length but not the
-    uploaded cycles. The update at t = 1 s must land at cycle 500 000 at 2 us.
-    """
-    machine = _MachineRecording()
-    adwin.create(*_digital_only(), machine=machine, cycle_period=2e-6)
+def test_upload_requires_the_machine_and_the_process_and_takes_no_period():
+    """Without both, the period cannot be read; given one, it could disagree with them."""
+    import inspect
 
-    assert machine.par[1] == 500_000, "the run length, in cycles"
+    parameters = inspect.signature(adwin.upload).parameters
+    for name in ["machine", "process"]:
+        assert parameters[name].default is inspect.Parameter.empty
+    assert "cycle_period" not in parameters
+
+
+def test_upload_converts_at_the_period_the_machine_reports():
+    """
+    D15, now at its root: the period is the process's Processdelay over the processor's
+    rate, so Lab2's 2000 on a T12 puts the update at t = 1 s at cycle 500 000.
+    """
+    machine = _MachineRecording(processdelay={1: 2000})
+    log = adwin.upload(*_digital_only(), machine, 1)
+
+    assert log.cycle_period == 2e-6, "2000 / 1e9 is exactly the float 2e-6"
+    assert machine.par[1] == log.cycle__last == 500_000
     assert max(machine.data[20][0]) == 500_000
 
 
-def test_create_converts_against_the_specification_it_is_given():
+def test_upload_reads_the_period_of_the_process_it_is_told():
+    """Process 4, the ADC variant, plays the same arrays at its own period."""
+    machine = _MachineRecording(processdelay={1: 5000, 4: 2000})
+    assert adwin.upload(*_digital_only(), machine, 4).cycle_period == 2e-6
+    assert adwin.upload(*_digital_only(), machine, 1).cycle_period == 5e-6
+
+
+def test_upload_refuses_a_processor_it_does_not_know():
+    """The T11's rate would be a guess, and a wrong one rescales every time."""
+    with pytest.raises(ValueError, match="'T11' processor"):
+        adwin.upload(*_digital_only(), _MachineRecording(processor="T11"), 1)
+
+
+def test_upload_refuses_a_process_that_is_not_loaded():
+    with pytest.raises(ValueError, match="Process 2 reports a Processdelay of 0"):
+        adwin.upload(*_digital_only(), _MachineRecording(), 2)
+
+
+def test_upload_converts_against_the_specification_it_is_given():
     """D15's other half: `machine_specifications` used to stop at `create`."""
     timeline, _, devs = _digital_only()
     conns = adcon.new(["shutter_MOT", 2, 11], ["AOM_MOT", 2, 1])
     specifications = {"modules": [{"bits": 16}, {"bits": 1}]}
 
     machine = _MachineRecording()
-    adwin.create(
-        timeline, conns, devs, machine=machine, machine_specifications=specifications
+    adwin.upload(
+        timeline, conns, devs, machine, 1, machine_specifications=specifications
     )
 
     assert sorted(machine.data) == [20, 21, 22, 23], "module 2 is the digital one here"
+
+
+def test_the_log_records_what_was_written_and_where():
+    machine = _MachineRecording()
+    log = adwin.upload(*_digital_only(), machine, 1)
+
+    assert (log.machine, log.process) == (machine, 1)
+    assert (log.processor, log.processdelay) == ("T12", 5000)
+    assert log.time__last == pytest.approx(1.0)
+    assert [row[0] for row in log.digital] == machine.data[20][0]
+    assert log.analogue == []
+
+
+def test_the_log_stands_in_for_the_machine_and_process_pair():
+    """
+    Routines that start the controller take `(machine, process)` and index it, as the
+    camera routines of `sec:parameter_scan` do, so the log can be handed to them as is.
+    """
+    machine = _MachineRecording()
+    log = adwin.upload(*_digital_only(), machine, 1)
+    assert log[0] is machine and log[1] == 1
+
+
+def test_the_log_is_short_to_print():
+    """The arrays can run to hundreds of thousands of rows; they are counted, not shown."""
+    log = adwin.upload(
+        demo.timeline__demo, demo.connections, demo.devices, _MachineRecording(), 1
+    )
+    assert len(repr(log)) < 300
+    assert "rows={} analogue".format(len(log.analogue)) in repr(log)
 
 
 def test_a_specification_carrying_a_cycle_period_is_refused():

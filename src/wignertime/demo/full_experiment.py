@@ -424,7 +424,8 @@ timeline__demo = tl.cascade(
 # from wignertime.adwin import core as adwin
 #
 # wtf.save(timeline__demo)
-# machine = adwin.create(timeline__demo, connections, devices)
+# machine = adwin.link_device()
+# adwin.upload(timeline__demo, connections, devices, machine, process=1)
 # machine.Start_Process(1)
 
 # NOTE:

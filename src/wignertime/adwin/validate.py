@@ -141,7 +141,7 @@ def drop_repeats(
 
     Rows in the special `context`s are excluded from the comparison entirely and always kept: they carry the safe-state guarantee and have no position in time.
 
-    The first and last row of every channel are always kept. Retaining the last matters beyond making the final commanded state explicit: `adwin.core.create` takes the run length from the highest non-special cycle, and the tail of a hyperbolic-tangent ramp is flat, so dropping trailing repeats would silently shorten the experiment.
+    The first and last row of every channel are always kept. Retaining the last matters beyond making the final commanded state explicit: `adwin.core.upload` takes the run length from the highest non-special cycle, and the tail of a hyperbolic-tangent ramp is flat, so dropping trailing repeats would silently shorten the experiment.
     """
     columns__needed = set(subset) | {column__value, column__order, "context"}
     if not columns__needed.issubset(timeline.columns):
