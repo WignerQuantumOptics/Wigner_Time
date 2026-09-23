@@ -2,6 +2,7 @@ import pytest
 from munch import Munch
 import numpy as np
 
+from wignertime import config as wt_config
 from wignertime import ramp_function, timeline as tl
 
 # NOTE: the commented-out `display` call below needs
@@ -147,15 +148,41 @@ def test_ramp1(args):
     return wt_frame.assert_equal(tl_ramp, tl_check)
 
 
-def test_ramp_start_stated_explicitly(tl_anchor):
+def test_ramp_start_stated_explicitly_is_protected_by_default(tl_anchor):
     """
-    A start value written in the 2-D form is taken as written.
+    A start value written in the 2-D form is taken as written, by default --
+    `ramp`'s long-standing convention (A8/#106), kept as the default
+    (`wt_config.ORIGIN__INFER_BY_SHAPE = True`) rather than something a site has to opt
+    back into. `lockbox_MOT__V` sits at 0.2, and the ramp still starts at the 0.0 that
+    was written -- with an explicit *time-only* `origin="anchor"`, not just a bare
+    call, since the switch protects a stated start regardless of whether `origin=` is
+    omitted or names only a time reference. Contrast
+    `test_ramp_start_stated_explicitly_with_explicit_value_origin`, where the caller
+    names a value origin too, and `test_infer_by_shape_off_offsets_by_default_instead`,
+    where a site has turned this convention off.
+    """
+    timeline = tl._populate_timeline(
+        [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
+    )
+    result = tl.ramp(
+        timeline,
+        lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
+        origin="anchor",
+        context="init",
+    )
+    assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
+        [0.05, 0.0],
+        [0.10, 5.0],
+    ]
 
-    `tab:rampExamples` documents that form as being for cases where the start cannot be
-    inferred from `origin`, i.e. the user is overriding the inference -- so resolving the
-    value origin on top of it defeated the only reason to use it (A8/#106). Here
-    `lockbox_MOT__V` sits at 0.2, and the ramp must still start at the 0.0 that was
-    written.
+
+def test_ramp_start_stated_explicitly_with_explicit_value_origin(tl_anchor):
+    """
+    An explicitly-stated start value is nonetheless offset by an explicitly-stated
+    value origin, regardless of `ORIGIN__INFER_BY_SHAPE`: the protection that switch
+    controls is only ever a *default* for the value slot, and a default never
+    overrides a slot the caller left stated (see `internal.origin.auto`).
+    `lockbox_MOT__V` sits at 0.2, so the written start of 0.0 comes out as 0.2.
     """
     timeline = tl._populate_timeline(
         [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
@@ -164,6 +191,140 @@ def test_ramp_start_stated_explicitly(tl_anchor):
         timeline,
         lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
         origin=["anchor", "variable"],
+        context="init",
+    )
+    assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
+        [0.05, 0.2],
+        [0.10, 5.0],
+    ]
+
+
+def test_ramp_start_stated_explicitly_can_be_kept_literal(tl_anchor):
+    """
+    `origin=None` turns off origin resolution altogether, so a stated 2-D start comes
+    back exactly as written. This is unaffected by `ORIGIN__INFER_BY_SHAPE` either way
+    -- it is the one spelling that always means "no resolution at all," on any site,
+    for a call that wants that regardless of the site's own standing convention.
+    """
+    timeline = tl._populate_timeline(
+        [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
+    )
+    result = tl.ramp(
+        timeline,
+        lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
+        origin=None,
+        context="init",
+    )
+    assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
+        [0.05, 0.0],
+        [0.10, 5.0],
+    ]
+
+
+def test_ramp_inherits_context_by_default(tl_anchor):
+    """
+    `context` defaults to `wt_config.CONTEXT__INFER` (A8, 2026-09-24), not a bare
+    `None` -- but a bare call still inherits the previous timeline's context exactly as
+    it always has. `tl_anchor` sits in `context="init"`; a `ramp` that does not state
+    its own context lands there too.
+    """
+    result = tl.ramp(tl_anchor, lockbox_MOT__V=5, duration=100e-3, origin=None)
+    assert sorted(set(result["context"])) == ["init"]
+
+
+def test_ramp_context_none_turns_off_inheritance(tl_anchor):
+    """
+    `context=None`, written explicitly, is the new "off" state: the ramp's rows are
+    left in the plain default context, the empty string, rather than inheriting
+    `tl_anchor`'s "init" -- mirroring `origin=None`'s own "no resolution at all"
+    meaning, for context inheritance instead of origin resolution.
+    """
+    result = tl.ramp(
+        tl_anchor, lockbox_MOT__V=5, duration=100e-3, origin=None, context=None
+    )
+    new_rows = result[result["context"] != "init"]
+    assert sorted(set(new_rows["context"])) == [""]
+
+
+@pytest.fixture
+def infer_by_shape_off():
+    """
+    Flips the sitewide `ORIGIN__INFER_BY_SHAPE` switch off for one test and restores it
+    afterwards, regardless of outcome -- it is process-wide state, not a call-site
+    argument, so a test exercising it must not leak the setting to any test that runs
+    after it.
+    """
+    original = wt_config.ORIGIN__INFER_BY_SHAPE
+    wt_config.ORIGIN__INFER_BY_SHAPE = False
+    try:
+        yield
+    finally:
+        wt_config.ORIGIN__INFER_BY_SHAPE = original
+
+
+def test_infer_by_shape_off_offsets_by_default_instead(tl_anchor, infer_by_shape_off):
+    """
+    `ORIGIN__INFER_BY_SHAPE = False` asks for the 2026-09-23 refinement: every start
+    row, 2-D or 1-D, resolves uniformly against `ORIGIN__DEFAULTS__RAMP`, so the same
+    call `test_ramp_start_stated_explicitly_is_protected_by_default` runs -- an
+    explicit time-only `origin="anchor"`, `lockbox_MOT__V` sitting at 0.2 -- now comes
+    out offset instead of protected, the opposite number.
+    """
+    timeline = tl._populate_timeline(
+        [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
+    )
+    result = tl.ramp(
+        timeline,
+        lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
+        origin="anchor",
+        context="init",
+    )
+    assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
+        [0.05, 0.2],
+        [0.10, 5.0],
+    ]
+
+
+def test_infer_by_shape_off_does_not_affect_an_explicit_value_origin(
+    tl_anchor, infer_by_shape_off
+):
+    """
+    The switch only changes what happens to a stated value *left unstated in
+    `origin=`*. Naming the value origin explicitly, same as
+    `test_ramp_start_stated_explicitly_with_explicit_value_origin`, gives the same
+    offset result with the switch off as with it on -- nothing about honouring an
+    explicit slot depends on this switch.
+    """
+    timeline = tl._populate_timeline(
+        [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
+    )
+    result = tl.ramp(
+        timeline,
+        lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
+        origin=["anchor", "variable"],
+        context="init",
+    )
+    assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
+        [0.05, 0.2],
+        [0.10, 5.0],
+    ]
+
+
+def test_infer_by_shape_off_still_lets_origin_none_stay_literal(
+    tl_anchor, infer_by_shape_off
+):
+    """
+    `origin=None` means "no resolution at all" regardless of `ORIGIN__INFER_BY_SHAPE`
+    -- the same result as `test_ramp_start_stated_explicitly_can_be_kept_literal`,
+    with the switch off instead of at its default.
+    """
+    timeline = tl._populate_timeline(
+        [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
+    )
+    result = tl.ramp(
+        timeline,
+        lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
+        origin=None,
         context="init",
     )
     assert result[result["function"].notna()][["time", "value"]].values.tolist() == [

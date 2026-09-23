@@ -206,8 +206,26 @@ def test_an_unset_variable_can_start_from_a_stated_value(tline):
 
 
 def test_an_unset_variable_can_state_both_ends(tline):
-    """The other escape, and the one the 2-D form exists for."""
-    assert points(tl.ramp(timeline=tline, fresh__A=[[0.0, 0.0], [0.5, 5.0]])) == [
+    """
+    The other escape, and the one the 2-D form exists for.
+
+    Needs `origin=[None, 0.0]` since the two-table split was refined away (A8/#106,
+    2026-09-23): a stated 2-D start now resolves against the same `"variable"`-valued
+    default an inferred one does, unless the caller says otherwise, so a variable with
+    no prior history would otherwise fail exactly as it would through the 1-D form --
+    `fresh__A` has nothing to look up.
+
+    A blanket `origin=None` would be too blunt here: it turns off resolution in *both*
+    slots, and this call still wants its start time anchored normally (`tline`'s most
+    recent anchor sits at 3.5, and the ramp should start there, not at the literal 0.0
+    written in the 2-D form). `[None, 0.0]` asks for exactly the split needed --
+    `None` in the time slot defers to the usual anchor-then-last chain, `0.0` in the
+    value slot means *absolute, no shift* -- both already-existing per-slot meanings
+    (see the module docstring), just no longer bundled into one row-category default.
+    """
+    assert points(
+        tl.ramp(timeline=tline, fresh__A=[[0.0, 0.0], [0.5, 5.0]], origin=[None, 0.0])
+    ) == [
         [3.5, 0.0],
         [4.0, 5.0],
     ]
