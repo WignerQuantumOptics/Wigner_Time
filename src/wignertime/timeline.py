@@ -80,32 +80,6 @@ def context_info(timeline):
         return None
 
 
-def previous(
-    timeline: wt_frame.CLASS,
-    variable=None,
-    time__max=None,
-    column="variable",
-    sort_by=None,
-    index=-1,
-):
-    """
-    Returns a row from the previous timeline. By default, this is done by finding the highest value for time and returning that row. If `sort_by` is specified (e.g. 'time'), then the dataframe is sorted and then the row indexed by `index` is returned.
-
-    Raises ValueError if the specified variable, or timeline, doesn't exist.
-    """
-    # DEPRECATED:
-    # TODO: Delete this in favour of the implementation in origin?
-    # Can be exposed through the package API
-    return wt_origin.previous(
-        timeline=timeline,
-        variable=variable,
-        time__max=time__max,
-        column=column,
-        sort_by=sort_by,
-        index=index,
-    )
-
-
 ###############################################################################
 #                   Main functions
 ###############################################################################

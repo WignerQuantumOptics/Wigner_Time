@@ -95,11 +95,11 @@ def previous(
     variable=None,
     column="variable",
     time__max=None,
-    sort_by=None,
-    index=-1,
 ):
     """
-    Returns a row from the timeline. By default, this is done by finding the highest value for time and returning that row. If `sort_by` is specified (e.g. 'time'), then the dataframe is sorted and then the row indexed by `index` is returned.
+    Returns the latest row of the timeline, optionally restricted to rows whose `column` equals `variable` and to times no later than `time__max`. Among rows sharing the latest time, the one written last (highest index) is returned.
+
+    This is the one lookup the origin machinery needs. It used to take `sort_by` and `index` as well, for "the n-th row in some ordering", but nothing used them, and on shared times the sorted path returned an arbitrary row rather than the last one written (D2, #116). A general query belongs in pandas.
 
     Anchors are a special case, where an exact match on the symbol is not required.
 
@@ -134,16 +134,7 @@ def previous(
     else:
         tl__filtered = tline
 
-    if sort_by is None:
-        return wt_frame.row_from_max_column(tl__filtered)
-
-    # Rebound rather than sorted in place: `tl__filtered` is a boolean-mask slice, and
-    # `inplace=True` on one is undefined -- pandas 2 answers correctly but raises
-    # `SettingWithCopyWarning`, and pandas 3 makes copy-on-write unconditional (B3, #88).
-    # The two branches this replaces returned the same expression anyway.
-    if not tl__filtered[sort_by].is_monotonic_increasing:
-        tl__filtered = tl__filtered.sort_values(sort_by)
-    return tl__filtered.iloc[index]
+    return wt_frame.row_from_max_column(tl__filtered)
 
 
 def _is_satisfiable__time(timeline, label):

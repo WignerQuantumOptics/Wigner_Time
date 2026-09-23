@@ -456,6 +456,8 @@ Fix direction: compute the minimum once, before the loop.
 
 ### B3 — `previous` sorts a filtered slice in place — **RESOLVED AND FIXED 2026-09-19**
 
+**Superseded 2026-09-23: the sorting branch no longer exists.** It was removed with `timeline.previous` (D2, #116), having turned out to return an arbitrary row among equal times. The account below is kept as the record of the fix.
+
 Rebound rather than sorted in place, as the fix direction said. The two branches it replaces returned the same expression anyway, so the sort is now the only thing conditional on monotonicity.
 
 **Measured before changing it, and the severity was not quite as recorded.** On pandas 2.3.3 the answer was *correct* in both copy-on-write modes; what it did was raise `SettingWithCopyWarning` with CoW off. So this was not a wrong answer waiting to happen so much as a reliance on behaviour pandas documents as undefined — which is exactly what #88 will settle one way or the other.
@@ -865,7 +867,17 @@ The snapshot of `internal/origin.py` imports `wignertime.internal.origin as wt_o
 
 **Fixed.** The self-import was removed and the two call sites changed to the plain local `find`. Three lines; suite unchanged at 193 passed. Nothing else in the origins code was touched.
 
-### D2 — `timeline.previous` is a deprecated duplicate
+### D2 — `timeline.previous` is a deprecated duplicate — **SETTLED AND REMOVED 2026-09-23**
+
+**Deleted, and `origin.previous` reduced to what the origin machinery uses** (`timeline, variable, column, time__max`; maintainer decision, #116).
+
+*Why nothing needed it.* It had been a pure pass-through since the restructure that introduced `origin` (`8e56278`, #62), and nothing in the package called it — only four tests and some untracked notebook checkpoints, all doing `tl.previous(timeline, "coil_MOTlower__A")` to read where a variable stood before writing the next step by hand. That is the lookup the origin vocabulary now states declaratively (a variable name, `"variable"`, `"last"`, `"anchor"`, a context name), resolved at construction and bounded by `time__max`, which a hand-written lookup forgets. It appeared nowhere in the paper, README or `docs/index.md`. Its signature also put `time__max` and `column` in the opposite order to `origin.previous`, so a positional third argument meant different things in the two.
+
+*Why `sort_by`/`index` went with it.* They offered "the n-th row in some ordering", and only `timeline.previous` reached them: the internal path never passed `sort_by` (as B3 recorded). With the wrapper gone they had no caller, and they were also **wrong in the one case that overlaps the default**. `sort_values` defaults to quicksort, which does not preserve the order of equal keys, so among rows sharing the latest time — every multi-variable `update` writes such rows — the sorted path returned an arbitrary row, where the default path deliberately returns the one written last. Measured on NumPy 2.4.6 / pandas 2.3.3 (AVX2): `sort_by="time"` and the default disagreed in 6/200 random timelines at 5 rows and 164/200 at 1000, and `np.argsort([4., 4., 1., 0., 2.], kind="quicksort")` already puts index 1 before 0. The ordering depends on the CPU-dispatched sort, so it could differ between machines. `time` is identical among the tied rows, so only a caller reading `value`, `variable` or `context` got a wrong answer — silently. No timeline the package builds was ever affected. `test_previousSort2` passed only because its four rows happened to come out in the right order.
+
+A general query belongs in pandas. The tie-break the package does rely on is now tested directly (`test_previous_ties_go_to_the_row_written_last`); the B3 test went with the code it tested. Suite 337 → 334.
+
+The original entry follows.
 
 Marked DEPRECATED in its own docstring; delegates to `wt_origin.previous`. The comment asks whether it should be deleted in favour of the internal implementation. Decide as part of settling the public API surface, not ad hoc.
 
