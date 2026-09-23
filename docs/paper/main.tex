@@ -35,7 +35,6 @@
 \fancyfoot[C]{\textbf{\thepage}}
 }
 
-\usepackage{orcidlink}
 \usepackage{hyperref}
 \usepackage{orcidlink}
 \usepackage{cleveref}
@@ -742,10 +741,9 @@ def init():
         create(
             AOM_MOT=1, AOM_repump=1, shutter_MOT=0, shutter_repump=0, trigger_camera=0,
             coil_MOTlower__A=0, coil_MOTupper__A=0,
-            t=0.0
+            t=0.0, context="initialization"
         ),
-        anchor(0.0),
-        context="initialization"
+        anchor(0.0)
     ).
 \end{minted}
 Since \python{create} returns a timeline, this particular \python{stack} evaluates immediately to a timeline rather than a deferred function. It is advisable to always define an explicit starting condition for every connection in this way.
@@ -772,7 +770,7 @@ def cascade(*fs: Callable, **kws) -> Callable | wt_frame.CLASS:
 %
 This serves a similar purpose to \python{stack} at the outer layer of composition, but with the added feature that keywords are selectively forwarded to the underlying functions by name prefix.
 
-The two take their stages differently, and the distinction is worth stating because the syntax does not advertise it. \python{stack} takes stages that have \emph{already been called} – \python{stack(timeline, MOT(duration=15))} – where every argument but the timeline has been supplied and what remains is a function of the timeline alone. \python{cascade} takes the stage functions \emph{themselves} – \python{cascade(MOT, molasses, MOT_duration=15)} – and calls them, having routed each keyword to its stage. A stage therefore reaches \python{cascade} bare and reaches \python{stack} applied, and the two are not interchangeable. What \python{cascade} returns is whatever \python{stack} makes of the first stage’s result: a timeline where that stage produces one, and otherwise a deferred function, so a \python{cascade} is itself composable. Once a good set of modular functions with default arguments is established, it is often useful to adjust specific nested parameters from a single point of contact. This is achieved by prefixing keywords with the function name, e.g.
+The two take their stages differently, although their syntax does not show it. \python{stack} takes stages that have \emph{already been called} – \python{stack(timeline, MOT(duration=15))} – where every argument but the timeline has been supplied and what remains is a function of the timeline alone. \python{cascade} takes the stage functions \emph{themselves} – \python{cascade(MOT, molasses, MOT_duration=15)} – and calls them, having routed each keyword to its stage. A stage therefore reaches \python{cascade} bare and reaches \python{stack} applied, and the two are not interchangeable. What \python{cascade} returns is whatever \python{stack} makes of the first stage’s result: a timeline where that stage produces one, and otherwise a deferred function, so a \python{cascade} is itself composable. Once a good set of modular functions with default arguments is established, it is often useful to adjust specific nested parameters from a single point of contact. This is achieved by prefixing keywords with the function name, e.g.
 %
 \begin{minted}[frame=none]{python}
 tl.cascade(
