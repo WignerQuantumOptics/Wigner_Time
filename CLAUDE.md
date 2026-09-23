@@ -76,9 +76,9 @@ resolve. No LaTeX toolchain is installed here, so a build has not been demonstra
 are relative to it.
 
 **The committed manuscript has diverged from Overleaf, and Overleaf is the one the co-authors edit.**
-The arXiv version was imported at `fdd2e0d` (2026-09-15, 1458 lines); twelve commits and a register
-pass (2026-09-23) have changed it since, `+73 / −50` lines plus a new generated figure, and **none of
-that has been carried back.**
+The arXiv version was imported at `fdd2e0d` (2026-09-15, 1458 lines). The commits since
+(`git log fdd2e0d..HEAD -- docs/paper/`) have changed it by `+75 / −52` lines as of 2026-09-23, plus
+a new generated figure, and **none of that has been carried back.**
 `docs/paper/CHANGES-since-arXiv.md` is the inventory for doing so, with a `latexdiff` recipe at the
 end. Until it is carried across, line numbers quoted in these notes and in `KNOWN_ISSUES.md` are
 against the *committed* file and no longer match Overleaf.
@@ -372,11 +372,11 @@ Not covered by `KNOWN_ISSUES.md`:
   decision, 2026-09-02 — see `KNOWN_ISSUES.md` D7 for the inventory and the prerequisites). This
   governs only what the paper actually shows; internal identifiers it never mentions keep the `__`
   convention below.
-- `drop_repeats` (on the current branch) implements what `sec:discussion` still describes as future
-  work in a commented-out paragraph — timing analog transitions at the instants the DAC code actually
-  changes, per Kowalski *et al.* Its docstring argues the filtering is *equivalent* to bit-flip-timed
-  expansion on the hardware's own grid, not an approximation to it. That paragraph is worth reviving
-  rather than leaving commented out.
+- `drop_repeats` (on this branch, not yet on `main`) times analog transitions at the cycles where
+  the DAC code actually changes, per Kowalski *et al.* Its docstring argues the filtering is
+  *equivalent* to bit-flip-timed expansion on the hardware's own grid, not an approximation to it.
+  Since 2026-09-23 `sec:adwin` says so, in a paragraph after the event loop. That paragraph used to
+  sit commented out at the end of `sec:discussion` as future work. It has not been run on the rig.
 - The other stated gap is peripherals programmed over serial rather than driven by a voltage (DDS
   being the canonical case). The paper commits to implementing this as an `expand`-shaped conversion —
   one device-layer row becoming several bit-level rows — rather than as a special case.

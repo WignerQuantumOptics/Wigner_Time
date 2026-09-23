@@ -1,10 +1,11 @@
 # Manuscript changes since the arXiv version
 
 Base: **`fdd2e0d`**, "Import the arXiv version of the manuscript from Overleaf" (2026-09-15).
-Compiled here against `HEAD` on 2026-09-22; updated for the register pass of 2026-09-23 (§7).
+Compiled here against `HEAD` on 2026-09-22; updated on 2026-09-23 for the register pass (§7)
+and the revived Kowalski paragraph (§2).
 
-Twelve commits have touched `docs/paper/` since, followed by that pass. Net: `main.tex`
-**+73 / −50** lines, plus one new generated figure and the script that generates it.
+The commits concerned are `git log fdd2e0d..HEAD -- docs/paper/`. Net, as of 2026-09-23:
+`main.tex` **+75 / −52** lines, plus one new generated figure and the script that generates it.
 
 **These changes exist only in git. Overleaf still holds the arXiv text.** This file is the
 inventory for carrying them across; a mechanical diff is described at the end.
@@ -46,7 +47,7 @@ is expressible as a pair — `origin=["molasses", "variable"]`.
 
 ## 2. Substantive prose — new passages
 
-Eight passages are new: five whole paragraphs, and three sentences added to existing ones
+Nine passages are new: six whole paragraphs, and three sentences added to existing ones
 (`ramp` and `anchor` live inside `sec:functions` and `sec:anchor`; there is no `sec:ramp`). Each
 states behaviour that the package now enforces and the manuscript did not describe. The openings
 quoted are those after the register pass of §7.
@@ -60,6 +61,7 @@ quoted are those after the register pass of §7.
 | `sec:stacking` | "`MOT` also takes a `timeline` argument…" — three sentences, closing the paragraph after the `MOT` listing | a stage must declare what it forwards, rather than collecting it in `**kwargs` (`19d41ad`) |
 | `sec:stacking` | "Routing is strict…" | `cascade` now refuses a keyword it cannot place (`93796b7`) |
 | `sec:interweaving` | "This gives a practical criterion for what a stage should declare…" | when a stage takes `origin` and when it should not |
+| `sec:adwin` | "The arrays uploaded to the controller are prepared in the same spirit…" — after the event-loop paragraph | `drop_repeats` (`84f2ef1`) does on the controller's cycle grid what Kowalski *et al.* do by timing transitions at DAC-code changes. The arXiv text had this as future work, commented out at the end of `sec:discussion`; **that commented line is deleted**, and the paragraph is rewritten in the present tense where the conversion is described |
 | `sec:forwarding` | "Only these three functions accept arbitrary keywords…" — one sentence, closing the "Keyword forwarding provides a third way" paragraph | `**kwargs` is confined to the `default_state` path |
 
 ---
@@ -154,13 +156,13 @@ listing as published does not run).
 
 - **D7 / #121**, the `__` convention: the demo listing's parameter names still differ between the
   paper's single-underscore style and the package's `__`. Undecided, so untouched.
-- **#133 / D18**: `main.tex:808` claims channel availability is a question of which modules are
+- **#133 / D18**: `sec:adwin` claims channel availability is a question of which modules are
   installed. The backend writes every digital update to module 1, so a second digital module is
   unaddressable. The claim needs either a code fix or a qualifying sentence.
-- **`main.tex:882`**, the commented-out Kowalski paragraph on bit-flip-timed ramps, described as
-  future work. `drop_repeats` now argues for the equivalent on the hardware's own grid; the
-  paragraph is stale as commented and worth reviving.
-- **The 1 µs claim** (`:375`, `:839`) is quoted, not verified. See `KNOWN_ISSUES.md` D21.
+- **The 1 µs claim** (`sec:intro`, the “Fast” paragraph, and `sec:adwin`) is quoted, not
+  verified. See `KNOWN_ISSUES.md` D21.
+- **The revived Kowalski paragraph** (§2) describes what the package uploads; `drop_repeats` has
+  not yet run on the rig.
 
 ---
 
