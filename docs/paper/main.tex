@@ -447,15 +447,15 @@ devices = device.new(
 Next, it is useful to specify the aspects of the experiment that change rarely, such as the initial and final device states. This can be done concisely, e.g.
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none]{python}    
-import timeline as tl
- 
+from wignertime import timeline as tl
+
 initial = tl.create(
     t=1e-6,
     context="ADwin_LowInit",
     shutter_MOT=1,
     AOM_MOT=0,
 )
-final = init
+final = initial.copy()
 final['context']="ADwin_Finish"
 \end{minted}
 %
