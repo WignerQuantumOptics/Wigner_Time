@@ -741,9 +741,10 @@ def init():
     return stack(
         create(
             AOM_MOT=1, AOM_repump=1, shutter_MOT=0, shutter_repump=0, trigger_camera=0,
+            coil_MOTlower__A=0, coil_MOTupper__A=0,
             t=0.0
         ),
-        anchor(),
+        anchor(0.0),
         context="initialization"
     ).
 \end{minted}
@@ -755,7 +756,7 @@ timeline=stack(
     init(),
     MOT(0.1,1,1),
     update(AOM_repump=0),
-    trigger_camera(0.0,1e-3)
+    trigger_camera(0.0,1e-3,"imaging")
 )
 \end{minted}
 %
@@ -794,9 +795,17 @@ Stacking is a powerful technique for composing linear timelines, where each stag
  
 Returning to the example above (\cref{sec:stacking}), the \python{trigger_camera} function need not follow linearly from the MOT stage. By supplying \python{origin="initialization"}, the camera trigger can be placed relative to the initial anchor instead. Such \emph{interweaving} is particularly valuable for inserting diagnostic operations into an existing timeline without restructuring it.
 
+The timeline need not even be unfinished. Taking the complete \python{timeline__demo} of \cref{sec:demonstration}, with the camera trigger added to the apparatus as in \cref{sec:forwarding}, a single call triggers the camera 2\,ms after the end of the molasses stage:
+\begin{minted}[frame=none]{python}
+timeline = trigger_camera(2e-3, 1e-3, "imaging",
+                          origin="molasses", timeline=timeline__demo)
+\end{minted}
+%
+The exposure falls during magnetic trapping, well before the final ramps, and every row already in \python{timeline__demo} stays where it was.
+
 This gives a practical criterion for what a stage should declare. A stage that is meant to be \emph{placed} takes \python{origin}; a stage that forms a link in a causal chain does not. The preparation sequence of \cref{sec:demonstration} is of the second kind – each of \python{MOT}, \python{molasses}, \python{optical_pumping} and \python{magnetic_trapping} acts on the physical state the previous one left behind, so there is no meaningful freedom in where it goes, and an \python{origin} argument would exist only to be given wrongly. The diagnostics of \cref{sec:forwarding} are of the first kind, and every one of them declares it. The signature therefore says which a stage is, and that is worth preserving as the operation layer grows.
  
-For further examples, see \cref{sec:demonstration,sec:parameter_scan}.
+In \cref{sec:parameter_scan}, the same mechanism places an imaging stage at a series of delays for a time-of-flight measurement.
  
 \section{ADwin back-end}
 \label{sec:adwin}
