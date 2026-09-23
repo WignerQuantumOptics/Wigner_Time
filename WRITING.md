@@ -10,7 +10,7 @@ developer notes: too long, and hard for physicists to follow.
 | --- | --- | --- |
 | **Reader-facing** | `docs/paper/main.tex`, `README.md`, `docs/index.md`, onboarding documents, the front pages of the documentation | a physicist who writes Python |
 | **API reference** | docstrings (rendered into `docs/api.md`), error messages | a user looking up one function |
-| **Developer notes** | `CLAUDE.md`, `KNOWN_ISSUES.md`, `docs/origin-resolution.md`, `docs/paper/CHANGES-since-arXiv.md`, code comments, commit messages | ourselves |
+| **Developer notes** | `CLAUDE.md`, `KNOWN_ISSUES.md`, `docs/origin-resolution.md`, code comments, commit messages | ourselves |
 
 The rules below govern the first row. The API reference can be more technical: programming
 vocabulary is fine there. Developer notes are where the history of the code and the detail of its

@@ -75,13 +75,19 @@ resolve. No LaTeX toolchain is installed here, so a build has not been demonstra
 `minted` requires `pygmentize` and `-shell-escape`. Build from inside `docs/paper/`; the figure paths
 are relative to it.
 
-**The committed manuscript has diverged from Overleaf, and Overleaf is the one the co-authors edit.**
-The arXiv version was imported at `fdd2e0d` (2026-09-15, 1458 lines). The commits since
-(`git log fdd2e0d..HEAD -- docs/paper/`) have changed it by `+75 / −52` lines as of 2026-09-23, plus
-a new generated figure, and **none of that has been carried back.**
-`docs/paper/CHANGES-since-arXiv.md` is the inventory for doing so, with a `latexdiff` recipe at the
-end. Until it is carried across, line numbers quoted in these notes and in `KNOWN_ISSUES.md` are
-against the *committed* file and no longer match Overleaf.
+**The committed manuscript is canonical.** The arXiv version was imported at `fdd2e0d` (2026-09-15);
+the changes made here after that were carried to Overleaf by the maintainer on 2026-09-23, so the
+two agree again as of `5776331`, and line numbers quoted in these notes match both. Edits to the
+manuscript since then are `git log 5776331..HEAD -- docs/paper/`.
+
+**The lab code that uses the package is next door, and can be read at any time**:
+`../quantum_optics_lab/` (sibling of this repo). `timeline/experiment.py` and
+`timeline/diagnostics.py` are the real counterparts of the demo and of the paper's `sec:forwarding`;
+`control/time_of_flight.py` is `sec:parameter_scan`; `console.py` is the manual console of D22; and
+`../notebooks/` holds the notebooks the experiments are run from (`diagnosticsStageByStage.ipynb`
+interweaves imaging into each preparation stage). It has its own `KNOWN_ISSUES.md` (items `L*`).
+`../Lab2TimelineTakeout_VargaDani_20260921/` is the source of the Lab2 regression fixture. Check
+real usage there before deciding what a demo should show or whether an API change breaks anyone.
 
 For the `origin` mechanism specifically, read `docs/origin-resolution.md` first: it maps every branch
 of the resolution in four layers, and since 2026-09-18 it is a record rather than a plan — every defect
