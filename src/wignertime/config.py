@@ -100,6 +100,30 @@ switch, and it is the only way while the switch is `True` to get the fully unifo
 reading for one particular call without changing the switch itself.
 """
 
+CONTEXT__INFER = "INFER"
+"""
+The signature default for `context` in `create`, `update`, `anchor` and `ramp`,
+replacing a bare `None` (A8, 2026-09-24) -- the same split as `ORIGIN__INFER`, for the
+same reason, applied to context inheritance instead of origin resolution.
+
+Before this, `context=None` was overloaded exactly like `origin=None` used to be: it
+was the parameter default, meaning "inherit an unstated row's context from wherever the
+timeline it is being added to last left off" (see `internal.timeline.inherit.context`'s
+first branch), and there was no other way to write "no, don't do that" -- a caller who
+wanted an added row to sit in the plain default context, the empty string, with no
+inheritance, had no spelling for that request at all.
+
+Splitting the sentinel from the parameter default frees `None` for exactly that
+request. A caller who writes `context=None` explicitly gets *no* inheritance: the new
+rows keep the empty-string context construction already gives an unstated row, and nothing
+is copied from the timeline they are joining. A caller who writes nothing -- the
+default is this constant, not `None` -- or who writes `context=CONTEXT__INFER`
+explicitly, gets what has always happened: unstated rows inherit the previous
+timeline's context, exactly as `internal.timeline.inherit.context` has always done. See
+`internal.timeline.inherit.resolve`, the single point (mirroring `origin.auto_or_off`)
+where this sentinel is translated before reaching that function.
+"""
+
 ###############################################################################
 #                   Logging                                                 #
 ###############################################################################

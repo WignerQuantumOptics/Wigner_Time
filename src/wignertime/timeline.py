@@ -144,6 +144,14 @@ def _populate_timeline(
     Positional `*vtvc` combined with a `timeline` is reachable only from here: `create`
     has the positional forms but no timeline, and `update` has the timeline but no
     positional forms.
+
+    `context`, like `origin` above it, is taken here already resolved: a bare `None`
+    means "inherit", exactly as it always has (`inherit.context`'s own contract, direct
+    callers included, is untouched). Translating the public sentinel vocabulary
+    (`wt_config.CONTEXT__INFER`, or an explicit `None` asking for no inheritance) into
+    this function's own `None`-means-inherit convention is `create`'s and `update`'s job,
+    each at their own single resolution point -- mirroring `origin.auto_or_off`, which
+    does the same for `origin` before it reaches here.
     """
     rows = wt_input.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
 
@@ -203,7 +211,7 @@ def _populate_timeline(
     return new
 
 
-def create(t=0.0, context=None, **vtvc_dict) -> wt_frame.CLASS:
+def create(t=0.0, context=wt_config.CONTEXT__INFER, **vtvc_dict) -> wt_frame.CLASS:
     """
     Establishes a new timeline from the given (flexible) input collection.
 
@@ -263,13 +271,19 @@ def create(t=0.0, context=None, **vtvc_dict) -> wt_frame.CLASS:
                 "{i}.".format(n=name, i=instead)
             )
 
+    # `create` never has a `timeline` to inherit from, so the infer/off distinction is
+    # inert here -- but the sentinel itself still has to be translated, or its literal
+    # string would land in every unstated row's `context` column rather than the empty
+    # placeholder. See `inherit.resolve`.
+    context = inherit.resolve(context)
+
     return _populate_timeline(t=t, context=context, **vtvc_dict)
 
 
 def update(
     timeline: wt_frame.CLASS | None = None,
     t=0.0,
-    context=None,
+    context=wt_config.CONTEXT__INFER,
     origin=wt_config.ORIGIN__INFER,
     **vtvc_dict,
 ):
@@ -289,6 +303,12 @@ def update(
     (`config.ORIGIN__DEFAULTS`) for whichever slots are left unstated. Passing
     `origin=None` explicitly asks for the opposite -- no origin resolution at all, so
     `t` (and any stated value) is taken exactly as written.
+
+    `context` defaults to `wt_config.CONTEXT__INFER`, for the same reason and in the
+    same shape: run the inheritance just described for whichever rows leave `context`
+    unstated. Passing `context=None` explicitly asks for the opposite -- no
+    inheritance, so an unstated row is left in the plain default context, the empty
+    string, regardless of what the timeline it joins was last doing.
     """
     timeline = wt_util.ensure_timeline(timeline, "update", columns__required=_SCHEMA)
 
@@ -300,6 +320,12 @@ def update(
         origin = wt_origin.auto_or_off(
             timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
         )
+
+        # The single resolution point for `update`'s own `context`: translates the
+        # public sentinel vocabulary into `_populate_timeline`'s (and
+        # `inherit.context`'s) own, unchanged `None`-means-inherit convention. See
+        # `inherit.resolve`.
+        context = inherit.resolve(context)
 
         return _populate_timeline(
             timeline=timeline,
@@ -313,7 +339,7 @@ def update(
 def anchor(
     t,
     timeline=None,
-    context=None,
+    context=wt_config.CONTEXT__INFER,
     origin=wt_config.ORIGIN__INFER,
 ) -> wt_frame.CLASS | Callable:
     """
@@ -379,6 +405,10 @@ def anchor(
     # "off" and, not being the top-level sentinel any more, re-run the default chase on
     # it, undoing the very thing the caller asked for. `update`'s own `auto_or_off` call
     # is therefore the single place this origin is ever resolved.
+    #
+    # `context` is passed straight through for the same reason: `_populate_timeline`
+    # (reached via `update`) is the single place `inherit.resolve` runs, so `anchor`
+    # resolving it here too would risk the same double-resolution hazard.
     return update(
         timeline=timeline,
         t=t,
@@ -393,7 +423,7 @@ def ramp(
     duration=None,
     t=None,
     t2=None,
-    context=None,
+    context=wt_config.CONTEXT__INFER,
     origin=wt_config.ORIGIN__INFER,
     origin2=["variable", 0.0],
     function=wt_ramp_function.tanh,
@@ -462,12 +492,25 @@ def ramp(
     This is read at call time for every `ramp` call in the running process, so it is a
     policy for a whole site, not for one call.
 
+    `context` defaults to `wt_config.CONTEXT__INFER`, the same sentinel `create`,
+    `update` and `anchor` default to: run the usual inheritance (an unstated row takes
+    its context from wherever the timeline it joins last left off) for whichever
+    variables leave `context` unstated. Passing `context=None` explicitly asks for the
+    opposite -- no inheritance for this call, so every unstated row is left in the
+    plain default context, the empty string. `ramp` resolves this itself, once, since
+    it builds its rows directly rather than routing through `create`/`update`'s shared
+    `_populate_timeline`.
+
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
     timeline = wt_util.ensure_timeline(timeline, "ramp", columns__required=_SCHEMA)
 
     if timeline is None:
         return wt_util.function__lambda()
+
+    # The single resolution point for `ramp`'s own `context`, mirroring
+    # `_populate_timeline`'s for `create`/`update`: see `inherit.resolve`.
+    context = inherit.resolve(context)
 
     _vtvcs = {k: np.array(v) for k, v in vtvc_dict.items()}
     max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()

@@ -10,6 +10,7 @@ As well as providing conveniences, the functions can be used to document the int
 from munch import Munch
 
 from wignertime.adwin import connection as adcon
+from wignertime import config as wt_config
 from wignertime import file as wtf
 from wignertime import timeline as tl
 from wignertime import device
@@ -306,9 +307,24 @@ def optical_pumping(
     )
 
 
-def pull_coils(duration, l, u, lp=0, up=0, pt=3, timeline=None, t=None, context=None):
+def pull_coils(
+    duration,
+    l,
+    u,
+    lp=0,
+    up=0,
+    pt=3,
+    timeline=None,
+    t=None,
+    context=wt_config.CONTEXT__INFER,
+):
     """
     Controls the concentric coil pairs responsible for 'pulling' the atoms.
+
+    `context` defaults to `wt_config.CONTEXT__INFER`, the same sentinel `tl.ramp`
+    itself defaults to -- forwarding a bare `None` here would now ask `tl.ramp` for no
+    inheritance, which is not what a caller leaving this unstated wants: `pt` and `l`
+    are `magnetic_trapping`'s two calls' own concerns, not `context`'s.
     """
     return tl.ramp(
         coil_MOTlower__A=l,

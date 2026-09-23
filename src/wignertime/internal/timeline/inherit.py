@@ -3,7 +3,42 @@
 
 from copy import deepcopy
 
+from wignertime import config as wt_config
 from wignertime.internal import origin as wt_origin
+
+
+def resolve(context):
+    """
+    Translates the public `context=` sentinel vocabulary into what `context` below
+    already understands, at the single point each public function resolves it (A8,
+    2026-09-24) -- mirrors `internal.origin.auto_or_off`, which does the same job for
+    `origin`.
+
+    `context` defaults to `wt_config.CONTEXT__INFER` at every public entry point
+    (`create`, `update`, `anchor`, `ramp`), not `None` -- so a caller who writes
+    nothing, or the sentinel explicitly, gets exactly what has always happened:
+    unstated rows inherit the previous timeline's context, via this module's
+    `context` function's existing `context is None` branch. Translating the sentinel to
+    `None` here, rather than leaving `None` doing double duty as both "the default" and
+    "an explicit request", is what frees `None` for its own, opposite meaning below.
+
+    A caller who writes `context=None` explicitly asks for the opposite: no
+    inheritance at all, every unstated row left at the plain default context, the empty
+    string. Translating that request to `""` here -- rather than passing `None`
+    through -- is what makes it work with zero changes to `context` itself: `""` is
+    already the placeholder `__ensure_time_context` gives an unstated row, and it is
+    not `None`, so `context`'s own "infer from previous" branch does not fire for it;
+    it falls through to the no-op branch, and the rows already carry `""` from
+    construction.
+
+    Anything else -- a real context string -- passes through unchanged, exactly as
+    today.
+    """
+    if context == wt_config.CONTEXT__INFER:
+        return None
+    if context is None:
+        return ""
+    return context
 
 
 def _mask__no_context(timeline):

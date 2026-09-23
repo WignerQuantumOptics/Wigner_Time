@@ -221,6 +221,31 @@ def test_ramp_start_stated_explicitly_can_be_kept_literal(tl_anchor):
     ]
 
 
+def test_ramp_inherits_context_by_default(tl_anchor):
+    """
+    `context` defaults to `wt_config.CONTEXT__INFER` (A8, 2026-09-24), not a bare
+    `None` -- but a bare call still inherits the previous timeline's context exactly as
+    it always has. `tl_anchor` sits in `context="init"`; a `ramp` that does not state
+    its own context lands there too.
+    """
+    result = tl.ramp(tl_anchor, lockbox_MOT__V=5, duration=100e-3, origin=None)
+    assert sorted(set(result["context"])) == ["init"]
+
+
+def test_ramp_context_none_turns_off_inheritance(tl_anchor):
+    """
+    `context=None`, written explicitly, is the new "off" state: the ramp's rows are
+    left in the plain default context, the empty string, rather than inheriting
+    `tl_anchor`'s "init" -- mirroring `origin=None`'s own "no resolution at all"
+    meaning, for context inheritance instead of origin resolution.
+    """
+    result = tl.ramp(
+        tl_anchor, lockbox_MOT__V=5, duration=100e-3, origin=None, context=None
+    )
+    new_rows = result[result["context"] != "init"]
+    assert sorted(set(new_rows["context"])) == [""]
+
+
 @pytest.fixture
 def infer_by_shape_off():
     """

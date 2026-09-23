@@ -180,6 +180,92 @@ def test_createInheritContext(df__mixed):
     )
 
 
+def test_update_inherits_context_by_default(df__mixed):
+    """
+    `update`'s public default is `wt_config.CONTEXT__INFER`, not a bare `None` -- but
+    it has to still *mean* the same thing a bare `None` always did: an unstated row
+    inherits the previous timeline's context. A caller who writes nothing sees no
+    change from before this sentinel existed (A8, 2026-09-24).
+    """
+    return wt_frame.assert_equal(
+        tl.update(timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=None),
+        wt_frame.new(
+            [
+                [0.0, "AOM_imaging", 0, "init"],
+                [2.0, "AOM_imaging__V", 2.0, "blah"],
+                [10.0, "AOM_repump", 1, "stuff"],
+                [2.2, "AOM_imaging__V", 3.0, "stuff"],
+            ],
+            columns=["time", "variable", "value", "context"],
+        ),
+    )
+
+
+def test_update_context_none_turns_off_inheritance(df__mixed):
+    """
+    `context=None`, written explicitly, is the new "off" state (A8, 2026-09-24): the
+    new row is left in the plain default context, the empty string, rather than
+    inheriting `df__mixed`'s trailing "stuff" -- mirroring `origin=None`'s own "no
+    resolution at all" meaning.
+    """
+    return wt_frame.assert_equal(
+        tl.update(
+            timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=None, context=None
+        ),
+        wt_frame.new(
+            [
+                [0.0, "AOM_imaging", 0, "init"],
+                [2.0, "AOM_imaging__V", 2.0, "blah"],
+                [10.0, "AOM_repump", 1, "stuff"],
+                [2.2, "AOM_imaging__V", 3.0, ""],
+            ],
+            columns=["time", "variable", "value", "context"],
+        ),
+    )
+
+
+def test_update_context_infer_matches_the_default(df__mixed):
+    """
+    Writing the sentinel explicitly is indistinguishable from leaving `context`
+    unstated -- both are `wt_config.CONTEXT__INFER`.
+    """
+    from wignertime import config as wt_config
+
+    return wt_frame.assert_equal(
+        tl.update(
+            timeline=df__mixed,
+            AOM_imaging__V=[2.2, 3.0],
+            origin=None,
+            context=wt_config.CONTEXT__INFER,
+        ),
+        tl.update(timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=None),
+    )
+
+
+def test_update_real_context_is_unaffected_by_the_sentinel_split(df__mixed):
+    """
+    A caller who states a real context directly is untouched by any of this -- exactly
+    as today.
+    """
+    return wt_frame.assert_equal(
+        tl.update(
+            timeline=df__mixed,
+            AOM_imaging__V=[2.2, 3.0],
+            origin=None,
+            context="named",
+        ),
+        wt_frame.new(
+            [
+                [0.0, "AOM_imaging", 0, "init"],
+                [2.0, "AOM_imaging__V", 2.0, "blah"],
+                [10.0, "AOM_repump", 1, "stuff"],
+                [2.2, "AOM_imaging__V", 3.0, "named"],
+            ],
+            columns=["time", "variable", "value", "context"],
+        ),
+    )
+
+
 ###############################################################################
 #                             Playing with origin                             #
 ###############################################################################
