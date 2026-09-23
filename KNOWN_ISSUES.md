@@ -634,7 +634,7 @@ Note that `funcy.compose` cannot do this on its own: it passes one value between
 - its §2.2 (the scan reads past the filled region, producing a spurious `p2_dac` built from a previous run's data) **was fixed by `790528e`**, which bounded the outer test as well as the `until`. The review was reading a pre-`790528e` copy. Its proposed remedy — Python writing a terminator past the filled region — is therefore unnecessary. What remains is an out-of-bounds *read* inside the `until` if ADbasic does not short-circuit `or`; that read stays inside the allocation and its result is discarded.
 - its §2.4 (one digital module hardcoded) is **D18** / [#133](https://github.com/WignerQuantumOptics/Wigner_Time/issues/133), reached independently. The agreement is worth recording: two readings of the same file, without contact, produced the same finding down to the `data_21` observation.
 
-### B11 — an interrupted run does not restore the default state **[new, found 2026-09-22]**
+### B11 — an interrupted run does not restore the default state **[new, found 2026-09-22; this is #148]**
 
 `finish:` calls `processUpdates(2147483647)`, and the guard that gates the dispatch tests only the row at the *current* index:
 
@@ -1186,7 +1186,7 @@ Two ways to settle it, and they are opposites:
 
 **Not verified on hardware** (§E): what ADwin does with a write to an undeclared `data_21` is untested here.
 
-### D19 — cycle-count sentinels share a namespace with the time axis, and `cyclecount` wraps into it **[new, found 2026-09-22]**
+### D19 — cycle-count sentinels share a namespace with the time axis, and `cyclecount` wraps into it **[new, found 2026-09-22; this is #146]**
 
 `-2` (lowinit), `-1` (init) and `2^31-1` (finish) are control-flow markers carried in the same column as ordinary cycle counts, and `cyclecount` is a `long` incremented once per executed event. Two consequences, of different weight:
 
@@ -1201,7 +1201,7 @@ Structural rather than urgent — but B11's recommended fix removes the `2^31-1`
 
 **Guarded on the Python side 2026-09-23, on `issue#94`** (roadmap step 3 at #94). `adwin.validate.cycles` runs first in `validate.all` and refuses any row outside the special contexts that falls outside `adwin.CYCLES__RUN = (0, 2**31 - 2)`. That covers all three consequences: collision with −1 and −2, the silenced array, and the wrap (the last playable row is 2^31 − 2, since the counter is incremented once past it). `add_cycle` now computes the column in 64 bits and `validate.types` narrows it only after the check; before, the cast to `int32` came first and would have wrapped a too-late row into a plausible-looking one. A row less than half a cycle before zero rounds to zero and is accepted. The namespace itself is unchanged, so the structural half remains, and remains B11's to relieve.
 
-### D20 — nothing enforces the sorted-ascending invariant the backend depends on **[new, found 2026-09-22]** — **FIXED 2026-09-23 on `issue#94`, not yet merged**
+### D20 — nothing enforces the sorted-ascending invariant the backend depends on **[new, found 2026-09-22; this is #147]** — **FIXED 2026-09-23 on `issue#94`, not yet merged**
 
 **Fixed**, and the mechanism below corrected. `adwin.validate.ascending` checks each converted array just before `convert` returns it, and names the first row out of order, counting from 1 as the controller does. The arrays are checked, rather than the timeline, because they are the contract with the machine. The order is established by the sort in `internal.to_tuples`, and that sort, not anything upstream, is what a future change could disturb. So the check guards the only stage that can break the order.
 
