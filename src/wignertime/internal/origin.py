@@ -217,6 +217,36 @@ def auto(timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS):
     return [entry[i] if o[i] is None else o[i] for i in (0, 1)]
 
 
+def auto_or_off(timeline, origin, origin__defaults):
+    """
+    The wrapper `update`, `anchor` and `ramp` call in place of `auto` itself, so that
+    their own `origin` parameter can carry a distinction `auto` was never asked to make.
+
+    Their signature default is `wt_config.ORIGIN__INFER`, not `None` (A8, 2026-09-23):
+    a caller who writes nothing gets this sentinel, translated below into the bare
+    `None` that `auto` has always read as "run the default chase" -- so nothing about
+    that path changes. A caller who writes `origin=None` *explicitly* is asking for the
+    opposite, and can only mean it explicitly, since it is no longer reachable any other
+    way: no origin resolution at all. `origin__defaults` is not even consulted; the pair
+    stays `[None, None]`, which `update` (below) already treats as a complete no-op --
+    the stated coordinates come back exactly as given, in whichever slots the caller
+    filled in themselves.
+
+    `auto` itself is untouched by any of this and keeps its own long-standing contract:
+    called directly, a bare `None` still means "run the defaults", exactly as its own
+    tests pin. This wrapper exists because the three public entry points needed a
+    distinct spelling for "off" that `auto` was never asked to provide -- not because
+    `auto`'s own meaning needed to change.
+    """
+    if origin is None:
+        return [None, None]
+
+    if isinstance(origin, str) and origin == wt_config.ORIGIN__INFER:
+        origin = None
+
+    return auto(timeline, origin, origin__defaults=origin__defaults)
+
+
 def sanitize_origin(timeline, orig):
     o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(orig))
     if len(o) != 2:

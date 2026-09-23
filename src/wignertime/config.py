@@ -25,6 +25,29 @@ name before building its `connection`s. `variable.parse` and
 without reimporting.
 """
 
+ORIGIN__INFER = "INFER"
+"""
+The signature default for `origin` in `update`, `anchor` and `ramp`, replacing a bare
+`None` (2026-09-23, A8's final form). Before this, `None` meant two different things at
+once depending on who supplied it -- the parameter default, or a caller writing it
+explicitly -- and the two were indistinguishable once inside the function, so there was
+no way to *ask* for one rather than the other. That collided directly with the reason
+this constant exists: a caller who wants no origin resolution at all, for a 2-D `ramp`
+start stated explicitly or for any `update`/`anchor` row, needs a way to say so that is
+visible in `origin=` itself, not implied by which input shape they happened to use.
+
+Splitting the sentinel from the parameter default frees `None` for exactly that. A
+caller who writes `origin=None` explicitly gets *no* resolution: `origin__defaults` is
+never consulted, and `internal.origin.update`'s existing no-op on an unresolved
+`[None, None]` pair returns the stated coordinates exactly as given. A caller who writes
+nothing -- the default is this constant, not `None` -- or who writes
+`origin=ORIGIN__INFER` explicitly, gets what has always happened: the same
+default-chase `internal.origin.auto` has always run. See `internal.origin.auto_or_off`,
+the wrapper that reads this sentinel; `auto` itself is unchanged and keeps its own
+long-standing contract, where a bare `None` still means "run the defaults" (its own
+direct callers, including its tests, rely on that).
+"""
+
 # Time references in order of priority, each paired with the value reference that goes
 # with it. `origin.auto` walks the list and takes the first entry whose time reference
 # this timeline can satisfy, then completes whichever slots the caller left as `None`.
@@ -44,6 +67,37 @@ The `"last"` step is not decoration. Without it (this was a single-entry list un
 2026-09-18) a `ramp` onto a timeline holding no anchor fell off the end of the chain and
 landed in absolute time, so it could be placed *before* the rows it was appended to, with
 no warning. See KNOWN_ISSUES A4.
+"""
+
+ORIGIN__INFER_BY_SHAPE = True
+"""
+A sitewide policy switch for `ramp` (A8/#106, 2026-09-23). `True` by default, for
+humility's sake: it keeps `ramp`'s long-standing convention as the convention a caller
+gets unless a site deliberately asks otherwise, rather than making today's refinement
+the default behaviour for everyone on day one.
+
+With the default `True`, any `origin` that is not an explicit `None` resolves through
+the pre-refinement two-table split: `df_1` (a 2-D stated start) resolves against
+`ORIGIN__DEFAULTS` (value slot `None`, so it is left untouched unless the caller's own
+`origin` names a value origin explicitly), and `df__no_start_points` (an inferred
+start) resolves against `ORIGIN__DEFAULTS__RAMP` (value slot `"variable"`). This is
+`ramp`'s original behaviour, restored as the default rather than reached only by
+setting this switch: a bare call, and an explicit time-only `origin` such as
+`origin="stage1"`, both protect a stated 2-D value the same way, which is what keeps a
+caller from having to notice or care that this switch exists.
+
+Setting this `False` is what asks for this session's refinement instead: every start
+row, 2-D or 1-D, resolves uniformly against `ORIGIN__DEFAULTS__RAMP`, so a stated 2-D
+value is offset by the variable's current value exactly like an inferred one, and
+nothing about a row's resolution depends on which of the two input shapes produced it.
+This is read at call time, for every `ramp` call in the running process -- it is a
+site's standing convention, not a per-call choice.
+
+`origin=None`, regardless of this switch either way, always means the same thing: no
+origin resolution at all, for every variable in the call, stated coordinates returned
+exactly as given. That is the one way to protect a value that does not depend on this
+switch, and it is the only way while the switch is `True` to get the fully uniform
+reading for one particular call without changing the switch itself.
 """
 
 ###############################################################################

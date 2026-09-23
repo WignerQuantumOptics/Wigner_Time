@@ -270,7 +270,7 @@ def update(
     timeline: wt_frame.CLASS | None = None,
     t=0.0,
     context=None,
-    origin=None,
+    origin=wt_config.ORIGIN__INFER,
     **vtvc_dict,
 ):
     """
@@ -284,6 +284,11 @@ def update(
 
     Like other functions, when `context` is not specified for a given variable, it is taken to be the latest context in the timeline.
     WARNING: In this case, beware of accidentally putting timelines into special contexts.
+
+    `origin` defaults to `wt_config.ORIGIN__INFER`: run the usual anchor-then-last chase
+    (`config.ORIGIN__DEFAULTS`) for whichever slots are left unstated. Passing
+    `origin=None` explicitly asks for the opposite -- no origin resolution at all, so
+    `t` (and any stated value) is taken exactly as written.
     """
     timeline = wt_util.ensure_timeline(timeline, "update", columns__required=_SCHEMA)
 
@@ -292,7 +297,7 @@ def update(
 
     else:
         # Check if anchor is desired and available
-        origin = wt_origin.auto(
+        origin = wt_origin.auto_or_off(
             timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
         )
 
@@ -309,7 +314,7 @@ def anchor(
     t,
     timeline=None,
     context=None,
-    origin=None,
+    origin=wt_config.ORIGIN__INFER,
 ) -> wt_frame.CLASS | Callable:
     """
     Creates a special, non-physical `variable` (will never have a matching `connection`), that can be used for time references, particularly within individual `context`s.
@@ -365,10 +370,15 @@ def anchor(
 
     num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
 
-    origin = wt_origin.auto(
-        timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
-    )
-
+    # `origin` is passed straight through to `update`, unresolved: `update` is the one
+    # place that turns the public sentinel (`wt_config.ORIGIN__INFER`, or an explicit
+    # `None` asking for no resolution at all) into a concrete pair. Resolving it here
+    # too, as this used to, was harmless while `None` meant only one thing everywhere --
+    # but it would silently swallow an explicit `origin=None` passed to `anchor` itself:
+    # `auto` would see the already-resolved `[None, None]` `auto_or_off` returns for
+    # "off" and, not being the top-level sentinel any more, re-run the default chase on
+    # it, undoing the very thing the caller asked for. `update`'s own `auto_or_off` call
+    # is therefore the single place this origin is ever resolved.
     return update(
         timeline=timeline,
         t=t,
@@ -384,7 +394,7 @@ def ramp(
     t=None,
     t2=None,
     context=None,
-    origin=None,
+    origin=wt_config.ORIGIN__INFER,
     origin2=["variable", 0.0],
     function=wt_ramp_function.tanh,
     **vtvc_dict,
@@ -421,6 +431,36 @@ def ramp(
     This will cover the vast majority of use cases, but sometimes there might be a need to control the start of a ramp explicitly, even with respect to the `origin`. This can be done similarly,  e.g.
     `lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]]`,
     but with the condition that the lists are not inhomogenous.
+
+    An explicitly stated start value like that is taken as written, by default: its
+    value is already absolute, exactly as `update`'s and `anchor`'s are, so it resolves
+    against the same table they do (`config.ORIGIN__DEFAULTS`, whose value slot is
+    `None`) rather than against the value-inferring table an inferred start uses
+    (`ORIGIN__DEFAULTS__RAMP`, whose value slot is `"variable"`). A stated `0.0`
+    therefore stays `0.0` regardless of where the variable already sits -- but if
+    `origin` itself explicitly names a value origin (e.g. `origin=["stage1",
+    "variable"]`, or a bare number), that is honoured and added on top of the stated
+    start too, because a default only fills a slot the caller left unstated and never
+    overrides one that is not (see `internal.origin.auto`). This is `ramp`'s
+    long-standing convention (A8/#106), and it holds for any `origin` you write -- a
+    bare call, or an explicit time-only reference such as `origin="stage1"` -- because
+    it is controlled by `wt_config.ORIGIN__INFER_BY_SHAPE`, `True` by default.
+
+    To turn off origin resolution altogether instead -- every variable in the call
+    taken exactly as written, including an *inferred* start (the 1-D shorthand), which
+    then has nothing left to infer *from* and comes out at its placeholder (`0.0`, or
+    `t` for its time) rather than a looked-up value -- ask for that explicitly:
+    `origin=None`. This is therefore for a call whose every variable states its own
+    start explicitly; mixing the two forms under `origin=None` in the same call is
+    rarely what is wanted. It is the one way to get this that never depends on
+    `ORIGIN__INFER_BY_SHAPE`.
+
+    A site that instead wants every stated start resolved uniformly with an inferred
+    one -- so that *which of the two input shapes the caller used* never decides
+    anything, and a stated `0.0` is offset by the variable's current value exactly
+    like an inferred start would be -- sets `wt_config.ORIGIN__INFER_BY_SHAPE = False`.
+    This is read at call time for every `ramp` call in the running process, so it is a
+    policy for a whole site, not for one call.
 
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
@@ -522,23 +562,48 @@ def ramp(
         df__no_start_points.loc[:, "time"] = t
         df__no_start_points.loc[:, "value"] = 0.0
 
-    origin = wt_origin.auto(
-        timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS__RAMP
-    )
-
-    # A value origin belongs only to a start point that had to be *inferred*. `df_1`
-    # holds the ones the user stated explicitly, through the 2-D form that
-    # `tab:rampExamples` describes as being for cases where the start cannot be inferred
-    # from `origin` -- so adding the inferred value on top of them defeated the only
-    # reason to use the form: a stated 1.0 came out as 8.0 (A8/#106). Those rows take
-    # the time origin and nothing else.
+    # `df_1` (the user's explicit 2-D start) and `df__no_start_points` (a start that had
+    # to be inferred) resolve against two different default tables whenever
+    # `wt_config.ORIGIN__INFER_BY_SHAPE` is `True` (the default): a stated value origin
+    # is withheld for `df_1` (`ORIGIN__DEFAULTS`, value slot `None`) and supplied for
+    # `df__no_start_points` (`ORIGIN__DEFAULTS__RAMP`, value slot `"variable"`) --
+    # `ramp`'s original convention (A8/#106, 2026-09-18), kept as the default so that
+    # nothing about existing usage has to change, and a site adopts today's refinement
+    # by choice rather than by upgrading.
     #
-    # Nothing is lost by this. To start a ramp at the variable's current value but at a
-    # stated time, the 2-D form was never needed: `ramp(v=target, t=..., duration=...)`
-    # says it, and the default origin supplies the value.
+    # `origin=None` bypasses this switch in either direction: no table is consulted at
+    # all, both slots stay `[None, None]`, and `internal.origin.update`'s existing
+    # no-op on that pair returns every stated coordinate exactly as given.
+    #
+    # With `ORIGIN__INFER_BY_SHAPE` set `False`, a site asks for the 2026-09-23
+    # refinement instead: both row categories resolve against the single table
+    # `ORIGIN__DEFAULTS__RAMP`, through the same call, so nothing about a row's origin
+    # depends on anything but `origin=` itself -- not on which of the two *input
+    # shapes* the caller used for that variable, which `origin=` cannot see. This is a
+    # process-wide policy read at call time, not a per-call choice: every `ramp` call
+    # in the running program sees whichever way the switch is set, for any `origin` it
+    # is given (other than an explicit `None`, which is never affected by it).
+    if origin is not None and wt_config.ORIGIN__INFER_BY_SHAPE:
+        origin__stated_start = wt_origin.auto_or_off(
+            timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
+        )
+        origin = wt_origin.auto_or_off(
+            timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS__RAMP
+        )
+    else:
+        origin__stated_start = origin = wt_origin.auto_or_off(
+            timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS__RAMP
+        )
+
+    # The two calls to `internal.origin.update` below stay separate regardless of which
+    # branch resolved `origin`: each computes its own `time__max__relative` bound from
+    # only its own rows (B2/#109), and merging the frames first would widen that bound
+    # to the union's earliest row -- tightening what either half of a mixed call could
+    # see as its own "previous" value, silently. Keeping the split here is a correctness
+    # detail of *when* the origin is applied, unrelated to *which* origin is resolved.
     new1 = wt_frame.concat(
         [
-            wt_origin.update(df_1, timeline, origin=[origin[0], None]),
+            wt_origin.update(df_1, timeline, origin=origin__stated_start),
             wt_origin.update(df__no_start_points, timeline, origin=origin),
         ]
     )
