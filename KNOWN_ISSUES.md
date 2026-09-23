@@ -33,9 +33,9 @@ Every item here has a GitHub issue, and the two carry different things. **This f
 | `Feature` | A request, idea, or new functionality |
 | `Decision` | An open API or design decision that must be settled before dependent work can proceed |
 
-`Decision` is the tracker's counterpart of §C, and carries "flag and ask, never settle unilaterally" onto GitHub. Set it on anything whose entry here offers two options rather than a fix. Open `Decision` issues as of 2026-09-22: **#53, #85, #97, #133, #143, #144**.
+`Decision` is the tracker's counterpart of §C, and carries "flag and ask, never settle unilaterally" onto GitHub. Set it on anything whose entry here offers two options rather than a fix. Open `Decision` issues as of 2026-09-23: **#85, #97, #133, #143, #144, #145** (#53 was settled and closed on 2026-09-23).
 
-**Labels say _what kind_.** `silent` (a wrong answer with no error — outranks visible failures, and puts the item in `10 — paper` by default); `paper-affecting` (falsifies a claim in `main.tex`, so §G applies and the *code* changes); `consistency` (causes mental friction); and the area tags `ux`, `performance`, `docs`, `adwin`, `origin`.
+**Labels say _what kind_.** `silent` (a wrong answer with no error — outranks visible failures, and puts the item in `10 — paper` by default); `paper-affecting` (falsifies a claim in `main.tex`, so §G applies and the *code* changes); `consistency` (causes mental friction); `potentially surprising` (not wrong as such, but likely to surprise a user); and the area tags `ux`, `performance`, `docs`, `adwin`, `origin`.
 
 **The section letters here are not the labels.** A is silent failures, B correctness, C open decisions, D structural — but a D item can be `silent` (D11, D14, D15, D18 all are), so set the label from the behaviour rather than from the letter.
 
@@ -45,7 +45,7 @@ Every item here has a GitHub issue, and the two carry different things. **This f
 
 - ~~the manuscript in `docs/paper/` has **local changes since the arXiv import** that have not been carried back to Overleaf.~~ **Done 2026-09-23**: carried across by the maintainer, and the committed file is canonical again. The inventory, `docs/paper/CHANGES-since-arXiv.md`, was deleted with it;
 - ~~**`sec:stacking` calls `trigger_camera(0.0,1e-3)`** without the `context` its definition requires.~~ **Fixed 2026-09-23**, with two more errors found by running the listing: `init` called `anchor()` although `t` is required, and never set the coils that `MOT` then ramps, so the ramp raised for lack of a start. The call now names `"imaging"`, `init` sets both coils to zero and anchors at `0.0`, and the listing runs as printed. The listing was unchanged since the Overleaf import; the coil error became an error on 2026-09-18, when a ramp from nothing stopped starting at zero silently. The rule itself is stated in `sec:functions` (“What a ramp refuses”);
-- **In the same `init`, the `create` rows got no context.** `create` has already produced a timeline when `stack` receives it, so `stack`'s `context="initialization"` reached only the anchor. **Listing fixed 2026-09-23**: the context is now given to `create`, and the anchor inherits it. **The behavior of `stack` is unchanged and still open**: a `context=` passed to `stack` silently skips a leading argument that is already a timeline, which a reader of `stack(create(...), anchor(0.0), context=...)` would not expect. Either `stack` applies it there too, or it raises;
+- **In the same `init`, the `create` rows got no context.** `create` has already produced a timeline when `stack` receives it, so `stack`'s `context="initialization"` reached only the anchor. **Listing fixed 2026-09-23**: the context is now given to `create`, and the anchor inherits it. **The behavior of `stack` is unchanged and still open**, as C6 (#145): with a reserved context it silently changes the hardware sequence;
 - ~~**`sec:interweaving` pointed to `sec:demonstration` for further examples**, and that listing has none.~~ **Fixed 2026-09-23**: the section now shows `trigger_camera` placed at `origin="molasses"` into the complete `timeline__demo`, the case `test_demo.py` checks (#53), and points to `sec:parameter_scan` only. Its claims were checked against the real `timeline__demo`: the exposure runs 2.0–3.0 ms after molasses, inside magnetic trapping (0.58–3.63 ms), and no existing row moves;
 - **#142 is very likely a fifth**, though it is not labelled: it proposes replacing `origin=None` with a visible default, and `sec:functions` shows `origin=None` in the signatures of `update`, `ramp` and `anchor`. Flagged on the issue rather than labelled unilaterally, since it is the maintainer's own;
 - ~~`sec:discussion` carries a **commented-out paragraph** describing bit-flip-timed ramps, per Kowalski *et al.*, as future work.~~ **Done 2026-09-23.** Revived in the present tense and moved to `sec:adwin`, after the event-loop paragraph. That is where the conversion is described, and it leaves the Discussion's list of *remaining* gaps, where a done item does not belong. The paragraph states what the package uploads. `drop_repeats` itself has **not yet run on the rig** (the Lab2 fixture's archived tuples predate it), so the claim rests on the code, not on an observation of the hardware. Distinct from #87, which is about doing the expansion that way in `expand`.
@@ -857,6 +857,26 @@ Five changes: the row rule (A10); mixing the forms raises (A11); `[]`, a bare na
 `test_input_grammar.py` covers it, including the totality property this entry asked for: across a spread of generated shapes, each either produces a frame with the documented columns or raises `ValueError`. That test is what found the non-numeric hole.
 
 **Blast radius was nil.** `expand`, the only programmatic producer, passes a two-element row (`[name, (N,2) array]`), untouched by any of it; demo and lab use the keyword form throughout; the one test using a long row had it commented out because it was broken.
+
+### C6 — a `context` given to `stack` silently skips a leading timeline **[new, found 2026-09-23; open; this is #145]**
+
+`stack` forwards its keywords to the stages it composes, and a stage has to be a deferred function to receive them. A leading argument that is already a timeline receives nothing. `create` always returns a timeline (C2), so in
+
+```python
+stack(create(AOM_MOT=1, shutter_MOT=0, t=0.0), anchor(0.0), context="initialization")
+```
+
+only the anchor is in `"initialization"`; the `create` rows have an empty context. That was the paper's own `init` listing in `sec:stacking` until 2026-09-23 (the listing now gives the context to `create`).
+
+**With a reserved context the result is a different hardware sequence, silently.** Measured with the demo's connections: `stack(create(AOM_MOT=1, shutter_MOT=0, t=-1e-6), anchor(0.0), context="ADwin_LowInit")` leaves both variables outside `ADwin_LowInit`. `adwin.core.convert` accepts it without complaint and writes them at **cycle 0** of the run, not at the low-initialisation sentinel. So the initial state is set as the run starts rather than before it. The demo and the lab are not exposed: their `init` passes the context to `create` through `default_state`.
+
+**Applying the context to the leading timeline is not an option.** The idiom `sec:stacking` teaches is `stack(timeline, update(...), ramp(...), context="MOT")`, where `timeline` is everything built so far and must keep its contexts. `stack` cannot tell that from a fresh `create(...)`.
+
+Options:
+
+1. **Raise in `stack`** when `context=` is given and the leading timeline has rows with no context, naming the fix (give the context to `create`). Loud at the point of ambiguity, and an established timeline passes untouched. The open detail is the trigger: *any* context-less row would also fire on every later `stack` over a timeline that began with a context-less `create`, so it may have to be "no row has a context" instead.
+2. **Make `create` require a context**, so that no row is ever context-less and the case cannot arise. Stronger, and consistent with the paper: every `create` it shows passes one (`main.tex:452`, and each row of the table at `:550`–`:557`). The lab is not affected: its one direct `create` (`control/camera_control.py`) already passes `context="ADwin_LowInit"`. About 16 `create` calls in the suite would need one.
+3. **Document it** in `sec:stacking`. Listed for completeness; by §G, a rule that needs this qualification is a signal to change the code.
 
 ---
 
