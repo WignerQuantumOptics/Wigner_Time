@@ -65,7 +65,7 @@ def test_add_cycle():
     df["context"] = (
         ["MOT"] * 4 + ["ADwin_LowInit"] * 3 + ["ADwin_Init"] * 2 + ["ADwin_Finish"]
     )
-    tst = frame.cast(adi.add_cycle(df), wt_adwin.SCHEMA)
+    tst = frame.cast(adi.add_cycle(df, 5e-6), wt_adwin.SCHEMA)
 
     return pd.testing.assert_frame_equal(
         tst,
@@ -232,6 +232,7 @@ def test_convert():
         ),
         connections,
         devices,
+        5e-6,
         time_resolution=5e-3,
     )
     tuples__guess = [
@@ -355,6 +356,108 @@ def test_create_refuses_a_timeline_with_no_run():
             devs,
             machine=_MachineRecording(),
         )
+
+
+###############################################################################
+#   D15 / #129 -- the cycle period is an argument, and `create` passes it on
+###############################################################################
+
+
+def test_convert_has_no_default_cycle_period():
+    """The period belongs to the machine, so an offline conversion has to state it."""
+    import inspect
+
+    parameter = inspect.signature(adwin.convert).parameters["cycle_period"]
+    assert parameter.default is inspect.Parameter.empty
+
+
+def test_create_uploads_at_the_period_it_is_given():
+    """
+    D15: `create(..., time_resolution=...)` expanded at the default period, and a
+    period given through the specification set the printed run length but not the
+    uploaded cycles. The update at t = 1 s must land at cycle 500 000 at 2 us.
+    """
+    machine = _MachineRecording()
+    adwin.create(*_digital_only(), machine=machine, cycle_period=2e-6)
+
+    assert machine.par[1] == 500_000, "the run length, in cycles"
+    assert max(machine.data[20][0]) == 500_000
+
+
+def test_create_converts_against_the_specification_it_is_given():
+    """D15's other half: `machine_specifications` used to stop at `create`."""
+    timeline, _, devs = _digital_only()
+    conns = adcon.new(["shutter_MOT", 2, 11], ["AOM_MOT", 2, 1])
+    specifications = {"modules": [{"bits": 16}, {"bits": 1}]}
+
+    machine = _MachineRecording()
+    adwin.create(
+        timeline, conns, devs, machine=machine, machine_specifications=specifications
+    )
+
+    assert sorted(machine.data) == [20, 21, 22, 23], "module 2 is the digital one here"
+
+
+def test_a_specification_carrying_a_cycle_period_is_refused():
+    """Accepting it with the period unused would be D15 again, one layer down."""
+    specifications = {"cycle_period": 2e-6, **adi.SPECIFICATIONS__DEFAULT}
+    with pytest.raises(ValueError, match="no longer read"):
+        adwin.convert(*_digital_only(), 2e-6, machine_specifications=specifications)
+
+
+###############################################################################
+#   D19 / D20 -- what the real-time program can play
+###############################################################################
+
+
+def _with_a_row_at(time, cycle_period=5e-6):
+    timeline, conns, devs = _digital_only()
+    timeline = tl.update(shutter_MOT=1, t=time, origin=0.0, timeline=timeline)
+    return adwin.convert(timeline, conns, devs, cycle_period)
+
+
+@pytest.mark.parametrize(
+    "time",
+    [
+        -1e-3,  # sorts ahead of the lowinit rows: nothing in the array is played
+        -5e-6,  # cycle -1: played with the init rows
+        (2**31 - 1) * 5e-6,  # the finish sentinel, and past it the counter wraps
+    ],
+)
+def test_a_row_outside_the_run_is_refused(time):
+    with pytest.raises(ValueError, match="must fall within cycles 0..2147483646"):
+        _with_a_row_at(time)
+
+
+@pytest.mark.parametrize("time", [-2e-6, (2**31 - 2) * 5e-6])
+def test_the_run_reaches_both_of_its_ends(time):
+    """Less than half a cycle before zero rounds to zero; the last cycle is playable."""
+    assert _with_a_row_at(time)
+
+
+def test_the_special_contexts_are_not_held_to_the_run():
+    """Their times are nominal; `init` in the lab places them at t = -1 us."""
+    _, conns, devs = _digital_only()
+    timeline = tl.stack(
+        tl.create(shutter_MOT=0, AOM_MOT=0, t=-1e-3, context="ADwin_LowInit"),
+        tl.update(shutter_MOT=1, t=1.0, origin=0.0, context="run"),
+    )
+    analogue, digital = adwin.convert(timeline, conns, devs, 5e-6)
+    assert [row[0] for row in digital] == [-2, -2, 200_000]
+
+
+def test_arrays_out_of_order_are_refused():
+    """
+    `processUpdates` never rewinds, so the row at 200 would be played at 300, with the
+    row before it. Built by hand: `to_tuples` sorts, so conversion cannot produce it.
+    """
+    in_order = [[], [(-2, 1, 11, 0), (100, 1, 11, 1), (200, 1, 12, 1)]]
+    assert wt_validate.ascending(in_order) is in_order
+
+    with pytest.raises(
+        ValueError, match="row 3 is at cycle 200, after one at cycle 300"
+    ):
+        wt_validate.ascending([[], [(-2, 1, 11, 0), (300, 1, 11, 1), (200, 1, 12, 1)]])
 
 
 ###############################################################################

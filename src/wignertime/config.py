@@ -9,6 +9,12 @@ import re
 ###############################################################################
 LABEL__ANCHOR = "⚓"
 TIME_RESOLUTION = 1.0e-6
+"""
+The default sampling step of the ramp functions, used when a timeline is expanded
+without one, e.g. for display. It is not a hardware period: `adwin.core.convert` always
+passes the controller's own cycle period, which belongs to a rig rather than to the
+package. Nothing that builds a timeline reads it.
+"""
 
 VARIABLE__REGEX = re.compile(r"^([^_]+)_([^_]+(?:_[^_]+)*)(?:__([^_]+))?$")
 """

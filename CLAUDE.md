@@ -279,18 +279,29 @@ by `util.function__filtered_kws`; that is how `time_resolution` reaches `ramp_fu
 
 ### ADwin export pipeline
 
-`adwin/core.py::convert` composes, in order:
+`adwin/core.py::convert(timeline, connections, devices, cycle_period, ...)` composes, in order:
 
 1. `connection.remove_unconnected_variables` — anything without a physical port disappears (anchors).
-2. `timeline.expand` — ramps become rows at the machine's cycle period.
+2. `timeline.expand` — ramps become rows at the machine's cycle period (or at `time_resolution`).
 3. `adwin/internal.py::add` — join `connections` + `devices`, `conversion.add` → `value__digits`,
    `device.check_within_range` (raises, listing every offending variable), `add_cycle`.
-4. `adwin/validate.py::all` — `types` → `special_contexts` → `drop_duplicates` → `drop_repeats`.
+4. `adwin/validate.py::all` — `cycles` → `types` → `special_contexts` → `drop_duplicates` →
+   `drop_repeats`. `cycles` must precede `types`, which narrows the column to 32 bits.
 5. `internal.to_tuples` — `[[(cycle, module, channel, digits), ...analogue], [...digital]]`.
+6. `validate.ascending` — each array in cycle order, since the backend's index never rewinds.
+
+**The cycle period belongs to the machine, not to the package**, so `convert` has no default for it
+and the machine specifications may not carry one. Both labs run **T12** processors, at **1 ns per
+`Processdelay` tick** (maintainer, 2026-09-23): Lab1 at 5 µs (`Initial_Processdelay = 5000`, as
+committed), Lab2 at 2 µs. The roadmap at #94 has `create` read the period off the machine on every
+call, and never set it, because an ADbasic program can overwrite its own `Processdelay`. Until then
+`create` alone assumes `core.CYCLE_PERIOD__ASSUMED`.
 
 `adwin/core.py::create` then pushes that into `Par_1..3` and `Data_10..13` / `Data_20..23` of the
 machine. The consumer is `resources/ADwin/WignerTimeADwin.bas` (ADbasic, real-time side); its
-`#define`s and `data_NN` array meanings must stay in sync with `core.create`.
+`#define`s and `data_NN` array meanings must stay in sync with `core.create`. Par, FPar and Data
+numbers are shared by every process on the machine, and processes can start and stop one another;
+`WignerTimeADwinADC.bas` (process 4) is a copy of the sequencer that plays the same arrays.
 
 **Keep the real-time program arithmetic-free.** Its whole job is "at this cycle, if a value differs
 from the previous one, output it": one comparison per channel group, early exit, no computation. Every

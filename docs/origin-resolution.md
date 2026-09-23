@@ -177,8 +177,15 @@ than the variable's last value in the timeline as a whole (`sec:origin_full`). I
 differently in two branches, and both were defective.
 
 **Now there is one rule.** The time slot is resolved first, and the bound is
-`resolved_t + fragment's earliest new time + TIME_RESOLUTION` — the instant the new rows will
-occupy — computed **once**, before the per-variable loop.
+`resolved_t + fragment's earliest new time` — the instant the new rows will occupy — computed
+**once**, before the per-variable loop. The bound is inclusive, so a row sitting exactly at that
+instant is in effect there.
+
+Until 2026-09-23 the bound was widened by `config.TIME_RESOLUTION`, justified as protection
+against floating-point drift. At 1 µs it was far wider than any drift, and it counted rows up to
+1 µs *after* the instant as though they preceded it. It also made a construction-time lookup depend
+on a hardware period, which only the machine knows, and only at conversion. Setting it to zero
+changed no result in the suite, the Lab2 checksums included, so it was removed (#94).
 
 | branch | bound | defect |
 | --- | --- | --- |

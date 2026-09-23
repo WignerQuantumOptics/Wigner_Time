@@ -431,13 +431,15 @@ def find(
         case float() | int():
             v = o[1]
         case str(s):
+            # The bound is inclusive (`previous` compares with `<=`), so a row sitting
+            # exactly at the origin instant is already in effect there. It used to be
+            # widened by `config.TIME_RESOLUTION`, which admitted rows up to 1 us
+            # *after* the instant as though they preceded it, and tied a construction-
+            # time lookup to a hardware period there is no machine to ask for. Setting
+            # it to zero changed no result in the suite, the Lab2 checksums included.
             v = _previous_vt(
                 *([timeline, "value"] + _to_col_var(timeline, s, "value")),
-                # `TIME_RESOLUTION` makes the bound inclusive of a row sitting exactly
-                # at the origin instant, against floating-point drift.
-                time__max=(0.0 if t is None else t)
-                + time__relative
-                + wt_config.TIME_RESOLUTION,
+                time__max=(0.0 if t is None else t) + time__relative,
             )
         case _:
             raise error__unsupported_option(o)

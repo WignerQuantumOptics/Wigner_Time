@@ -14,6 +14,18 @@ from wignertime import timeline as tl
 import wignertime.adwin as wt_adwin
 from wignertime.adwin import connection
 from wignertime.adwin import internal as ad
+from wignertime.adwin import validate as wt_validate
+
+CYCLE_PERIOD__ASSUMED = 5e-6
+"""
+The cycle period `create` assumes when it is not given one, in seconds: that of the
+committed `WignerTimeADwin.bas`, whose `Initial_Processdelay = 5000` is 5 us at the
+T12's 1 ns tick.
+
+Transitional. The period belongs to the program loaded on the machine, and `create`,
+which holds the machine, is to read it from there on every call (#94). `convert` may run
+without a machine, so it has no default at all.
+"""
 
 
 def link_device(DeviceNo=1, raiseExceptions=1, useNumpyArrays=0):
@@ -31,32 +43,51 @@ def convert(
     timeline,
     connections,
     devices,
-    machine_specifications=ad.SPECIFICATIONS__DEFAULT,
+    cycle_period,
+    machine_specifications=None,
     time_resolution=None,
-) -> list[tuple]:
+) -> list[list[tuple]]:
     """
     Convenience for converting a Wigner timeline (DataFrame) to an ADbasic-compatible list of tuples.
 
     This takes an operation-layer timeline, adds the columns necessary for an ADwin conversion, based on the supplied or default specifications, and then converts the relevant columns according to `adwin.to_tuples`, i.e.  [[(cycle, module, channel, value), ...],
     [(cycle, module, channel, value), ...]].
-    """
 
-    if time_resolution is not None:
-        resolution = time_resolution
-    else:
-        resolution = machine_specifications["cycle_period"]
+    `cycle_period` is the period of the controller's event loop, in seconds, and has no
+    default: it belongs to the program loaded on the machine, not to the package, and
+    the two laboratories this was written for run at 5 us and 2 us. A wrong value is a
+    uniform rescaling of every time in the experiment, which reads as physics rather
+    than as an error, so it is asked for rather than assumed.
+
+    `time_resolution` is the step at which ramps are sampled, the cycle period when not
+    given -- the finest step the hardware can act on. A coarser one thins the ramps
+    without moving anything in time, since cycles are computed from the times
+    themselves.
+
+    `machine_specifications` describes the installed modules, and is
+    `internal.SPECIFICATIONS__DEFAULT` when not given, read at call time.
+    """
+    if time_resolution is None:
+        time_resolution = cycle_period
+
+    machine_specifications = ad.specifications(machine_specifications)
 
     return funcy.compose(
+        wt_validate.ascending,
         lambda tline: ad.to_tuples(
             tline,
             machine_specifications=machine_specifications,
         ),
         lambda tline: ad.add(
-            tline, connections, devices, machine_specifications=machine_specifications
+            tline,
+            connections,
+            devices,
+            cycle_period,
+            machine_specifications=machine_specifications,
         ),
         lambda tline: tl.expand(
             tline,
-            time_resolution=resolution,
+            time_resolution=time_resolution,
         ),
         lambda tline: connection.remove_unconnected_variables(tline, connections),
     )(timeline)
@@ -67,12 +98,18 @@ def create(
     connections,
     devices,
     machine: ADwin.ADwin | None = None,
-    machine_specifications=ad.SPECIFICATIONS__DEFAULT,
+    machine_specifications=None,
+    cycle_period=None,
     time_resolution=None,
 ) -> ADwin.ADwin:
     """
     For a given ADwin.ADwin machine object, combines the given timeline, connections and devices, converts the result to an ADwin-compatible format and initializes the machine for data collection.
 
+    `machine_specifications`, `cycle_period` and `time_resolution` are passed on to
+    `convert`, and the same period gives the run length printed here, so the number
+    reported and the data uploaded cannot disagree. They used to: neither argument
+    reached `convert`, while the specification still set the printed length (D15/#129).
+    Without a `cycle_period`, `CYCLE_PERIOD__ASSUMED` is used.
 
     NOTE: Stateful.
     """
@@ -82,7 +119,17 @@ def create(
     if machine is None:
         machine = link_device()
 
-    output = convert(timeline, connections, devices)
+    if cycle_period is None:
+        cycle_period = CYCLE_PERIOD__ASSUMED
+
+    output = convert(
+        timeline,
+        connections,
+        devices,
+        cycle_period,
+        machine_specifications=machine_specifications,
+        time_resolution=time_resolution,
+    )
 
     # Either set may legitimately be empty -- a digital-only apparatus has no analogue
     # updates -- so the two are concatenated rather than stacked. Stacking them assumed
@@ -106,11 +153,7 @@ def create(
     time_end__cycles = cycles__run.max()
 
     # TODO: make this a log instead of a print statement
-    print(
-        "=== time_end: {}s ===".format(
-            time_end__cycles * machine_specifications["cycle_period"]
-        )
-    )
+    print("=== time_end: {}s ===".format(time_end__cycles * cycle_period))
 
     # TODO: What's happening below should be explained here
     machine.Set_Par(1, int(time_end__cycles))

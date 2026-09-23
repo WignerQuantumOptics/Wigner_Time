@@ -2,9 +2,81 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import funcy
+import numpy as np
 
 import wignertime.adwin as wt_adwin
 from wignertime.internal import dataframe as wt_frame
+
+
+def cycles(timeline, special_contexts=None):
+    """
+    Refuses a row, outside the special contexts, at a cycle the real-time program cannot play.
+
+    Such a row belongs in `wt_adwin.CYCLES__RUN`. Everything outside that range is the
+    territory of the special contexts' sentinels, and each way of leaving it fails
+    silently on the machine rather than here (D19):
+
+    - at cycle -1 or -2, the row is played with the init or lowinit rows;
+    - below -2, it sorts ahead of the lowinit rows, and since the backend plays only the
+      row its index points at, and only when the count reaches it, the index never moves:
+      **no row of that array is played at all** -- not the run, not the initial state,
+      not the final one;
+    - past the last cycle, the machine's 32-bit counter wraps negative, into the
+      sentinels, so the run replays its initialisation and does not end.
+
+    A row earlier than half a cycle before zero is therefore an error, however it came
+    about, rather than something to shift or drop. Must run before `types`, which narrows
+    the column to 32 bits and would wrap the late rows into plausible ones.
+    """
+    if special_contexts is None:
+        special_contexts = wt_adwin.CONTEXTS__SPECIAL
+
+    first, last = wt_adwin.CYCLES__RUN
+    mask__run = ~timeline["context"].isin(list(special_contexts))
+    mask__outside = mask__run & ~timeline["cycle"].between(first, last)
+
+    if mask__outside.any():
+        raise ValueError(
+            "Rows outside the special contexts {} must fall within cycles {}..{} of the"
+            " run. A row before the start stops every row of its array from being"
+            " played, the initial and final states included; one past the end wraps the"
+            " controller's cycle counter. Offending rows:\n{}".format(
+                list(special_contexts),
+                first,
+                last,
+                timeline.loc[mask__outside, ["variable", "time", "context", "cycle"]],
+            )
+        )
+
+    return timeline
+
+
+def ascending(output):
+    """
+    Refuses converted arrays whose cycles are not in ascending order (D20).
+
+    `output` is what `internal.to_tuples` returns, `[analogue, digital]`, each a list of
+    `(cycle, module, channel, digits)`. The real-time program walks each array with an
+    index that only moves forward, so a row out of order is not skipped but played
+    *late*: at the cycle of the row before it. Nothing on the machine can tell.
+
+    `to_tuples` sorts, so this holds by construction today. It is checked on the arrays
+    themselves because they are the contract with the machine, and nothing between here
+    and the upload would notice if it stopped holding.
+    """
+    for label, rows in zip(["analogue", "digital"], output):
+        cycle = np.array([row[0] for row in rows], dtype=np.int64)
+        backwards = np.flatnonzero(np.diff(cycle) < 0)
+        if len(backwards):
+            # Rows are counted from 1, as the controller's arrays are.
+            i = int(backwards[0])
+            raise ValueError(
+                "The {} array is not in ascending cycle order: row {} is at cycle {},"
+                " after one at cycle {}. The controller would play it late, at"
+                " cycle {}.".format(label, i + 2, cycle[i + 1], cycle[i], cycle[i])
+            )
+
+    return output
 
 
 def special_contexts(timeline, special_contexts=wt_adwin.CONTEXTS__SPECIAL):
@@ -107,4 +179,5 @@ def all(timeline, do_drop_repeats=True):
         drop_duplicates,
         special_contexts,
         types,
+        cycles,
     )(timeline)
