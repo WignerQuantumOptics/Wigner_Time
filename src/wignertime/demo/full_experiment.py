@@ -46,6 +46,7 @@ connections = adcon.new(
     ["trigger_TC__V", 3, 1],
     ["AOM_science", 1, 4],
     ["AOM_science__trans", 4, 8],
+    ["trigger_camera", 1, 0],
 )
 
 """
@@ -344,6 +345,28 @@ def magnetic_trapping(
         pull_coils(duration__strengthen, ls, us, t=duration__initial),
         tl.anchor(duration__initial + duration__strengthen),
         context="magnetic_trapping",
+    )
+
+
+###########################################################################
+#                   Diagnostics                                           #
+###########################################################################
+# NOTE: Unlike the stages above, which each act on the state the previous one left behind, a diagnostic is *placed*: it can be attached to any named point of an existing timeline, even a finished one, without restructuring it. Its signature says so by declaring `origin`.
+
+
+def trigger_camera(t, exposure, context, origin=None, timeline=None):
+    """
+    Opens the camera for `exposure`, starting `t` after `origin`.
+
+    `context` is required rather than inherited: a trigger placed into a finished timeline would otherwise adopt the context of its last row, which is `ADwin_Finish`.
+
+    The camera is not part of the default state, so the timeline it is placed into should set it initially and finally, e.g. `init(trigger_camera=0)` and `finish(trigger_camera=0)`.
+    """
+    return tl.update(
+        trigger_camera=[[t, 1], [t + exposure, 0]],
+        context=context,
+        origin=origin,
+        timeline=timeline,
     )
 
 

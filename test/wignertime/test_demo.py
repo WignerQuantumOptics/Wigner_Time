@@ -1,4 +1,6 @@
 from copy import deepcopy
+
+import pytest
 import pandas as pd
 
 from wignertime import timeline as tl
@@ -757,3 +759,42 @@ def test_fullDemo():
     # print("expected")
     # print(expected[i1:i2])
     return frame.assert_equal(actual, expected)
+
+
+def test_trigger_camera_interweaves_into_a_finished_timeline():
+    """
+    `sec:interweaving`: a placed stage is attached to a named point of a timeline that is
+    already complete, `finish` included, without restructuring it. This is how the lab
+    images the sample after each preparation stage.
+    """
+    full = tl.stack(
+        ex.init(trigger_camera=0),
+        ex.MOT(duration=1),
+        ex.MOT__detuned_growth(),
+        ex.molasses(),
+        ex.optical_pumping(),
+        ex.magnetic_trapping(),
+        ex.finish(trigger_camera=0),
+    )
+    woven = ex.trigger_camera(
+        2e-3, 1e-3, context="imaging", origin="molasses", timeline=full
+    )
+
+    time__molasses = full[anchor.mask(full) & (full["context"] == "molasses")][
+        "time"
+    ].max()
+    time__final_ramps = full[anchor.mask(full) & (full["context"] == "finalRamps")][
+        "time"
+    ].max()
+    imaging = woven[woven["context"] == "imaging"]
+
+    # measured from the end of molasses, not from the end of the timeline ...
+    assert imaging["variable"].tolist() == ["trigger_camera", "trigger_camera"]
+    assert imaging["time"].tolist() == pytest.approx(
+        [time__molasses + 2e-3, time__molasses + 3e-3]
+    )
+    assert imaging["value"].tolist() == [1, 0]
+    # ... so it lands inside the run, during magnetic trapping ...
+    assert imaging["time"].max() < time__final_ramps
+    # ... and nothing that was already there moves.
+    frame.assert_equal(woven[woven["context"] != "imaging"], full)
