@@ -6,7 +6,7 @@ Standing checklist for code work. Written for an agent picking up the repository
 
 **Priority order.** Silent failures rank above visible ones. A wrong answer that raises is a nuisance; a wrong answer that returns quietly can sit in an experiment for months.
 
-Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 — so verification has *not* renumbered them, and sections A and B are consequently no longer in strict severity order. **Section A is closed. Section B is closed apart from B10**, which raises rather than misleading, and **B11**, which is new on 2026-09-22 and is the only item here whose failure mode is physical rather than numerical. The rest of the open work is in sections C and D, and the D items cluster: D11, D14, D15, D18, D19, D20, D21 are all the ADwin backend, and are being done in one pass. The roadmap is at #94, and the work is on the branch `issue#94`, where D15 and D20 are fixed and D19 is guarded on the Python side (2026-09-23). Resolved entries are kept, with an account of what replaced each, because the measurements are the argument for the design that replaced it.
+Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 — so verification has *not* renumbered them, and sections A and B are consequently no longer in strict severity order. **Section A is closed apart from A15**, new on 2026-09-23: an upload can land under a run still playing. **Section B is closed apart from B10**, which raises rather than misleading, and **B11**, which is new on 2026-09-22 and is the only item here whose failure mode is physical rather than numerical. The rest of the open work is in sections C and D, and the D items cluster: D11, D14, D15, D18, D19, D20, D21 are all the ADwin backend, and are being done in one pass. The roadmap is at #94, and the work is on the branch `issue#94`, where D15 and D20 are fixed and D19 is guarded on the Python side (2026-09-23). Resolved entries are kept, with an account of what replaced each, because the measurements are the argument for the design that replaced it.
 
 **Origins have their own reference.** `docs/origin-resolution.md` maps every branch of the origin mechanism as implemented, in four layers, with the defect in each. Read it before touching `internal/origin.py` — the items below give the defects, that document gives the shape.
 
@@ -394,6 +394,16 @@ demo: 9 analogue connections, 9 devices   lab: 8 analogue connections, 8 devices
 Note also that `device.new` wraps its frame construction in a bare `except:` which discards the cause and re-raises `"=== Input to 'device' not well formatted ==="`. That is the pattern §"loud and early" forbids, and it would swallow whatever the name validation reports unless narrowed first — the same fault fixed in `adwin/connection.py` on 2026-09-11.
 
 Tracked as [#141](https://github.com/WignerQuantumOptics/Wigner_Time/issues/141).
+
+### A15 — an upload can land under a run that is still playing **[new, found 2026-09-23; this is #151]**
+
+`adwin.core.upload` (formerly `create`) writes `Par_1..3` and the data arrays without asking whether the process is running. The machine accepts the writes mid-run, and the running sequence reads them.
+
+The lab's parameter scan (`control/time_of_flight.py::parameter_scan_with_imaging`) and the paper's `sec:parameter_scan` listing both upload shot N+1 as soon as the camera routine for shot N returns. `take_images_ueye` returns once its frames are captured and does not wait for its own run to end. It waits for the *previous* run at its start, and by then the next upload has already been written. The lab's `finish` holds an anchor 1 s after the imaging before its final ramps and default state. So run N has a tail of more than a second, and whenever building and converting timeline N+1 takes less, the upload rewrites run N's arrays under it.
+
+From `WignerTimeADwin.bas`: `endCC` changes, and run N's index now points into timeline N+1's rows. If the row there lies at an earlier cycle than the current count, the index never moves again, and the rest of run N is not played: its final ramps, its default state and its finish rows. If it lies later, run N plays timeline N+1's rows at run N's cycles. Nothing reports either. `createLiStore` uploads once and replays, so it is unaffected.
+
+**Not observed.** This is from reading the lab's code and the backend; whether it bites depends on how long the conversion takes against the tail. Fix direction (roadmap step 6 at #94, for the maintainer): `upload` waits for its process to stop before writing. It is the only path to the machine, so that covers the lab's scans and the paper's listing without changing either.
 
 ---
 
