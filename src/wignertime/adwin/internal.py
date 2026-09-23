@@ -28,7 +28,18 @@ These should be loaded by the ADwin system during initialization. The settings s
 The specifications have the form of a list of 'ADwin device' dictionaries, with the modules represented as a list of dictionaries.
 """
 SPECIFICATIONS__DEFAULT = {
-    "cycle_period__normal__us": 5e-6,
+    # In seconds, like every other time in the package. This is the period of the
+    # ADbasic event loop that emits the timeline, i.e. `Initial_Processdelay` divided
+    # by the processor clock rate -- a relationship nothing currently checks (see
+    # KNOWN_ISSUES D14).
+    #
+    # NOTE: this was `cycle_period__normal`, where `normal` contrasted with a
+    # `cycle_period__burst` of 250 ns that has since been dropped. If ADC burst mode
+    # (`P2_Burst_Init` in `WignerTimeADwinADC.bas`) is ever described here, it wants a
+    # name of its own -- `sampling_period__ADC` or similar. It is a sampling period for
+    # reading, on a different clock and for a different purpose, and calling the two
+    # things flavours of one "cycle period" is what made the qualifier necessary.
+    "cycle_period": 5e-6,
     "modules": [
         {
             "bits": 1,
@@ -56,18 +67,44 @@ SPECIFICATIONS__DEFAULT = {
 
 def modules__digital(machine_specifications):
     """
-    The list of modules that govern digital connections.
+    The module numbers carrying digital connections, derived from the specifications.
 
-    Currently, this just returns a static list, based on a specific lab setup.
+    A digital line is one bit wide, so a module of one-bit channels is a digital module.
+    This is a *derivation* rather than a declaration, deliberately: a `kind` field beside
+    `bits` would be a second source of truth, and a module declared
+    `{"kind": "digital", "bits": 16}` would have no right answer. The same reasoning
+    keeps module and channel numbers out of the device conversions.
+
+    Until 2026-09-22 the test read `m.get("bits", False) == True`, which picks out the
+    digital module only because `1 == True` in Python (D12/#126). Note what that did and
+    did not cost: `x == True` and `x == 1` agree for every number, so the answer was
+    never wrong -- what was wrong was that "is one bit wide" was written as a comparison
+    against a boolean, leaving the intent unrecoverable from the code.
+
+    A module that declares no `bits` at all now raises rather than being taken for
+    analogue, which is the one behaviour that changed. Silently reading an
+    under-specified module as analogue is a guess about hardware, and it would put a
+    16-bit conversion on a digital line.
 
     NOTE: Modules are numbered from 1 (unlike Python lists).
-    """
 
-    return [
-        i + 1
-        for i, m in enumerate(machine_specifications["modules"])
-        if m.get("bits", False) == True
-    ]
+    NOTE: Nothing here restricts how many modules may be digital, and the real-time
+    program cannot honour more than one -- both `p2_digprog` and `p2_digout` name module
+    1 as a literal. See D18/#133, which is an open decision rather than an oversight.
+    """
+    modules = machine_specifications["modules"]
+
+    modules__unspecified = [i + 1 for i, m in enumerate(modules) if "bits" not in m]
+    if modules__unspecified:
+        raise ValueError(
+            "Module(s) {} declare no `bits`, so whether they are digital cannot be"
+            " determined. Every entry of `machine_specifications['modules']` needs its"
+            " width: 1 for a digital module, 16 for the usual analogue one.".format(
+                modules__unspecified
+            )
+        )
+
+    return [i + 1 for i, m in enumerate(modules) if m["bits"] == 1]
 
 
 def add_cycle(
@@ -80,12 +117,11 @@ def add_cycle(
 
     Parameters:
     - timeline: DataFrame containing the experimental data.
-    - specifications: Dictionary with device-specific configuration, must contain cycle period.
+    - machine_specifications: Dictionary describing the machine; must contain `cycle_period`, in seconds.
     - special_contexts: Dictionary with context-specific overrides for cycle values.
-    - device: Device name to use for cycle period in specifications.
 
     Raises:
-    - ValueError if required columns are missing or if cycle period is not found for specified device.
+    - ValueError if required columns are missing, or if `cycle_period` is absent from the specifications.
     """
     # Check if `time` column is present
 
@@ -94,12 +130,14 @@ def add_cycle(
             f"`time` column not found. Columns present: {list(timeline.columns)}"
         )
 
-    # Ensure device-specific cycle period is available
+    # Ensure the cycle period is available
     try:
-        cycle_period = machine_specifications["cycle_period__normal__us"]
+        cycle_period = machine_specifications["cycle_period"]
     except KeyError:
         raise ValueError(
-            f"`cycle_period__normal` not found in specifications for {device}."
+            "`cycle_period` not found in the machine specifications. Keys present: {}.".format(
+                list(machine_specifications)
+            )
         )
 
     # Calculate cycles and handle special contexts
@@ -126,6 +164,11 @@ def add(timeline, connections, devices, machine_specifications=SPECIFICATIONS__D
     """
 
     wtl.debug("Got to `adwin.core.add`")
+
+    # Here because this is where the two tables meet, and because conversion is the one
+    # point at which hardware enters. Neither `connection.new` nor `device.new` can do it
+    # alone: each sees only its own vocabulary (A14).
+    device.check_correspondence(connections, devices)
 
     dff = wt_frame.join(timeline, connections)
     dff = wt_frame.join(dff, devices)
@@ -172,13 +215,16 @@ def to_tuples(timeline, machine_specifications=SPECIFICATIONS__DEFAULT):
         )
 
     mods_digital = modules__digital(machine_specifications)
-    mods_analogue = [
-        int(x) for x in timeline["module"].unique() if x not in mods_digital
-    ]
+    mods_analogue = [x for x in timeline["module"].unique() if x not in mods_digital]
 
+    # NOTE: filtered by value rather than by a formatted query string. `module` is an
+    # int64 column, so `unique()` yields numpy scalars, and building a query out of them
+    # produced `module in [np.int64(3), np.int64(4)]` -- which pandas parses and then
+    # rejects with `UndefinedVariableError: name 'np' is not defined`, an error that
+    # looks like it comes from inside pandas and says nothing about modules (#41). A
+    # bare `int()` on each element used to hold that off; comparing values removes the
+    # failure mode instead of guarding it.
     return [
-        to_tuples__raw(timeline.query("module in {}".format(mods_analogue))),
-        to_tuples__raw(
-            timeline.query("module in {}".format(mods_digital)),
-        ),
+        to_tuples__raw(wt_frame.subframe(timeline, "module", mods_analogue)),
+        to_tuples__raw(wt_frame.subframe(timeline, "module", mods_digital)),
     ]

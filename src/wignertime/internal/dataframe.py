@@ -13,7 +13,7 @@ from collections.abc import Callable
 from copy import deepcopy
 
 import pandas as pd
-from numpy import identity
+from numpy import nan
 
 CLASS = pd.DataFrame
 
@@ -63,6 +63,43 @@ def isnull(o):
     return pd.isnull(o)
 
 
+def not_numeric(column):
+    """
+    A boolean mask of the entries that cannot be read as a number.
+    """
+    return pd.to_numeric(column, errors="coerce").isna()
+
+
+def normalise_nulls(df: CLASS) -> CLASS:
+    """
+    Give every missing value in an object column the same representation, `nan`.
+
+    A timeline built in memory carries `nan` wherever a column does not apply -- that is
+    what `concat` leaves behind when a frame without a `function` column is joined to one
+    that has it. Round-tripping through parquet, JSON or feather brings those back as
+    `None` instead, while CSV and pickle keep `nan`, so a loaded timeline was not equal to
+    the one saved and the difference depended on the format chosen.
+
+    `pandas.testing.assert_frame_equal` currently warns that it will stop treating the two
+    as matching, so this would have become an error rather than a warning. The distinction
+    carries no meaning here -- both say "no value" -- so `file.load` settles on one.
+    """
+    dff = df.copy()
+    for column in dff.columns:
+        if dff[column].dtype == object:
+            dff[column] = dff[column].where(dff[column].notna(), nan)
+    return dff
+
+
+def fill_null(df, column: str, value):
+    """
+    Replace nulls in `column` with `value`, returning a new frame.
+    """
+    dff = df.copy()
+    dff[column] = dff[column].fillna(value)
+    return dff
+
+
 def subframe(df: CLASS, column: str, values: list, func: Callable | None = None):
     """
     Returns a filtered df, where func(`column`) has values in `values`.
@@ -71,6 +108,16 @@ def subframe(df: CLASS, column: str, values: list, func: Callable | None = None)
         return df[df[column].map(func).isin(values)].reset_index(drop=True)
 
     return df[df[column].isin(values)].reset_index(drop=True)
+
+
+def align_to(df, order, column="variable"):
+    """
+    Returns `df`, one row per entry of `order`, in that order.
+
+    For comparing two frames that hold the same keys in different orders. `order` must
+    contain no repeats, and every one of its entries must appear in `df`.
+    """
+    return df.set_index(column).loc[list(order)].reset_index()
 
 
 def row_from_max_column(df, column="time"):
@@ -140,6 +187,35 @@ def duplicated(df, subset=["time", "variable"], keep="last"):
     return df.duplicated(subset=subset, keep=keep)
 
 
+def mask__changed(
+    df,
+    subset: list,
+    column__value: str,
+    column__order: str,
+    do_keep_edges: bool = True,
+):
+    """
+    A boolean mask, index-aligned with `df`, that is True where `column__value` differs from the previous row of the same `subset` group, once that group is ordered by `column__order`.
+
+    The first row of every group is always True, as it has no predecessor. When `do_keep_edges`, the last row of every group is True as well, so that the temporal extent of each group survives any filtering built on this mask.
+
+    NOTE: Requires a unique index, which is the case for every frame produced by the ADwin conversion chain.
+    """
+    if df.empty:
+        return pd.Series(dtype=bool, index=df.index)
+
+    ordered = df.sort_values(by=list(subset) + [column__order], kind="stable")
+    grouped = ordered.groupby(list(subset), sort=False)[column__value]
+
+    value__previous = grouped.shift()
+    changed = ordered[column__value].ne(value__previous) | value__previous.isna()
+
+    if do_keep_edges:
+        changed = changed | grouped.shift(-1).isna()
+
+    return changed.reindex(df.index, fill_value=False).astype(bool)
+
+
 def replace_column__filtered(
     df,
     dict__replacement,
@@ -174,10 +250,10 @@ def for_input(df):
     rows = df.values.tolist()
     col_names = df.columns.tolist()
 
-    source = f"pd.DataFrame([\n"
+    source = "pd.DataFrame([\n"
     for row in rows:
         source += f"    {row},\n"
-    source += f"], columns={col_names})"
+    source += "], columns={})".format(col_names)
     return source
 
 

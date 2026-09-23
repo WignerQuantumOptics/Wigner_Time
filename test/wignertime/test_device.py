@@ -3,6 +3,7 @@ import numpy as np
 
 from wignertime.internal import dataframe as wt_frame
 from wignertime import device as dev
+from wignertime.adwin import connection as adcon
 
 
 @pytest.mark.parametrize(
@@ -146,3 +147,45 @@ def test_check_safety_range002(input):
 
     with pytest.raises(ValueError):
         dev.check_within_range(df)
+
+
+# --- A14: the two tables must describe the same apparatus ---------------------
+
+
+def test_device_refuses_a_malformed_name():
+    """Parity with `connection.new`, which has always refused one."""
+    with pytest.raises(ValueError, match="do not follow the naming convention"):
+        dev.new(["notavariable", 1.0, -1, 1])
+
+
+def test_a_mistyped_device_name_no_longer_passes_silently():
+    """
+    A14. `coil_MOTT__A` is a perfectly well-formed name, so the shape check cannot catch
+    it. The device row joined to nothing, the variable arrived with no bounds, and
+    `check_within_range` reads absent bounds as a digital line and skips: 500 A passed on
+    a coil declared +/-5 A.
+    """
+    connections = adcon.new(["coil_MOT__A", 4, 1])
+    devices = dev.new(["coil_MOTT__A", 2.0, -5.0, 5.0])
+
+    with pytest.raises(ValueError, match="do not describe the same apparatus"):
+        dev.check_correspondence(connections, devices)
+
+
+def test_an_analogue_channel_without_a_device_is_refused():
+    connections = adcon.new(["coil_MOT__A", 4, 1])
+    with pytest.raises(ValueError, match="connected, analogue, but no device"):
+        dev.check_correspondence(connections, dev.new())
+
+
+def test_a_digital_channel_needs_no_device():
+    """No unit means digital, and a digital line has nothing to calibrate or bound."""
+    connections = adcon.new(["shutter_MOT", 1, 11], ["AOM_MOT", 1, 1])
+    assert dev.check_correspondence(connections, dev.new())
+
+
+def test_an_empty_device_table_is_a_table():
+    """A purely digital apparatus has no devices; that is a description, not a mistake."""
+    devices = dev.new()
+    assert len(devices) == 0
+    assert list(devices.columns) == ["variable", "to_V", "value__min", "value__max"]

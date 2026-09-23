@@ -4,7 +4,9 @@
 Timeline creation and management for open-loop control in AMO experiments and beyond. Keep scrolling for a quick overview.
 
 ## Status
-Beta. The package has been in use on two cold-atom setups for more than two years, but a number of known issues remain open — including several silent-failure cases surfaced by a systematic code review. These are catalogued in `KNOWN_ISSUES.md` and are being worked through while the accompanying paper is refereed; some of the resulting fixes will be deliberately breaking, most notably to the `origin` mechanism.
+Beta. The package has been in use on two cold-atom setups for more than two years. A systematic code review begun in September 2026 surfaced a number of silent-failure cases — wrong answers returned without an error — and **all of them are now fixed**, together with the `origin` mechanism they clustered around; some of those fixes were deliberately breaking. What remains open is catalogued in `KNOWN_ISSUES.md`: open API decisions, structural work deferred past the paper, and the ADwin backend, where **one item is a safety rather than a correctness question** and is being treated as a precondition for wider release (see B11 there). Correctness of the backend can only be established on the hardware, so changes to it are reported as unverified until they have been.
+
+A regression test now freezes a real experiment — a complete atom-cavity run taken off one of the two rigs — and checks the whole pipeline against it, so a change in what the package emits cannot pass unnoticed.
 
 A preprint has been submitted to arXiv; the identifier will be added here once it is announced.
 

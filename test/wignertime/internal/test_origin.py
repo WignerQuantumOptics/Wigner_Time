@@ -118,13 +118,27 @@ def test_originContextAnchor(df_context1):
 
 
 def test_originAuto1(df_context1):
+    """
+    `auto` now completes rather than passes through, so it normalises to a pair. The
+    value slot is filled from the entry the time slot came from -- here `None`, since
+    `update`'s values are absolute.
+    """
     defaults = [["anchor", None], ["last", None]]
-    assert origin.auto(None, "anchor", origin__defaults=defaults) == "anchor"
+    assert origin.auto(df_context1, "anchor", origin__defaults=defaults) == [
+        "anchor",
+        None,
+    ]
 
 
-def test_originAuto2(df_context1):
+def test_originAuto2():
+    """
+    With no timeline, neither `"anchor"` nor `"last"` has anything to refer to, so the
+    chain runs to its terminal step: absolute time, with a warning. It can no longer
+    return `None` implicitly, which was A4 -- rows landing *before* the timeline they
+    were appended to, silently.
+    """
     defaults = [["anchor", None], ["last", None]]
-    assert origin.auto(None, None, origin__defaults=defaults) == ["last", None]
+    assert origin.auto(None, None, origin__defaults=defaults) == [0.0, None]
 
 
 def test_originAuto3(df_context1):

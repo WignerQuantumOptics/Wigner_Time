@@ -1,6 +1,5 @@
 import pytest
 
-from wignertime import timeline as tl
 from wignertime.internal import dataframe as frame
 from wignertime.internal import origin
 
@@ -24,23 +23,21 @@ df_previous2 = frame.new(
 )
 
 
-@pytest.mark.parametrize("input_value", [df_previous1, df_previous1])
+@pytest.mark.parametrize("input_value", [df_previous1])
 def test_previous(input_value):
     row = df_previous2.loc[0]
 
-    return frame.assert_series_equal(tl.previous(input_value), row)
+    return frame.assert_series_equal(origin.previous(input_value), row)
 
 
-@pytest.mark.parametrize("input_value", [df_previous1])
-def test_previousSort(input_value):
-    row = df_previous2.loc[0]
-    return frame.assert_series_equal(tl.previous(input_value, sort_by="time"), row)
-
-
-@pytest.mark.parametrize("input_value", [df_previous2])
-def test_previousSort2(input_value):
+def test_previous_ties_go_to_the_row_written_last():
+    """
+    `thing2` and `thing4` share the latest time; the later-written row wins. This is the
+    order the removed `sort_by` path did not guarantee (D2, #116): it sorted with NumPy's
+    quicksort, which reorders equal keys -- even among five rows, on an AVX2 machine.
+    """
     row = df_previous2.loc[3]
-    return frame.assert_series_equal(tl.previous(input_value, sort_by="time"), row)
+    return frame.assert_series_equal(origin.previous(df_previous2), row)
 
 
 @pytest.mark.parametrize("input_value", [df_previous2])

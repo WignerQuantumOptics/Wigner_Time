@@ -26,7 +26,22 @@ from wignertime.internal.timeline import inherit
 
 from wignertime.internal import util as wt_util
 
-noop = funcy.identity
+as_deferred = wt_util.mark_deferred
+"""
+Mark a user-written function as a deferred timeline function, so that `stack` will
+accept it as a constituent. See `stack`.
+"""
+
+noop = wt_util.mark_deferred(lambda timeline, **kwargs: timeline)
+"""
+A `stack` constituent that contributes nothing, for the branch of a conditional that
+should add no rows.
+
+Not `funcy.identity`: it has to carry the deferred tag, and tagging a shared library
+function would mark it for every other user of `funcy`. Taking `**kwargs` also means it
+survives a `stack` that forwards keywords -- `identity` did not, and raised
+`TypeError: identity() got an unexpected keyword argument 'context'`.
+"""
 
 ###############################################################################
 #                   Constants                                                 #
@@ -65,36 +80,10 @@ def context_info(timeline):
         return None
 
 
-def previous(
-    timeline: wt_frame.CLASS,
-    variable=None,
-    time__max=None,
-    column="variable",
-    sort_by=None,
-    index=-1,
-):
-    """
-    Returns a row from the previous timeline. By default, this is done by finding the highest value for time and returning that row. If `sort_by` is specified (e.g. 'time'), then the dataframe is sorted and then the row indexed by `index` is returned.
-
-    Raises ValueError if the specified variable, or timeline, doesn't exist.
-    """
-    # DEPRECATED:
-    # TODO: Delete this in favour of the implementation in origin?
-    # Can be exposed through the package API
-    return wt_origin.previous(
-        timeline=timeline,
-        variable=variable,
-        time__max=time__max,
-        column=column,
-        sort_by=sort_by,
-        index=index,
-    )
-
-
 ###############################################################################
 #                   Main functions
 ###############################################################################
-def create(
+def _populate_timeline(
     *vtvc,
     timeline: wt_frame.CLASS | None = None,
     t=0.0,
@@ -104,39 +93,89 @@ def create(
     **vtvc_dict,
 ) -> wt_frame.CLASS:
     """
-    Does what it says on the tin: establishes a new timeline according to the given (flexible) input collection. If 'timeline' is also specified, then it concatenates the new creation with the existing one.
+    The shared body of `create` and `update`. **Internal**: the argument resolution is
+    common to both, but the two public entry points expose different parts of it.
 
+    Resolves the flexible `*vtvc` / `**vtvc_dict` input into rows, places them with
+    respect to `origin`, and — when a `timeline` is given — inherits its context and
+    concatenates.
 
-    Accepts programmatic and manual input.
+    The input grammar itself is documented on `create`, not here: only `create` exposes
+    the positional forms (`update` lost `*vtvc` with #71, `ramp` never had it), and this
+    function is private, so mkdocstrings would not publish a description written here —
+    which matters because `tab:inputSpecs` defers to the API documentation for exactly
+    those forms.
 
-    TODO:
-    - document the possible combinations of arguments ordered according to usecases
-    - change from default `t` to default `origin`?
+    The split exists because `create` and `update` differ only in how they compose, and
+    that difference is entirely about `timeline` and `origin`:
 
-    variable_time_values (*vtvc) has the form:
-    variable, time, value, context
-    OR
-    variable, [[time, value],...]
-    OR
-    [['variable', value]]
-    OR
-    [['variable', [time, value]]]
-    OR
-    [['variable', [[time, value],
-                  [time002,value002],
-                  ...]]]
+    - `create` starts a timeline from scratch, so neither argument means anything to it
+      and neither is part of its signature. See §sec:functions of the manuscript, where
+      `create` is documented as `create(*vtvc, t=0.0, context=None, **vtvc_dict)`.
+    - `update` extends an existing one, so it takes both — and routes `origin` through
+      `origin.auto` first, which is what makes its times relative by default.
 
-    but when unspecified, is replaced by the dictionary form (**vtvc_dict)
+    Positional `*vtvc` combined with a `timeline` is reachable only from here: `create`
+    has the positional forms but no timeline, and `update` has the timeline but no
+    positional forms.
 
-    The [time,value] list can also be replaced with [time,value,context] if you would like to specify data-specific context.
-
-    If you supply an additional timeline, the result will be concatenated with this and the new timeline (if one isn't specified) will inherit the old context.
-
-    NOTE: It seems to be the case that dataframes use less memory than lists of dictionaries or dictionaries of lists (in general).
+    `context`, like `origin` above it, is taken here already resolved: a bare `None`
+    means "inherit", exactly as it always has (`inherit.context`'s own contract, direct
+    callers included, is untouched). Translating the public sentinel vocabulary
+    (`wt_config.CONTEXT__INFER`, or an explicit `None` asking for no inheritance) into
+    this function's own `None`-means-inherit convention is `create`'s and `update`'s job,
+    each at their own single resolution point -- mirroring `origin.auto_or_off`, which
+    does the same for `origin` before it reaches here.
     """
     rows = wt_input.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
 
-    df_rows = wt_frame.new(rows, columns=schema.keys()).astype(schema)
+    df_rows = wt_frame.new(rows, columns=schema.keys())
+
+    # A value that is neither a number nor convertible to one reaches `astype` and fails
+    # there as `TypeError: float() argument must be a string or a real number, not
+    # 'dict'` -- from inside pandas, naming neither the variable nor the call. One
+    # vectorised check instead, before the cast (C5).
+    values__bad = wt_frame.not_numeric(df_rows["value"])
+    if values__bad.any():
+        raise ValueError(
+            "Not a numeric value for {}: {}. A variable's value must be a number.".format(
+                sorted(set(df_rows.loc[values__bad, "variable"])),
+                sorted(set(map(repr, df_rows.loc[values__bad, "value"]))),
+            )
+        )
+
+    # `anchor`, `last` and `variable` are reserved as origin labels
+    # (`internal.origin._ORIGINS`), and `origin.find` tests them before it looks for a
+    # variable or a context of that name -- so a name colliding with one is silently
+    # unreachable as an origin (A9). Refused where the name is written rather than where
+    # it fails to resolve, because by then the timeline no longer records that anything
+    # else was meant.
+    names__shadowing = {
+        column: sorted(set(df_rows[column]) & set(wt_origin._ORIGINS))
+        for column in ("variable", "context")
+    }
+    if any(names__shadowing.values()):
+        raise ValueError(
+            "\n".join(
+                [
+                    "Reserved origin label used as a name: {}.".format(
+                        ", ".join(
+                            "{} {}".format(column, names)
+                            for column, names in names__shadowing.items()
+                            if names
+                        )
+                    ),
+                    "",
+                    "{} are reserved for `origin`, and are resolved before any variable"
+                    " or context of the same name -- so such a name could never be"
+                    " referred to.".format(", ".join(map(repr, wt_origin._ORIGINS))),
+                    "",
+                    "Rename it: `molasses_end` rather than `last`.",
+                ]
+            )
+        )
+
+    df_rows = df_rows.astype(schema)
     new = wt_origin.update(df_rows, timeline, origin=origin)
 
     if timeline is not None:
@@ -146,12 +185,80 @@ def create(
     return new
 
 
+def create(t=0.0, context=wt_config.CONTEXT__INFER, **vtvc_dict) -> wt_frame.CLASS:
+    """
+    Establishes a new timeline from the given (flexible) input collection.
+
+    `create` initialises a timeline *from scratch*. It deliberately takes no `timeline`
+    and no `origin`: there is nothing for the new rows to be relative to, which is the
+    whole of the difference between it and `update`. To add to an existing timeline,
+    use `update` — `update(..., origin=0.0)` reproduces exactly what passing a timeline
+    to `create` used to do, and the default (anchor-then-last) origin is usually what
+    was actually wanted.
+
+    Input grammar
+    -------------
+    A variable is named as a keyword, and followed by what it does::
+
+        create(AOM_MOT=<follows>)
+
+    where ``<follows>`` is one of
+
+    ======================================  ==========================================
+    ``value``                               at ``t``
+    ``[time, value]``
+    ``[time, value, context]``
+    ``[[time, value], [time, value], ...]``  several instants for one variable
+    ======================================  ==========================================
+
+    Several variables are given at once, and a computed set through ``**``::
+
+        create(AOM_MOT=1, shutter_MOT=[0.1, 1, "MOT"])
+        create(**{name: value for name, value in ...})
+
+    ``t`` and ``context`` are **defaults, not overrides** — a variable stating its own
+    keeps it. The keyword namespace is open by design, so an unrecognised keyword is
+    read as a variable name rather than rejected (see the manuscript's `sec:forwarding`);
+    that is what makes the injection idiom work, and it is why there is no second,
+    positional way in to be confused with it.
+
+    NOTE: It seems to be the case that dataframes use less memory than lists of
+    dictionaries or dictionaries of lists (in general).
+    """
+    # `**vtvc_dict` is an open namespace -- an unrecognised keyword is read as a
+    # variable name -- so `timeline=` and `origin=` would otherwise be swallowed by it
+    # and then re-bound by `_populate_timeline`, which does declare them. That would
+    # reinstate the very arguments this signature exists to withhold, silently. Neither
+    # is a valid `variable` name (`config.VARIABLE__REGEX` requires two segments), so
+    # intercepting them cannot shadow a legitimate one.
+    for name, instead in [
+        (
+            "timeline",
+            "`update(..., timeline=...)`; add `origin=0.0` for the absolute placement `create` used to give",
+        ),
+        ("origin", "`update(..., origin=...)`, or fold the offset into `t`"),
+    ]:
+        if name in vtvc_dict:
+            raise TypeError(
+                "`create` does not take `{n}`: it starts a timeline from scratch, so "
+                "there is nothing for the new rows to be placed relative to. Use "
+                "{i}.".format(n=name, i=instead)
+            )
+
+    # `create` never has a `timeline` to inherit from, so the infer/off distinction is
+    # inert here -- but the sentinel itself still has to be translated, or its literal
+    # string would land in every unstated row's `context` column rather than the empty
+    # placeholder. See `inherit.resolve`.
+    context = inherit.resolve(context)
+
+    return _populate_timeline(t=t, context=context, **vtvc_dict)
+
+
 def update(
     timeline: wt_frame.CLASS | None = None,
     t=0.0,
-    context=None,
-    origin=None,
-    schema=_SCHEMA,
+    context=wt_config.CONTEXT__INFER,
+    origin=wt_config.ORIGIN__INFER,
     **vtvc_dict,
 ):
     """
@@ -165,56 +272,117 @@ def update(
 
     Like other functions, when `context` is not specified for a given variable, it is taken to be the latest context in the timeline.
     WARNING: In this case, beware of accidentally putting timelines into special contexts.
+
+    `origin` defaults to `wt_config.ORIGIN__INFER`: run the usual anchor-then-last chase
+    (`config.ORIGIN__DEFAULTS`) for whichever slots are left unstated. Passing
+    `origin=None` explicitly asks for the opposite -- no origin resolution at all, so
+    `t` (and any stated value) is taken exactly as written.
+
+    `context` defaults to `wt_config.CONTEXT__INFER`, for the same reason and in the
+    same shape: run the inheritance just described for whichever rows leave `context`
+    unstated. Passing `context=None` explicitly asks for the opposite -- no
+    inheritance, so an unstated row is left in the plain default context, the empty
+    string, regardless of what the timeline it joins was last doing.
     """
+    timeline = wt_util.ensure_timeline(timeline, "update", columns__required=_SCHEMA)
+
     if timeline is None:
         return wt_util.function__lambda()
 
     else:
         # Check if anchor is desired and available
-        origin = wt_origin.auto(
+        origin = wt_origin.auto_or_off(
             timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
         )
 
-        return create(
+        # The single resolution point for `update`'s own `context`: translates the
+        # public sentinel vocabulary into `_populate_timeline`'s (and
+        # `inherit.context`'s) own, unchanged `None`-means-inherit convention. See
+        # `inherit.resolve`.
+        context = inherit.resolve(context)
+
+        return _populate_timeline(
             timeline=timeline,
             t=t,
             context=context,
             origin=origin,
-            schema=schema,
             **vtvc_dict,
         )
 
 
 def anchor(
-    t=None,
+    t,
     timeline=None,
-    context=None,
-    origin=None,
+    context=wt_config.CONTEXT__INFER,
+    origin=wt_config.ORIGIN__INFER,
 ) -> wt_frame.CLASS | Callable:
     """
     Creates a special, non-physical `variable` (will never have a matching `connection`), that can be used for time references, particularly within individual `context`s.
 
     This can be very convenient in the context of `ramp`s, where the starting and ending times are often built around a hypothetical point in time, due to physical switching speeds.
 
+    `t` is required. There is no sensible default: it is a displacement from whatever
+    the `origin` resolves to, and the two readings a default would have to choose
+    between are genuinely different instants (see below).
+
+    *Where the anchor lands*
+
+    By default the `origin` is the most recent anchor where one exists and the last
+    entry otherwise, so `t` is normally a duration measured **from the end of the
+    preceding stage**. That is what makes stages chain: a stage may write rows past its
+    own closing anchor -- `optical_pumping` reinitialises shutters 0.1 s later -- without
+    dragging the next stage along with them.
+
+    To mark the end of everything written so far instead, ask for it explicitly:
+
+        anchor(0.0, origin="last")     # here, at the last entry in the timeline
+        anchor(0.0)                    # here, at the most recent anchor
+
+    The two coincide until some stage writes past its own anchor, and then they do not:
+    in the shipped demo they differ by ~0.1 s from `optical_pumping` onwards. Which one
+    is meant is therefore worth stating at the call site rather than defaulting.
+
     NB.
-    - By default, the `origin` of `anchor` is `'anchor'` when available; `None` otherwise. This is for convenience.
     - Anchors are automatically numbered, for 'global' referencing, but these numbers are not necessary in normal use.
     """
     # NOTE: Makes use of a global variable (LABEL__ANCHOR).
     # TODO: Can include an example plot for illustration?
 
-    # TODO: What happens if `t` is not specified?
-    # - looks like it will fail?
+    if t is None:
+        raise TypeError(
+            "\n".join(
+                [
+                    "`anchor` requires `t`, a displacement from whatever `origin`"
+                    " resolves to.",
+                    "",
+                    "    anchor(0.0)                    # at the most recent anchor",
+                    "    anchor(0.0, origin='last')     # at the last entry so far",
+                    "    anchor(duration)               # `duration` after the"
+                    " preceding stage",
+                ]
+            )
+        )
+
+    timeline = wt_util.ensure_timeline(timeline, "anchor", columns__required=_SCHEMA)
 
     if timeline is None:
         return wt_util.function__lambda()
 
     num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
 
-    origin = wt_origin.auto(
-        timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
-    )
-
+    # `origin` is passed straight through to `update`, unresolved: `update` is the one
+    # place that turns the public sentinel (`wt_config.ORIGIN__INFER`, or an explicit
+    # `None` asking for no resolution at all) into a concrete pair. Resolving it here
+    # too, as this used to, was harmless while `None` meant only one thing everywhere --
+    # but it would silently swallow an explicit `origin=None` passed to `anchor` itself:
+    # `auto` would see the already-resolved `[None, None]` `auto_or_off` returns for
+    # "off" and, not being the top-level sentinel any more, re-run the default chase on
+    # it, undoing the very thing the caller asked for. `update`'s own `auto_or_off` call
+    # is therefore the single place this origin is ever resolved.
+    #
+    # `context` is passed straight through for the same reason: `_populate_timeline`
+    # (reached via `update`) is the single place `inherit.resolve` runs, so `anchor`
+    # resolving it here too would risk the same double-resolution hazard.
     return update(
         timeline=timeline,
         t=t,
@@ -229,10 +397,9 @@ def ramp(
     duration=None,
     t=None,
     t2=None,
-    context=None,
-    origin=None,
-    origin2=["variable"],
-    schema=_SCHEMA,
+    context=wt_config.CONTEXT__INFER,
+    origin=wt_config.ORIGIN__INFER,
+    origin2=["variable", 0.0],
     function=wt_ramp_function.tanh,
     **vtvc_dict,
 ) -> wt_frame.CLASS | Callable:
@@ -269,10 +436,55 @@ def ramp(
     `lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]]`,
     but with the condition that the lists are not inhomogenous.
 
+    An explicitly stated start value like that is taken as written, by default: its
+    value is already absolute, exactly as `update`'s and `anchor`'s are, so it resolves
+    against the same table they do (`config.ORIGIN__DEFAULTS`, whose value slot is
+    `None`) rather than against the value-inferring table an inferred start uses
+    (`ORIGIN__DEFAULTS__RAMP`, whose value slot is `"variable"`). A stated `0.0`
+    therefore stays `0.0` regardless of where the variable already sits -- but if
+    `origin` itself explicitly names a value origin (e.g. `origin=["stage1",
+    "variable"]`, or a bare number), that is honoured and added on top of the stated
+    start too, because a default only fills a slot the caller left unstated and never
+    overrides one that is not (see `internal.origin.auto`). This is `ramp`'s
+    long-standing convention (A8/#106), and it holds for any `origin` you write -- a
+    bare call, or an explicit time-only reference such as `origin="stage1"` -- because
+    it is controlled by `wt_config.ORIGIN__INFER_BY_SHAPE`, `True` by default.
+
+    To turn off origin resolution altogether instead -- every variable in the call
+    taken exactly as written, including an *inferred* start (the 1-D shorthand), which
+    then has nothing left to infer *from* and comes out at its placeholder (`0.0`, or
+    `t` for its time) rather than a looked-up value -- ask for that explicitly:
+    `origin=None`. This is therefore for a call whose every variable states its own
+    start explicitly; mixing the two forms under `origin=None` in the same call is
+    rarely what is wanted. It is the one way to get this that never depends on
+    `ORIGIN__INFER_BY_SHAPE`.
+
+    A site that instead wants every stated start resolved uniformly with an inferred
+    one -- so that *which of the two input shapes the caller used* never decides
+    anything, and a stated `0.0` is offset by the variable's current value exactly
+    like an inferred start would be -- sets `wt_config.ORIGIN__INFER_BY_SHAPE = False`.
+    This is read at call time for every `ramp` call in the running process, so it is a
+    policy for a whole site, not for one call.
+
+    `context` defaults to `wt_config.CONTEXT__INFER`, the same sentinel `create`,
+    `update` and `anchor` default to: run the usual inheritance (an unstated row takes
+    its context from wherever the timeline it joins last left off) for whichever
+    variables leave `context` unstated. Passing `context=None` explicitly asks for the
+    opposite -- no inheritance for this call, so every unstated row is left in the
+    plain default context, the empty string. `ramp` resolves this itself, once, since
+    it builds its rows directly rather than routing through `create`/`update`'s shared
+    `_populate_timeline`.
+
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
+    timeline = wt_util.ensure_timeline(timeline, "ramp", columns__required=_SCHEMA)
+
     if timeline is None:
         return wt_util.function__lambda()
+
+    # The single resolution point for `ramp`'s own `context`, mirroring
+    # `_populate_timeline`'s for `create`/`update`: see `inherit.resolve`.
+    context = inherit.resolve(context)
 
     _vtvcs = {k: np.array(v) for k, v in vtvc_dict.items()}
     max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
@@ -288,7 +500,52 @@ def ramp(
             )
 
         case 2:
+            # How many points a ramp is made of belongs to the interpolating function,
+            # not to this call: `tanh` is defined by two, and an interpolation with
+            # interior control points would want more.
+            points__required = wt_ramp_function.points(function)
+
+            # Anything past the first two used to be read and silently dropped -- three
+            # points gave a ramp between the first two, with the third discarded, while
+            # this function's own docstring promised an error. The same defect A10 fixed
+            # in `create`, in the one function that sweep did not reach (A13).
+            counts__wrong = {
+                k: len(v)
+                for k, v in _vtvcs.items()
+                if v.ndim == 2 and len(v) != points__required
+            }
+            if counts__wrong:
+                raise ValueError(
+                    "\n".join(
+                        [
+                            "{} needs {} point(s) per variable, and got: {}.".format(
+                                getattr(function, "__name__", repr(function)),
+                                points__required,
+                                ", ".join(
+                                    "{} with {}".format(k, n)
+                                    for k, n in sorted(counts__wrong.items())
+                                ),
+                            ),
+                            "",
+                            "A ramp is a start point, an end point, and an interpolation"
+                            " between them. To hold a value and then move, use two"
+                            " ramps; to command several instants, use `update`.",
+                        ]
+                    )
+                )
+
             _vtvc_1d = {k: v for k, v in _vtvcs.items() if v.ndim != 2}
+            if _vtvc_1d and points__required != 2:
+                raise ValueError(
+                    "{} needs {} points per variable, so every one of them must be"
+                    " stated: {} gave only an end value, which is a shorthand that"
+                    " only works when the single missing point is the start.".format(
+                        getattr(function, "__name__", repr(function)),
+                        points__required,
+                        ", ".join(sorted(_vtvc_1d)),
+                    )
+                )
+
             _vtvc_2d_0 = {k: v[0] for k, v in _vtvcs.items() if v.ndim == 2}
             _vtvc_2d_1 = {k: v[1] for k, v in _vtvcs.items() if v.ndim == 2}
 
@@ -306,20 +563,66 @@ def ramp(
 
     # Prepare the starting points and then basically do two (shorcut-ed) `create`s. One depending on the previous timeline and one depending on the previous `create`.
 
-    df_1 = wt_frame.new(rows1, columns=schema.keys()).astype(schema)
-    df_2 = wt_frame.new(rows2, columns=schema.keys()).astype(schema)
+    df_1 = wt_frame.new(rows1, columns=_SCHEMA.keys()).astype(_SCHEMA)
+    df_2 = wt_frame.new(rows2, columns=_SCHEMA.keys()).astype(_SCHEMA)
 
-    df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])]
+    # Copied, not sliced. These rows are about to have their time and value overwritten
+    # to make start points out of them, and they are a *subset of `df_2`*, which is the
+    # frame the end points come from. Writing through would therefore zero the very end
+    # values the ramp is aiming at. It does not today -- measured in both copy-on-write
+    # modes -- but "does not today" is the whole of B4/#111, and pandas 3 makes
+    # copy-on-write unconditional (#88).
+    df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])].copy()
     if t is None:
         df__no_start_points.loc[:, ["time", "value"]] = 0.0
     else:
         df__no_start_points.loc[:, "time"] = t
         df__no_start_points.loc[:, "value"] = 0.0
 
-    origin = wt_origin.auto(timeline, origin, origin__defaults=[["anchor", "variable"]])
+    # `df_1` (the user's explicit 2-D start) and `df__no_start_points` (a start that had
+    # to be inferred) resolve against two different default tables whenever
+    # `wt_config.ORIGIN__INFER_BY_SHAPE` is `True` (the default): a stated value origin
+    # is withheld for `df_1` (`ORIGIN__DEFAULTS`, value slot `None`) and supplied for
+    # `df__no_start_points` (`ORIGIN__DEFAULTS__RAMP`, value slot `"variable"`) --
+    # `ramp`'s original convention (A8/#106, 2026-09-18), kept as the default so that
+    # nothing about existing usage has to change, and a site adopts today's refinement
+    # by choice rather than by upgrading.
+    #
+    # `origin=None` bypasses this switch in either direction: no table is consulted at
+    # all, both slots stay `[None, None]`, and `internal.origin.update`'s existing
+    # no-op on that pair returns every stated coordinate exactly as given.
+    #
+    # With `ORIGIN__INFER_BY_SHAPE` set `False`, a site asks for the 2026-09-23
+    # refinement instead: both row categories resolve against the single table
+    # `ORIGIN__DEFAULTS__RAMP`, through the same call, so nothing about a row's origin
+    # depends on anything but `origin=` itself -- not on which of the two *input
+    # shapes* the caller used for that variable, which `origin=` cannot see. This is a
+    # process-wide policy read at call time, not a per-call choice: every `ramp` call
+    # in the running program sees whichever way the switch is set, for any `origin` it
+    # is given (other than an explicit `None`, which is never affected by it).
+    if origin is not None and wt_config.ORIGIN__INFER_BY_SHAPE:
+        origin__stated_start = wt_origin.auto_or_off(
+            timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
+        )
+        origin = wt_origin.auto_or_off(
+            timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS__RAMP
+        )
+    else:
+        origin__stated_start = origin = wt_origin.auto_or_off(
+            timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS__RAMP
+        )
 
-    new1 = wt_origin.update(
-        wt_frame.concat([df_1, df__no_start_points]), timeline, origin=origin
+    # The two calls to `internal.origin.update` below stay separate regardless of which
+    # branch resolved `origin`: each computes its own `time__max__relative` bound from
+    # only its own rows (B2/#109), and merging the frames first would widen that bound
+    # to the union's earliest row -- tightening what either half of a mixed call could
+    # see as its own "previous" value, silently. Keeping the split here is a correctness
+    # detail of *when* the origin is applied, unrelated to *which* origin is resolved.
+    new1 = wt_frame.concat(
+        [
+            wt_origin.update(df_1, timeline, origin=origin__stated_start),
+            wt_origin.update(df__no_start_points, timeline, origin=origin),
+        ]
     )
     new1["function"] = function
     inherit.context(new1, timeline, context=context)
@@ -330,20 +633,61 @@ def ramp(
 
     # ===
     # TODO: It would be more efficient to do these checks earlier on (but more complicated).
-    # TODO: Move this check into expand?
 
+    # `new1` and `new2` are assembled from different dictionaries and so do not hold
+    # their variables in the same order: `new1` takes the explicitly started ones first
+    # and the inferred ones after, `new2` the reverse. Subtracting them positionally
+    # therefore compared one variable's boundary against another's whenever the two
+    # input forms were mixed in a single call (B1/#108). Align on `variable` first --
+    # each frame holds exactly one row per variable, `df_1` and `df__no_start_points`
+    # being disjoint by construction.
+    new2__aligned = wt_frame.align_to(new2, new1["variable"])
+
+    # A ramp has two degeneracies and they are not the same thing. The mask here used to
+    # conflate them, compute cleaned frames, discard them, and then either drop the whole
+    # ramp silently or keep every degenerate row (A3). Settled by the maintainer,
+    # 2026-09-18:
+    #
+    # - A zero **duration** has no sensible expansion, since both boundaries occupy one
+    #   instant, and is almost always a slip in the caller's arithmetic -- a `duration`
+    #   that came out of a subtraction as 0. It raises, naming the variables.
+    #
+    # - A **negative** duration is the same error with a sign, and was the worse of the
+    #   two while it went unchecked. `expand` sorts each ramp's boundaries by time, so a
+    #   backwards ramp had its endpoints silently *swapped*: `ramp(c__A=9.0,
+    #   duration=-1.0)` left the variable at its old value, not at 9.0, and placed the
+    #   transition a second in the past, on top of whatever preceded it. It raises too.
+    #
+    # - A zero **value change** is a hold. It occupies time, so discarding it silently
+    #   shortens the timeline and pulls everything after it forward. It is kept and
+    #   expanded. The identical rows that produces are removed again by
+    #   `adwin.validate.drop_repeats` before the hardware, which keeps the first and last
+    #   row of each channel -- so the redundancy is paid for in the device-layer table
+    #   only, and that table is the thing the user is meant to be able to read.
     TOL = 1e-15
-    time_close = np.abs(new1["time"] - new2["time"]) < TOL
-    value_close = np.abs(new1["value"] - new2["value"]) < TOL
-    mask__offending = time_close | value_close
+    duration__actual = new2__aligned["time"] - new1["time"]
+    time__degenerate = np.abs(duration__actual) < TOL
+    time__reversed = duration__actual < -TOL
 
-    # Remove offending rows from both DataFrames
-    new1_clean = new1[~mask__offending].reset_index(drop=True)
-    new2_clean = new2[~mask__offending].reset_index(drop=True)
-
-    # Check if either is now empty
-    if new1_clean.empty or new2_clean.empty:
-        return timeline
+    if time__degenerate.any() or time__reversed.any():
+        raise ValueError(
+            "\n".join(
+                [
+                    "A ramp must end after it begins.",
+                    "",
+                    "  zero duration : {}".format(
+                        sorted(set(new1.loc[time__degenerate, "variable"])) or "none"
+                    ),
+                    "  ends earlier  : {}".format(
+                        sorted(set(new1.loc[time__reversed, "variable"])) or "none"
+                    ),
+                    "",
+                    "Check `duration` (or `t2`) -- a duration computed as a difference"
+                    " of two stage times is the usual way this comes out wrong. To"
+                    " command a value at a single instant, use `update`.",
+                ]
+            )
+        )
 
     # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
     return wt_frame.concat([timeline, new1, new2])
@@ -356,8 +700,55 @@ def ramp(
 #         return funcy.compose(*fs[::-1], firstArgument)
 
 
+def _ensure_stackable(f):
+    """
+    A `stack` constituent must be a *deferred timeline function*, not merely callable.
+
+    The distinction is invisible to Python: a deferred call, a composed `stack` and an
+    uncalled user stage are all plain `function` objects with unhelpfully similar
+    signatures. So the deferral machinery tags what it produces, and this checks the tag.
+
+    The mistake it exists for is writing a stage's name where its call belongs --
+    `stack(timeline, MOT)` for `stack(timeline, MOT(...))`. Without the tag that composes
+    silently, binding the timeline to the stage's first parameter and returning a
+    function where a timeline was expected. It was caught only when something followed it
+    in the chain, so the tail of every composition went unguarded.
+    """
+    if wt_util.is_deferred(f) or isinstance(f, wt_frame.CLASS):
+        return f
+
+    if callable(f) and wt_util.takes_one_timeline(f):
+        # A hand-written `lambda tline: ...` is a legitimate constituent and carries no
+        # tag. It is told apart from an uncalled stage by arity: see `takes_one_timeline`.
+        return f
+
+    if callable(f):
+        name = getattr(f, "__name__", repr(f))
+        raise TypeError(
+            "\n".join(
+                [
+                    "`stack` was given the function `{}` itself, rather than the result"
+                    " of calling it.".format(name),
+                    "",
+                    "A constituent must be a deferred timeline function -- what a core"
+                    " function or a stage returns when called without a `timeline`:",
+                    "",
+                    "    stack(timeline, {}(...), update(...))".format(name),
+                    "",
+                    "If `{}` is your own timeline function, mark it with"
+                    " `timeline.as_deferred`.".format(name),
+                ]
+            )
+        )
+
+    raise TypeError(
+        "`stack` was given {} as a constituent, where a deferred timeline function was"
+        " expected.".format(type(f).__name__)
+    )
+
+
 def stack(
-    timeline_or_f: wt_frame.CLASS | Callable, *fs: list[Callable], **kws
+    timeline_or_f: wt_frame.CLASS | Callable, *fs: Callable, **kws
 ) -> Callable | wt_frame.CLASS:
     """
     For chaining modifications to the timeline in a composable way.
@@ -374,6 +765,11 @@ def stack(
 
     `ramp(…, timeline=update(…, timeline=timeline))`.
 
+    Constituents must **already have been called**: `stack` supplies only the timeline.
+    `stack(timeline, MOT(duration=15))`, never `stack(timeline, MOT)` -- the latter
+    raises. This is the opposite of `cascade`, which takes the stage functions themselves
+    and calls them with the keywords routed to each.
+
     Also, all key-word arguments that are passed to `stack` are passed through to the subsidiary functions. This is particularly convenient for creating shared 'contexts', e.g.
 
     `stack(
@@ -385,72 +781,292 @@ def stack(
     )`
     """
 
+    for f in (timeline_or_f, *fs):
+        _ensure_stackable(f)
+
+    constituents = list(fs)
+    if not isinstance(timeline_or_f, wt_frame.CLASS):
+        constituents.insert(0, timeline_or_f)
+
+    keywords__available = _keywords_available(constituents)
+    if keywords__available is not None:
+        unplaced = sorted(k for k in kws if k not in keywords__available)
+        if unplaced:
+            raise TypeError(_message__unplaced(unplaced, keywords__available))
+
     fs__wrapped = [lambda x, f=f: f(x, **kws) for f in fs]
     composed = funcy.compose(*reversed(fs__wrapped))
 
     if isinstance(timeline_or_f, wt_frame.CLASS):
         return composed(timeline_or_f)
-    elif callable(timeline_or_f):
-        wrapped_first = lambda x: timeline_or_f(x, **kws)
-        return funcy.compose(*reversed(fs__wrapped), wrapped_first)
-    else:
-        raise TypeError(
-            "timeline_or_f must be either an instance of wt_frame.CLASS or a function."
-        )
+
+    wrapped_first = lambda x: timeline_or_f(x, **kws)
+    return wt_util.mark_keywords(
+        wt_util.mark_deferred(funcy.compose(*reversed(fs__wrapped), wrapped_first)),
+        keywords__available or (),
+    )
 
 
-def cascade(*fs: list[Callable], **kws) -> Callable | wt_frame.CLASS:
+def _keywords_available(constituents):
+    """
+    The keywords this stack's constituents can between them consume, or `None` if none of
+    them says.
+
+    A constituent that does not record a set is **neutral** -- it neither vouches for a
+    keyword nor objects to one. `noop` and a hand-written `lambda tline: ...` are of that
+    kind, and treating them as permissive instead would switch the guard off for any
+    stack containing one, which the lab's conditional stages make common.
+    """
+    sets = [
+        declared
+        for declared in (wt_util.keywords_declared(f) for f in constituents)
+        if declared is not None
+    ]
+    return set().union(*sets) if sets else None
+
+
+def _message__unplaced(unplaced, keywords__available):
+    """
+    Say that a forwarded keyword reached no constituent, and why that is not harmless.
+    """
+    return "\n".join(
+        [
+            "`stack` could not place {} keyword(s): {}.".format(
+                len(unplaced), ", ".join(repr(k) for k in unplaced)
+            ),
+            "",
+            "A keyword given to `stack` is forwarded to every constituent, and the core",
+            "functions read an unrecognised keyword as a *variable name*. So an unplaced",
+            "keyword does not merely go unused: the parameter you meant to set stays at",
+            "its default, and a variable of that name enters the timeline, to be dropped",
+            "again without comment at export for having no connection.",
+            "",
+            "Placeable here: {}.".format(
+                ", ".join(sorted(keywords__available)) or "nothing"
+            ),
+            "",
+            "To set a parameter of one stage rather than all of them, call that stage",
+            "with it -- `stack(timeline, MOT(duration=15))` -- or use `cascade`, which",
+            "routes `MOT_duration=15` by prefix.",
+        ]
+    )
+
+
+def _route_keyword(key, names__by_length, stages__by_name):
+    """
+    Resolve one `cascade` keyword to a `(stage name, parameter name)` pair, or to
+    `None` with the reason it could not be resolved.
+
+    Matching is anchored to the start of the key and to a `_` boundary, so a parameter
+    that merely *contains* a stage name is not captured by it. Candidates are tried
+    longest first, because a shorter stage name can be a prefix of a longer one
+    (`MOT_` also begins `MOT__detuned_growth_duration`).
+
+    Longest-first alone is not enough to settle the genuine collision, though: if
+    `MOT__detuned_growth` does not take the remainder but `MOT` does, the key belongs to
+    `MOT`. So a split is accepted only when the target actually takes the parameter --
+    or has `**kwargs`, which is how `init` and `finish` stay open for the injection
+    idiom of `sec:forwarding`.
+    """
+    near_misses = []
+
+    for name in names__by_length:
+        if not key.startswith(name + "_"):
+            continue
+        parameter = key[len(name) + 1 :]
+        if wt_util.accepts_keyword(stages__by_name[name], parameter):
+            return (name, parameter), None
+        near_misses.append((name, parameter))
+
+    return None, near_misses
+
+
+def cascade(*fs: Callable, **kws) -> Callable | wt_frame.CLASS:
     """
     Similarly to `stack`, a convenience that combines an arbitrary chain of functions with an arbitrary selection of associated keywords.
 
-    Currently, `kws` are passed to the associated functions by prefixing, e.g. `cascade(MOT, molasses,  MOT_duration=1.0)` creates a `stack` of `MOT` and `molasses`, with `duration=1.0` passed into the `MOT` function before evaluation.
+    `kws` are routed to the associated functions by prefixing, e.g. `cascade(MOT, molasses, MOT_duration=1.0)` creates a `stack` of `MOT` and `molasses`, with `duration=1.0` passed into the `MOT` function before evaluation.
 
     The motivation for this feature is that different experimental contexts should be built modularly, but, at final composition, the user often just wants a single point of contact to add/change nested variables.
+
+    *How this differs from `stack`, which is easy to get wrong*
+
+    `stack` takes stages that have **already been called**; `cascade` takes the stage
+    functions **themselves** and calls them::
+
+        stack(timeline, MOT(duration=15), molasses())     # called here
+        cascade(MOT, molasses, MOT_duration=15)           # called by cascade
+
+    In the first, `MOT(duration=15)` has had every argument but `timeline` supplied, and
+    what it returns is a function of the timeline alone -- partial application, not
+    currying, since the remaining argument is supplied in one call rather than one at a
+    time. `stack` then threads the timeline through that chain.
+
+    In the second, nothing has been called: `cascade` routes `MOT_duration=15` to `MOT`,
+    calls it, and hands the results to `stack`. So a stage reaches `cascade` bare and
+    reaches `stack` applied, and the two are not interchangeable -- writing
+    `stack(timeline, MOT)` raises (see `_ensure_stackable`), and `cascade(MOT(...))`
+    fails because the result takes no keywords to route.
+
+    *What it returns*
+
+    Whatever `stack` makes of the first stage's result: a timeline if that stage returns
+    one -- `init` ends in `create`, so it does -- and a deferred function if it does not,
+    as `MOT` ending in `update` does not. So `cascade` is itself stackable, and a
+    `cascade` beginning mid-experiment composes like any other stage.
+
+    Routing is **strict**: a keyword that names no stage, or that names one but is not a
+    parameter of it, raises rather than being dropped. The alternative -- letting an
+    unrouted keyword broadcast to every stage -- was considered and rejected, because
+    every stage would turn it into rows, and into different *kinds* of row depending on
+    whether the stage ends in an `update` or a `ramp`.
+
+    Strictness is not configured but derived, from whether the target has `**kwargs`.
+    That is only safe because the operation layer confines the open namespace to
+    `default_state` and the two functions that wrap it; a stage that collects `**kwargs`
+    is, correctly, still permissive here.
 
     WARNING: API is not settled; may get combined with `stack` in the next release.
     """
     # TODO:
-    # - Combine with `stack`?
     # - Consider alternative names: 'compose'?
     # - Consider nested dictionaries instead of prefixed keywords?
     #
-    f_names = [f.__name__ for f in fs]
+    # NOTE: keyed by `__name__`, so a stage appearing twice receives the same keywords
+    # both times. That is relied upon; see `KNOWN_ISSUES.md` §C.
+    for f in fs:
+        _ensure_cascadable(f)
 
-    # Create function-specific keywords
-    result = []
-    for k in kws.keys():
-        for fname in sorted(f_names, key=len, reverse=True):
-            if fname in k:
-                result.append([fname, k.split(fname, 1)[1].lstrip("_"), kws[k]])
-                break
+    stages__by_name = {f.__name__: f for f in fs}
+    names__by_length = sorted(stages__by_name, key=len, reverse=True)
 
     args__dict = {}
-    for k, subk, v in result:
-        args__dict.setdefault(k, {})[subk] = v
-    # print(args__dict)
+    unroutable = {}
+    for key, value in kws.items():
+        routed, near_misses = _route_keyword(key, names__by_length, stages__by_name)
+        if routed is None:
+            unroutable[key] = near_misses
+        else:
+            name, parameter = routed
+            args__dict.setdefault(name, {})[parameter] = value
 
-    # # Apply keywords to function stack
-    lambdas = []
-    for f in fs:
-        args = args__dict.get(f.__name__, {})
-        lambdas.append(f(**args))
-        # lambdas.append(lambda ff=f, kws=args: ff(**kws))
+    if unroutable:
+        raise TypeError(_message__unroutable(unroutable, names__by_length))
 
-    return stack(*lambdas)
+    # Apply keywords to function stack
+    return stack(*[f(**args__dict.get(f.__name__, {})) for f in fs])
 
 
-def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Callable:
+def _ensure_cascadable(f):
+    """
+    Refuse a `cascade` argument that is not a stage function.
+
+    The mirror of `_ensure_stackable`, and it catches the mistake that machinery makes
+    easy: `stack` takes a leading timeline and `cascade` does not, so
+    `cascade(timeline, MOT)` reads as reasonable and used to fail with
+    `AttributeError: 'DataFrame' object has no attribute '__name__'`, from the
+    dictionary comprehension that keys stages by name -- naming neither cascade, nor the
+    timeline, nor the difference between the two.
+    """
+    if isinstance(f, wt_frame.CLASS):
+        raise TypeError(
+            "\n".join(
+                [
+                    "`cascade` does not take a timeline. `stack` is the one that does.",
+                    "",
+                    "    stack(timeline, MOT(duration=15), molasses())",
+                    "    cascade(init, MOT, molasses, MOT_duration=15)",
+                    "",
+                    "`cascade` takes the stage functions themselves and calls them, so",
+                    "the timeline comes from the first stage -- `init`, ending in",
+                    "`create`. To cascade onto an existing timeline, stack the two:",
+                    "`stack(timeline, cascade(MOT, molasses, ...))`.",
+                ]
+            )
+        )
+
+    if wt_util.is_deferred(f):
+        raise TypeError(
+            "\n".join(
+                [
+                    "`cascade` was given a stage that has already been called.",
+                    "",
+                    "    cascade(MOT, molasses, MOT_duration=15)     # not MOT(...)",
+                    "",
+                    "`cascade` supplies the arguments itself, by routing its keywords to",
+                    "the stage named in each prefix; a stage that has already been",
+                    "called has none left to route, and would be keyed under",
+                    "`<lambda>`. Use `stack` for stages you have called yourself.",
+                ]
+            )
+        )
+
+    if not callable(f) or not hasattr(f, "__name__"):
+        raise TypeError(
+            "`cascade` takes named stage functions; {!r} is neither. Keywords are"
+            " routed by the stage's `__name__`, so an anonymous callable cannot"
+            " receive any.".format(f)
+        )
+
+
+def _message__unroutable(unroutable, names__by_length):
+    """
+    Say which keywords could not be routed and why, rather than only that some could not.
+
+    A keyword that named a stage but not one of its parameters is the more interesting
+    case -- usually a misspelled parameter rather than a misspelled stage -- so it is
+    reported against the stage it nearly reached.
+    """
+    lines = []
+    for key, near_misses in unroutable.items():
+        if near_misses:
+            name, parameter = near_misses[0]
+            lines.append(
+                "  {} -> `{}` is not a parameter of `{}`".format(key, parameter, name)
+            )
+        else:
+            lines.append("  {} -> matches no stage name".format(key))
+
+    return "\n".join(
+        [
+            "`cascade` could not route {} keyword(s):".format(len(unroutable)),
+            *lines,
+            "",
+            "Keywords are routed by stage-name prefix, e.g. `MOT_duration=1.0` reaches",
+            "`MOT`'s `duration`. The stages given were: {}.".format(
+                ", ".join("`{}`".format(n) for n in sorted(names__by_length))
+            ),
+            "",
+            "An unroutable keyword is an error rather than a default, because silently",
+            "dropping it would run the stage with its default value -- a physically",
+            "different sequence that still executes.",
+        ]
+    )
+
+
+def expand(timeline=None, **function_args) -> wt_frame.CLASS | Callable:
     """
     Converts the functions marked in the timeline into individual rows, i.e. applies the functions to the given data.
 
     This is generally a 'one-way' operation and so should only be carried out before the timeline is implemented on a device.
 
-    `num__bounds` refers to the number of points (and so rows) needed to define the ramp function in the first place. Currently, this is implicitly assumed to be two, i.e. that `ramp`s are simply defined by the origin, terminus and expansion function.
-
-    # NOTE: Not implemented for `num__bounds` != 2
+    How many rows make up one ramp is read from the ramp function itself
+    (`ramp_function.points`), not passed in. It used to be the `num__bounds` argument,
+    which could be given a number the data did not match and was named for the two-point
+    case in which it need not have been given at all -- start and end are the *bounds*
+    only while there is nothing between them (B6).
     """
+    timeline = wt_util.ensure_timeline(timeline, "expand", columns__required=_SCHEMA)
+
     if timeline is None:
         return wt_util.function__lambda(kwargs=["function_args"])
+
+    if "num__bounds" in function_args:
+        raise TypeError(
+            "`expand` no longer takes `num__bounds`: how many points a ramp is made of"
+            " is a property of its interpolating function, and is read from it. Declare"
+            " it with `ramp_function.with_points(n)` if you are writing one."
+        )
 
     if "function" not in timeline.columns:
         # TODO: Add test for this 'feature'
@@ -458,43 +1074,69 @@ def expand(timeline=None, num__bounds=2, **function_args) -> wt_frame.CLASS | Ca
 
     _mask_fs = timeline["function"].notna()
     _dff = timeline[_mask_fs].sort_values(by=["variable", "time"])
-
-    # Work out where the ramps start
     _indices_drop = _dff.index
-    _inds__start = _dff.iloc[::num__bounds].index
-
-    # Mark the beginning and end points (allowing for the number of points per ramp specification to increase in the future)
-    _dff = _dff.reset_index(drop=True)
-    _dff["ramp_group"] = _dff.index // num__bounds
-
-    # Fill out the values
-    _dfs = []
 
     # For adding back in the value of other columns, based on the first row, like `context` etc. Written this way to allow for more, unknown columns to continue.
-    _columns__keep = _dff.columns.drop(
-        ["time", "value", "variable", "function", "ramp_group"]
-    )
+    _columns__keep = _dff.columns.drop(["time", "value", "variable", "function"])
 
-    for _, _group in _dff.groupby("ramp_group"):
-        _pt_start, _pt_end = _group[["time", "value"]].values
+    # Grouped per variable rather than by striding the whole frame. The old global stride
+    # meant one variable with an odd number of rows silently misaligned the pairing of
+    # *every* variable after it, and the failure surfaced as a bare
+    # `ValueError: not enough values to unpack` from the tuple assignment, naming
+    # nothing (B6). Per variable, the arithmetic is local and the offender has a name.
+    _inds__start = []
+    _dfs = []
+    for variable, rows in _dff.groupby("variable", sort=False):
+        points__required = wt_ramp_function.points(rows["function"].iloc[0])
 
-        # Apply the ramp function
-        # - Only pass on the kwargs that the function accepts
-        func = wt_util.function__filtered_kws(
-            _group["function"].tolist()[0], **function_args
-        )
+        if len(rows) % points__required:
+            raise ValueError(
+                "\n".join(
+                    [
+                        "{} has {} ramp row(s), which is not a whole number of ramps:"
+                        " {} makes each one out of {}.".format(
+                            variable,
+                            len(rows),
+                            getattr(
+                                rows["function"].iloc[0],
+                                "__name__",
+                                repr(rows["function"].iloc[0]),
+                            ),
+                            points__required,
+                        ),
+                        "",
+                        "A ramp row is one carrying a `function`. Rows written by hand"
+                        " into that column, or a `function` left on a row that was"
+                        " meant to be a plain entry, are the usual causes.",
+                    ]
+                )
+            )
 
-        _dfs.append(
-            create(
-                [
-                    _group["variable"].tolist()[0],
-                    func(_pt_start, _pt_end),
-                ],
-            ).assign(**_group.iloc[0][_columns__keep].to_dict())
-        )
+        for i in range(0, len(rows), points__required):
+            group = rows.iloc[i : i + points__required]
+            _inds__start.append(group.index[0])
 
-    timeline.drop(index=_indices_drop, inplace=True)
-    timeline.drop(columns=["function"], inplace=True)
+            # Only pass on the kwargs that the function accepts
+            func = wt_util.function__filtered_kws(
+                group["function"].iloc[0], **function_args
+            )
+
+            # The internal constructor, because this is the one caller that assembles
+            # rows rather than being handed them: `create` takes keywords only.
+            _dfs.append(
+                _populate_timeline(
+                    [variable, func(*group[["time", "value"]].values)],
+                ).assign(**group.iloc[0][_columns__keep].to_dict())
+            )
+
+    # Dropped into a new frame rather than in place. Every other function here returns a
+    # new timeline and leaves its argument alone, and the "description is data" story
+    # depends on a frame not changing under whoever is holding it -- `expand` was the one
+    # exception, and it took both the ramp rows and the `function` column with it (B5).
+    #
+    # `adwin.core.convert` was unharmed only by accident of pipeline order:
+    # `remove_unconnected_variables` runs first and hands `expand` a fresh frame.
+    timeline = timeline.drop(index=_indices_drop).drop(columns=["function"])
 
     # Add the values back into the main timeline
     return wt_frame.insert_dataframes(timeline, _inds__start, _dfs)

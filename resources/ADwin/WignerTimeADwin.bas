@@ -25,9 +25,9 @@
 #define digitalIdx par_8
 
 
-sub processSwitches(cc)
+sub processUpdates(cc)
   ' analog
-  if (data_10[analogIdx] = cc) then
+  if ( (analogIdx <= analogArrayDim) and (data_10[analogIdx] = cc) ) then
     do  
       p2_dac(data_11[analogIdx],data_12[analogIdx],data_13[analogIdx])
       '      par_10=data_10[analogIdx] : par_11=data_11[analogIdx] : par_12=data_12[analogIdx] : par_13=data_13[analogIdx]
@@ -35,7 +35,7 @@ sub processSwitches(cc)
     until ( (analogIdx > analogArrayDim) or (data_10[analogIdx] > cc) )
   endif
   ' digital
-  if (data_20[digitalIdx] = cc) then
+  if ( (digitalIdx <= digitalArrayDim) and (data_20[digitalIdx] = cc) ) then
     do
       p2_digout(1,data_22[digitalIdx],data_23[digitalIdx])
       '      par_20=data_20[digitalIdx] : par_22=data_22[digitalIdx] : par_23=data_23[digitalIdx]
@@ -45,14 +45,14 @@ sub processSwitches(cc)
 endsub
 
 
-dim data_10[analogMaxArrayDim] as long ' Clock cycles of analog switches
-dim data_11[analogMaxArrayDim] as long ' Module numbers of analog switches
-dim data_12[analogMaxArrayDim] as long ' Channels of analog switches
-dim data_13[analogMaxArrayDim] as long ' Values (digitized) of analog switches
+dim data_10[analogMaxArrayDim] as long ' Clock cycles of analog updates
+dim data_11[analogMaxArrayDim] as long ' Module numbers of analog updates
+dim data_12[analogMaxArrayDim] as long ' Channels of analog updates
+dim data_13[analogMaxArrayDim] as long ' Values (digitized) of analog updates
 
-dim data_20[digitalMaxArrayDim] as long ' Clock cycles of digital switches
-dim data_22[digitalMaxArrayDim] as long ' Channels of digital switches
-dim data_23[digitalMaxArrayDim] as long ' Values (0 or 1) of digital switches
+dim data_20[digitalMaxArrayDim] as long ' Clock cycles of digital updates
+dim data_22[digitalMaxArrayDim] as long ' Channels of digital updates
+dim data_23[digitalMaxArrayDim] as long ' Values (0 or 1) of digital updates
 
 
 lowinit:
@@ -61,19 +61,18 @@ lowinit:
   par_5 = digitalMaxArrayDim
   p2_digprog(1,1111b) ' set all the digital ports to output
   
-  processSwitches(-2)
+  processUpdates(-2)
   
 init:
-  processSwitches(-1)
+  processUpdates(-1)
   
 event:
-  ' if (cyclecount = endCC+1) then end '+1 is needed to resolve the indexing differences between ADwin and Python
   if (cyclecount > endCC) then end
   
-  processSwitches(cyclecount)
+  processUpdates(cyclecount)
   
   inc cyclecount
 
 finish:
-  processSwitches(2147483647) ' 2**31-1
+  processUpdates(2147483647) ' 2**31-1
 

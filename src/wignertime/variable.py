@@ -8,26 +8,26 @@ Outlines the conventions for variables  and provides some convenience functions 
 import re
 from munch import Munch
 from wignertime.internal import dataframe as wt_frame
-from wignertime.config import LABEL__ANCHOR
-
-REGEX = re.compile(r"^([^_]+)_([^_]+)(?:__([^_]+))?$")
+from wignertime import config as wt_config
 
 
 def parse(variable: str) -> dict:
     """
     A dictionary of equipment, context and unit.
 
-    The convention is that a variable is represented by `thing_deviceOfManyParts__unit` for a non-digital unit and `thing_deviceOfManyParts` otherwise.
+    The convention is that a variable is represented by `thing_deviceOfManyParts__unit` for a non-digital unit and `thing_deviceOfManyParts` otherwise. The `deviceOfManyParts` part may itself contain single underscores, e.g. `coil_MOT_lower__A`.
+
+    The convention is spelled out by `config.VARIABLE__REGEX`, which is read here on every call so that a site applying a different one can rebind it.
     """
 
-    match = re.match(REGEX, variable)
+    match = re.match(wt_config.VARIABLE__REGEX, variable)
 
     if match is not None:
         e, c, u = match.groups()
         if u:
             unit = u
-        elif LABEL__ANCHOR in e:
-            unit = LABEL__ANCHOR
+        elif wt_config.LABEL__ANCHOR in e:
+            unit = wt_config.LABEL__ANCHOR
         else:
             unit = "digital"
 
