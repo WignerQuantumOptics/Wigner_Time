@@ -6,7 +6,7 @@ Standing checklist for code work. Written for an agent picking up the repository
 
 **Priority order.** Silent failures rank above visible ones. A wrong answer that raises is a nuisance; a wrong answer that returns quietly can sit in an experiment for months.
 
-Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 — so verification has *not* renumbered them, and sections A and B are consequently no longer in strict severity order. **Section A is closed apart from A15**, new on 2026-09-23: an upload can land under a run still playing. **Section B is closed apart from B10**, which raises rather than misleading, and **B11**, which is new on 2026-09-22 and is the only item here whose failure mode is physical rather than numerical. The rest of the open work is in sections C and D, and the D items cluster: D11, D14, D15, D18, D19, D20, D21 are all the ADwin backend, and are being done in one pass. The roadmap is at #94, and the work is on the branch `issue#94`, where D15 and D20 are fixed and D19 is guarded on the Python side (2026-09-23). Resolved entries are kept, with an account of what replaced each, because the measurements are the argument for the design that replaced it.
+Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 — so verification has *not* renumbered them, and sections A and B are consequently no longer in strict severity order. **Section A is closed** (A15, found 2026-09-23, was fixed the next day). **Section B is closed apart from B10**, which raises rather than misleading, and **B11**, which is new on 2026-09-22 and is the only item here whose failure mode is physical rather than numerical. The rest of the open work is in sections C and D, and the D items cluster: D11, D14, D15, D18, D19, D20, D21 are all the ADwin backend, and are being done in one pass. The roadmap is at #94, and the work is on the branch `issue#94`, where D15 and D20 are fixed and D19 is guarded on the Python side (2026-09-23). Resolved entries are kept, with an account of what replaced each, because the measurements are the argument for the design that replaced it.
 
 **Origins have their own reference.** `docs/origin-resolution.md` maps every branch of the origin mechanism as implemented, in four layers, with the defect in each. Read it before touching `internal/origin.py` — the items below give the defects, that document gives the shape.
 
@@ -395,7 +395,11 @@ Note also that `device.new` wraps its frame construction in a bare `except:` whi
 
 Tracked as [#141](https://github.com/WignerQuantumOptics/Wigner_Time/issues/141).
 
-### A15 — an upload can land under a run that is still playing **[new, found 2026-09-23; this is #151]**
+### A15 — an upload can land under a run that is still playing **[new, found 2026-09-23; this is #151]** — **FIXED 2026-09-24 on `issue#94` (#151, closed)**
+
+**Fixed as proposed** (maintainer, 2026-09-24): `upload` converts first, then waits until its process reports it has stopped, and only then writes. The conversion therefore overlaps whatever is left of the previous run. When it has to wait it says so once through `wtlog`, at WARNING, the level the package's messages reach a notebook at. It waits while the status is anything but 0, so a process still in its `finish:` section is not taken for stopped. Neither the lab's scan nor the paper's listing had to change. Pinned by `test_upload_waits_for_a_running_process_before_writing`, which checks that no write precedes the stop, and `test_upload_to_a_stopped_process_neither_waits_nor_says_so`. **Limit:** only the process `upload` is told about is waited for. Another process playing the same arrays, such as the ADC variant, is not seen. The ownership Par of roadmap step 9 is the place to close that on the machine: a "sequence playing" flag that the sequencer itself sets and clears, rather than one process's status. **Not verified on hardware.**
+
+The entry as found:
 
 `adwin.core.upload` (formerly `create`) writes `Par_1..3` and the data arrays without asking whether the process is running. The machine accepts the writes mid-run, and the running sequence reads them.
 

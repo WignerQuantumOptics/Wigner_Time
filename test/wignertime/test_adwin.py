@@ -295,11 +295,14 @@ class _MachineRecording:
     It reports a T12 with process 1 at Lab1's 5 us unless told otherwise.
     """
 
-    def __init__(self, processor="T12", processdelay=None):
+    def __init__(self, processor="T12", processdelay=None, status=()):
         self.par = {}
         self.data = {}
         self.processor = processor
         self.processdelay = {1: 5000} if processdelay is None else processdelay
+        # What `Process_Status` answers, one entry per call, and 0 (stopped) thereafter.
+        self.status = list(status)
+        self.calls = []
 
     def Processor_Type(self):
         return self.processor
@@ -308,10 +311,17 @@ class _MachineRecording:
         # The driver answers for any process number; an empty slot reads as nothing.
         return self.processdelay.get(process, 0)
 
+    def Process_Status(self, process):
+        answer = self.status.pop(0) if self.status else 0
+        self.calls.append(("Process_Status", answer))
+        return answer
+
     def Set_Par(self, number, value):
+        self.calls.append(("Set_Par", number))
         self.par[number] = value
 
     def SetData_Long(self, values, number, startindex, count):
+        self.calls.append(("SetData_Long", number))
         self.data[number] = (list(values), count)
 
 
@@ -456,6 +466,41 @@ def test_the_log_stands_in_for_the_machine_and_process_pair():
     machine = _MachineRecording()
     log = adwin.upload(*_digital_only(), machine, 1)
     assert log[0] is machine and log[1] == 1
+
+
+###############################################################################
+#   A15 / #151 -- an upload does not land under a run that is still playing
+###############################################################################
+
+
+def test_upload_waits_for_a_running_process_before_writing(monkeypatch, caplog):
+    """
+    The machine accepts writes mid-run, so the only protection is not to make them. `-1`
+    stands for a process still in its `finish:` section, which is running too.
+    """
+    monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
+    machine = _MachineRecording(status=[1, 1, -1])
+
+    with caplog.at_level("WARNING", logger="wtlog"):
+        adwin.upload(*_digital_only(), machine, 1)
+
+    first_write = next(
+        i for i, c in enumerate(machine.calls) if c[0] != "Process_Status"
+    )
+    assert [c[1] for c in machine.calls[:first_write]] == [1, 1, -1, 0]
+    assert [r.message for r in caplog.records].count(
+        "Process 1 is still running; waiting for it to stop before uploading, so as not"
+        " to rewrite the arrays it is playing."
+    ) == 1, "said once, not once per poll"
+
+
+def test_upload_to_a_stopped_process_neither_waits_nor_says_so(caplog):
+    machine = _MachineRecording()
+    with caplog.at_level("WARNING", logger="wtlog"):
+        adwin.upload(*_digital_only(), machine, 1)
+
+    assert machine.calls[0] == ("Process_Status", 0)
+    assert not caplog.records
 
 
 def test_the_log_is_short_to_print():

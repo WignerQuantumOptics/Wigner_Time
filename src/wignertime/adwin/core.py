@@ -4,6 +4,7 @@
 import funcy
 import numpy as np
 import importlib.util
+import time
 from typing import NamedTuple
 
 if not importlib.util.find_spec("ADwin"):
@@ -12,6 +13,7 @@ if not importlib.util.find_spec("ADwin"):
 import ADwin
 
 from wignertime import timeline as tl
+from wignertime.config import wtlog as wtl
 import wignertime.adwin as wt_adwin
 from wignertime.adwin import connection
 from wignertime.adwin import internal as ad
@@ -85,6 +87,30 @@ def _timing(machine, process):
         processdelay,
         processdelay / wt_adwin.PROCESSDELAY__RATE[processor],
     )
+
+
+POLL__PERIOD = 0.1
+"""How often a process is asked whether it has stopped, in seconds: the lab's own rate."""
+
+
+def _wait_until_stopped(machine, process):
+    """
+    Returns once `process` reports that it has stopped, logging once if it had to wait.
+
+    Waits while the status is anything but 0 (stopped), not merely while it is 1, so that a
+    process that has not finished is never taken for stopped. A process still in its
+    `finish:` section is believed to report -1; UNVERIFIED, and the loop does not depend
+    on it.
+    """
+    if machine.Process_Status(process) == 0:
+        return
+
+    wtl.warning(
+        "Process {} is still running; waiting for it to stop before uploading, so as not"
+        " to rewrite the arrays it is playing.".format(process)
+    )
+    while machine.Process_Status(process) != 0:
+        time.sleep(POLL__PERIOD)
 
 
 def read_cycle_period(machine, process):
@@ -185,6 +211,13 @@ def upload(
 
     `machine_specifications` and `time_resolution` are passed on to `convert`.
 
+    If the process is still running, `upload` converts first and then waits for it to stop
+    before writing, saying so once. The machine accepts writes mid-run and the running
+    sequence reads them, so writing at once would rewrite the arrays under a run that is
+    still playing (A15/#151). A parameter scan that uploads shot N+1 while shot N plays its
+    tail is the case in point. Only `process` is waited for. Another process playing the
+    same arrays, such as the ADC variant, is not seen here.
+
     NOTE: Stateful. It writes `Par_1..3` and the data arrays, and starts nothing.
     """
     # TODO:
@@ -221,6 +254,9 @@ def upload(
             "initial and final states.".format(list(wt_adwin.CONTEXTS__SPECIAL))
         )
     cycle__last = int(cycles__run.max())
+
+    # Only now, so that the conversion overlaps whatever is left of the previous run.
+    _wait_until_stopped(machine, process)
 
     # `endCC`, `analogArrayDim` and `digitalArrayDim` in `WignerTimeADwin.bas`: the event
     # loop ends after the last cycle, and the counts say how far into each array to read.
