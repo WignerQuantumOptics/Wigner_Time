@@ -295,14 +295,23 @@ class _MachineRecording:
     It reports a T12 with process 1 at Lab1's 5 us unless told otherwise.
     """
 
-    def __init__(self, processor="T12", processdelay=None, status=()):
+    def __init__(self, processor="T12", processdelay=None, status=(), lost_events=()):
         self.par = {}
         self.data = {}
         self.processor = processor
         self.processdelay = {1: 5000} if processdelay is None else processdelay
-        # What `Process_Status` answers, one entry per call, and 0 (stopped) thereafter.
+        # What `Process_Status` and `Get_Lost_Events` answer, one entry per call; then 0.
         self.status = list(status)
+        self.lost_events = list(lost_events)
         self.calls = []
+
+    def Start_Process(self, process):
+        self.calls.append(("Start_Process", process))
+
+    def Get_Lost_Events(self, process):
+        answer = self.lost_events.pop(0) if self.lost_events else 0
+        self.calls.append(("Get_Lost_Events", answer))
+        return answer
 
     def Processor_Type(self):
         return self.processor
@@ -501,6 +510,93 @@ def test_upload_to_a_stopped_process_neither_waits_nor_says_so(caplog):
 
     assert machine.calls[0] == ("Process_Status", 0)
     assert not caplog.records
+
+
+###############################################################################
+#   Running what was uploaded -- roadmap step 6
+###############################################################################
+
+
+def _uploaded(**machine):
+    """An upload to a recording machine, with the calls the upload made forgotten."""
+    log = adwin.upload(*_digital_only(), _MachineRecording(**machine), 1)
+    log.machine.calls.clear()
+    return log
+
+
+def _names(calls):
+    return [name for name, _ in calls]
+
+
+def test_running_starts_before_the_block_and_waits_after_it(monkeypatch):
+    monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
+    log = _uploaded()
+    log.machine.status = [0, 1, 1, 0]  # stopped at the start; running for two polls
+
+    with adwin.running(log) as run:
+        inside = list(log.machine.calls)
+
+    assert _names(inside) == ["Process_Status", "Get_Lost_Events", "Start_Process"]
+    assert _names(log.machine.calls[len(inside) :]) == [
+        "Process_Status",
+        "Process_Status",
+        "Process_Status",
+        "Get_Lost_Events",
+    ]
+    assert run.lost_events == 0 and run.duration >= 0 and run.upload is log
+
+
+def test_a_run_that_lost_events_is_refused_with_its_slip():
+    """At Lab1's 5 us, 2 lost events stretch the run by 10 us."""
+    log = _uploaded(lost_events=[3, 5])
+    with pytest.raises(adwin.LostEvents, match=r"lost 2 events .* 10\.0 us longer"):
+        adwin.run(log)
+
+
+def test_the_refusal_carries_the_record():
+    log = _uploaded(lost_events=[0, 1])
+    with pytest.raises(adwin.LostEvents) as refused:
+        adwin.run(log)
+    assert refused.value.run.lost_events == 1
+    assert refused.value.run.slip == pytest.approx(5e-6)
+
+
+def test_a_counter_that_falls_across_the_run_says_it_restarts():
+    """The counter's semantics are unverified; a fall is the tell, and it is not hidden."""
+    with pytest.raises(RuntimeError, match="evidently restarts with every start"):
+        adwin.run(_uploaded(lost_events=[4, 0]))
+
+
+def test_an_error_inside_the_block_waits_the_run_out_and_goes_on(monkeypatch):
+    """Not stopped: until B11 is fixed, stopping would leave the apparatus driven."""
+    monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
+    log = _uploaded(lost_events=[0, 7])
+    log.machine.status = [0, 1, 0]
+
+    with pytest.raises(TimeoutError, match="camera"):
+        with adwin.running(log):
+            raise TimeoutError("camera")
+
+    names = _names(log.machine.calls)
+    assert names[-2:] == ["Process_Status", "Process_Status"], "waited until stopped"
+    assert (
+        names.count("Get_Lost_Events") == 1
+    ), "the camera's error, not a lost-events one"
+    assert "Stop_Process" not in names
+
+
+def test_starting_a_replay_waits_for_the_previous_run(monkeypatch, caplog):
+    monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
+    log = _uploaded()
+    log.machine.status = [1, 1, 0]
+
+    with caplog.at_level("WARNING", logger="wtlog"):
+        adwin.start(log)
+
+    assert _names(log.machine.calls)[-1] == "Start_Process"
+    assert [r.message for r in caplog.records] == [
+        "Process 1 is still running; waiting for it to stop before starting it again."
+    ]
 
 
 def test_the_log_is_short_to_print():

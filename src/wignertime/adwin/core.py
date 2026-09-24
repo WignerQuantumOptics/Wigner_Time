@@ -3,6 +3,8 @@
 
 import funcy
 import numpy as np
+import contextlib
+import dataclasses
 import importlib.util
 import time
 from typing import NamedTuple
@@ -93,9 +95,11 @@ POLL__PERIOD = 0.1
 """How often a process is asked whether it has stopped, in seconds: the lab's own rate."""
 
 
-def _wait_until_stopped(machine, process):
+def _wait_until_stopped(machine, process, reason=None):
     """
-    Returns once `process` reports that it has stopped, logging once if it had to wait.
+    Returns once `process` reports that it has stopped. With a `reason`, says once that it
+    is waiting and why; without one it waits quietly, as at the end of a run, where
+    waiting is the point.
 
     Waits while the status is anything but 0 (stopped), not merely while it is 1, so that a
     process that has not finished is never taken for stopped. A process still in its
@@ -105,10 +109,12 @@ def _wait_until_stopped(machine, process):
     if machine.Process_Status(process) == 0:
         return
 
-    wtl.warning(
-        "Process {} is still running; waiting for it to stop before uploading, so as not"
-        " to rewrite the arrays it is playing.".format(process)
-    )
+    if reason is not None:
+        wtl.warning(
+            "Process {} is still running; waiting for it to stop before {}.".format(
+                process, reason
+            )
+        )
     while machine.Process_Status(process) != 0:
         time.sleep(POLL__PERIOD)
 
@@ -256,7 +262,9 @@ def upload(
     cycle__last = int(cycles__run.max())
 
     # Only now, so that the conversion overlaps whatever is left of the previous run.
-    _wait_until_stopped(machine, process)
+    _wait_until_stopped(
+        machine, process, "uploading, so as not to rewrite the arrays it is playing"
+    )
 
     # `endCC`, `analogArrayDim` and `digitalArrayDim` in `WignerTimeADwin.bas`: the event
     # loop ends after the last cycle, and the counts say how far into each array to read.
@@ -288,3 +296,138 @@ def upload(
         analogue=output[0],
         digital=output[1],
     )
+
+
+###############################################################################
+#   Running what was uploaded
+###############################################################################
+
+
+class LostEvents(RuntimeError):
+    """
+    A run lost events: ADwin's term for event cycles that came due while the previous one
+    was still executing.
+
+    Nothing is skipped when that happens -- `cyclecount` advances once per *executed*
+    event, so every row is still played, in order, at its cycle -- but the cycles
+    themselves stretch, and the run takes longer than its timeline says by `run.slip`.
+    The shot is not the experiment that was described, so it is refused rather than
+    reported. `run` carries the record.
+    """
+
+    def __init__(self, run):
+        self.run = run
+        super().__init__(
+            "Process {} lost {} events during the run, so its sequence ran {:.1f} us"
+            " longer than described: some cycle had more rows to play than one cycle"
+            " period allows.".format(
+                run.upload.process, run.lost_events, run.slip * 1e6
+            )
+        )
+
+
+@dataclasses.dataclass
+class Run:
+    """
+    The record of one run of an upload, filled in as it goes: `start` sets the first three
+    fields and `wait` the rest.
+
+    `time__start` is wall-clock time (`time.time()`), so the record can be filed with the
+    data the shot produced; `duration` is how long the run took, as seen from here, in
+    seconds; `lost_events` counts ADwin's lost events during it (see `LostEvents`).
+    """
+
+    upload: Upload
+    lost_events__start: int
+    time__start: float
+    lost_events: int | None = None
+    duration: float | None = None
+
+    @property
+    def slip(self):
+        """How much longer the run took than described, in seconds."""
+        return self.lost_events * self.upload.cycle_period
+
+
+def start(upload):
+    """
+    Starts the process an `upload` was made for, and returns its `Run`.
+
+    If the process is still running -- a replay of the same upload, which does not go
+    through `upload` and its wait -- this waits for it first, saying so once. Everything
+    that must be ready before the sequence begins, such as a camera waiting for its
+    trigger, has to be armed before this is called.
+    """
+    machine, process = upload.machine, upload.process
+    _wait_until_stopped(machine, process, "starting it again")
+
+    run = Run(
+        upload=upload,
+        lost_events__start=machine.Get_Lost_Events(process),
+        time__start=time.time(),
+    )
+    machine.Start_Process(process)
+    return run
+
+
+def wait(run):
+    """
+    Waits for a `Run` to end, fills in its record, and returns it.
+
+    Raises `LostEvents` if the run lost any. The count is the difference of ADwin's
+    counter across the run, which is right if the counter accumulates from the moment
+    the program was loaded. UNVERIFIED: if it instead restarts with every start, a fall
+    across the run is refused below as the tell, but a run that happened to lose exactly
+    as many events as the previous one would pass. One run on the rig settles which.
+    """
+    machine, process = run.upload.machine, run.upload.process
+    _wait_until_stopped(machine, process)
+
+    run.duration = time.time() - run.time__start
+    lost_events = machine.Get_Lost_Events(process)
+    run.lost_events = lost_events - run.lost_events__start
+
+    if run.lost_events < 0:
+        raise RuntimeError(
+            "ADwin's lost-events counter for process {} fell from {} to {} across the run,"
+            " so it evidently restarts with every start, and `adwin.core.wait` has to read"
+            " it differently.".format(process, run.lost_events__start, lost_events)
+        )
+    if run.lost_events:
+        raise LostEvents(run)
+
+    return run
+
+
+@contextlib.contextmanager
+def running(upload):
+    """
+    Brackets one run of an `upload`: starts it on entry, and on leaving waits for it to end
+    and checks it (`wait`). The block is where whatever the run triggers is collected:
+
+        camera.arm()                          # before the start
+        with adwin.running(log) as run:
+            frames = camera.capture(4)        # triggered by the timeline
+        # here the run is over, and lost no events
+
+    If the block raises, the run is still waited out before the error goes on, but not
+    checked, and not stopped: until B11 is fixed, stopping a run leaves the apparatus in
+    whatever state the timeline had reached.
+    """
+    run = start(upload)
+    try:
+        yield run
+    except BaseException:
+        _wait_until_stopped(upload.machine, upload.process)
+        raise
+    wait(run)
+
+
+def run(upload):
+    """
+    Runs an `upload` with nothing to collect alongside, and returns its `Run`: the plain
+    case, as for a sequence whose results are read off the machine afterwards.
+    """
+    with running(upload) as record:
+        pass
+    return record

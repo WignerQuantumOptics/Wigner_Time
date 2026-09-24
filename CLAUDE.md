@@ -304,7 +304,18 @@ processor's rate, and never sets it, because an ADbasic program can overwrite it
 processor, Processdelay, period, last cycle and the arrays. The log is a named tuple whose first two
 fields are the machine and the process, so it serves wherever the lab's `(machine, process)` pair
 does. (It was `create` until 2026-09-23; renamed because it neither creates anything nor should be
-confused with `timeline.create`.) The consumer is `resources/ADwin/WignerTimeADwin.bas` (ADbasic,
+confused with `timeline.create`.) `upload` waits for a running process before writing, and says
+so once (A15). The machine accepts writes mid-run, and a parameter scan's next upload used to
+land in the previous shot's finish tail.
+
+Running what was uploaded is `start(log) -> Run` and `wait(run)`, bracketed by the context
+manager `running(log)`, with `run(log)` for a block with nothing in it. `wait` refuses a run that
+lost events (`LostEvents`, with the slip in µs). Whether ADwin's counter restarts with each start
+is UNVERIFIED; a fall across a run raises as the tell. Peripherals such as cameras and the time
+controller are **not** Wigner Time's: they are armed before `running` and serviced inside the
+block, in the lab's code (maintainer, 2026-09-24; L22 there records the longer-term direction of
+one thread per device). An error inside the block waits the run out but does not stop it, because
+until B11 is fixed a stop leaves the apparatus driven. The consumer is `resources/ADwin/WignerTimeADwin.bas` (ADbasic,
 real-time side); its `#define`s and `data_NN` array meanings must stay in sync with `core.upload`. Par, FPar and Data
 numbers are shared by every process on the machine, and processes can start and stop one another;
 `WignerTimeADwinADC.bas` (process 4) is a copy of the sequencer that plays the same arrays.
