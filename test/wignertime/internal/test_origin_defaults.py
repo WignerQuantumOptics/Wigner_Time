@@ -163,6 +163,22 @@ def test_the_bound_is_the_instant_the_rows_will_occupy(tline):
     )[0][1] == pytest.approx(2.0)
 
 
+def test_the_bound_admits_nothing_after_the_instant():
+    """
+    The bound used to be widened by `config.TIME_RESOLUTION`, so a value commanded up to
+    1 us *after* the instant counted as already in effect, and this ramp started from
+    2.0. Nothing else in the suite, the Lab2 fixture included, told the two apart (#94).
+    """
+    base = tl.stack(
+        tl.create(coil__A=1.0, t=0.0, context="setup"),
+        tl.update(coil__A=2.0, t=0.5e-6, origin=0.0),
+    )
+    ramped = tl.ramp(
+        coil__A=5.0, t=0.0, duration=1e-3, origin=[0.0, "variable"], timeline=base
+    )
+    assert ramped[ramped["time"] == 0.0]["value"].iloc[-1] == pytest.approx(1.0)
+
+
 # --- B8 and the diagnostics ---------------------------------------------------
 
 

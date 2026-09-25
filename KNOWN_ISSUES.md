@@ -6,7 +6,7 @@ Standing checklist for code work. Written for an agent picking up the repository
 
 **Priority order.** Silent failures rank above visible ones. A wrong answer that raises is a nuisance; a wrong answer that returns quietly can sit in an experiment for months.
 
-Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 — so verification has *not* renumbered them, and sections A and B are consequently no longer in strict severity order. **Section A is closed. Section B is closed apart from B10**, which raises rather than misleading, and **B11**, which is new on 2026-09-22 and is the only item here whose failure mode is physical rather than numerical. The rest of the open work is in sections C and D, and the D items cluster: D11, D14, D15, D18, D19, D20, D21 are all the ADwin backend, and are best done in one pass (see D21 and #94). Resolved entries are kept, with an account of what replaced each, because the measurements are the argument for the design that replaced it.
+Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 — so verification has *not* renumbered them, and sections A and B are consequently no longer in strict severity order. **Section A is closed** (A15, found 2026-09-23, was fixed the next day). **Section B is closed apart from B10**, which raises rather than misleading, and **B11**, which is new on 2026-09-22 and is the only item here whose failure mode is physical rather than numerical. The rest of the open work is in sections C and D, and the D items cluster: D11, D14, D15, D18, D19, D20, D21 are all the ADwin backend, and are being done in one pass. The roadmap is at #94, and the work is on the branch `issue#94`, where D15 and D20 are fixed and D19 is guarded on the Python side (2026-09-23). Resolved entries are kept, with an account of what replaced each, because the measurements are the argument for the design that replaced it.
 
 **Origins have their own reference.** `docs/origin-resolution.md` maps every branch of the origin mechanism as implemented, in four layers, with the defect in each. Read it before touching `internal/origin.py` — the items below give the defects, that document gives the shape.
 
@@ -15,6 +15,8 @@ Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 �
 ## How work is tracked
 
 Every item here has a GitHub issue, and the two carry different things. **This file holds the diagnosis, the measurement and the reasoning; the issue holds the state.** Annotate both — an issue with neither milestone nor label is invisible to every view that matters.
+
+**An issue is closed when it is resolved on the main development branch**, not when that branch reaches `main`. The branch is currently `issue#94`, which will eventually be merged into `claude_code` (maintainer, 2026-09-23). Closing as work lands is also what makes a parent issue's sub-issue count show progress. The roadmap at #94 is tracked that way.
 
 **Milestones say _when_.** Their descriptions on GitHub are authoritative; reproduced here because they are otherwise recorded nowhere in the repository.
 
@@ -33,7 +35,7 @@ Every item here has a GitHub issue, and the two carry different things. **This f
 | `Feature` | A request, idea, or new functionality |
 | `Decision` | An open API or design decision that must be settled before dependent work can proceed |
 
-`Decision` is the tracker's counterpart of §C, and carries "flag and ask, never settle unilaterally" onto GitHub. Set it on anything whose entry here offers two options rather than a fix. Open `Decision` issues as of 2026-09-23: **#85, #97, #133, #143, #144, #145** (#53 was settled and closed on 2026-09-23).
+`Decision` is the tracker's counterpart of §C, and carries "flag and ask, never settle unilaterally" onto GitHub. Set it on anything whose entry here offers two options rather than a fix. Open `Decision` issues as of 2026-09-23: **#85, #97, #133, #143, #144, #145** (#53 was settled and closed on 2026-09-23). #85's direction was settled on 2026-09-25 (C7); it stays a `Decision` until its name and its two open details are.
 
 **Labels say _what kind_.** `silent` (a wrong answer with no error — outranks visible failures, and puts the item in `10 — paper` by default); `paper-affecting` (falsifies a claim in `main.tex`, so §G applies and the *code* changes); `consistency` (causes mental friction); `potentially surprising` (not wrong as such, but likely to surprise a user); and the area tags `ux`, `performance`, `docs`, `adwin`, `origin`.
 
@@ -45,11 +47,13 @@ Every item here has a GitHub issue, and the two carry different things. **This f
 
 - ~~the manuscript in `docs/paper/` has **local changes since the arXiv import** that have not been carried back to Overleaf.~~ **Done 2026-09-23**: carried across by the maintainer, and the committed file is canonical again. The inventory, `docs/paper/CHANGES-since-arXiv.md`, was deleted with it;
 - ~~**`sec:stacking` calls `trigger_camera(0.0,1e-3)`** without the `context` its definition requires.~~ **Fixed 2026-09-23**, with two more errors found by running the listing: `init` called `anchor()` although `t` is required, and never set the coils that `MOT` then ramps, so the ramp raised for lack of a start. The call now names `"imaging"`, `init` sets both coils to zero and anchors at `0.0`, and the listing runs as printed. The listing was unchanged since the Overleaf import; the coil error became an error on 2026-09-18, when a ramp from nothing stopped starting at zero silently. The rule itself is stated in `sec:functions` (“What a ramp refuses”);
+- **The opening listing of `sec:definitions` (main.tex:452–487) does not run** (found 2026-09-25). `shutter_MOT= 0` lacks its comma; `detuned_growth` ramps `lockbox_MOT__MHz`, which is never set, so the ramp raises (“What a ramp refuses”); and `final`, a table, fails as a later constituent of `stack` with `'DataFrame' object is not callable` (see D17's correction). **Folded into #85 (C7)** rather than fixed here: its `final = initial.copy()` cannot survive that change anyway, since `initial` becomes a stage. The listing is otherwise already written as C7 would have it — `stack(initial, MOT, detuned_growth, final)`, four peers — and what `final` means, one state in two contexts, is a function of the context: `default_state` in miniature, which `sec:discussion` argues for;
 - **In the same `init`, the `create` rows got no context.** `create` has already produced a timeline when `stack` receives it, so `stack`'s `context="initialization"` reached only the anchor. **Listing fixed 2026-09-23**: the context is now given to `create`, and the anchor inherits it. **The behavior of `stack` is unchanged and still open**, as C6 (#145): with a reserved context it silently changes the hardware sequence;
 - ~~**The initial/final-state listing in `sec:functions` did not run.**~~ **Fixed 2026-09-23.** It read `final = init` (undefined; `initial` was meant), and even as `final = initial` the next line would have relabelled `initial` too, since both names hold one table: in-place modification, which the paper argues against. Now `final = initial.copy()`. Its `import timeline as tl` is also corrected to `from wignertime import timeline as tl`, as in the paper's other listings;
 - ~~**`sec:interweaving` pointed to `sec:demonstration` for further examples**, and that listing has none.~~ **Fixed 2026-09-23**: the section now shows `trigger_camera` placed at `origin="molasses"` into the complete `timeline__demo`, the case `test_demo.py` checks (#53), and points to `sec:parameter_scan` only. Its claims were checked against the real `timeline__demo`: the exposure runs 2.0–3.0 ms after molasses, inside magnetic trapping (0.58–3.63 ms), and no existing row moves;
 - **#142 is very likely a fifth**, though it is not labelled: it proposes replacing `origin=None` with a visible default, and `sec:functions` shows `origin=None` in the signatures of `update`, `ramp` and `anchor`. Flagged on the issue rather than labelled unilaterally, since it is the maintainer's own;
 - ~~`sec:discussion` carries a **commented-out paragraph** describing bit-flip-timed ramps, per Kowalski *et al.*, as future work.~~ **Done 2026-09-23.** Revived in the present tense and moved to `sec:adwin`, after the event-loop paragraph. That is where the conversion is described, and it leaves the Discussion's list of *remaining* gaps, where a done item does not belong. The paragraph states what the package uploads. `drop_repeats` itself has **not yet run on the rig** (the Lab2 fixture's archived tuples predate it), so the claim rests on the code, not on an observation of the hardware. Distinct from #87, which is about doing the expansion that way in `expand`.
+- **`sec:parameter_scan` calls `adwin.create` pure** (main.tex:1446): "it constructs a backend object without side effects". It has them: it writes `Par_1..3` and the data arrays on the machine, and with no `machine` it opens a connection to device 1. The listing works regardless, because each upload finishes before the start that follows it. Found 2026-09-23. **Settled the same day by the maintainer's decision on roadmap step 5 (#94), and the manuscript changed with the code, at his request.** `create` is renamed `upload`: the old name suggested building something and could be confused with `timeline.create`, while the paper had always called this step an upload (main.tex:518, 850, 882). It requires the machine and the process, and returns a record of the upload whose first two fields are the machine and the process. main.tex:818 now describes `upload`. `sec:demonstration` obtains the machine with `link_device`, uploads to process 1 and starts it. At :1446 the scan passes the record, which names the machine and the process, straight to the camera routine; the next paragraph's "impure hardware execution" now agrees with it. Both listings were run against a stand-in machine and work as printed.
 
 ---
 
@@ -465,6 +469,20 @@ Note also that `device.new` wraps its frame construction in a bare `except:` whi
 
 Tracked as [#141](https://github.com/WignerQuantumOptics/Wigner_Time/issues/141).
 
+### A15 — an upload can land under a run that is still playing **[new, found 2026-09-23; this is #151]** — **FIXED 2026-09-24 on `issue#94` (#151, closed)**
+
+**Fixed as proposed** (maintainer, 2026-09-24): `upload` converts first, then waits until its process reports it has stopped, and only then writes. The conversion therefore overlaps whatever is left of the previous run. When it has to wait it says so once through `wtlog`, at WARNING, the level the package's messages reach a notebook at. It waits while the status is anything but 0, so a process still in its `finish:` section is not taken for stopped. Neither the lab's scan nor the paper's listing had to change. Pinned by `test_upload_waits_for_a_running_process_before_writing`, which checks that no write precedes the stop, and `test_upload_to_a_stopped_process_neither_waits_nor_says_so`. **The limit is closed by step 9 (2026-09-25):** another process playing the same arrays, such as the ADC variant, is now seen through the ownership Par (`Par_17`) and waited for too. **Not verified on hardware.**
+
+The entry as found:
+
+`adwin.core.upload` (formerly `create`) writes `Par_1..3` and the data arrays without asking whether the process is running. The machine accepts the writes mid-run, and the running sequence reads them.
+
+The lab's parameter scan (`control/time_of_flight.py::parameter_scan_with_imaging`) and the paper's `sec:parameter_scan` listing both upload shot N+1 as soon as the camera routine for shot N returns. `take_images_ueye` returns once its frames are captured and does not wait for its own run to end. It waits for the *previous* run at its start, and by then the next upload has already been written. The lab's `finish` holds an anchor 1 s after the imaging before its final ramps and default state. So run N has a tail of more than a second, and whenever building and converting timeline N+1 takes less, the upload rewrites run N's arrays under it.
+
+From `WignerTimeADwin.bas`: `endCC` changes, and run N's index now points into timeline N+1's rows. If the row there lies at an earlier cycle than the current count, the index never moves again, and the rest of run N is not played: its final ramps, its default state and its finish rows. If it lies later, run N plays timeline N+1's rows at run N's cycles. Nothing reports either. `createLiStore` uploads once and replays, so it is unaffected.
+
+**Not observed.** This is from reading the lab's code and the backend; whether it bites depends on how long the conversion takes against the tail. Fix direction (roadmap step 6 at #94, for the maintainer): `upload` waits for its process to stop before writing. It is the only path to the machine, so that covers the lab's scans and the paper's listing without changing either.
+
 ---
 
 ## B. Correctness
@@ -706,7 +724,19 @@ Note that `funcy.compose` cannot do this on its own: it passes one value between
 - its §2.2 (the scan reads past the filled region, producing a spurious `p2_dac` built from a previous run's data) **was fixed by `790528e`**, which bounded the outer test as well as the `until`. The review was reading a pre-`790528e` copy. Its proposed remedy — Python writing a terminator past the filled region — is therefore unnecessary. What remains is an out-of-bounds *read* inside the `until` if ADbasic does not short-circuit `or`; that read stays inside the allocation and its result is discarded.
 - its §2.4 (one digital module hardcoded) is **D18** / [#133](https://github.com/WignerQuantumOptics/Wigner_Time/issues/133), reached independently. The agreement is worth recording: two readings of the same file, without contact, produced the same finding down to the `data_21` observation.
 
-### B11 — an interrupted run does not restore the default state **[new, found 2026-09-22]**
+### B11 — an interrupted run does not restore the default state **[new, found 2026-09-22; this is #148]** — **FIXED 2026-09-25 on `issue#94`; open until verified on the rig**
+
+**Fixed as recommended** (option 1, roadmap step 8 at #94; the maintainer's go-ahead 2026-09-25), in both `WignerTimeADwin.bas` and `WignerTimeADwinADC.bas`.
+- **The final state has arrays of its own.** They are the playback numbers plus 20, without the cycle: analogue module, channel and digits in `data_31..33`, digital channel and value in `data_42..43`. The counts are in `Par_15` and `Par_16`, and each array holds `finishMaxArrayDim = 256` rows.
+- **`finish:` plays them unconditionally, from index 1,** however the run ended, and no longer calls `processUpdates(2147483647)`.
+- **`upload` moves the final state out of the playback arrays.** `convert`'s output is unchanged, and the Lab2 checksums with it; `upload` splits off the rows at the finish sentinel and writes them without their cycle. On the machine the sentinel therefore does no structural work any more, which was D19's structural half. In Python it still marks the final state within the converted output.
+- **`upload` checks every array against its capacity** (`adwin.ROWS__MAX`, which must match the `.bas` defines), and refuses before writing anything. Nothing checked even the playback arrays before.
+- **Emulated line for line.** A run stopped at cycle 150 played `-2, 100` and nothing more under the old `finish:`; under the new one it plays the final state after them. A run refused by the period check (D14/step 7) now also ends in the final state rather than the initial one.
+- **Memory:** the new arrays take 5 × 256 longs, 5 KB, beside the 160 MB of `data_10..13`.
+
+**Not verified on hardware.** Three things are believed but unchecked: that `finish:` runs when the PC stops the process, which is the premise of this entry; that a `for` loop in `finish:` is fine there; and that `Stop_Process` returns only after `finish:` has completed. Recompile both programs and load them, then stop a run midway and look at the outputs.
+
+The entry as found:
 
 `finish:` calls `processUpdates(2147483647)`, and the guard that gates the dispatch tests only the row at the *current* index:
 
@@ -718,6 +748,8 @@ if ( (analogIdx <= analogArrayDim) and (data_10[analogIdx] = cc) ) then
 - **`Stop_Process` during a run.** `analogIdx` is somewhere in the middle of the array, `data_10[analogIdx]` holds an ordinary cycle count, the equality fails, and **the finish rows never fire.** The process stops wherever it was, leaving coils energised, shutters open and AOMs driven — whatever the timeline happened to be commanding at that instant.
 
 The guarantee is therefore available in exactly the case where it is not needed and absent in the case it exists for. The lab's `finish()` docstring states the opposite in as many words — *"the default state will be actuated even when the process is interrupted"* — so this is a documented promise the backend does not keep, and `CONTEXTS__SPECIAL`'s `ADwin_Finish` is the frontend half of the same promise.
+
+**The paper makes the promise too**, twice: `sec:context` (main.tex:682) says the reserved contexts mark rows actuated "on termination including interruption – so that the apparatus is left in a defined state however the run ends", and the appendix listing of `finish` (main.tex:1136) reproduces the lab's docstring. So this is `paper-affecting`, and by §G the backend changes, not the text (noted 2026-09-23, #94).
 
 **This is the item to settle before the package is public**, and not for tidiness: aborting a run is the ordinary response to something going wrong, which is exactly when an apparatus should not be left driven. It is the one entry in this document whose failure mode is physical rather than numerical.
 
@@ -952,6 +984,53 @@ Options:
 2. **Make `create` require a context**, so that no row is ever context-less and the case cannot arise. Stronger, and consistent with the paper: every `create` it shows passes one (`main.tex:452`, and each row of the table at `:550`–`:557`). The lab is not affected: its one direct `create` (`control/camera_control.py`) already passes `context="ADwin_LowInit"`. About 16 `create` calls in the suite would need one.
 3. **Document it** in `sec:stacking`. Listed for completeness; by §G, a rule that needs this qualification is a signal to change the code.
 
+**Two findings of 2026-09-25, made while exploring #85, and how that settles the item.**
+
+- **A forwarded `context` also *overrides* one the constituent states itself.** `util.function__lambda`'s closure merges the forwarded keywords last, over the ones the call was made with. Measured:
+
+  ```python
+  tl.stack(base, tl.update(a_b=1, context="ADwin_Finish"), tl.anchor(1.0), context="finalRamps")
+  # a_b lands in finalRamps
+  ```
+
+  With a reserved context that is the same change of hardware sequence as the skip above, in the other direction. Neither the demo nor the lab combines the two, so nothing is exposed today. It matters for #85: once `init` is a constituent, `stack(init(), ..., context="experiment")` replaces `ADwin_LowInit` in the same way (measured on the C7 prototype). Resolving the skip without this would only mirror it. **Settled with #85 (C7, item 4): a keyword forwarded by `stack` is a default, not an override** — the rule `t` and `context` already follow in `create`'s input (C5).
+- **The skip itself disappears with #85**, because nothing but stages enters a `stack`. **Option 2 then follows without being imposed**: the first rows of a timeline have nothing to inherit a context from, so they must name one. `update` onto an empty table already refuses — but with the wrong reason: `Nothing to resolve against: the timeline is empty ... give a number instead -- origin=0.0`, and following that advice gives the same error, since what is missing is the context (`inherit.context` calls `origin.previous` on the empty table). Under #85 that is the first error every user who forgets a context meets, so the message has to name the context.
+
+Depends on #85 and, through it, on B10 (#136).
+
+### C7 — composition takes stages only, and one function turns a stage into a table **[#85; direction settled 2026-09-25; the name and two details open]**
+
+**The question, as Thomas meant it** (maintainer, reopening #85 on 2026-09-25): not whether to rename `create`, but whether `stack` and `cascade` should compose *stages* only — functions of a timeline — and never a timeline. `create` then has nothing left to set it apart from `update`, and a separate step turns a composition into a table. Thomas's own words on #145: "Just always `stack` functions and then resolve them when needed?"
+
+**Settled by the maintainer, 2026-09-25:**
+
+1. **All the way, not only `stack` and `cascade`.** Stages and the core functions stop taking `timeline=` as well. Stopping at `stack`/`cascade` would break the stage convention regardless — `MOT(timeline=t)` hands a table to its own `stack` — and would keep `update(timeline=...)` as a second way to the same place.
+2. **`create` is deleted, not redefined.** On an empty table `update` already does what `create` does: the origin falls back to zero and the context must be stated. Redefining `create` as `update(origin=0.0)` was the alternative, and is a silent hazard: written after an anchor at 5.0, such a row lands at 0.0, before everything it was written to follow — A4's failure, by construction.
+3. **The fallback warning goes** (A4's terminal `0.0`). Every experiment now starts from an empty table, so it would fire once per experiment and tell nobody anything.
+4. **A keyword forwarded by `stack` is a default, not an override.** Without this the change turns C6 into its mirror image; see C6.
+5. **The bridge is a plain function**, `f(stage, onto=None)`: the stage applied to `onto`, or to an empty table. Not a marker placed inside `stack`, which would make `stack` return a table or a function depending on its arguments again — Thomas's complaint on #145. `resolve` is ruled out as its name, because origin resolution already owns the word (`docs/origin-resolution.md`, `fig:origin`).
+
+**Open:**
+
+- **the name.** `to_timeline` (the issue's title) and `seed`, after crystallization (maintainer, 2026-09-25), are proposed;
+- **whether `expand` stays usable inside a `stack`.** It has the dual form today, so `expand(time_resolution=...)` can sit in one. Unlike `update`, `ramp` and `anchor`, which add rows, it transforms the whole timeline it receives, and that is the trap recorded in CLAUDE.md: mid-`stack` it expands every ramp so far and drops `function`, so the `expand` inside `convert` becomes a no-op. No stage in the demo, the lab or its notebooks uses it that way — three tests do — and `convert` composes it as a plain table function. The recommendation is that `expand` take a table only, like `convert` and the display, which removes the trap rather than documenting it;
+- **what time a row in a special context should carry.** Raised by the maintainer against item 3: `ADwin_LowInit` has to be given a fictional negative time, which makes it awkward to program. Being explored.
+
+**Prerequisite: B10 (#136).** `init()` becomes a stack, and a `context` forwarded into a nested stack raises today.
+
+**Measured on a prototype built over the current package** (scratchpad, nothing committed): the bridge as `f(onto or an empty table)`, and `create` replaced by `update`.
+
+- The demo's `cascade` gives `timeline__demo` exactly, all 99 rows.
+- The lab's `prepare_sample`, rewritten as a list of stages cut at `stage` instead of threading `timeline=` by hand (L6 there), gives today's table in all 20 cases: 5 stages × finish on/off × dispenser on/off.
+- `imaging_absorption` interwoven gives the same table onto a finished timeline and as a later stage of the same stack.
+- C6's own example puts every row in `ADwin_LowInit`.
+
+**What it removes from the manuscript** are the sentences that exist to qualify the present behaviour: `main.tex:727` (`MOT` takes a timeline and passes it to its first constituent), `:749` (why `init`'s stack evaluates immediately), `:773` (what `cascade` returns depends on its first stage) and `:864` (`create` and `update` distinguished only by how they compose). That is §G's signal, read the right way round. `default_state` loses `f=tl.create`/`f=tl.update`, which brings `:892` ("differing only in an argument, `MOT_ON`") closer to true. 22 stage signatures lose `timeline=None`: 8 in the demo, 14 in the lab.
+
+**Blast radius.** Package: `timeline.py`, `util.ensure_timeline`'s messages, the demo. Tests: 12 files, about 56 calls handing a table to a core function and 31 stacks led by a table, `create` or `init`. Lab: `prepare_sample`, 7 stages in `diagnostics.py`, a line each in `time_of_flight.py` and `camera_control.py`, 14 interweaving calls in `diagnosticsStageByStage.ipynb`. Untouched: the ADwin backend, and the Lab2 fixture, which is a frozen table. Manuscript: nearly every listing, which is why #85 moved to `10 — paper` on 2026-09-25; best done in one pass with D7 (#121), which rewrites the same listings.
+
+**Folded in:** the non-running opening listing of `sec:definitions` (see the paper items at the top), and D17's correction — under C7 a table is refused in any position of a `stack`, with a message naming the bridge.
+
 ---
 
 ## D. Structural
@@ -1172,7 +1251,20 @@ This is a breaking change to `SPECIFICATIONS__DEFAULT` for anyone passing their 
 
 Tracked as [#127](https://github.com/WignerQuantumOptics/Wigner_Time/issues/127), and as L18 in `quantum_optics_lab`.
 
-### D14 — nothing cross-checks ADbasic's `Initial_Processdelay` against the cycle period **[new, found 2026-09-12]**
+### D14 — nothing cross-checks ADbasic's `Initial_Processdelay` against the cycle period **[new, found 2026-09-12; this is #128]** — **both halves done on `issue#94` (2026-09-23, 2026-09-25); open until verified on the rig**
+
+Sharpened by D21, and half closed by the roadmap at #94: `upload` now reads the period off the machine, so Python can no longer disagree with the loaded program's header. What remains is the case D21 names, a program that sets its own `Processdelay` once started. That is the sequencer's check at the end of `init:` (step 7), a contract change still to come.
+
+**Step 7 done, 2026-09-25**, in both `WignerTimeADwin.bas` and `WignerTimeADwinADC.bas`, so step 10 no longer has to carry it. The contract:
+- **What `upload` writes.** `Par_9` (`processdelayExpected`) gets the Processdelay the arrays were built for, and `Par_14` (`processdelayReported`) is cleared to 0. Both numbers were free in all three programs; the console rewrite uses 74–78.
+- **What the sequencer does.** At the end of `init:`, after anything the program may have set for itself, it writes its own `Processdelay` into `Par_14`. If that differs from `Par_9`, it sets `endCC = -1`, so the first event ends the run. The line-for-line emulation shows that only the lowinit and init rows are then played: the initial state, and nothing after it. The finish rows were not played either, because of B11; since step 8 (2026-09-25) they are, so a refused run ends in the final state. Nothing is added to `event:`.
+- **What `wait` checks.** It reads `Par_14` after the run. If it is 0, the program predates the check and is refused, because nothing vouches for its run. If it differs from the upload's value, `wait` raises `PeriodRefused` with both periods in µs. The `Run` record keeps `processdelay__reported`.
+
+**Not verified on hardware**, and needs both programs recompiled and loaded:
+- That ADbasic lets a process read its own `Processdelay` as a variable is believed but UNVERIFIED; the compiler will say.
+- **Until the new binaries are loaded, every run through `wait`, `running` or `run` raises "older than the period check".** This is deliberate, and it is the first thing the rig will show. A run started with a bare `Start_Process` is unaffected.
+
+The entry as found:
 
 `resources/ADwin/WignerTimeADwin.bas` carries `Initial_Processdelay = 5000` in its header; `adwin/internal.py` carries `cycle_period = 5e-6` seconds (renamed from `cycle_period__normal__us` by D13). These must agree, and nothing checks that they do: they live in different files, in different languages, in different units, and the Python side never reads the `.bas`.
 
@@ -1180,7 +1272,13 @@ They agree today, so this is latent. But it is exactly the pair that drifts when
 
 Worth noting what makes this more than pedantry: the same reasoning is why the maintainer could dismiss a suspected 5× cycle-period discrepancy immediately — a timeline that took five times as long as expected would be noticed at once. That argument protects against a *change* in the ratio, not against the two values having been inconsistent from the start, and only while someone is watching the clock.
 
-### D15 — `adwin.core.create` silently ignores two of its own arguments **[new, found 2026-09-11]**
+### D15 — `adwin.core.create` silently ignores two of its own arguments **[new, found 2026-09-11]** — **FIXED 2026-09-23 on `issue#94` (#129, closed)**
+
+**Fixed** by making the cycle period an argument rather than an entry of the specification (roadmap step 2 at #94). `convert(timeline, connections, devices, cycle_period, ...)` takes it with no default, uses it both to sample ramps (unless `time_resolution` says otherwise) and to compute cycles, and `create` passes on `cycle_period`, `machine_specifications` and `time_resolution`, printing the run length with the same period it uploads. A specification that still carries `cycle_period` is refused by `internal.specifications`: accepting it with the period unused would be this defect again, one layer down. `create` alone still assumes a period when given none, `core.CYCLE_PERIOD__ASSUMED` (5 µs), so that the paper's `adwin.create(timeline, connections, devices)` keeps running; that goes when `create` reads the period off the machine (roadmap step 5, D21). Pinned by `test_create_uploads_at_the_period_it_is_given` and `test_create_converts_against_the_specification_it_is_given`. The unconditional print is untouched, and belongs with step 5, which changes what `create` returns.
+
+**Completed by roadmap step 5, 2026-09-23.** `create` is now `upload(timeline, connections, devices, machine, process, ...)`. The machine and the process are required, and the period is read off the machine on every call, never given, so `CYCLE_PERIOD__ASSUMED` is gone and no argument reaches the machine that could disagree with it. The print went too: `upload` returns an `Upload` log carrying the last cycle and `time__last`. The pins above were renamed `test_upload_converts_at_the_period_the_machine_reports` and `test_upload_converts_against_the_specification_it_is_given`.
+
+The entry as found:
 
 ```python
 def create(timeline, connections, devices, machine=None,
@@ -1220,6 +1318,8 @@ Two consequences beyond the bug:
 - **`noop` is no longer `funcy.identity`.** It has to carry the tag, and tagging a shared library function would mark it for every other user of `funcy`. It is now `lambda timeline, **kwargs: timeline`, which also means it survives a `stack` that forwards keywords — `identity` raised `TypeError: identity() got an unexpected keyword argument 'context'`, recorded as L5 in `quantum_optics_lab`.
 - A frame passed as a *constituent* rather than as the leading argument is now rejected with a message, instead of `'DataFrame' object is not callable` from inside the composition.
 
+**Correction, 2026-09-25: the second consequence does not hold.** `_ensure_stackable` lets a frame through in any position, so a frame after the first still fails inside the composition with `'DataFrame' object is not callable`, naming nothing. The manuscript's opening listing runs into exactly this (`final`, main.tex:481). Not fixed here, because #85 settles it (C7): once a `stack` takes stages only, a table is refused in any position, with a message naming the bridge. #131 is left closed, since what it was filed for — the uncalled stage — is fixed.
+
 
 ### D18 — the backend hardcodes one digital module, the frontend models a list **[new, found 2026-09-17]**
 
@@ -1252,7 +1352,7 @@ Two ways to settle it, and they are opposites:
 
 **Not verified on hardware** (§E): what ADwin does with a write to an undeclared `data_21` is untested here.
 
-### D19 — cycle-count sentinels share a namespace with the time axis, and `cyclecount` wraps into it **[new, found 2026-09-22]**
+### D19 — cycle-count sentinels share a namespace with the time axis, and `cyclecount` wraps into it **[new, found 2026-09-22; this is #146]** — **GUARDED 2026-09-23 on `issue#94` (#146, closed; the structural half rides on B11, #148)**
 
 `-2` (lowinit), `-1` (init) and `2^31-1` (finish) are control-flow markers carried in the same column as ordinary cycle counts, and `cyclecount` is a `long` incremented once per executed event. Two consequences, of different weight:
 
@@ -1263,13 +1363,33 @@ Beyond any real sequence today. Worth a guard on the Python side, where `adwin.c
 
 Structural rather than urgent — but B11's recommended fix removes the `2^31-1` sentinel, which is the half of this that does structural work.
 
-### D20 — nothing enforces the sorted-ascending invariant the backend depends on **[new, found 2026-09-22]**
+**A third consequence, found 2026-09-23 and worse than either: a row before the start silences its whole array.** The arrays are sorted by cycle, so an ordinary row at cycle −3 or earlier lands *ahead of* the lowinit rows. `processUpdates` plays only the row its index points at, and only when the count equals that row's cycle. The count starts at −2 and never reaches −3, so the index never moves, and **no row of that array is played at all**: not the initial state, not the run, not the final state. Nothing raises. Reachable through the public API with nothing more exotic than `update(..., t=-1e-3, origin=0.0)`. Established by a line-for-line emulation of `WignerTimeADwin.bas` driven by `adwin.core.convert`: with the early row at +1 ms all seven rows of the digital array fire, and at −1 ms none does. **Not verified on hardware** (§E).
+
+**Guarded on the Python side 2026-09-23, on `issue#94`** (roadmap step 3 at #94). `adwin.validate.cycles` runs first in `validate.all` and refuses any row outside the special contexts that falls outside `adwin.CYCLES__RUN = (0, 2**31 - 2)`. That covers all three consequences: collision with −1 and −2, the silenced array, and the wrap (the last playable row is 2^31 − 2, since the counter is incremented once past it). `add_cycle` now computes the column in 64 bits and `validate.types` narrows it only after the check; before, the cast to `int32` came first and would have wrapped a too-late row into a plausible-looking one. A row less than half a cycle before zero rounds to zero and is accepted. The namespace itself is unchanged, so the structural half remains, and remains B11's to relieve.
+
+### D20 — nothing enforces the sorted-ascending invariant the backend depends on **[new, found 2026-09-22; this is #147]** — **FIXED 2026-09-23 on `issue#94` (#147, closed)**
+
+**Fixed**, and the mechanism below corrected. `adwin.validate.ascending` checks each converted array just before `convert` returns it, and names the first row out of order, counting from 1 as the controller does. The arrays are checked, rather than the timeline, because they are the contract with the machine. The order is established by the sort in `internal.to_tuples`, and that sort, not anything upstream, is what a future change could disturb. So the check guards the only stage that can break the order.
+
+**Correction, from emulating `processUpdates` (2026-09-23): a row out of order is played *late*, not skipped.** The inner `do … until (data[idx] > cc)` keeps playing rows until it meets one *later* than the current cycle, so a row at 200 placed after one at 300 is played at 300, together with it. The index is always left on a row later than the current count, and the count advances by one, so no ordinary row is ever passed over. The one way to stall an array is for its *first* row to lie below −2, which is D19's third consequence and is guarded there. The timing error remains silent, so the check stands.
+
+The entry as found:
 
 `processUpdates` advances `analogIdx` and `digitalIdx` monotonically and never rewinds, so **any row out of cycle order is silently skipped**. The invariant is real and load-bearing; it holds today by construction in `adwin/internal.py`, and is asserted nowhere. Nothing would notice if a future change to `validate.all`, to `drop_repeats`, or to the concatenation in `core.create` disturbed it.
 
 One line in `adwin.validate`, over a column that is already materialised. That pass is also the natural home for the other static checks the review proposes (its §3.1): row counts against `Par_4`/`Par_5`, no ordinary row colliding with a sentinel, and the maximum number of rows sharing a single cycle against the per-cycle budget — the last being the event-overrun check done statically, before the hardware, rather than discovered after.
 
-### D21 — the cycle period is stated in two places and read from neither **[sharpens D14, 2026-09-22]**
+### D21 — the cycle period is stated in two places and read from neither **[sharpens D14, 2026-09-22]** — **direction settled 2026-09-23; Python half in progress on `issue#94`**
+
+**Settled with the maintainer, 2026-09-23 (the roadmap is at #94):**
+
+- **The period is read off the machine on every `create`**, not checked once. It is `Get_Processdelay(process) × tick(Processor_Type())`, and the tick table is the one hardware constant Python keeps. **Both labs run T12 processors, at 1 ns per tick** (maintainer). So the committed `Initial_Processdelay = 5000` is 5 µs, Lab1's rate, and Lab2 runs at 2 µs. The T11 figure below came from a review that did not know the hardware and is moot. Any other processor type is to be refused by name.
+- **Read, never set.** An ADbasic program can overwrite its own `Processdelay`, so a value set from Python is not a value the machine is bound to keep (maintainer). For the same reason a read before `Start_Process` shows the value *before* any the program sets for itself when it starts. So the guarantee is completed on the machine: `create` leaves the period it built for in a Par, and the sequencer compares it with its own `Processdelay` at the end of `init:` and refuses to play on a mismatch (roadmap step 7, a contract change).
+- **`convert` does not read it.** It must run without a machine (the Lab2 fixture, display, archiving), so it takes the period as an argument, with no default. Done on `issue#94` with D15.
+- **Done on `issue#94`, 2026-09-23: roadmap steps 4 and 5.** `adwin.PROCESSDELAY__RATE = {"T12": 1e9}` is the table, kept as a rate so that `5000 / 1e9` is exactly the float `5e-6`, which keeps the Lab2 checksums bit-identical. `core.read_cycle_period(machine, process)` reads the period, and refuses an unknown processor, `"T12.1"` included, or a process reporting no `Processdelay`. `core.upload`, renamed from `create`, requires the machine and the process and converts at the period it reads. The Par that step 7 will compare against is not written yet: it gets its number together with the ADbasic code that reads it, rather than as half of a contract.
+- **There were more copies than two.** Besides the header and the specification: `config.TIME_RESOLUTION` (1 µs, the ramp functions' default), the Lab2 fixture's 2 µs, and `#Define ClockInterval 5 ' in us` in `WignerTimeADwinADC.bas`, which turns seconds into cycles in ADbasic arithmetic (roadmap step 10). The specification's copy is gone. `TIME_RESOLUTION` no longer reaches construction: `origin.py` used it to widen the time bound on value lookups, which counted rows up to 1 µs *after* the instant as already in effect. The tolerance was removed, since setting it to zero changed no result in the suite, the Lab2 checksums included, and `test_the_bound_admits_nothing_after_the_instant` now tells the two behaviours apart. It remains only as the sampling default of `expand` outside conversion.
+
+The entry as found:
 
 D14 recorded that `Initial_Processdelay = 5000` in the `.bas` header and `cycle_period = 5e-6` in `adwin/internal.py` must agree, and that nothing checks it. Verified more precisely now, and the situation is worse than "unchecked":
 
@@ -1295,6 +1415,18 @@ Direction, from the review and **not settled**: ship the console inside the dist
 **One hazard the review introduces rather than describes, and it should not be missed.** Its console rewrite raises process 10 from `Priority = Low` to `Priority = High` (1 ms timer, ~3% duty), deliberately, so that the bounded sweep cannot be starved. But `resources/ADwin/WignerTimeADwin.bas` runs the sequence at `Priority = High` too. Under the old arrangement a running console could never preempt a sequence — the low-priority process simply got no time — so the "stop process 10 before running" rule was hygiene. Under the new one the two contend, and leaving the console running steals cycles from a microsecond-precision timeline. The rule becomes load-bearing, and **nothing enforces it**: the discipline lives in a sentence in a comment, addressed to students.
 
 Cheap to close from Python, and it belongs there rather than in ADbasic: `adwin.core.create` can call `Process_Status(10)` and refuse to start a sequence while the console process is running. That is one call, on a path that already talks to the machine, and it converts a convention into a guarantee. It should land with the console, not after it.
+
+**Superseded 2026-09-23: this has to be closed on the machine, not in `create`.** `create` uploads. It does not start anything: the lab calls `Start_Process` itself (`control/time_of_flight.py`, `control/camera_control.py`, the notebooks), so a check in `create` guards the upload and not the run. ADwin processes share Pars and Data arrays and can start and stop one another (maintainer). The roadmap at #94 therefore has the sequencer's `lowinit:` stop process 10, and a shared ownership Par make the console skip its writes while a run is on (step 9). That costs nothing in the event loop, and nothing a notebook does can bypass it. It still lands before, or with, the console (step 11).
+
+**Machine side done 2026-09-25, on `issue#94` (step 9), in both sequencer programs.**
+- **`lowinit:` calls `Stop_Process(10)`**, so starting a sequence stops the manual console.
+- **The arrays have an owner.** `lowinit:` sets `sequenceOwner` (`Par_17`) to its own process number, and `finish:` clears it to 0 as its very last step, after the final state.
+- **Python waits on the owner.** `upload` and `start` read `Par_17`, and wait on the process it names if that is another one. Whether that process is actually running is asked of the process itself, so a value left behind cannot block anything.
+- **Left for step 11:** the console's own half, skipping its writes while `Par_17` is nonzero, belongs to the console rewrite. The lab's current console never reads it, but it is stopped all the same.
+
+**Not verified on hardware.** Still to confirm: that `Stop_Process` is available inside ADbasic in this form, and that stopping a process that is not loaded or not running is harmless.
+
+**Behavior change for the students:** every sequence now stops the manual console, which has to be restarted after the run.
 
 Bearing on this document: once the console is in the package its defects are ours, and the review lists several of the kind catalogued here — `pd.merge` padding with `NaN` so that an `is None` test sent every digital channel down the analogue branch (A-class, and it broke precisely the path that would derive console tables from ours); `int()` truncating a DAC code toward zero instead of rounding; and `safety_range` present in the schema and read nowhere, with `unit_range` doing both jobs.
 
@@ -1338,6 +1470,8 @@ update(origin=0.0)      -> [0.0, None]         # fully off, update having no val
 **Counter-argument worth stating**, because it is not obviously wrong: these globals are not advertised as rebindable, and the supported route for `machine_specifications` is the parameter. On that reading the right fix is D15 — make the parameter actually work — and leaving the defaults alone is harmless. What makes it worth doing anyway is that the two knobs then behave the same way as `VARIABLE__REGEX`, which *is* advertised, and a user who finds one of them working by rebinding has no way to know the others do not.
 
 Tracked as [#144](https://github.com/WignerQuantumOptics/Wigner_Time/issues/144).
+
+**Applied to the first row only, 2026-09-23, on `issue#94`**, as part of the #94 roadmap the maintainer approved (step 2). `SPECIFICATIONS__DEFAULT` is now read at call time, through `adwin.internal.specifications`, by `core.convert`, `core.create`, `internal.add` and `internal.to_tuples`. `add_cycle` no longer takes the specification at all, since the only thing it read from it was the period. `add_cycle`'s `CONTEXTS__SPECIAL` default was opened by the same change and follows the same rule. The other seven signatures, and the policy question itself, are untouched and remain #144's to decide.
 
 
 ---

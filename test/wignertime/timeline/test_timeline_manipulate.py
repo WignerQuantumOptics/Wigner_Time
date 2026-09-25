@@ -246,5 +246,5 @@ def test_convert_leaves_the_timeline_it_was_given_alone():
     from wignertime.adwin import core
 
     before = ex.timeline__demo.copy()
-    core.convert(ex.timeline__demo, ex.connections, ex.devices)
+    core.convert(ex.timeline__demo, ex.connections, ex.devices, 5e-6)
     wt_frame.assert_equal(ex.timeline__demo, before)

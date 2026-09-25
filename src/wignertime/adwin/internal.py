@@ -28,18 +28,17 @@ These should be loaded by the ADwin system during initialization. The settings s
 The specifications have the form of a list of 'ADwin device' dictionaries, with the modules represented as a list of dictionaries.
 """
 SPECIFICATIONS__DEFAULT = {
-    # In seconds, like every other time in the package. This is the period of the
-    # ADbasic event loop that emits the timeline, i.e. `Initial_Processdelay` divided
-    # by the processor clock rate -- a relationship nothing currently checks (see
-    # KNOWN_ISSUES D14).
+    # The cycle period is deliberately *not* here. It belongs to the program loaded on
+    # the machine, not to the package -- the two laboratories this was written for run
+    # at 5 us and 2 us -- so it is an argument of `core.convert`, and `specifications`
+    # refuses an entry for it rather than letting a second source of it stand (#94).
     #
-    # NOTE: this was `cycle_period__normal`, where `normal` contrasted with a
+    # NOTE: it was `cycle_period__normal`, where `normal` contrasted with a
     # `cycle_period__burst` of 250 ns that has since been dropped. If ADC burst mode
     # (`P2_Burst_Init` in `WignerTimeADwinADC.bas`) is ever described here, it wants a
     # name of its own -- `sampling_period__ADC` or similar. It is a sampling period for
     # reading, on a different clock and for a different purpose, and calling the two
     # things flavours of one "cycle period" is what made the qualifier necessary.
-    "cycle_period": 5e-6,
     "modules": [
         {
             "bits": 1,
@@ -107,42 +106,69 @@ def modules__digital(machine_specifications):
     return [i + 1 for i, m in enumerate(modules) if m["bits"] == 1]
 
 
-def add_cycle(
-    timeline,
-    machine_specifications=SPECIFICATIONS__DEFAULT,
-    special_contexts=wt_adwin.CONTEXTS__SPECIAL,
-):
+def specifications(machine_specifications=None):
+    """
+    The machine specifications to convert against: those given, or else
+    `SPECIFICATIONS__DEFAULT` as it stands when this is called.
+
+    Read here rather than bound as a default argument, so that rebinding the global
+    reaches every function that uses it (D23).
+
+    An entry for `cycle_period` is refused rather than ignored. The period used to live
+    here, and a specification written then would otherwise be accepted with its period
+    silently unused -- the failure D15 describes, in a new place.
+    """
+    if machine_specifications is None:
+        machine_specifications = SPECIFICATIONS__DEFAULT
+
+    if "cycle_period" in machine_specifications:
+        raise ValueError(
+            "The machine specifications carry a `cycle_period`, which is no longer read"
+            " from them: it belongs to the program loaded on the machine, not to a"
+            " description of its modules. Pass it to `adwin.core.convert` as"
+            " `cycle_period` instead, and remove it from the specifications."
+        )
+
+    return machine_specifications
+
+
+def add_cycle(timeline, cycle_period, special_contexts=None):
     """
     Inserts a new `cycle` column into the timeline as a conversion of the `time` column into 'number of cycles'.
 
     Parameters:
     - timeline: DataFrame containing the experimental data.
-    - machine_specifications: Dictionary describing the machine; must contain `cycle_period`, in seconds.
-    - special_contexts: Dictionary with context-specific overrides for cycle values.
+    - cycle_period: The period of the controller's event loop, in seconds.
+    - special_contexts: Dictionary with context-specific overrides for cycle values;
+      `wt_adwin.CONTEXTS__SPECIAL` when not given.
+
+    The column is 64-bit here, although the machine's counter is 32-bit: a row too late
+    for the counter has to survive long enough for `validate.cycles` to refuse it, and
+    casting first would wrap it into an ordinary-looking number instead. `validate.types`
+    narrows it once that check has run.
 
     Raises:
-    - ValueError if required columns are missing, or if `cycle_period` is absent from the specifications.
+    - ValueError if the `time` column is missing, or the cycle period is not a positive
+      number of seconds.
     """
-    # Check if `time` column is present
+    if special_contexts is None:
+        special_contexts = wt_adwin.CONTEXTS__SPECIAL
 
     if "time" not in timeline.columns:
         raise ValueError(
             f"`time` column not found. Columns present: {list(timeline.columns)}"
         )
 
-    # Ensure the cycle period is available
-    try:
-        cycle_period = machine_specifications["cycle_period"]
-    except KeyError:
+    if not cycle_period > 0:
         raise ValueError(
-            "`cycle_period` not found in the machine specifications. Keys present: {}.".format(
-                list(machine_specifications)
+            "`cycle_period` must be a positive number of seconds, not {!r}.".format(
+                cycle_period
             )
         )
 
     # Calculate cycles and handle special contexts
     timeline["cycle"] = np.round(timeline["time"].values / cycle_period).astype(
-        np.int32
+        np.int64
     )
 
     # Apply special context cycles
@@ -155,15 +181,19 @@ def add_cycle(
     return timeline
 
 
-def add(timeline, connections, devices, machine_specifications=SPECIFICATIONS__DEFAULT):
+def add(timeline, connections, devices, cycle_period, machine_specifications=None):
     """
     Takes an 'operational' layer timeline and inserts ADwin-specific columns, e.g. cycles and numbers for the module and channel etc.
 
     Digital: module 1
     Analogue otherwise
+
+    `cycle_period` is the period of the controller's event loop, in seconds; see
+    `core.convert`.
     """
 
     wtl.debug("Got to `adwin.core.add`")
+    machine_specifications = specifications(machine_specifications)
 
     # Here because this is where the two tables meet, and because conversion is the one
     # point at which hardware enters. Neither `connection.new` nor `device.new` can do it
@@ -183,7 +213,7 @@ def add(timeline, connections, devices, machine_specifications=SPECIFICATIONS__D
     # TODO: Shouldn't all of value__digits be rounded?
 
     device.check_within_range(dff)
-    dcycle = add_cycle(dff, machine_specifications)
+    dcycle = add_cycle(dff, cycle_period)
 
     return wt_validate.all(dcycle)
 
@@ -197,7 +227,7 @@ def to_tuples__raw(timeline, cols=["cycle", "module", "channel", "value__digits"
     return [tuple([np.int32(i) for i in x]) for x in timeline[cols].values]
 
 
-def to_tuples(timeline, machine_specifications=SPECIFICATIONS__DEFAULT):
+def to_tuples(timeline, machine_specifications=None):
     """
     Takes a full, ADwin-compatible, dataframe of the experimental run and converts the result to an output format that can be processed by ADwin (tuples), separating analogue and digital values.
 
@@ -205,6 +235,7 @@ def to_tuples(timeline, machine_specifications=SPECIFICATIONS__DEFAULT):
     [(cycle, module, channel, value), ...]]
     """
     wtl.debug("Got to `output`")
+    machine_specifications = specifications(machine_specifications)
 
     if not timeline["cycle"].is_monotonic_increasing:
         timeline = timeline.sort_values(by=["cycle"], ignore_index=True)

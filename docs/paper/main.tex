@@ -815,7 +815,7 @@ Two properties are worth emphasizing, precisely because they belong to the backe
  
 Wigner Time comes with a subpackage, \python{wignertime.adwin}, that provides many conveniences. Some functions, such as those within the display module, are drop-in replacements for the defaults provided by Wigner Time more centrally, catering for ADwin-specific timeline columns and contexts. Others, like those in \python{wignertime.adwin.core}, interact directly with the hardware and rely on the official ADwin Python support \cite{adwin_pypi}
  
-In practice, few of these functions are necessary on a day-to-day basis. As demonstrated in \cref{sec:demonstration}, the main function required is \python{wignertime.adwin.core.create}, which initializes the hardware and returns a machine object that can be used to start and stop processes.
+In practice, few of these functions are necessary on a day-to-day basis. As demonstrated in \cref{sec:demonstration}, the main function required is \python{wignertime.adwin.core.upload}, which converts a timeline at the cycle period read from the controller itself and writes the result into the controller’s memory. It returns a record of what was written, which can be archived alongside the data.
  
 The abstraction away from ADbasic is one of the central motivations for Wigner Time. For open-loop control, the official ADwin language is unnecessarily unwieldy: although built for real-time operation, its lack of modularity makes it difficult to maintain in the constantly evolving environment of a typical quantum optics research group. Lifting the experimental logic out of ADbasic is not only a practical convenience – it also reduces cycle time and hence increases the achievable temporal resolution, since any extra logic in the real-time program requires extra computation. To this end, the essential ADbasic code for running daily experiments, ignoring constants and variable definitions, can be reduced to:
 \begin{minted}[fontsize=\footnotesize,frame=none]{basic}
@@ -1362,8 +1362,9 @@ timeline__demo = tl.cascade(
 ###########################################################################
  
 wtfile.save(timeline__demo)
-backend = adwin.create(timeline__demo, connections, devices)
-backend.Start_Process(1) # assuming that the ADwin backend program is loaded on slot 1 of ADwin
+machine = adwin.link_device()
+adwin.upload(timeline__demo, connections, devices, machine, process=1)
+machine.Start_Process(1) # assuming that the ADwin backend program is loaded on slot 1 of ADwin
 \end{minted}
  
 %
@@ -1443,13 +1444,13 @@ def tof_timelines(delays, exposure, base_timeline, origin,
         )
 \end{minted}
 %
-Since \python{tof_timelines} is a generator, no timelines are constructed until they are consumed. Note also the role of the \python{origin} argument: passed directly to the imaging function, it determines the reference point within \python{base_timeline} from which the imaging delay is measured. This is the interweaving mechanism of \cref{sec:interweaving} in action – the imaging stage can be hooked into any anchor or context of the base timeline, giving considerable flexibility without modifying the base timeline itself. The second function performs the actual hardware execution. Since \python{adwin.create} is pure – it constructs a backend object without side effects – it can be placed directly inside a dict comprehension, yielding a concise one-statement implementation:
+Since \python{tof_timelines} is a generator, no timelines are constructed until they are consumed. Note also the role of the \python{origin} argument: passed directly to the imaging function, it determines the reference point within \python{base_timeline} from which the imaging delay is measured. This is the interweaving mechanism of \cref{sec:interweaving} in action – the imaging stage can be hooked into any anchor or context of the base timeline, giving considerable flexibility without modifying the base timeline itself. The second function performs the actual hardware execution. For each timeline, \python{adwin.upload} writes it to the controller and returns a record of the upload, which names the machine and the process to be started. It can therefore be placed directly inside a dict comprehension, yielding a concise one-statement implementation:
 %
 \begin{minted}[fontsize=\footnotesize, frame=none]{python}
-def parameter_scan_with_imaging(exposure, iterator, **kwargs):
+def parameter_scan_with_imaging(machine, exposure, iterator, **kwargs):
     return {parameter: cc.take_images_ueye(
                 4, (exposure + 2 * di.camera_exposition_margin),
-                (adwin.create(timeline, connections, devices), 1),
+                adwin.upload(timeline, connections, devices, machine, process=1),
                 **kwargs
             ) for parameter, timeline in iterator}
 \end{minted}

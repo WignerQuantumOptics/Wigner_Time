@@ -279,18 +279,58 @@ by `util.function__filtered_kws`; that is how `time_resolution` reaches `ramp_fu
 
 ### ADwin export pipeline
 
-`adwin/core.py::convert` composes, in order:
+`adwin/core.py::convert(timeline, connections, devices, cycle_period, ...)` composes, in order:
 
 1. `connection.remove_unconnected_variables` — anything without a physical port disappears (anchors).
-2. `timeline.expand` — ramps become rows at the machine's cycle period.
+2. `timeline.expand` — ramps become rows at the machine's cycle period (or at `time_resolution`).
 3. `adwin/internal.py::add` — join `connections` + `devices`, `conversion.add` → `value__digits`,
    `device.check_within_range` (raises, listing every offending variable), `add_cycle`.
-4. `adwin/validate.py::all` — `types` → `special_contexts` → `drop_duplicates` → `drop_repeats`.
+4. `adwin/validate.py::all` — `cycles` → `types` → `special_contexts` → `drop_duplicates` →
+   `drop_repeats`. `cycles` must precede `types`, which narrows the column to 32 bits.
 5. `internal.to_tuples` — `[[(cycle, module, channel, digits), ...analogue], [...digital]]`.
+6. `validate.ascending` — each array in cycle order, since the backend's index never rewinds.
 
-`adwin/core.py::create` then pushes that into `Par_1..3` and `Data_10..13` / `Data_20..23` of the
-machine. The consumer is `resources/ADwin/WignerTimeADwin.bas` (ADbasic, real-time side); its
-`#define`s and `data_NN` array meanings must stay in sync with `core.create`.
+**The cycle period belongs to the machine, not to the package**, so `convert` has no default for it
+and the machine specifications may not carry one. Both labs run **T12** processors, at **1 ns per
+`Processdelay` tick** (maintainer, 2026-09-23): Lab1 at 5 µs (`Initial_Processdelay = 5000`, as
+committed), Lab2 at 2 µs. `adwin.PROCESSDELAY__RATE` is the one hardware constant the package
+keeps, and it knows only the T12; any other processor is refused by name.
+
+`adwin/core.py::upload(timeline, connections, devices, machine, process)` is the only way to the
+machine. It reads the period off the machine on every call, as `Get_Processdelay(process)` over the
+processor's rate, and never sets it, because an ADbasic program can overwrite its own
+`Processdelay`. It converts at that period, pushes the result into `Par_1..3` and
+`Data_10..13` / `Data_20..23`, starts nothing, and returns an `Upload` log: machine, process,
+processor, Processdelay, period, last cycle and the arrays. The log is a named tuple whose first two
+fields are the machine and the process, so it serves wherever the lab's `(machine, process)` pair
+does. (It was `create` until 2026-09-23; renamed because it neither creates anything nor should be
+confused with `timeline.create`.) The final state (`ADwin_Finish`) does not go into the playback
+arrays: `upload` moves those rows to `data_31..33` (analogue module, channel, digits) and
+`data_42..43` (digital channel, value), with the counts in `Par_15`/`Par_16`. `finish:` plays them
+unconditionally, so a stopped run restores the default state too (B11). `convert`'s output still
+carries them at the finish sentinel. Every array's capacity is `adwin.ROWS__MAX`, which must match
+the `.bas` defines, and `upload` refuses a timeline that exceeds one before writing anything.
+The arrays have an owner: each sequencer sets `Par_17` to its own process number at the start of
+`lowinit:` and clears it at the end of `finish:`. It also stops the manual console (process 10) in
+`lowinit:`. `upload` and `start` wait on the process `Par_17` names, as well as on their own.
+Besides `Par_1..3` it writes `Par_9`, the Processdelay it built
+for, and clears `Par_14`. Both sequencer programs report their own Processdelay into `Par_14` at
+the end of `init:`, and play nothing past the initial state if it differs from `Par_9` (#128). `wait`
+then raises `PeriodRefused`, and refuses a program that did not report at all. `upload` waits for a running process before writing, and says
+so once (A15). The machine accepts writes mid-run, and a parameter scan's next upload used to
+land in the previous shot's finish tail.
+
+Running what was uploaded is `start(log) -> Run` and `wait(run)`, bracketed by the context
+manager `running(log)`, with `run(log)` for a block with nothing in it. `wait` refuses a run that
+lost events (`LostEvents`, with the slip in µs). Whether ADwin's counter restarts with each start
+is UNVERIFIED; a fall across a run raises as the tell. Peripherals such as cameras and the time
+controller are **not** Wigner Time's: they are armed before `running` and serviced inside the
+block, in the lab's code (maintainer, 2026-09-24; L22 there records the longer-term direction of
+one thread per device). An error inside the block waits the run out but does not stop it, because
+until B11 is fixed a stop leaves the apparatus driven. The consumer is `resources/ADwin/WignerTimeADwin.bas` (ADbasic,
+real-time side); its `#define`s and `data_NN` array meanings must stay in sync with `core.upload`. Par, FPar and Data
+numbers are shared by every process on the machine, and processes can start and stop one another;
+`WignerTimeADwinADC.bas` (process 4) is a copy of the sequencer that plays the same arrays.
 
 **Keep the real-time program arithmetic-free.** Its whole job is "at this cycle, if a value differs
 from the previous one, output it": one comparison per channel group, early exit, no computation. Every
@@ -303,7 +343,7 @@ move logic back into ADbasic to save rows are going the wrong way.
 Two distinct kinds of filtering, easy to confuse: `drop_duplicates` removes *temporal* collisions
 (two rows for one variable rounding to the same cycle); `drop_repeats` removes *value* redundancy
 (a row commanding a channel to the value it already holds), grouped by physical channel rather than
-by variable, and always keeping the first and last row of each channel — `core.create` derives the
+by variable, and always keeping the first and last row of each channel — `core.upload` derives the
 run length from the highest non-special cycle, and tanh ramp tails are flat.
 
 `adwin/__init__.py::CONTEXTS__SPECIAL` (`ADwin_LowInit`, `ADwin_Init`, `ADwin_Finish`) map to sentinel

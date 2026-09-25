@@ -43,6 +43,23 @@
 #define analogIdx par_7
 #define digitalIdx par_8
 
+' The period check (#128). `upload` writes the Processdelay it built the arrays for into
+' processdelayExpected; this program reports the one its event loop runs at.
+#define processdelayExpected par_9
+#define processdelayReported par_14
+
+' The final state (B11), in arrays of its own, played in full by finish: however the run
+' ended. At most one row per variable, so a few hundred entries suffice.
+#define finishMaxArrayDim 256
+#define analogFinishDim par_15
+#define digitalFinishDim par_16
+
+' Who is playing the arrays (step 9): this process's number from the start of lowinit to the
+' end of finish:, 0 otherwise. The arrays are shared by every process on the machine, so
+' Python waits on whichever process holds them, and the console writes nothing meanwhile.
+#define sequenceOwner par_17
+#define consoleProcess 10
+
 Dim i, ADC_ChannelPattern, startADC, endADC As Long
 
 Dim Data_1[ADC_MaxDataAmount] As Long
@@ -77,9 +94,21 @@ dim data_20[digitalMaxArrayDim] as long ' Clock cycles of digital updates
 dim data_22[digitalMaxArrayDim] as long ' Channels of digital updates
 dim data_23[digitalMaxArrayDim] as long ' Values (0 or 1) of digital updates
 
+dim data_31[finishMaxArrayDim] as long ' Module numbers of the final analog state
+dim data_32[finishMaxArrayDim] as long ' Channels of the final analog state
+dim data_33[finishMaxArrayDim] as long ' Values (digitized) of the final analog state
+
+dim data_42[finishMaxArrayDim] as long ' Channels of the final digital state
+dim data_43[finishMaxArrayDim] as long ' Values (0 or 1) of the final digital state
+
+dim finishIdx as long
+
 'dim cyclecount, analogIdx, digitalIdx as long
 
 lowinit:
+  ' The manual console must not write to the outputs while a sequence plays.
+  Stop_Process(consoleProcess)
+  sequenceOwner = 4
   cyclecount = 0 : analogIdx = 1 : digitalIdx = 1
   par_4 = analogMaxArrayDim
   par_5 = digitalMaxArrayDim
@@ -105,6 +134,12 @@ lowinit:
 init:
   processUpdates(-1)
 
+  ' Checked here rather than in lowinit, since a program may set its own Processdelay
+  ' before this point. On a mismatch the first event ends the run: the initial state has
+  ' been applied, and nothing after it is played.
+  processdelayReported = Processdelay
+  if (processdelayReported <> processdelayExpected) then endCC = -1
+
 event:
   if (cyclecount > endCC) then end
 
@@ -118,8 +153,16 @@ event:
   inc cyclecount
 
 finish:
-  processUpdates(2147483647) ' 2**31-1
+  ' Unconditionally, from index 1: an interrupted run restores the final state as surely as
+  ' one that completed, which the playback arrays could not guarantee (B11).
+  for finishIdx = 1 to analogFinishDim
+    p2_dac(data_31[finishIdx],data_32[finishIdx],data_33[finishIdx])
+  next finishIdx
+  for finishIdx = 1 to digitalFinishDim
+    p2_digout(1,data_42[finishIdx],data_43[finishIdx])
+  next finishIdx
   
   P2_Burst_Read_Unpacked1 (ADC_Card, ADC_DataAmount, 0, Data_1, 1, 3)
 
-
+  ' Last of all, once the final state is out: the arrays are free.
+  sequenceOwner = 0
