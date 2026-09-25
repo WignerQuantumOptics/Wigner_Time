@@ -398,7 +398,7 @@ Tracked as [#141](https://github.com/WignerQuantumOptics/Wigner_Time/issues/141)
 
 ### A15 — an upload can land under a run that is still playing **[new, found 2026-09-23; this is #151]** — **FIXED 2026-09-24 on `issue#94` (#151, closed)**
 
-**Fixed as proposed** (maintainer, 2026-09-24): `upload` converts first, then waits until its process reports it has stopped, and only then writes. The conversion therefore overlaps whatever is left of the previous run. When it has to wait it says so once through `wtlog`, at WARNING, the level the package's messages reach a notebook at. It waits while the status is anything but 0, so a process still in its `finish:` section is not taken for stopped. Neither the lab's scan nor the paper's listing had to change. Pinned by `test_upload_waits_for_a_running_process_before_writing`, which checks that no write precedes the stop, and `test_upload_to_a_stopped_process_neither_waits_nor_says_so`. **Limit:** only the process `upload` is told about is waited for. Another process playing the same arrays, such as the ADC variant, is not seen. The ownership Par of roadmap step 9 is the place to close that on the machine: a "sequence playing" flag that the sequencer itself sets and clears, rather than one process's status. **Not verified on hardware.**
+**Fixed as proposed** (maintainer, 2026-09-24): `upload` converts first, then waits until its process reports it has stopped, and only then writes. The conversion therefore overlaps whatever is left of the previous run. When it has to wait it says so once through `wtlog`, at WARNING, the level the package's messages reach a notebook at. It waits while the status is anything but 0, so a process still in its `finish:` section is not taken for stopped. Neither the lab's scan nor the paper's listing had to change. Pinned by `test_upload_waits_for_a_running_process_before_writing`, which checks that no write precedes the stop, and `test_upload_to_a_stopped_process_neither_waits_nor_says_so`. **The limit is closed by step 9 (2026-09-25):** another process playing the same arrays, such as the ADC variant, is now seen through the ownership Par (`Par_17`) and waited for too. **Not verified on hardware.**
 
 The entry as found:
 
@@ -1344,6 +1344,16 @@ Direction, from the review and **not settled**: ship the console inside the dist
 Cheap to close from Python, and it belongs there rather than in ADbasic: `adwin.core.create` can call `Process_Status(10)` and refuse to start a sequence while the console process is running. That is one call, on a path that already talks to the machine, and it converts a convention into a guarantee. It should land with the console, not after it.
 
 **Superseded 2026-09-23: this has to be closed on the machine, not in `create`.** `create` uploads. It does not start anything: the lab calls `Start_Process` itself (`control/time_of_flight.py`, `control/camera_control.py`, the notebooks), so a check in `create` guards the upload and not the run. ADwin processes share Pars and Data arrays and can start and stop one another (maintainer). The roadmap at #94 therefore has the sequencer's `lowinit:` stop process 10, and a shared ownership Par make the console skip its writes while a run is on (step 9). That costs nothing in the event loop, and nothing a notebook does can bypass it. It still lands before, or with, the console (step 11).
+
+**Machine side done 2026-09-25, on `issue#94` (step 9), in both sequencer programs.**
+- **`lowinit:` calls `Stop_Process(10)`**, so starting a sequence stops the manual console.
+- **The arrays have an owner.** `lowinit:` sets `sequenceOwner` (`Par_17`) to its own process number, and `finish:` clears it to 0 as its very last step, after the final state.
+- **Python waits on the owner.** `upload` and `start` read `Par_17`, and wait on the process it names if that is another one. Whether that process is actually running is asked of the process itself, so a value left behind cannot block anything.
+- **Left for step 11:** the console's own half, skipping its writes while `Par_17` is nonzero, belongs to the console rewrite. The lab's current console never reads it, but it is stopped all the same.
+
+**Not verified on hardware.** Still to confirm: that `Stop_Process` is available inside ADbasic in this form, and that stopping a process that is not loaded or not running is harmless.
+
+**Behavior change for the students:** every sequence now stops the manual console, which has to be restarted after the run.
 
 Bearing on this document: once the console is in the package its defects are ours, and the review lists several of the kind catalogued here — `pd.merge` padding with `NaN` so that an `is None` test sent every digital channel down the analogue branch (A-class, and it broke precisely the path that would derive console tables from ours); `int()` truncating a DAC code toward zero instead of rounding; and `safety_range` present in the schema and read nowhere, with `unit_range` doing both jobs.
 

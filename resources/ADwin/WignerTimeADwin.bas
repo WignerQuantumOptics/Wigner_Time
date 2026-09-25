@@ -35,6 +35,12 @@
 #define analogFinishDim par_15
 #define digitalFinishDim par_16
 
+' Who is playing the arrays (step 9): this process's number from the start of lowinit to the
+' end of finish:, 0 otherwise. The arrays are shared by every process on the machine, so
+' Python waits on whichever process holds them, and the console writes nothing meanwhile.
+#define sequenceOwner par_17
+#define consoleProcess 10
+
 
 sub processUpdates(cc)
   ' analog
@@ -76,6 +82,9 @@ dim finishIdx as long
 
 
 lowinit:
+  ' The manual console must not write to the outputs while a sequence plays.
+  Stop_Process(consoleProcess)
+  sequenceOwner = 1
   cyclecount = 0 : analogIdx = 1 : digitalIdx = 1
   par_4 = analogMaxArrayDim
   par_5 = digitalMaxArrayDim
@@ -109,3 +118,5 @@ finish:
     p2_digout(1,data_42[finishIdx],data_43[finishIdx])
   next finishIdx
 
+  ' Last of all, once the final state is out: the arrays are free.
+  sequenceOwner = 0

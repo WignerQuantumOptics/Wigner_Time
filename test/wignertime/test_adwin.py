@@ -308,7 +308,7 @@ class _MachineRecording:
         self.processor = processor
         self.processdelay = {1: 5000} if processdelay is None else processdelay
         # What `Process_Status` and `Get_Lost_Events` answer, one entry per call; then 0.
-        self.status = list(status)
+        self.status = dict(status) if isinstance(status, dict) else list(status)
         self.lost_events = list(lost_events)
         # What the started program reports as its Processdelay (Par_14): its own unless
         # told otherwise, and 0 -- no report at all -- for a program older than the check.
@@ -337,7 +337,13 @@ class _MachineRecording:
         return self.processdelay.get(process, 0)
 
     def Process_Status(self, process):
-        answer = self.status.pop(0) if self.status else 0
+        # A list answers for every process; a dict scripts each process on its own.
+        answers = (
+            self.status.setdefault(process, [])
+            if isinstance(self.status, dict)
+            else self.status
+        )
+        answer = answers.pop(0) if answers else 0
         self.calls.append(("Process_Status", answer))
         return answer
 
@@ -685,6 +691,59 @@ def test_a_program_that_does_not_report_is_refused():
 
 def test_an_agreeing_run_records_what_it_ran_at():
     assert adwin.run(_uploaded()).processdelay__reported == 5000
+
+
+###############################################################################
+#   Step 9 -- the arrays have an owner, and nothing writes under it
+###############################################################################
+
+
+def _owned_by(owner, status):
+    machine = _MachineRecording(status=status)
+    machine.par[wt_adwin.PAR__SEQUENCE__OWNER] = owner
+    return machine
+
+
+def test_upload_waits_for_another_process_playing_the_arrays(monkeypatch, caplog):
+    """A15's limit: process 4, the ADC variant, plays the same arrays as process 1."""
+    monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
+    machine = _owned_by(4, {4: [1, 1, 0]})
+
+    with caplog.at_level("WARNING", logger="wtlog"):
+        adwin.upload(*_digital_only(), machine, 1)
+
+    assert [r.message for r in caplog.records] == [
+        "Process 4 is still running; waiting for it to stop before uploading for process"
+        " 1, so as not to rewrite the arrays it is playing."
+    ]
+    first_write = next(
+        i for i, c in enumerate(machine.calls) if c[0] != "Process_Status"
+    )
+    assert [c[1] for c in machine.calls[:first_write]] == [0, 1, 1, 0]
+
+
+def test_an_owner_that_is_not_running_holds_nothing_up(caplog):
+    """A value left behind by a process that did not finish names it; it does not block."""
+    machine = _owned_by(4, {})
+    with caplog.at_level("WARNING", logger="wtlog"):
+        adwin.upload(*_digital_only(), machine, 1)
+    assert not caplog.records
+
+
+def test_starting_waits_for_another_process_playing_the_arrays(monkeypatch, caplog):
+    monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
+    log = _uploaded()
+    log.machine.par[wt_adwin.PAR__SEQUENCE__OWNER] = 4
+    log.machine.status = {4: [1, 0]}
+
+    with caplog.at_level("WARNING", logger="wtlog"):
+        adwin.start(log)
+
+    assert [r.message for r in caplog.records] == [
+        "Process 4 is still running; waiting for it to stop before starting process 1,"
+        " which would play the same arrays."
+    ]
+    assert log.machine.calls[-1] == ("Start_Process", 1)
 
 
 def test_starting_a_replay_waits_for_the_previous_run(monkeypatch, caplog):

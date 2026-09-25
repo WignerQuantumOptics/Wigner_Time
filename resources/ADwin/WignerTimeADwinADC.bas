@@ -54,6 +54,12 @@
 #define analogFinishDim par_15
 #define digitalFinishDim par_16
 
+' Who is playing the arrays (step 9): this process's number from the start of lowinit to the
+' end of finish:, 0 otherwise. The arrays are shared by every process on the machine, so
+' Python waits on whichever process holds them, and the console writes nothing meanwhile.
+#define sequenceOwner par_17
+#define consoleProcess 10
+
 Dim i, ADC_ChannelPattern, startADC, endADC As Long
 
 Dim Data_1[ADC_MaxDataAmount] As Long
@@ -100,6 +106,9 @@ dim finishIdx as long
 'dim cyclecount, analogIdx, digitalIdx as long
 
 lowinit:
+  ' The manual console must not write to the outputs while a sequence plays.
+  Stop_Process(consoleProcess)
+  sequenceOwner = 4
   cyclecount = 0 : analogIdx = 1 : digitalIdx = 1
   par_4 = analogMaxArrayDim
   par_5 = digitalMaxArrayDim
@@ -155,4 +164,5 @@ finish:
   
   P2_Burst_Read_Unpacked1 (ADC_Card, ADC_DataAmount, 0, Data_1, 1, 3)
 
-
+  ' Last of all, once the final state is out: the arrays are free.
+  sequenceOwner = 0

@@ -30,6 +30,16 @@ not report it. That is a program older than the check, which is refused rather t
 Where the two differ, the sequencer has refused to play the run (#128).
 """
 
+PAR__SEQUENCE__OWNER = 17
+"""
+`sequenceOwner` in the sequencer: the number of the process playing the arrays, from the start
+of its `lowinit:` to the end of its `finish:`, and 0 otherwise. The data arrays are shared by
+every process on the machine, so a write for one process can land under a run of another; this
+says which one to wait for. Read as a name, not as proof: whether the named process is still
+running is asked of the process itself, so that a value left behind by one that did not finish
+cannot hold anything up.
+"""
+
 ROWS__MAX = {
     "analogue": 10_000_000,
     "digital": 10_000,

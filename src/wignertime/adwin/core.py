@@ -126,6 +126,21 @@ def _wait_until_stopped(machine, process, reason=None):
         time.sleep(POLL__PERIOD)
 
 
+def _wait_for_the_arrays(machine, process, reason, reason__other):
+    """
+    Returns once neither `process` nor the process that owns the arrays is running.
+
+    The owner is whichever sequencer set `sequenceOwner` (`adwin.PAR__SEQUENCE__OWNER`). It
+    matters when it is another process, since the arrays are shared: an upload for process 1
+    while the ADC variant, process 4, plays would rewrite its arrays just the same (A15).
+    """
+    _wait_until_stopped(machine, process, reason)
+
+    owner = machine.Get_Par(wt_adwin.PAR__SEQUENCE__OWNER)
+    if owner not in (0, process):
+        _wait_until_stopped(machine, owner, reason__other.format(process=process))
+
+
 def read_cycle_period(machine, process):
     """
     The cycle period of `process` on `machine`, in seconds: its `Processdelay`, read off the
@@ -288,8 +303,11 @@ def upload(
         )
 
     # Only now, so that the conversion overlaps whatever is left of the previous run.
-    _wait_until_stopped(
-        machine, process, "uploading, so as not to rewrite the arrays it is playing"
+    _wait_for_the_arrays(
+        machine,
+        process,
+        "uploading, so as not to rewrite the arrays it is playing",
+        "uploading for process {process}, so as not to rewrite the arrays it is playing",
     )
 
     # `endCC`, `analogArrayDim` and `digitalArrayDim` in `WignerTimeADwin.bas`: the event
@@ -441,7 +459,12 @@ def start(upload):
     trigger, has to be armed before this is called.
     """
     machine, process = upload.machine, upload.process
-    _wait_until_stopped(machine, process, "starting it again")
+    _wait_for_the_arrays(
+        machine,
+        process,
+        "starting it again",
+        "starting process {process}, which would play the same arrays",
+    )
 
     run = Run(
         upload=upload,
