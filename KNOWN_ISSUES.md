@@ -35,7 +35,7 @@ Every item here has a GitHub issue, and the two carry different things. **This f
 | `Feature` | A request, idea, or new functionality |
 | `Decision` | An open API or design decision that must be settled before dependent work can proceed |
 
-`Decision` is the tracker's counterpart of §C, and carries "flag and ask, never settle unilaterally" onto GitHub. Set it on anything whose entry here offers two options rather than a fix. Open `Decision` issues as of 2026-09-23: **#85, #97, #133, #143, #144, #145** (#53 was settled and closed on 2026-09-23).
+`Decision` is the tracker's counterpart of §C, and carries "flag and ask, never settle unilaterally" onto GitHub. Set it on anything whose entry here offers two options rather than a fix. Open `Decision` issues as of 2026-09-23: **#85, #97, #133, #143, #144, #145** (#53 was settled and closed on 2026-09-23). #85's direction was settled on 2026-09-25 (C7); it stays a `Decision` until its name and its two open details are.
 
 **Labels say _what kind_.** `silent` (a wrong answer with no error — outranks visible failures, and puts the item in `10 — paper` by default); `paper-affecting` (falsifies a claim in `main.tex`, so §G applies and the *code* changes); `consistency` (causes mental friction); `potentially surprising` (not wrong as such, but likely to surprise a user); and the area tags `ux`, `performance`, `docs`, `adwin`, `origin`.
 
@@ -47,6 +47,7 @@ Every item here has a GitHub issue, and the two carry different things. **This f
 
 - ~~the manuscript in `docs/paper/` has **local changes since the arXiv import** that have not been carried back to Overleaf.~~ **Done 2026-09-23**: carried across by the maintainer, and the committed file is canonical again. The inventory, `docs/paper/CHANGES-since-arXiv.md`, was deleted with it;
 - ~~**`sec:stacking` calls `trigger_camera(0.0,1e-3)`** without the `context` its definition requires.~~ **Fixed 2026-09-23**, with two more errors found by running the listing: `init` called `anchor()` although `t` is required, and never set the coils that `MOT` then ramps, so the ramp raised for lack of a start. The call now names `"imaging"`, `init` sets both coils to zero and anchors at `0.0`, and the listing runs as printed. The listing was unchanged since the Overleaf import; the coil error became an error on 2026-09-18, when a ramp from nothing stopped starting at zero silently. The rule itself is stated in `sec:functions` (“What a ramp refuses”);
+- **The opening listing of `sec:definitions` (main.tex:452–487) does not run** (found 2026-09-25). `shutter_MOT= 0` lacks its comma; `detuned_growth` ramps `lockbox_MOT__MHz`, which is never set, so the ramp raises (“What a ramp refuses”); and `final`, a table, fails as a later constituent of `stack` with `'DataFrame' object is not callable` (see D17's correction). **Folded into #85 (C7)** rather than fixed here: its `final = initial.copy()` cannot survive that change anyway, since `initial` becomes a stage. The listing is otherwise already written as C7 would have it — `stack(initial, MOT, detuned_growth, final)`, four peers — and what `final` means, one state in two contexts, is a function of the context: `default_state` in miniature, which `sec:discussion` argues for;
 - **In the same `init`, the `create` rows got no context.** `create` has already produced a timeline when `stack` receives it, so `stack`'s `context="initialization"` reached only the anchor. **Listing fixed 2026-09-23**: the context is now given to `create`, and the anchor inherits it. **The behavior of `stack` is unchanged and still open**, as C6 (#145): with a reserved context it silently changes the hardware sequence;
 - ~~**The initial/final-state listing in `sec:functions` did not run.**~~ **Fixed 2026-09-23.** It read `final = init` (undefined; `initial` was meant), and even as `final = initial` the next line would have relabelled `initial` too, since both names hold one table: in-place modification, which the paper argues against. Now `final = initial.copy()`. Its `import timeline as tl` is also corrected to `from wignertime import timeline as tl`, as in the paper's other listings;
 - ~~**`sec:interweaving` pointed to `sec:demonstration` for further examples**, and that listing has none.~~ **Fixed 2026-09-23**: the section now shows `trigger_camera` placed at `origin="molasses"` into the complete `timeline__demo`, the case `test_demo.py` checks (#53), and points to `sec:parameter_scan` only. Its claims were checked against the real `timeline__demo`: the exposure runs 2.0–3.0 ms after molasses, inside magnetic trapping (0.58–3.63 ms), and no existing row moves;
@@ -898,6 +899,53 @@ Options:
 2. **Make `create` require a context**, so that no row is ever context-less and the case cannot arise. Stronger, and consistent with the paper: every `create` it shows passes one (`main.tex:452`, and each row of the table at `:550`–`:557`). The lab is not affected: its one direct `create` (`control/camera_control.py`) already passes `context="ADwin_LowInit"`. About 16 `create` calls in the suite would need one.
 3. **Document it** in `sec:stacking`. Listed for completeness; by §G, a rule that needs this qualification is a signal to change the code.
 
+**Two findings of 2026-09-25, made while exploring #85, and how that settles the item.**
+
+- **A forwarded `context` also *overrides* one the constituent states itself.** `util.function__lambda`'s closure merges the forwarded keywords last, over the ones the call was made with. Measured:
+
+  ```python
+  tl.stack(base, tl.update(a_b=1, context="ADwin_Finish"), tl.anchor(1.0), context="finalRamps")
+  # a_b lands in finalRamps
+  ```
+
+  With a reserved context that is the same change of hardware sequence as the skip above, in the other direction. Neither the demo nor the lab combines the two, so nothing is exposed today. It matters for #85: once `init` is a constituent, `stack(init(), ..., context="experiment")` replaces `ADwin_LowInit` in the same way (measured on the C7 prototype). Resolving the skip without this would only mirror it. **Settled with #85 (C7, item 4): a keyword forwarded by `stack` is a default, not an override** — the rule `t` and `context` already follow in `create`'s input (C5).
+- **The skip itself disappears with #85**, because nothing but stages enters a `stack`. **Option 2 then follows without being imposed**: the first rows of a timeline have nothing to inherit a context from, so they must name one. `update` onto an empty table already refuses — but with the wrong reason: `Nothing to resolve against: the timeline is empty ... give a number instead -- origin=0.0`, and following that advice gives the same error, since what is missing is the context (`inherit.context` calls `origin.previous` on the empty table). Under #85 that is the first error every user who forgets a context meets, so the message has to name the context.
+
+Depends on #85 and, through it, on B10 (#136).
+
+### C7 — composition takes stages only, and one function turns a stage into a table **[#85; direction settled 2026-09-25; the name and two details open]**
+
+**The question, as Thomas meant it** (maintainer, reopening #85 on 2026-09-25): not whether to rename `create`, but whether `stack` and `cascade` should compose *stages* only — functions of a timeline — and never a timeline. `create` then has nothing left to set it apart from `update`, and a separate step turns a composition into a table. Thomas's own words on #145: "Just always `stack` functions and then resolve them when needed?"
+
+**Settled by the maintainer, 2026-09-25:**
+
+1. **All the way, not only `stack` and `cascade`.** Stages and the core functions stop taking `timeline=` as well. Stopping at `stack`/`cascade` would break the stage convention regardless — `MOT(timeline=t)` hands a table to its own `stack` — and would keep `update(timeline=...)` as a second way to the same place.
+2. **`create` is deleted, not redefined.** On an empty table `update` already does what `create` does: the origin falls back to zero and the context must be stated. Redefining `create` as `update(origin=0.0)` was the alternative, and is a silent hazard: written after an anchor at 5.0, such a row lands at 0.0, before everything it was written to follow — A4's failure, by construction.
+3. **The fallback warning goes** (A4's terminal `0.0`). Every experiment now starts from an empty table, so it would fire once per experiment and tell nobody anything.
+4. **A keyword forwarded by `stack` is a default, not an override.** Without this the change turns C6 into its mirror image; see C6.
+5. **The bridge is a plain function**, `f(stage, onto=None)`: the stage applied to `onto`, or to an empty table. Not a marker placed inside `stack`, which would make `stack` return a table or a function depending on its arguments again — Thomas's complaint on #145. `resolve` is ruled out as its name, because origin resolution already owns the word (`docs/origin-resolution.md`, `fig:origin`).
+
+**Open:**
+
+- **the name.** `to_timeline` (the issue's title) and `seed`, after crystallization (maintainer, 2026-09-25), are proposed;
+- **whether `expand` stays usable inside a `stack`.** It has the dual form today, so `expand(time_resolution=...)` can sit in one. Unlike `update`, `ramp` and `anchor`, which add rows, it transforms the whole timeline it receives, and that is the trap recorded in CLAUDE.md: mid-`stack` it expands every ramp so far and drops `function`, so the `expand` inside `convert` becomes a no-op. No stage in the demo, the lab or its notebooks uses it that way — three tests do — and `convert` composes it as a plain table function. The recommendation is that `expand` take a table only, like `convert` and the display, which removes the trap rather than documenting it;
+- **what time a row in a special context should carry.** Raised by the maintainer against item 3: `ADwin_LowInit` has to be given a fictional negative time, which makes it awkward to program. Being explored.
+
+**Prerequisite: B10 (#136).** `init()` becomes a stack, and a `context` forwarded into a nested stack raises today.
+
+**Measured on a prototype built over the current package** (scratchpad, nothing committed): the bridge as `f(onto or an empty table)`, and `create` replaced by `update`.
+
+- The demo's `cascade` gives `timeline__demo` exactly, all 99 rows.
+- The lab's `prepare_sample`, rewritten as a list of stages cut at `stage` instead of threading `timeline=` by hand (L6 there), gives today's table in all 20 cases: 5 stages × finish on/off × dispenser on/off.
+- `imaging_absorption` interwoven gives the same table onto a finished timeline and as a later stage of the same stack.
+- C6's own example puts every row in `ADwin_LowInit`.
+
+**What it removes from the manuscript** are the sentences that exist to qualify the present behaviour: `main.tex:727` (`MOT` takes a timeline and passes it to its first constituent), `:749` (why `init`'s stack evaluates immediately), `:773` (what `cascade` returns depends on its first stage) and `:864` (`create` and `update` distinguished only by how they compose). That is §G's signal, read the right way round. `default_state` loses `f=tl.create`/`f=tl.update`, which brings `:892` ("differing only in an argument, `MOT_ON`") closer to true. 22 stage signatures lose `timeline=None`: 8 in the demo, 14 in the lab.
+
+**Blast radius.** Package: `timeline.py`, `util.ensure_timeline`'s messages, the demo. Tests: 12 files, about 56 calls handing a table to a core function and 31 stacks led by a table, `create` or `init`. Lab: `prepare_sample`, 7 stages in `diagnostics.py`, a line each in `time_of_flight.py` and `camera_control.py`, 14 interweaving calls in `diagnosticsStageByStage.ipynb`. Untouched: the ADwin backend, and the Lab2 fixture, which is a frozen table. Manuscript: nearly every listing, which is why #85 moved to `10 — paper` on 2026-09-25; best done in one pass with D7 (#121), which rewrites the same listings.
+
+**Folded in:** the non-running opening listing of `sec:definitions` (see the paper items at the top), and D17's correction — under C7 a table is refused in any position of a `stack`, with a message naming the bridge.
+
 ---
 
 ## D. Structural
@@ -1184,6 +1232,8 @@ Two consequences beyond the bug:
 
 - **`noop` is no longer `funcy.identity`.** It has to carry the tag, and tagging a shared library function would mark it for every other user of `funcy`. It is now `lambda timeline, **kwargs: timeline`, which also means it survives a `stack` that forwards keywords — `identity` raised `TypeError: identity() got an unexpected keyword argument 'context'`, recorded as L5 in `quantum_optics_lab`.
 - A frame passed as a *constituent* rather than as the leading argument is now rejected with a message, instead of `'DataFrame' object is not callable` from inside the composition.
+
+**Correction, 2026-09-25: the second consequence does not hold.** `_ensure_stackable` lets a frame through in any position, so a frame after the first still fails inside the composition with `'DataFrame' object is not callable`, naming nothing. The manuscript's opening listing runs into exactly this (`final`, main.tex:481). Not fixed here, because #85 settles it (C7): once a `stack` takes stages only, a table is refused in any position, with a message naming the bridge. #131 is left closed, since what it was filed for — the uncalled stage — is fixed.
 
 
 ### D18 — the backend hardcodes one digital module, the frontend models a list **[new, found 2026-09-17]**
