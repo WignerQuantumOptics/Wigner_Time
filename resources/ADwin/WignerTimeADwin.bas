@@ -29,6 +29,12 @@
 #define processdelayExpected par_9
 #define processdelayReported par_14
 
+' The final state (B11), in arrays of its own, played in full by finish: however the run
+' ended. At most one row per variable, so a few hundred entries suffice.
+#define finishMaxArrayDim 256
+#define analogFinishDim par_15
+#define digitalFinishDim par_16
+
 
 sub processUpdates(cc)
   ' analog
@@ -59,6 +65,15 @@ dim data_20[digitalMaxArrayDim] as long ' Clock cycles of digital updates
 dim data_22[digitalMaxArrayDim] as long ' Channels of digital updates
 dim data_23[digitalMaxArrayDim] as long ' Values (0 or 1) of digital updates
 
+dim data_31[finishMaxArrayDim] as long ' Module numbers of the final analog state
+dim data_32[finishMaxArrayDim] as long ' Channels of the final analog state
+dim data_33[finishMaxArrayDim] as long ' Values (digitized) of the final analog state
+
+dim data_42[finishMaxArrayDim] as long ' Channels of the final digital state
+dim data_43[finishMaxArrayDim] as long ' Values (0 or 1) of the final digital state
+
+dim finishIdx as long
+
 
 lowinit:
   cyclecount = 0 : analogIdx = 1 : digitalIdx = 1
@@ -85,5 +100,12 @@ event:
   inc cyclecount
 
 finish:
-  processUpdates(2147483647) ' 2**31-1
+  ' Unconditionally, from index 1: an interrupted run restores the final state as surely as
+  ' one that completed, which the playback arrays could not guarantee (B11).
+  for finishIdx = 1 to analogFinishDim
+    p2_dac(data_31[finishIdx],data_32[finishIdx],data_33[finishIdx])
+  next finishIdx
+  for finishIdx = 1 to digitalFinishDim
+    p2_digout(1,data_42[finishIdx],data_43[finishIdx])
+  next finishIdx
 

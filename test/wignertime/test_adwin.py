@@ -383,9 +383,61 @@ def test_upload_transfers_both_sets_when_both_are_populated():
     machine = _MachineRecording()
     adwin.upload(demo.timeline__demo, demo.connections, demo.devices, machine, 1)
 
-    assert sorted(machine.data) == [10, 11, 12, 13, 20, 21, 22, 23]
+    assert sorted(machine.data) == [10, 11, 12, 13, 20, 21, 22, 23, 31, 32, 33, 42, 43]
     assert machine.par[2] == len(machine.data[10][0]) > 0
     assert machine.par[3] == len(machine.data[20][0]) > 0
+    assert machine.par[15] == len(machine.data[31][0]) > 0
+    assert machine.par[16] == len(machine.data[42][0]) > 0
+
+
+###############################################################################
+#   B11 / #148 -- the final state has arrays of its own (roadmap step 8)
+###############################################################################
+
+
+def _with_a_final_state():
+    conns = adcon.new(["shutter_MOT", 1, 11], ["AOM_MOT", 1, 1], ["coil_MOT__A", 3, 2])
+    devs = device.new(["coil_MOT__A", 2.0, -5.0, 5.0])
+    timeline = tl.stack(
+        tl.create(shutter_MOT=0, AOM_MOT=0, coil_MOT__A=0.0, context="ADwin_LowInit"),
+        tl.anchor(t=0.0, origin=0.0, context="run"),
+        tl.update(shutter_MOT=1, coil_MOT__A=1.0, t=0.5),
+        tl.update(
+            shutter_MOT=0, AOM_MOT=1, coil_MOT__A=0.0, t=1.0, context="ADwin_Finish"
+        ),
+    )
+    return timeline, conns, devs
+
+
+def test_the_final_state_leaves_the_playback_arrays():
+    """
+    `finish:` used to play the final state from the playback arrays, and only if the run
+    had reached them, so a stopped run never did. Now nothing at the finish sentinel is
+    played, and the final state is in arrays that `finish:` plays from the start.
+    """
+    machine = _MachineRecording()
+    log = adwin.upload(*_with_a_final_state(), machine, 1)
+
+    finish = wt_adwin.CONTEXTS__SPECIAL["ADwin_Finish"]
+    assert finish not in machine.data[10][0] + machine.data[20][0]
+    # The analogue final state: module, channel, digits; 0 A is mid-scale.
+    assert [machine.data[n][0] for n in (31, 32, 33)] == [[3], [2], [32768]]
+    # The digital final state: channel and value; the module is not sent (D18).
+    assert sorted(zip(machine.data[42][0], machine.data[43][0])) == [(1, 1), (11, 0)]
+    assert (machine.par[15], machine.par[16]) == (1, 2)
+    assert log.analogue__finish == [(3, 2, 32768)]
+
+
+def test_a_timeline_too_large_for_the_arrays_is_refused_before_anything_is_written(
+    monkeypatch,
+):
+    monkeypatch.setitem(wt_adwin.ROWS__MAX, "digital__finish", 1)
+    machine = _MachineRecording()
+
+    with pytest.raises(ValueError, match=r"'digital__finish': 2.* room for.* 1"):
+        adwin.upload(*_with_a_final_state(), machine, 1)
+
+    assert not machine.par and not machine.data, "nothing was written"
 
 
 def test_upload_refuses_a_timeline_with_no_run():

@@ -30,6 +30,18 @@ not report it. That is a program older than the check, which is refused rather t
 Where the two differ, the sequencer has refused to play the run (#128).
 """
 
+ROWS__MAX = {
+    "analogue": 10_000_000,
+    "digital": 10_000,
+    "analogue__finish": 256,
+    "digital__finish": 256,
+}
+"""
+How many rows each array of the sequencer holds: `analogMaxArrayDim`, `digitalMaxArrayDim`
+and `finishMaxArrayDim` in both `.bas` programs, which must agree. `upload` refuses more
+rather than letting the transfer fail partway, with some arrays written and others not.
+"""
+
 CYCLES__RUN = (0, 2**31 - 2)
 """
 The first and last cycle at which a row outside the special contexts can be played.

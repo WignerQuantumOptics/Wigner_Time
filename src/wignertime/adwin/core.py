@@ -33,7 +33,9 @@ class Upload(NamedTuple):
 
     `cycle__last` is what `Par_1` was set to, the cycle of the last row outside the
     special contexts, and `time__last` is the same instant in seconds. `analogue` and
-    `digital` are the arrays as written, `(cycle, module, channel, digits)` per row.
+    `digital` are the rows played, `(cycle, module, channel, digits)`; `analogue__finish` and
+    `digital__finish` are the final state, `(module, channel, digits)`, which the sequencer
+    applies however the run ends.
     """
 
     machine: ADwin.ADwin
@@ -44,6 +46,8 @@ class Upload(NamedTuple):
     cycle__last: int
     analogue: list
     digital: list
+    analogue__finish: list
+    digital__finish: list
 
     @property
     def time__last(self):
@@ -53,7 +57,8 @@ class Upload(NamedTuple):
         # The arrays run to hundreds of thousands of rows, so they are counted, not shown.
         return (
             "Upload(process={}, processor={!r}, processdelay={}, cycle_period={!r},"
-            " cycle__last={}, time__last={!r}, rows={} analogue + {} digital)".format(
+            " cycle__last={}, time__last={!r}, rows={} analogue + {} digital,"
+            " finish={} analogue + {} digital)".format(
                 self.process,
                 self.processor,
                 self.processdelay,
@@ -62,6 +67,8 @@ class Upload(NamedTuple):
                 self.time__last,
                 len(self.analogue),
                 len(self.digital),
+                len(self.analogue__finish),
+                len(self.digital__finish),
             )
         )
 
@@ -261,6 +268,25 @@ def upload(
         )
     cycle__last = int(cycles__run.max())
 
+    # The final state leaves the playback arrays for arrays of its own, which `finish:`
+    # plays from the start however the run ended (B11). Its rows need no cycle.
+    analogue, analogue__finish = _split_finish(output[0])
+    digital, digital__finish = _split_finish(output[1])
+    rows = {
+        "analogue": analogue,
+        "digital": digital,
+        "analogue__finish": analogue__finish,
+        "digital__finish": digital__finish,
+    }
+    too_many = {k: len(v) for k, v in rows.items() if len(v) > wt_adwin.ROWS__MAX[k]}
+    if too_many:
+        raise ValueError(
+            "The timeline does not fit the sequencer's arrays: {} rows against room for"
+            " {}. Nothing was written.".format(
+                too_many, {k: wt_adwin.ROWS__MAX[k] for k in too_many}
+            )
+        )
+
     # Only now, so that the conversion overlaps whatever is left of the previous run.
     _wait_until_stopped(
         machine, process, "uploading, so as not to rewrite the arrays it is playing"
@@ -268,9 +294,12 @@ def upload(
 
     # `endCC`, `analogArrayDim` and `digitalArrayDim` in `WignerTimeADwin.bas`: the event
     # loop ends after the last cycle, and the counts say how far into each array to read.
+    # `analogFinishDim` and `digitalFinishDim` do the same for the final state.
     machine.Set_Par(1, cycle__last)
-    machine.Set_Par(2, len(output[0]))
-    machine.Set_Par(3, len(output[1]))
+    machine.Set_Par(2, len(analogue))
+    machine.Set_Par(3, len(digital))
+    machine.Set_Par(15, len(analogue__finish))
+    machine.Set_Par(16, len(digital__finish))
 
     # The period check (#128): the sequencer compares its own Processdelay with this at the
     # end of `init:`, and plays nothing past the initial state if they differ. The report is
@@ -279,17 +308,24 @@ def upload(
     machine.Set_Par(wt_adwin.PAR__PROCESSDELAY__REPORTED, 0)
 
     # `cycle, module, channel, digits` go to data_10..13 for the analogue set and
-    # data_20..23 for the digital one.
+    # data_20..23 for the digital one. The final state is `module, channel, digits` in
+    # data_31..33 and `channel, value` in data_42..43: the same numbers plus 20, without the
+    # cycle, and without the digital module, which the sequencer does not read (D18).
     #
     # An empty set is communicated by its count alone, set just above: there is nothing
     # to write, and a zero-length transfer is not meaningful. The count is what stops the
     # real-time program reading the array -- which matters, because the arrays are never
     # cleared, so a previous and longer run's contents are still sitting in them (#8).
-    for data__first, rows in ((10, output[0]), (20, output[1])):
-        for offset in range(4):
-            if rows:
+    for data__first, columns, rows__set in (
+        (10, range(4), analogue),
+        (20, range(4), digital),
+        (31, range(3), analogue__finish),
+        (42, range(1, 3), digital__finish),
+    ):
+        if rows__set:
+            for number, column in enumerate(columns, start=data__first):
                 machine.SetData_Long(
-                    [row[offset] for row in rows], data__first + offset, 1, len(rows)
+                    [row[column] for row in rows__set], number, 1, len(rows__set)
                 )
 
     return Upload(
@@ -299,8 +335,19 @@ def upload(
         processdelay=processdelay,
         cycle_period=cycle_period,
         cycle__last=cycle__last,
-        analogue=output[0],
-        digital=output[1],
+        analogue=analogue,
+        digital=digital,
+        analogue__finish=analogue__finish,
+        digital__finish=digital__finish,
+    )
+
+
+def _split_finish(rows):
+    """`(played, final)`: the rows to play, and the final state's as `(module, channel, digits)`."""
+    finish = wt_adwin.CONTEXTS__SPECIAL["ADwin_Finish"]
+    return (
+        [row for row in rows if row[0] != finish],
+        [tuple(row[1:]) for row in rows if row[0] == finish],
     )
 
 

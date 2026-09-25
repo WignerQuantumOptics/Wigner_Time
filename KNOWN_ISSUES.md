@@ -651,7 +651,19 @@ Note that `funcy.compose` cannot do this on its own: it passes one value between
 - its §2.2 (the scan reads past the filled region, producing a spurious `p2_dac` built from a previous run's data) **was fixed by `790528e`**, which bounded the outer test as well as the `until`. The review was reading a pre-`790528e` copy. Its proposed remedy — Python writing a terminator past the filled region — is therefore unnecessary. What remains is an out-of-bounds *read* inside the `until` if ADbasic does not short-circuit `or`; that read stays inside the allocation and its result is discarded.
 - its §2.4 (one digital module hardcoded) is **D18** / [#133](https://github.com/WignerQuantumOptics/Wigner_Time/issues/133), reached independently. The agreement is worth recording: two readings of the same file, without contact, produced the same finding down to the `data_21` observation.
 
-### B11 — an interrupted run does not restore the default state **[new, found 2026-09-22; this is #148]**
+### B11 — an interrupted run does not restore the default state **[new, found 2026-09-22; this is #148]** — **FIXED 2026-09-25 on `issue#94`; open until verified on the rig**
+
+**Fixed as recommended** (option 1, roadmap step 8 at #94; the maintainer's go-ahead 2026-09-25), in both `WignerTimeADwin.bas` and `WignerTimeADwinADC.bas`.
+- **The final state has arrays of its own.** They are the playback numbers plus 20, without the cycle: analogue module, channel and digits in `data_31..33`, digital channel and value in `data_42..43`. The counts are in `Par_15` and `Par_16`, and each array holds `finishMaxArrayDim = 256` rows.
+- **`finish:` plays them unconditionally, from index 1,** however the run ended, and no longer calls `processUpdates(2147483647)`.
+- **`upload` moves the final state out of the playback arrays.** `convert`'s output is unchanged, and the Lab2 checksums with it; `upload` splits off the rows at the finish sentinel and writes them without their cycle. On the machine the sentinel therefore does no structural work any more, which was D19's structural half. In Python it still marks the final state within the converted output.
+- **`upload` checks every array against its capacity** (`adwin.ROWS__MAX`, which must match the `.bas` defines), and refuses before writing anything. Nothing checked even the playback arrays before.
+- **Emulated line for line.** A run stopped at cycle 150 played `-2, 100` and nothing more under the old `finish:`; under the new one it plays the final state after them. A run refused by the period check (D14/step 7) now also ends in the final state rather than the initial one.
+- **Memory:** the new arrays take 5 × 256 longs, 5 KB, beside the 160 MB of `data_10..13`.
+
+**Not verified on hardware.** Three things are believed but unchecked: that `finish:` runs when the PC stops the process, which is the premise of this entry; that a `for` loop in `finish:` is fine there; and that `Stop_Process` returns only after `finish:` has completed. Recompile both programs and load them, then stop a run midway and look at the outputs.
+
+The entry as found:
 
 `finish:` calls `processUpdates(2147483647)`, and the guard that gates the dispatch tests only the row at the *current* index:
 
@@ -1172,7 +1184,7 @@ Sharpened by D21, and half closed by the roadmap at #94: `upload` now reads the 
 
 **Step 7 done, 2026-09-25**, in both `WignerTimeADwin.bas` and `WignerTimeADwinADC.bas`, so step 10 no longer has to carry it. The contract:
 - **What `upload` writes.** `Par_9` (`processdelayExpected`) gets the Processdelay the arrays were built for, and `Par_14` (`processdelayReported`) is cleared to 0. Both numbers were free in all three programs; the console rewrite uses 74–78.
-- **What the sequencer does.** At the end of `init:`, after anything the program may have set for itself, it writes its own `Processdelay` into `Par_14`. If that differs from `Par_9`, it sets `endCC = -1`, so the first event ends the run. The line-for-line emulation shows that only the lowinit and init rows are then played: the initial state, and nothing after it. The finish rows are not played either, because of B11, but the apparatus has only ever been in its initial state. Nothing is added to `event:`.
+- **What the sequencer does.** At the end of `init:`, after anything the program may have set for itself, it writes its own `Processdelay` into `Par_14`. If that differs from `Par_9`, it sets `endCC = -1`, so the first event ends the run. The line-for-line emulation shows that only the lowinit and init rows are then played: the initial state, and nothing after it. The finish rows were not played either, because of B11; since step 8 (2026-09-25) they are, so a refused run ends in the final state. Nothing is added to `event:`.
 - **What `wait` checks.** It reads `Par_14` after the run. If it is 0, the program predates the check and is refused, because nothing vouches for its run. If it differs from the upload's value, `wait` raises `PeriodRefused` with both periods in µs. The `Run` record keeps `processdelay__reported`.
 
 **Not verified on hardware**, and needs both programs recompiled and loaded:

@@ -304,7 +304,13 @@ processor's rate, and never sets it, because an ADbasic program can overwrite it
 processor, Processdelay, period, last cycle and the arrays. The log is a named tuple whose first two
 fields are the machine and the process, so it serves wherever the lab's `(machine, process)` pair
 does. (It was `create` until 2026-09-23; renamed because it neither creates anything nor should be
-confused with `timeline.create`.) Besides `Par_1..3` it writes `Par_9`, the Processdelay it built
+confused with `timeline.create`.) The final state (`ADwin_Finish`) does not go into the playback
+arrays: `upload` moves those rows to `data_31..33` (analogue module, channel, digits) and
+`data_42..43` (digital channel, value), with the counts in `Par_15`/`Par_16`. `finish:` plays them
+unconditionally, so a stopped run restores the default state too (B11). `convert`'s output still
+carries them at the finish sentinel. Every array's capacity is `adwin.ROWS__MAX`, which must match
+the `.bas` defines, and `upload` refuses a timeline that exceeds one before writing anything.
+Besides `Par_1..3` it writes `Par_9`, the Processdelay it built
 for, and clears `Par_14`. Both sequencer programs report their own Processdelay into `Par_14` at
 the end of `init:`, and play nothing past the initial state if it differs from `Par_9` (#128). `wait`
 then raises `PeriodRefused`, and refuses a program that did not report at all. `upload` waits for a running process before writing, and says
