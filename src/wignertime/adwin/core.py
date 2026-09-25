@@ -272,6 +272,12 @@ def upload(
     machine.Set_Par(2, len(output[0]))
     machine.Set_Par(3, len(output[1]))
 
+    # The period check (#128): the sequencer compares its own Processdelay with this at the
+    # end of `init:`, and plays nothing past the initial state if they differ. The report is
+    # cleared so that a program which does not make one cannot pass off an old one.
+    machine.Set_Par(wt_adwin.PAR__PROCESSDELAY__EXPECTED, processdelay)
+    machine.Set_Par(wt_adwin.PAR__PROCESSDELAY__REPORTED, 0)
+
     # `cycle, module, channel, digits` go to data_10..13 for the analogue set and
     # data_20..23 for the digital one.
     #
@@ -326,6 +332,32 @@ class LostEvents(RuntimeError):
         )
 
 
+class PeriodRefused(RuntimeError):
+    """
+    The sequencer refused to play a run, because the Processdelay its event loop runs at is not
+    the one the arrays were built for (#128). It played the initial state and nothing after.
+
+    `upload` reads the period off the machine, but before the start. A program may still set its
+    own Processdelay once started, and a different process from the one the upload was made for
+    may have been started. Either way, playing the arrays would rescale every time in them.
+    """
+
+    def __init__(self, run):
+        self.run = run
+        rate = wt_adwin.PROCESSDELAY__RATE[run.upload.processor]
+        super().__init__(
+            "Process {} refused to play the run: it runs at a Processdelay of {} ({:g} us),"
+            " but the arrays were built for {} ({:g} us). Nothing after the initial state"
+            " was played.".format(
+                run.upload.process,
+                run.processdelay__reported,
+                run.processdelay__reported / rate * 1e6,
+                run.upload.processdelay,
+                run.upload.cycle_period * 1e6,
+            )
+        )
+
+
 @dataclasses.dataclass
 class Run:
     """
@@ -334,7 +366,9 @@ class Run:
 
     `time__start` is wall-clock time (`time.time()`), so the record can be filed with the
     data the shot produced; `duration` is how long the run took, as seen from here, in
-    seconds; `lost_events` counts ADwin's lost events during it (see `LostEvents`).
+    seconds; `lost_events` counts ADwin's lost events during it (see `LostEvents`);
+    `processdelay__reported` is the Processdelay the sequencer reported running at (see
+    `PeriodRefused`).
     """
 
     upload: Upload
@@ -342,6 +376,7 @@ class Run:
     time__start: float
     lost_events: int | None = None
     duration: float | None = None
+    processdelay__reported: int | None = None
 
     @property
     def slip(self):
@@ -374,7 +409,9 @@ def wait(run):
     """
     Waits for a `Run` to end, fills in its record, and returns it.
 
-    Raises `LostEvents` if the run lost any. The count is the difference of ADwin's
+    Raises `PeriodRefused` if the sequencer refused to play the run, and refuses a program that
+    did not report its Processdelay at all: one older than the check, whose run nothing vouches
+    for. Then raises `LostEvents` if the run lost any. The count is the difference of ADwin's
     counter across the run, which is right if the counter accumulates from the moment
     the program was loaded. UNVERIFIED: if it instead restarts with every start, a fall
     across the run is refused below as the tell, but a run that happened to lose exactly
@@ -384,6 +421,18 @@ def wait(run):
     _wait_until_stopped(machine, process)
 
     run.duration = time.time() - run.time__start
+
+    run.processdelay__reported = machine.Get_Par(wt_adwin.PAR__PROCESSDELAY__REPORTED)
+    if run.processdelay__reported == 0:
+        raise RuntimeError(
+            "Process {} did not report the Processdelay it ran at, so the program loaded"
+            " there is older than the period check (#128), and nothing confirms that the run"
+            " kept the timeline's times. Load the current `WignerTimeADwin.bas`, or"
+            " `WignerTimeADwinADC.bas` as process 4.".format(process)
+        )
+    if run.processdelay__reported != run.upload.processdelay:
+        raise PeriodRefused(run)
+
     lost_events = machine.Get_Lost_Events(process)
     run.lost_events = lost_events - run.lost_events__start
 

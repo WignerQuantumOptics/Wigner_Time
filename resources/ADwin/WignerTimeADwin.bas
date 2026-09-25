@@ -24,6 +24,11 @@
 #define analogIdx par_7
 #define digitalIdx par_8
 
+' The period check (#128). `upload` writes the Processdelay it built the arrays for into
+' processdelayExpected; this program reports the one its event loop runs at.
+#define processdelayExpected par_9
+#define processdelayReported par_14
+
 
 sub processUpdates(cc)
   ' analog
@@ -65,6 +70,12 @@ lowinit:
   
 init:
   processUpdates(-1)
+
+  ' Checked here rather than in lowinit, since a program may set its own Processdelay
+  ' before this point. On a mismatch the first event ends the run: the initial state has
+  ' been applied, and nothing after it is played.
+  processdelayReported = Processdelay
+  if (processdelayReported <> processdelayExpected) then endCC = -1
   
 event:
   if (cyclecount > endCC) then end

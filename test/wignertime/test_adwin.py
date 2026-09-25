@@ -295,7 +295,14 @@ class _MachineRecording:
     It reports a T12 with process 1 at Lab1's 5 us unless told otherwise.
     """
 
-    def __init__(self, processor="T12", processdelay=None, status=(), lost_events=()):
+    def __init__(
+        self,
+        processor="T12",
+        processdelay=None,
+        status=(),
+        lost_events=(),
+        reports=None,
+    ):
         self.par = {}
         self.data = {}
         self.processor = processor
@@ -303,10 +310,19 @@ class _MachineRecording:
         # What `Process_Status` and `Get_Lost_Events` answer, one entry per call; then 0.
         self.status = list(status)
         self.lost_events = list(lost_events)
+        # What the started program reports as its Processdelay (Par_14): its own unless
+        # told otherwise, and 0 -- no report at all -- for a program older than the check.
+        self.reports = reports
         self.calls = []
 
     def Start_Process(self, process):
         self.calls.append(("Start_Process", process))
+        reported = self.processdelay[process] if self.reports is None else self.reports
+        if reported:
+            self.par[wt_adwin.PAR__PROCESSDELAY__REPORTED] = reported
+
+    def Get_Par(self, number):
+        return self.par.get(number, 0)
 
     def Get_Lost_Events(self, process):
         answer = self.lost_events.pop(0) if self.lost_events else 0
@@ -583,6 +599,40 @@ def test_an_error_inside_the_block_waits_the_run_out_and_goes_on(monkeypatch):
         names.count("Get_Lost_Events") == 1
     ), "the camera's error, not a lost-events one"
     assert "Stop_Process" not in names
+
+
+###############################################################################
+#   D14 / #128 -- the sequencer checks the period it runs at (roadmap step 7)
+###############################################################################
+
+
+def test_upload_leaves_the_expected_processdelay_and_clears_the_report():
+    machine = _MachineRecording(processdelay={1: 2000})
+    machine.par[wt_adwin.PAR__PROCESSDELAY__REPORTED] = 2000  # an old report
+    adwin.upload(*_digital_only(), machine, 1)
+
+    assert machine.par[wt_adwin.PAR__PROCESSDELAY__EXPECTED] == 2000
+    assert machine.par[wt_adwin.PAR__PROCESSDELAY__REPORTED] == 0
+
+
+def test_a_run_the_sequencer_refused_says_what_it_ran_at():
+    """
+    The program set a Processdelay of its own once started: 2000 against the 5000 read
+    before the start, which is what `upload` alone could not see.
+    """
+    log = _uploaded(reports=2000)
+    with pytest.raises(adwin.PeriodRefused, match=r"2000 \(2 us\).* 5000 \(5 us\)"):
+        adwin.run(log)
+
+
+def test_a_program_that_does_not_report_is_refused():
+    """A program older than the check leaves Par_14 at the 0 `upload` wrote."""
+    with pytest.raises(RuntimeError, match="older than the period check"):
+        adwin.run(_uploaded(reports=0))
+
+
+def test_an_agreeing_run_records_what_it_ran_at():
+    assert adwin.run(_uploaded()).processdelay__reported == 5000
 
 
 def test_starting_a_replay_waits_for_the_previous_run(monkeypatch, caplog):

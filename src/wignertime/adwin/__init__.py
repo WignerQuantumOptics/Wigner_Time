@@ -19,6 +19,17 @@ belongs here only once its rate is confirmed. Kept as a rate rather than a tick 
 `5000 / 1e9` gives exactly the float `5e-6`.
 """
 
+PAR__PROCESSDELAY__EXPECTED = 9
+"""`processdelayExpected` in the sequencer: the Processdelay `upload` built the arrays for."""
+
+PAR__PROCESSDELAY__REPORTED = 14
+"""
+`processdelayReported` in the sequencer: the Processdelay its event loop runs at, written at
+the end of `init:`. `upload` clears it, so a 0 after a run means that the loaded program does
+not report it. That is a program older than the check, which is refused rather than trusted.
+Where the two differ, the sequencer has refused to play the run (#128).
+"""
+
 CYCLES__RUN = (0, 2**31 - 2)
 """
 The first and last cycle at which a row outside the special contexts can be played.

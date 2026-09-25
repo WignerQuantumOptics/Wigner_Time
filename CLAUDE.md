@@ -304,7 +304,10 @@ processor's rate, and never sets it, because an ADbasic program can overwrite it
 processor, Processdelay, period, last cycle and the arrays. The log is a named tuple whose first two
 fields are the machine and the process, so it serves wherever the lab's `(machine, process)` pair
 does. (It was `create` until 2026-09-23; renamed because it neither creates anything nor should be
-confused with `timeline.create`.) `upload` waits for a running process before writing, and says
+confused with `timeline.create`.) Besides `Par_1..3` it writes `Par_9`, the Processdelay it built
+for, and clears `Par_14`. Both sequencer programs report their own Processdelay into `Par_14` at
+the end of `init:`, and play nothing past the initial state if it differs from `Par_9` (#128). `wait`
+then raises `PeriodRefused`, and refuses a program that did not report at all. `upload` waits for a running process before writing, and says
 so once (A15). The machine accepts writes mid-run, and a parameter scan's next upload used to
 land in the previous shot's finish tail.
 

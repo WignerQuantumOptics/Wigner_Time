@@ -1118,9 +1118,18 @@ This is a breaking change to `SPECIFICATIONS__DEFAULT` for anyone passing their 
 
 Tracked as [#127](https://github.com/WignerQuantumOptics/Wigner_Time/issues/127), and as L18 in `quantum_optics_lab`.
 
-### D14 — nothing cross-checks ADbasic's `Initial_Processdelay` against the cycle period **[new, found 2026-09-12; this is #128]** — **Python half done 2026-09-23 on `issue#94`; open until roadmap step 7**
+### D14 — nothing cross-checks ADbasic's `Initial_Processdelay` against the cycle period **[new, found 2026-09-12; this is #128]** — **both halves done on `issue#94` (2026-09-23, 2026-09-25); open until verified on the rig**
 
 Sharpened by D21, and half closed by the roadmap at #94: `upload` now reads the period off the machine, so Python can no longer disagree with the loaded program's header. What remains is the case D21 names, a program that sets its own `Processdelay` once started. That is the sequencer's check at the end of `init:` (step 7), a contract change still to come.
+
+**Step 7 done, 2026-09-25**, in both `WignerTimeADwin.bas` and `WignerTimeADwinADC.bas`, so step 10 no longer has to carry it. The contract:
+- **What `upload` writes.** `Par_9` (`processdelayExpected`) gets the Processdelay the arrays were built for, and `Par_14` (`processdelayReported`) is cleared to 0. Both numbers were free in all three programs; the console rewrite uses 74–78.
+- **What the sequencer does.** At the end of `init:`, after anything the program may have set for itself, it writes its own `Processdelay` into `Par_14`. If that differs from `Par_9`, it sets `endCC = -1`, so the first event ends the run. The line-for-line emulation shows that only the lowinit and init rows are then played: the initial state, and nothing after it. The finish rows are not played either, because of B11, but the apparatus has only ever been in its initial state. Nothing is added to `event:`.
+- **What `wait` checks.** It reads `Par_14` after the run. If it is 0, the program predates the check and is refused, because nothing vouches for its run. If it differs from the upload's value, `wait` raises `PeriodRefused` with both periods in µs. The `Run` record keeps `processdelay__reported`.
+
+**Not verified on hardware**, and needs both programs recompiled and loaded:
+- That ADbasic lets a process read its own `Processdelay` as a variable is believed but UNVERIFIED; the compiler will say.
+- **Until the new binaries are loaded, every run through `wait`, `running` or `run` raises "older than the period check".** This is deliberate, and it is the first thing the rig will show. A run started with a bare `Start_Process` is unaffected.
 
 The entry as found:
 
