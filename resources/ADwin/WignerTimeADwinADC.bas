@@ -13,15 +13,25 @@
 '<Header End>
 #include ADwinPro_All.Inc
 
+' The contract with Python and the arrays, shared with the other sequencer program.
+#include .\WignerTimeSequencer.inc
+
 ''''''''''''''''''''''''''''''''''''
 ' definitions for ADC
 ''''''''''''''''''''''''''''''''''''
-#Define ADC_DataAmount Par_41
-
+' The recording window, written by Python (wignertime.adwin.adc.arm) in cycles of the run, so
+' that nothing here depends on the cycle period: the burst starts at ADC_StartCycle and is over
+' by ADC_EndCycle. finish: resets ADC_EndCycle to 0, so a window is armed for one run only.
+' FPar_62, the start in seconds, is no longer read.
+#Define ADC_StartCycle Par_42
+#Define ADC_EndCycle Par_43
 #Define ADC_Duration FPar_61 ' in s
-#Define ADC_ON_Time FPar_62 ' in s
 
-#Define ClockInterval 5 ' in us
+' Reported to Python: how many samples were recorded (0 unless the burst had its whole window),
+' and how far apart they are.
+#Define ADC_DataAmount Par_41
+#Define ADC_SamplePeriod FPar_63 ' in s
+
 #Define ADC_Card 2
 #Define ADC_Channel 1
 
@@ -32,81 +42,8 @@
 ''''''''''''''''''''''''''''''''''''
 
 
-#define endCC par_1
-#define analogArrayDim par_2
-#define digitalArrayDim par_3
-
-#define analogMaxArrayDim 10000000
-#define digitalMaxArrayDim 10000
-
-#define cyclecount par_6
-#define analogIdx par_7
-#define digitalIdx par_8
-
-' The period check (#128). `upload` writes the Processdelay it built the arrays for into
-' processdelayExpected; this program reports the one its event loop runs at.
-#define processdelayExpected par_9
-#define processdelayReported par_14
-
-' The final state (B11), in arrays of its own, played in full by finish: however the run
-' ended. At most one row per variable, so a few hundred entries suffice.
-#define finishMaxArrayDim 256
-#define analogFinishDim par_15
-#define digitalFinishDim par_16
-
-' Who is playing the arrays (step 9): this process's number from the start of lowinit to the
-' end of finish:, 0 otherwise. The arrays are shared by every process on the machine, so
-' Python waits on whichever process holds them, and the console writes nothing meanwhile.
-#define sequenceOwner par_17
-#define consoleProcess 10
-' The console's own status, 1 while it runs, 0 when stopped or not loaded, -1 while being
-' stopped. ADbasic takes the process number as part of the name, so it is written twice here
-' and the two must agree.
-#define consoleRunning Process10_Running
-
 Dim i, ADC_ChannelPattern, startADC, endADC As Long
-
 Dim Data_1[ADC_MaxDataAmount] As Long
-
-
-sub processUpdates(cc)
-  ' analog
-  if ( (analogIdx <= analogArrayDim) and (data_10[analogIdx] = cc) ) then
-    do  
-      p2_dac(data_11[analogIdx],data_12[analogIdx],data_13[analogIdx])
-      '      par_10=data_10[analogIdx] : par_11=data_11[analogIdx] : par_12=data_12[analogIdx] : par_13=data_13[analogIdx]
-      inc analogIdx
-    until ( (analogIdx > analogArrayDim) or (data_10[analogIdx] > cc) )
-  endif
-  ' digital
-  if ( (digitalIdx <= digitalArrayDim) and (data_20[digitalIdx] = cc) ) then
-    do
-      p2_digout(1,data_22[digitalIdx],data_23[digitalIdx])
-      '      par_20=data_20[digitalIdx] : par_22=data_22[digitalIdx] : par_23=data_23[digitalIdx]
-      inc digitalIdx
-    until ( (digitalIdx > digitalArrayDim) or (data_20[digitalIdx] > cc) )
-  endif
-endsub
-
-
-dim data_10[analogMaxArrayDim] as long ' Clock cycles of analog updates
-dim data_11[analogMaxArrayDim] as long ' Module numbers of analog updates
-dim data_12[analogMaxArrayDim] as long ' Channels of analog updates
-dim data_13[analogMaxArrayDim] as long ' Values (digitized) of analog updates
-
-dim data_20[digitalMaxArrayDim] as long ' Clock cycles of digital updates
-dim data_22[digitalMaxArrayDim] as long ' Channels of digital updates
-dim data_23[digitalMaxArrayDim] as long ' Values (0 or 1) of digital updates
-
-dim data_31[finishMaxArrayDim] as long ' Module numbers of the final analog state
-dim data_32[finishMaxArrayDim] as long ' Channels of the final analog state
-dim data_33[finishMaxArrayDim] as long ' Values (digitized) of the final analog state
-
-dim data_42[finishMaxArrayDim] as long ' Channels of the final digital state
-dim data_43[finishMaxArrayDim] as long ' Values (0 or 1) of the final digital state
-
-dim finishIdx as long
-dim consoleWasRunning as long
 
 'dim cyclecount, analogIdx, digitalIdx as long
 
@@ -117,8 +54,9 @@ lowinit:
   sequenceOwner = 4
   ' The manual console must not write to the outputs while a sequence plays. Only a console
   ' that is running now is started again after the run; one already being stopped, from the
-  ' PC or by another process, is not. An event: the console is in the middle of is completed
-  ' after the stop, and can still write once, early in the run (KNOWN_ISSUES.md, D22).
+  ' PC or by another process, is not. The console runs at low priority level 2, above the
+  ' level 1 of this section, so an event: of it already under way has finished before this
+  ' section began (KNOWN_ISSUES.md, D22).
   consoleWasRunning = consoleRunning
   Stop_Process(consoleProcess)
   cyclecount = 0 : analogIdx = 1 : digitalIdx = 1
@@ -137,8 +75,12 @@ lowinit:
   ' configuring ADC burst mode
   ADC_DataAmount=1000000*ADC_Duration/ADC_TimeInterval
   If (ADC_DataAmount > ADC_MaxDataAmount) Then ADC_DataAmount = ADC_MaxDataAmount
-  startADC=ADC_ON_Time*1.0e6/ClockInterval
-  endADC=startADC+ADC_Duration*1.0e6/ClockInterval
+  ADC_SamplePeriod=ADC_TimeInterval*1.0e-6
+  ' Armed only if the window has a positive length and closes within the run. Otherwise the
+  ' burst is never started, and finish: records nothing.
+  startADC=ADC_StartCycle
+  endADC=ADC_EndCycle
+  If ((startADC < 0) Or (endADC <= startADC) Or (endADC > endCC)) Then startADC=-1
   ADC_ChannelPattern=Shift_Left(1,ADC_Card-1)
   
   P2_Set_Average_Filter(ADC_Card,0) 'sets the module, where the data  is happening, and also how many values does it use for the average
@@ -174,7 +116,15 @@ finish:
     p2_digout(1,data_42[finishIdx],data_43[finishIdx])
   next finishIdx
   
-  P2_Burst_Read_Unpacked1 (ADC_Card, ADC_DataAmount, 0, Data_1, 1, 3)
+  ' The samples, only if the burst had its whole window. A run that was not armed, was stopped
+  ' before endADC, or was refused by the period check (endCC = -1) reports none.
+  If ((startADC >= 0) And (cyclecount > endADC)) Then
+    P2_Burst_Read_Unpacked1 (ADC_Card, ADC_DataAmount, 0, Data_1, 1, 3)
+  Else
+    ADC_DataAmount = 0
+  EndIf
+  ' Armed for one run only.
+  ADC_EndCycle = 0
 
   ' Last of all, once the final state is out: the arrays are free.
   sequenceOwner = 0

@@ -337,9 +337,13 @@ controller are **not** Wigner Time's: they are armed before `running` and servic
 block, in the lab's code (maintainer, 2026-09-24; L22 there records the longer-term direction of
 one thread per device). An error inside the block waits the run out but does not stop it: that a
 stop from the PC reaches `finish:` and plays the final state (B11) awaits the rig. The consumer is `resources/ADwin/WignerTimeADwin.bas` (ADbasic,
-real-time side); its `#define`s and `data_NN` array meanings must stay in sync with `core.upload`. Par, FPar and Data
-numbers are shared by every process on the machine, and processes can start and stop one another;
-`WignerTimeADwinADC.bas` (process 4) is a copy of the sequencer that plays the same arrays.
+real-time side). Its Par `#define`s, its arrays and `processUpdates` live in
+`resources/ADwin/WignerTimeSequencer.inc`, included by a path relative to the program, and must stay
+in sync with `core.upload`. Par, FPar and Data numbers are shared by every process on the machine,
+and processes can start and stop one another. `WignerTimeADwinADC.bas` (process 4) includes the same
+file and plays the same arrays. It also records an ADC channel in burst mode over a window that
+`adwin.adc.arm` writes in cycles (`Par_42`/`Par_43`), armed for one run and disarmed by its
+`finish:`. The program itself has no notion of the period (step 10).
 
 **Keep the real-time program arithmetic-free.** Its whole job is "at this cycle, if a value differs
 from the previous one, output it": one comparison per channel group, early exit, no computation. Every

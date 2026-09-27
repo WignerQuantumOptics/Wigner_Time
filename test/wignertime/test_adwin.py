@@ -10,6 +10,7 @@ import wignertime.adwin as wt_adwin
 pytest.importorskip("ADwin", reason="the `adwin` extra is not installed")
 
 from wignertime.adwin import core as adwin
+from wignertime.adwin import adc
 from wignertime.adwin import connection as adcon
 from wignertime.adwin import validate as wt_validate
 from wignertime.adwin import internal as adi
@@ -779,6 +780,175 @@ def test_a_specification_carrying_a_cycle_period_is_refused():
     specifications = {"cycle_period": 2e-6, **adi.SPECIFICATIONS__DEFAULT}
     with pytest.raises(ValueError, match="no longer read"):
         adwin.convert(*_digital_only(), 2e-6, machine_specifications=specifications)
+
+
+###############################################################################
+#   Step 10 -- the ADC variant records in a window stated in cycles
+###############################################################################
+
+
+class _MachineRecordingADC(_MachineRecording):
+    """
+    Adds what `adc` touches, and plays `WignerTimeADwinADC.bas`'s half of the contract on
+    each start, line for line: `lowinit:` turns the duration into samples, reports the
+    sample period and arms only a window inside the run; `finish:` reports the samples only
+    if the run lasted until the window closed, then disarms. `stopped_at` ends the run at
+    that cycle; `old_program` plays a program older than the contract, which reports nothing.
+    """
+
+    TIME_INTERVAL__US = 0.25  # ADC_TimeInterval
+    MAX_DATA_AMOUNT = 67108860  # ADC_MaxDataAmount
+
+    def __init__(self, stopped_at=None, old_program=False, **machine):
+        machine.setdefault("processdelay", {4: 5000})
+        super().__init__(**machine)
+        self.fpar = {}
+        self.stopped_at = stopped_at
+        self.old_program = old_program
+
+    def Set_FPar(self, number, value):
+        self.calls.append(("Set_FPar", number))
+        self.fpar[number] = value
+
+    def Get_FPar(self, number):
+        return self.fpar.get(number, 0.0)
+
+    def GetData_Int64(self, number, startindex, count):
+        self.calls.append(("GetData_Int64", number))
+        return list(range(startindex, startindex + count))
+
+    def Start_Process(self, process):
+        super().Start_Process(process)
+        if self.old_program:
+            return
+        par, fpar = self.par, self.fpar
+        # lowinit:
+        amount = int(1000000 * fpar.get(61, 0.0) / self.TIME_INTERVAL__US)
+        amount = min(amount, self.MAX_DATA_AMOUNT)
+        fpar[63] = self.TIME_INTERVAL__US * 1.0e-6
+        start, end, end_cc = par.get(42, 0), par.get(43, 0), par.get(1, 0)
+        if start < 0 or end <= start or end > end_cc:
+            start = -1
+        # the run, then finish:
+        cyclecount = end_cc + 1 if self.stopped_at is None else self.stopped_at
+        par[41] = amount if (start >= 0 and cyclecount > end) else 0
+        par[43] = 0
+
+
+def _uploaded__ADC(**machine):
+    """An upload for process 4, the ADC variant; `_digital_only` runs from 0 to 1 s."""
+    log = adwin.upload(*_digital_only(), _MachineRecordingADC(**machine), 4)
+    log.machine.calls.clear()
+    return log
+
+
+@pytest.mark.parametrize(
+    "processdelay, cycle__start, cycles", [(5000, 100_000, 2), (2000, 250_000, 5)]
+)
+def test_the_window_is_written_in_cycles_at_the_machines_period(
+    processdelay, cycle__start, cycles
+):
+    """
+    At 0.5 s, and at both labs' periods. The program used to divide by a fixed 5 us, so at
+    Lab2's 2 us it would have written 100 000 for 0.5 s, which is 0.2 s.
+    """
+    log = _uploaded__ADC(processdelay={4: processdelay})
+    window = adc.arm(log, 0.5, 10e-6)
+
+    assert log.machine.par[adc.PAR__CYCLE__START] == cycle__start
+    assert log.machine.par[adc.PAR__CYCLE__END] == window.cycle__end
+    assert window.cycle__end - cycle__start == cycles  # 10 us, exactly, at 2 us too
+    assert log.machine.fpar[adc.FPAR__DURATION] == 10e-6
+    assert window.time__start == pytest.approx(0.5)
+
+
+def test_a_recording_is_timed_from_the_start_as_armed():
+    samples = adc.run(_uploaded__ADC(), 0.5, 10e-6)
+
+    assert len(samples.digits) == 40  # 10 us at 0.25 us
+    assert samples.time[0] == pytest.approx(0.5)
+    assert samples.time[1] - samples.time[0] == pytest.approx(0.25e-6)
+    assert samples.run.upload is samples.window.upload
+
+
+def test_arming_clears_what_the_program_reports():
+    """So that a report after the run is this run's, not one left from an earlier one."""
+    log = _uploaded__ADC()
+    log.machine.par[adc.PAR__SAMPLES], log.machine.fpar[adc.FPAR__SAMPLE_PERIOD] = (
+        7,
+        1.0,
+    )
+    adc.arm(log, 0.5, 10e-6)
+    assert log.machine.par[adc.PAR__SAMPLES] == 0
+    assert log.machine.fpar[adc.FPAR__SAMPLE_PERIOD] == 0.0
+
+
+def test_only_the_ADC_variant_records():
+    with pytest.raises(
+        ValueError, match="process 4, but this upload was made for process 1"
+    ):
+        adc.arm(_uploaded(), 0.5, 10e-6)
+
+
+@pytest.mark.parametrize(
+    "t, duration, match",
+    [
+        (0.99, 0.5, "ends after the run, which ends at 1 s"),
+        (-0.1, 0.5, "cannot start before the run"),
+        (0.5, 0.0, "positive number of seconds"),
+    ],
+)
+def test_a_window_outside_the_run_is_refused(t, duration, match):
+    """The samples are read out in `finish:`: a burst still under way there is partly stale."""
+    log = _uploaded__ADC()
+    with pytest.raises(ValueError, match=match):
+        adc.arm(log, t, duration)
+    assert "Set_Par" not in _names(log.machine.calls), "nothing armed"
+
+
+def test_a_window_is_armed_for_one_run():
+    """A second run without arming records nothing, and says so; `adc.run` arms each time."""
+    log = _uploaded__ADC()
+    window = adc.arm(log, 0.5, 10e-6)
+    adc.read(window, adwin.run(log))
+
+    with pytest.raises(RuntimeError, match="not armed"):
+        adc.read(window, adwin.run(log))
+    assert len(adc.run(log, 0.5, 10e-6).digits) == 40
+
+
+def test_a_run_that_ended_before_the_window_closed_records_nothing():
+    log = _uploaded__ADC(
+        stopped_at=100_001
+    )  # inside the window, which closes at 100 002
+    window = adc.arm(log, 0.5, 10e-6)
+    with pytest.raises(RuntimeError, match="ended before cycle 100002"):
+        adc.read(window, adwin.run(log))
+
+
+def test_a_program_older_than_the_contract_is_refused():
+    """It would have placed the window by its own 5 us, whatever the machine runs at."""
+    with pytest.raises(RuntimeError, match="did not report its sample period"):
+        adc.run(_uploaded__ADC(old_program=True), 0.5, 10e-6)
+
+
+def test_a_window_longer_than_the_buffer_is_refused(monkeypatch):
+    monkeypatch.setattr(_MachineRecordingADC, "MAX_DATA_AMOUNT", 10)
+    with pytest.raises(
+        RuntimeError, match="recorded 10 samples.*longer than its buffer"
+    ):
+        adc.run(_uploaded__ADC(), 0.5, 10e-6)
+
+
+def test_a_window_is_read_only_after_its_own_run(monkeypatch):
+    log = _uploaded__ADC()
+    window = adc.arm(log, 0.5, 10e-6)
+    with pytest.raises(ValueError, match="has not been waited for"):
+        adc.read(window, adwin.start(log))
+
+    other = _uploaded__ADC()
+    with pytest.raises(ValueError, match="armed for another upload"):
+        adc.read(window, adwin.run(other))
 
 
 ###############################################################################
