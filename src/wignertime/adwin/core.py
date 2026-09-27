@@ -316,8 +316,8 @@ def upload(
     machine.Set_Par(1, cycle__last)
     machine.Set_Par(2, len(analogue))
     machine.Set_Par(3, len(digital))
-    machine.Set_Par(15, len(analogue__finish))
-    machine.Set_Par(16, len(digital__finish))
+    machine.Set_Par(wt_adwin.PAR__FINISH__ANALOGUE, len(analogue__finish))
+    machine.Set_Par(wt_adwin.PAR__FINISH__DIGITAL, len(digital__finish))
 
     # The period check (#128): the sequencer compares its own Processdelay with this at the
     # end of `init:`, and plays nothing past the initial state if they differ. The report is
@@ -337,8 +337,8 @@ def upload(
     for data__first, columns, rows__set in (
         (10, range(4), analogue),
         (20, range(4), digital),
-        (31, range(3), analogue__finish),
-        (42, range(1, 3), digital__finish),
+        (wt_adwin.DATA__FINISH__ANALOGUE, range(3), analogue__finish),
+        (wt_adwin.DATA__FINISH__DIGITAL, range(1, 3), digital__finish),
     ):
         if rows__set:
             for number, column in enumerate(columns, start=data__first):

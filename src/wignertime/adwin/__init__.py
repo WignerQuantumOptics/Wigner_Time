@@ -40,6 +40,17 @@ running is asked of the process itself, so that a value left behind by one that 
 cannot hold anything up.
 """
 
+PAR__FINISH__ANALOGUE = 15
+PAR__FINISH__DIGITAL = 16
+DATA__FINISH__ANALOGUE = 31
+DATA__FINISH__DIGITAL = 42
+"""
+Where `upload` leaves the final state (B11): the number of analogue and digital rows in
+`Par_15` and `Par_16`, the analogue rows as module, channel and digits in `data_31..33`, the
+digital ones as channel and value in `data_42..43`. The sequencer's `finish:` plays them, and the
+console reads them back to show what the apparatus holds after a run.
+"""
+
 ROWS__MAX = {
     "analogue": 10_000_000,
     "digital": 10_000,

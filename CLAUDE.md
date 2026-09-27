@@ -83,7 +83,8 @@ manuscript since then are `git log 5776331..HEAD -- docs/paper/`.
 **The lab code that uses the package is next door, and can be read at any time**:
 `../quantum_optics_lab/` (sibling of this repo). `timeline/experiment.py` and
 `timeline/diagnostics.py` are the real counterparts of the demo and of the paper's `sec:forwarding`;
-`control/time_of_flight.py` is `sec:parameter_scan`; `console.py` is the manual console of D22; and
+`control/time_of_flight.py` is `sec:parameter_scan`; `console.py` re-exports the manual console of
+D22, which moved into this package on 2026-09-27 (`wignertime.adwin.console`); and
 `../notebooks/` holds the notebooks the experiments are run from (`diagnosticsStageByStage.ipynb`
 interweaves imaging into each preparation stage). It has its own `KNOWN_ISSUES.md` (items `L*`).
 `../Lab2TimelineTakeout_VargaDani_20260921/` is the source of the Lab2 regression fixture. Check
@@ -343,7 +344,12 @@ in sync with `core.upload`. Par, FPar and Data numbers are shared by every proce
 and processes can start and stop one another. `WignerTimeADwinADC.bas` (process 4) includes the same
 file and plays the same arrays. It also records an ADC channel in burst mode over a window that
 `adwin.adc.arm` writes in cycles (`Par_42`/`Par_43`), armed for one run and disarmed by its
-`finish:`. The program itself has no notion of the period (step 10).
+`finish:`. The program itself has no notion of the period (step 10). The manual console is
+`adwin.console` with `WignerTimeConsole.bas` as process 10, which includes the same file. It
+serves one request at a time through `Par_70..74`, from `panel(connections, devices, defaults)`,
+so it converts and bounds a channel exactly as the pipeline does. It refuses to write while a
+sequence owns the outputs, and after a run the apparatus holds the run's final state, which
+`console.final_state` reads back.
 
 **Keep the real-time program arithmetic-free.** Its whole job is "at this cycle, if a value differs
 from the previous one, output it": one comparison per channel group, early exit, no computation. Every
