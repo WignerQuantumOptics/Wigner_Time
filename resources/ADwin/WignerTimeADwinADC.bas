@@ -59,6 +59,10 @@
 ' Python waits on whichever process holds them, and the console writes nothing meanwhile.
 #define sequenceOwner par_17
 #define consoleProcess 10
+' Raised by the console while it runs (set in its init:, cleared in its finish:), so that a
+' console stopped for the run can be started again after it, and one that was not running is
+' left alone.
+#define consoleRunning par_18
 
 Dim i, ADC_ChannelPattern, startADC, endADC As Long
 
@@ -102,11 +106,14 @@ dim data_42[finishMaxArrayDim] as long ' Channels of the final digital state
 dim data_43[finishMaxArrayDim] as long ' Values (0 or 1) of the final digital state
 
 dim finishIdx as long
+dim consoleWasRunning as long
 
 'dim cyclecount, analogIdx, digitalIdx as long
 
 lowinit:
   ' The manual console must not write to the outputs while a sequence plays.
+  ' Read before stopping it: stopping it runs its finish:, which lowers the flag.
+  consoleWasRunning = consoleRunning
   Stop_Process(consoleProcess)
   sequenceOwner = 4
   cyclecount = 0 : analogIdx = 1 : digitalIdx = 1
@@ -166,3 +173,6 @@ finish:
 
   ' Last of all, once the final state is out: the arrays are free.
   sequenceOwner = 0
+
+  ' And the console, if the run stopped it, comes back on the final state.
+  if (consoleWasRunning <> 0) then Start_Process(consoleProcess)

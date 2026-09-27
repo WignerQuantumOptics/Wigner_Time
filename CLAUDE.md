@@ -312,7 +312,9 @@ carries them at the finish sentinel. Every array's capacity is `adwin.ROWS__MAX`
 the `.bas` defines, and `upload` refuses a timeline that exceeds one before writing anything.
 The arrays have an owner: each sequencer sets `Par_17` to its own process number at the start of
 `lowinit:` and clears it at the end of `finish:`. It also stops the manual console (process 10) in
-`lowinit:`. `upload` and `start` wait on the process `Par_17` names, as well as on their own.
+`lowinit:`, having first noted in a program variable whether it was running (`Par_18`, which the console
+raises in its `init:` and lowers in its `finish:`), and starts it again at the very end of `finish:` if
+it was. `upload` and `start` wait on the process `Par_17` names, as well as on their own.
 Besides `Par_1..3` it writes `Par_9`, the Processdelay it built
 for, and clears `Par_14`. Both sequencer programs report their own Processdelay into `Par_14` at
 the end of `init:`, and play nothing past the initial state if it differs from `Par_9` (#128). `wait`
