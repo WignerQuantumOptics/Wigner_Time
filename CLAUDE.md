@@ -314,7 +314,9 @@ The arrays have an owner: each sequencer sets `Par_17` to its own process number
 `lowinit:` and clears it at the end of `finish:`. Right after claiming `Par_17` it stops the manual
 console (process 10), having first noted whether it was running (ADbasic's `Process10_Running`), and
 starts it again at the very end of `finish:` if it was. The console holds its requests while `Par_17`
-is nonzero. One console write can still land early in a run (D22, open). `upload` and `start` wait on
+is nonzero, and runs at low priority level 2, above the level 1 at which every `lowinit:` and
+`finish:` runs, so that no sequence can start between its test of `Par_17` and its write (D22,
+lab L23). `upload` and `start` wait on
 the process `Par_17` names, as well as on their own. The ADbasic 6.00 manual (Feb. 2017) is the
 reference for what the machine side may assume; the maintainer has it, and `KNOWN_ISSUES.md` cites
 it by page.
