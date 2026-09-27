@@ -825,7 +825,7 @@ class _MachineRecordingADC(_MachineRecording):
         # lowinit:
         amount = int(1000000 * fpar.get(61, 0.0) / self.TIME_INTERVAL__US)
         amount = min(amount, self.MAX_DATA_AMOUNT)
-        fpar[63] = self.TIME_INTERVAL__US * 1.0e-6
+        par[44] = int(self.TIME_INTERVAL__US * 1000)
         start, end, end_cc = par.get(42, 0), par.get(43, 0), par.get(1, 0)
         if start < 0 or end <= start or end > end_cc:
             start = -1
@@ -874,13 +874,11 @@ def test_a_recording_is_timed_from_the_start_as_armed():
 def test_arming_clears_what_the_program_reports():
     """So that a report after the run is this run's, not one left from an earlier one."""
     log = _uploaded__ADC()
-    log.machine.par[adc.PAR__SAMPLES], log.machine.fpar[adc.FPAR__SAMPLE_PERIOD] = (
-        7,
-        1.0,
-    )
+    log.machine.par[adc.PAR__SAMPLES] = 7
+    log.machine.par[adc.PAR__SAMPLE_PERIOD__NS] = 250
     adc.arm(log, 0.5, 10e-6)
     assert log.machine.par[adc.PAR__SAMPLES] == 0
-    assert log.machine.fpar[adc.FPAR__SAMPLE_PERIOD] == 0.0
+    assert log.machine.par[adc.PAR__SAMPLE_PERIOD__NS] == 0
 
 
 def test_only_the_ADC_variant_records():

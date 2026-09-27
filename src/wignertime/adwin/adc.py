@@ -21,8 +21,10 @@ The contract with the program, whose `#Define`s must agree with the numbers belo
   and its `finish:` resets `Par_43` to 0, which is what disarms.
 - `FPar_61`, written by `arm`: the window's duration in seconds. The program turns it into a
   number of samples at its own sample period, and caps it at its buffer.
-- `Par_41` and `FPar_63`, reported by the program, and cleared by `arm`: how many samples it
-  recorded, and their period in seconds. `Par_41` is 0 unless the burst had its whole window.
+- `Par_41` and `Par_44`, reported by the program, and cleared by `arm`: how many samples it
+  recorded, and their period in whole nanoseconds. `Par_41` is 0 unless the burst had its whole
+  window. The period is a Par rather than an FPar because an FPar reaches Python in single
+  precision, which over two million samples would shift the last one by some 30 ns.
 - `Data_1`: the samples, as the card's digits.
 
 `FPar_62`, the start in seconds, is no longer read.
@@ -41,8 +43,8 @@ PROCESS = 4
 PAR__SAMPLES = 41
 PAR__CYCLE__START = 42
 PAR__CYCLE__END = 43
+PAR__SAMPLE_PERIOD__NS = 44
 FPAR__DURATION = 61
-FPAR__SAMPLE_PERIOD = 63
 DATA__SAMPLES = 1
 
 
@@ -127,7 +129,7 @@ def arm(upload, t, duration):
     machine.Set_Par(PAR__CYCLE__END, cycle__end)
     machine.Set_FPar(FPAR__DURATION, duration)
     machine.Set_Par(PAR__SAMPLES, 0)
-    machine.Set_FPar(FPAR__SAMPLE_PERIOD, 0.0)
+    machine.Set_Par(PAR__SAMPLE_PERIOD__NS, 0)
 
     return Window(upload, cycle__start, cycle__end, duration)
 
@@ -153,7 +155,7 @@ def read(window, run):
         )
 
     machine = window.upload.machine
-    sample_period = machine.Get_FPar(FPAR__SAMPLE_PERIOD)
+    sample_period = machine.Get_Par(PAR__SAMPLE_PERIOD__NS) * 1e-9
     if sample_period == 0:
         raise RuntimeError(
             "Process {} did not report its sample period, so the program loaded there is"

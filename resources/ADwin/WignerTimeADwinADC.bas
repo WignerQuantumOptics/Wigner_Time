@@ -28,9 +28,9 @@
 #Define ADC_Duration FPar_61 ' in s
 
 ' Reported to Python: how many samples were recorded (0 unless the burst had its whole window),
-' and how far apart they are.
+' and how far apart they are, in whole ns, since an FPar would reach Python in single precision.
 #Define ADC_DataAmount Par_41
-#Define ADC_SamplePeriod FPar_63 ' in s
+#Define ADC_SamplePeriod Par_44 ' in ns
 
 #Define ADC_Card 2
 #Define ADC_Channel 1
@@ -75,7 +75,7 @@ lowinit:
   ' configuring ADC burst mode
   ADC_DataAmount=1000000*ADC_Duration/ADC_TimeInterval
   If (ADC_DataAmount > ADC_MaxDataAmount) Then ADC_DataAmount = ADC_MaxDataAmount
-  ADC_SamplePeriod=ADC_TimeInterval*1.0e-6
+  ADC_SamplePeriod=ADC_TimeInterval*1000
   ' Armed only if the window has a positive length and closes within the run. Otherwise the
   ' burst is never started, and finish: records nothing.
   startADC=ADC_StartCycle
