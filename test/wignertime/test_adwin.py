@@ -610,7 +610,7 @@ def test_running_starts_before_the_block_and_waits_after_it(monkeypatch):
     with adwin.running(log) as run:
         inside = list(log.machine.calls)
 
-    assert _names(inside) == ["Process_Status", "Get_Lost_Events", "Start_Process"]
+    assert _names(inside) == ["Process_Status", "Start_Process"]
     assert _names(log.machine.calls[len(inside) :]) == [
         "Process_Status",
         "Process_Status",
@@ -622,29 +622,36 @@ def test_running_starts_before_the_block_and_waits_after_it(monkeypatch):
 
 def test_a_run_that_lost_events_is_refused_with_its_slip():
     """At Lab1's 5 us, 2 lost events stretch the run by 10 us."""
-    log = _uploaded(lost_events=[3, 5])
+    log = _uploaded(lost_events=[2])
     with pytest.raises(adwin.LostEvents, match=r"lost 2 events .* 10\.0 us longer"):
         adwin.run(log)
 
 
 def test_the_refusal_carries_the_record():
-    log = _uploaded(lost_events=[0, 1])
+    log = _uploaded(lost_events=[1])
     with pytest.raises(adwin.LostEvents) as refused:
         adwin.run(log)
     assert refused.value.run.lost_events == 1
     assert refused.value.run.slip == pytest.approx(5e-6)
 
 
-def test_a_counter_that_falls_across_the_run_says_it_restarts():
-    """The counter's semantics are unverified; a fall is the tell, and it is not hidden."""
-    with pytest.raises(RuntimeError, match="evidently restarts with every start"):
-        adwin.run(_uploaded(lost_events=[4, 0]))
+def test_the_count_is_read_once_after_the_run():
+    """
+    ADwin counts lost events since the process's start, so the count after the run is the
+    run's own. Read as a difference across the run, as it was, a run that lost as many
+    events as the one before it passed.
+    """
+    log = _uploaded(lost_events=[3])
+    with pytest.raises(adwin.LostEvents, match="lost 3 events"):
+        adwin.run(log)
+    assert _names(log.machine.calls).count("Get_Lost_Events") == 1
+    assert _names(log.machine.calls)[-1] == "Get_Lost_Events"
 
 
 def test_an_error_inside_the_block_waits_the_run_out_and_goes_on(monkeypatch):
-    """Not stopped: until B11 is fixed, stopping would leave the apparatus driven."""
+    """Not stopped: that a stop from the PC plays the final state (B11) awaits the rig."""
     monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
-    log = _uploaded(lost_events=[0, 7])
+    log = _uploaded(lost_events=[7])
     log.machine.status = [0, 1, 0]
 
     with pytest.raises(TimeoutError, match="camera"):
@@ -653,9 +660,7 @@ def test_an_error_inside_the_block_waits_the_run_out_and_goes_on(monkeypatch):
 
     names = _names(log.machine.calls)
     assert names[-2:] == ["Process_Status", "Process_Status"], "waited until stopped"
-    assert (
-        names.count("Get_Lost_Events") == 1
-    ), "the camera's error, not a lost-events one"
+    assert "Get_Lost_Events" not in names, "the camera's error, not a lost-events one"
     assert "Stop_Process" not in names
 
 

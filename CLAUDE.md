@@ -311,10 +311,13 @@ unconditionally, so a stopped run restores the default state too (B11). `convert
 carries them at the finish sentinel. Every array's capacity is `adwin.ROWS__MAX`, which must match
 the `.bas` defines, and `upload` refuses a timeline that exceeds one before writing anything.
 The arrays have an owner: each sequencer sets `Par_17` to its own process number at the start of
-`lowinit:` and clears it at the end of `finish:`. It also stops the manual console (process 10) in
-`lowinit:`, having first noted in a program variable whether it was running (`Par_18`, which the console
-raises in its `init:` and lowers in its `finish:`), and starts it again at the very end of `finish:` if
-it was. `upload` and `start` wait on the process `Par_17` names, as well as on their own.
+`lowinit:` and clears it at the end of `finish:`. Right after claiming `Par_17` it stops the manual
+console (process 10), having first noted whether it was running (ADbasic's `Process10_Running`), and
+starts it again at the very end of `finish:` if it was. The console holds its requests while `Par_17`
+is nonzero. One console write can still land early in a run (D22, open). `upload` and `start` wait on
+the process `Par_17` names, as well as on their own. The ADbasic 6.00 manual (Feb. 2017) is the
+reference for what the machine side may assume; the maintainer has it, and `KNOWN_ISSUES.md` cites
+it by page.
 Besides `Par_1..3` it writes `Par_9`, the Processdelay it built
 for, and clears `Par_14`. Both sequencer programs report their own Processdelay into `Par_14` at
 the end of `init:`, and play nothing past the initial state if it differs from `Par_9` (#128). `wait`
@@ -324,12 +327,14 @@ land in the previous shot's finish tail.
 
 Running what was uploaded is `start(log) -> Run` and `wait(run)`, bracketed by the context
 manager `running(log)`, with `run(log)` for a block with nothing in it. `wait` refuses a run that
-lost events (`LostEvents`, with the slip in µs). Whether ADwin's counter restarts with each start
-is UNVERIFIED; a fall across a run raises as the tell. Peripherals such as cameras and the time
+lost events (`LostEvents`, with the slip in µs). It reads ADwin's counter once, after the run: the
+manual counts lost events "since process start", so that count is the run's own. UNVERIFIED on the
+rig; if the counter accumulated from load instead, every run after a lossy one would raise, which is
+loud, whereas a difference across the run would pass a run that lost as many as the one before. Peripherals such as cameras and the time
 controller are **not** Wigner Time's: they are armed before `running` and serviced inside the
 block, in the lab's code (maintainer, 2026-09-24; L22 there records the longer-term direction of
-one thread per device). An error inside the block waits the run out but does not stop it, because
-until B11 is fixed a stop leaves the apparatus driven. The consumer is `resources/ADwin/WignerTimeADwin.bas` (ADbasic,
+one thread per device). An error inside the block waits the run out but does not stop it: that a
+stop from the PC reaches `finish:` and plays the final state (B11) awaits the rig. The consumer is `resources/ADwin/WignerTimeADwin.bas` (ADbasic,
 real-time side); its `#define`s and `data_NN` array meanings must stay in sync with `core.upload`. Par, FPar and Data
 numbers are shared by every process on the machine, and processes can start and stop one another;
 `WignerTimeADwinADC.bas` (process 4) is a copy of the sequencer that plays the same arrays.

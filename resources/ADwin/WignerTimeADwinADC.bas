@@ -59,10 +59,10 @@
 ' Python waits on whichever process holds them, and the console writes nothing meanwhile.
 #define sequenceOwner par_17
 #define consoleProcess 10
-' Raised by the console while it runs (set in its init:, cleared in its finish:), so that a
-' console stopped for the run can be started again after it, and one that was not running is
-' left alone.
-#define consoleRunning par_18
+' The console's own status, 1 while it runs, 0 when stopped or not loaded, -1 while being
+' stopped. ADbasic takes the process number as part of the name, so it is written twice here
+' and the two must agree.
+#define consoleRunning Process10_Running
 
 Dim i, ADC_ChannelPattern, startADC, endADC As Long
 
@@ -111,11 +111,16 @@ dim consoleWasRunning as long
 'dim cyclecount, analogIdx, digitalIdx as long
 
 lowinit:
-  ' The manual console must not write to the outputs while a sequence plays.
-  ' Read before stopping it: stopping it runs its finish:, which lowers the flag.
+  ' The outputs are the sequence's from here on. Claimed before the console is stopped: a
+  ' stopped process normally runs its event: once more, and the console writes nothing while
+  ' sequenceOwner is nonzero.
+  sequenceOwner = 4
+  ' The manual console must not write to the outputs while a sequence plays. Only a console
+  ' that is running now is started again after the run; one already being stopped, from the
+  ' PC or by another process, is not. An event: the console is in the middle of is completed
+  ' after the stop, and can still write once, early in the run (KNOWN_ISSUES.md, D22).
   consoleWasRunning = consoleRunning
   Stop_Process(consoleProcess)
-  sequenceOwner = 4
   cyclecount = 0 : analogIdx = 1 : digitalIdx = 1
   par_4 = analogMaxArrayDim
   par_5 = digitalMaxArrayDim
@@ -175,4 +180,4 @@ finish:
   sequenceOwner = 0
 
   ' And the console, if the run stopped it, comes back on the final state.
-  if (consoleWasRunning <> 0) then Start_Process(consoleProcess)
+  if (consoleWasRunning = 1) then Start_Process(consoleProcess)

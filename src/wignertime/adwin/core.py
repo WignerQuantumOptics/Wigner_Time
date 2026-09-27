@@ -426,7 +426,7 @@ class PeriodRefused(RuntimeError):
 @dataclasses.dataclass
 class Run:
     """
-    The record of one run of an upload, filled in as it goes: `start` sets the first three
+    The record of one run of an upload, filled in as it goes: `start` sets the first two
     fields and `wait` the rest.
 
     `time__start` is wall-clock time (`time.time()`), so the record can be filed with the
@@ -437,7 +437,6 @@ class Run:
     """
 
     upload: Upload
-    lost_events__start: int
     time__start: float
     lost_events: int | None = None
     duration: float | None = None
@@ -466,11 +465,7 @@ def start(upload):
         "starting process {process}, which would play the same arrays",
     )
 
-    run = Run(
-        upload=upload,
-        lost_events__start=machine.Get_Lost_Events(process),
-        time__start=time.time(),
-    )
+    run = Run(upload=upload, time__start=time.time())
     machine.Start_Process(process)
     return run
 
@@ -481,11 +476,14 @@ def wait(run):
 
     Raises `PeriodRefused` if the sequencer refused to play the run, and refuses a program that
     did not report its Processdelay at all: one older than the check, whose run nothing vouches
-    for. Then raises `LostEvents` if the run lost any. The count is the difference of ADwin's
-    counter across the run, which is right if the counter accumulates from the moment
-    the program was loaded. UNVERIFIED: if it instead restarts with every start, a fall
-    across the run is refused below as the tell, but a run that happened to lose exactly
-    as many events as the previous one would pass. One run on the rig settles which.
+    for. Then raises `LostEvents` if the run lost any.
+
+    The count is ADwin's counter as the run ends, which the ADbasic manual (6.00, p. 79)
+    describes as the cycles lost "since process start": the run's own. UNVERIFIED on the rig. If the counter
+    instead accumulated from the moment the program was loaded, every run after one that lost
+    events would be refused as well, which is loud. The difference across the run, read
+    before this, was right only under that reading, and would have passed, without a word, a
+    run that lost as many events as the one before it.
     """
     machine, process = run.upload.machine, run.upload.process
     _wait_until_stopped(machine, process)
@@ -503,15 +501,7 @@ def wait(run):
     if run.processdelay__reported != run.upload.processdelay:
         raise PeriodRefused(run)
 
-    lost_events = machine.Get_Lost_Events(process)
-    run.lost_events = lost_events - run.lost_events__start
-
-    if run.lost_events < 0:
-        raise RuntimeError(
-            "ADwin's lost-events counter for process {} fell from {} to {} across the run,"
-            " so it evidently restarts with every start, and `adwin.core.wait` has to read"
-            " it differently.".format(process, run.lost_events__start, lost_events)
-        )
+    run.lost_events = machine.Get_Lost_Events(process)
     if run.lost_events:
         raise LostEvents(run)
 
@@ -530,8 +520,8 @@ def running(upload):
         # here the run is over, and lost no events
 
     If the block raises, the run is still waited out before the error goes on, but not
-    checked, and not stopped: until B11 is fixed, stopping a run leaves the apparatus in
-    whatever state the timeline had reached.
+    checked, and not stopped. A stop plays the final state since B11 was fixed, but that a
+    stop from the PC reaches `finish:` is not yet confirmed on the rig.
     """
     run = start(upload)
     try:
