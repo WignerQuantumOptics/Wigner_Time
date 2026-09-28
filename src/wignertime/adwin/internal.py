@@ -106,6 +106,44 @@ def modules__digital(machine_specifications):
     return [i + 1 for i, m in enumerate(modules) if m["bits"] == 1]
 
 
+def check_module_kinds(connections, modules__digital):
+    """
+    Checks that each connected variable is of the kind of the module it is connected to.
+
+    A variable's kind is stated twice: by its name, since a variable without a `__unit`
+    suffix is a digital line, and by its module, whose width says what the port is. Nothing
+    checked that the two agree (A16). An analogue variable on the digital module was rounded
+    to an integer and switched as a digital line: 1.5 A on a coil became a 2 written to a
+    digital output, without a word. A digital line on an analogue module did fail, but later,
+    in a cast, with a message that named neither the variable nor the cause.
+    """
+    kinds = {True: "digital", False: "analogue"}
+    wrong = [
+        "  {} on module {}: {} by its name, but the module is {}".format(
+            name,
+            module,
+            kinds[wt_variable.unit(name) == "digital"],
+            kinds[module in modules__digital],
+        )
+        for name, module in zip(connections["variable"], connections["module"])
+        if (wt_variable.unit(name) == "digital") != (module in modules__digital)
+    ]
+    if wrong:
+        raise ValueError(
+            "\n".join(
+                [
+                    "A variable and the module it is connected to disagree on whether it"
+                    " is digital:",
+                    "",
+                    *wrong,
+                    "",
+                    "Connect it to a module of its kind, or rename it: a digital line has no"
+                    " `__unit` suffix.",
+                ]
+            )
+        )
+
+
 def specifications(machine_specifications=None):
     """
     The machine specifications to convert against: those given, or else
@@ -199,6 +237,7 @@ def add(timeline, connections, devices, cycle_period, machine_specifications=Non
     # point at which hardware enters. Neither `connection.new` nor `device.new` can do it
     # alone: each sees only its own vocabulary (A14).
     device.check_correspondence(connections, devices)
+    check_module_kinds(connections, modules__digital(machine_specifications))
 
     dff = wt_frame.join(timeline, connections)
     dff = wt_frame.join(dff, devices)

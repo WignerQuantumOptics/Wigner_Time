@@ -775,6 +775,32 @@ def test_the_log_is_short_to_print():
     assert "rows={} analogue".format(len(log.analogue)) in repr(log)
 
 
+def test_an_analogue_variable_on_the_digital_module_is_refused():
+    """
+    A16. It was rounded and switched as a digital line: 1.5 A on a coil became a 2 written
+    to a digital output, without a word.
+    """
+    timeline = tl.create(coil_MOT__A=1.5, t=0.0, context="run")
+    with pytest.raises(
+        ValueError, match="coil_MOT__A on module 1: analogue by its name"
+    ):
+        adwin.convert(
+            timeline,
+            adcon.new(["coil_MOT__A", 1, 5]),
+            device.new(["coil_MOT__A", 2.0, -5, 5]),
+            5e-6,
+        )
+
+
+def test_a_digital_line_on_an_analogue_module_is_refused_by_name():
+    """A16. It used to fail in a cast, naming neither the variable nor the cause."""
+    timeline = tl.create(shutter_MOT=1, t=0.0, context="run")
+    with pytest.raises(
+        ValueError, match="shutter_MOT on module 3: digital by its name"
+    ):
+        adwin.convert(timeline, adcon.new(["shutter_MOT", 3, 5]), device.new(), 5e-6)
+
+
 def test_a_specification_carrying_a_cycle_period_is_refused():
     """Accepting it with the period unused would be D15 again, one layer down."""
     specifications = {"cycle_period": 2e-6, **adi.SPECIFICATIONS__DEFAULT}

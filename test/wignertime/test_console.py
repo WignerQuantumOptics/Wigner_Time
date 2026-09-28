@@ -161,6 +161,18 @@ def test_an_analogue_channel_without_a_device_is_refused():
         console.panel(connections, devices, defaults)
 
 
+def test_a_digital_line_on_an_analogue_module_is_refused():
+    """The program would write it to the DAC as the digits 0 or 1: -10 V (A16)."""
+    connections, devices, defaults = _tables()
+    connections = adcon.new(
+        ["shutter_MOT", 3, 11], ["coil_MOT__A", 4, 1], ["lockbox_MOT__MHz", 3, 8]
+    )
+    with pytest.raises(
+        ValueError, match="shutter_MOT on module 3: digital by its name"
+    ):
+        console.panel(connections, devices, defaults)
+
+
 def test_an_unbounded_analogue_channel_is_refused():
     connections, _, defaults = _tables()
     devices = device.new(["coil_MOT__A", 2.0], ["lockbox_MOT__MHz", 0.05, -200, 200])

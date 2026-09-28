@@ -50,6 +50,7 @@ import wignertime.adwin as wt_adwin
 from wignertime import conversion
 from wignertime import device
 from wignertime import variable as wt_variable
+from wignertime.adwin import internal as wt_internal
 from wignertime.internal import dataframe as wt_frame
 
 PROCESS = 10
@@ -116,6 +117,10 @@ def panel(connections, devices, timeline__defaults):
     slider's range. A channel the defaults do not mention starts at 0, and is reported.
     """
     device.check_correspondence(connections, devices)
+    # The program switches module 1 as digital and writes every other one as analogue, so a
+    # variable of the other kind there would be written as the wrong kind: a digital line on
+    # an analogue module goes to its DAC as the digits 0 or 1, that is, -10 V (A16, D18).
+    wt_internal.check_module_kinds(connections, [MODULE__DIGITAL])
     table = wt_frame.join(connections, devices)
 
     analogue = table["to_V"].notna()
