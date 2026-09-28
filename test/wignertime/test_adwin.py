@@ -11,9 +11,11 @@ pytest.importorskip("ADwin", reason="the `adwin` extra is not installed")
 
 from wignertime.adwin import core as adwin
 from wignertime.adwin import adc
+from wignertime.adwin import console
 from wignertime.adwin import connection as adcon
 from wignertime.adwin import validate as wt_validate
 from wignertime.adwin import internal as adi
+from wignertime import conversion
 from wignertime import device
 from wignertime import timeline as tl
 from wignertime.internal import dataframe as frame
@@ -315,6 +317,8 @@ class _MachineRecording:
         # told otherwise, and 0 -- no report at all -- for a program older than the check.
         self.reports = reports
         self.calls = []
+        # What `GetData_Long` answers: the console's arrays, where a test sets them.
+        self.arrays = {}
 
     def Start_Process(self, process):
         self.calls.append(("Start_Process", process))
@@ -355,6 +359,10 @@ class _MachineRecording:
     def SetData_Long(self, values, number, startindex, count):
         self.calls.append(("SetData_Long", number))
         self.data[number] = (list(values), count)
+
+    def GetData_Long(self, number, startindex, count):
+        array = self.arrays.get(number, [0] * (startindex - 1 + count))
+        return array[startindex - 1 : startindex - 1 + count]
 
 
 def _digital_only():
@@ -799,6 +807,48 @@ def test_a_digital_line_on_an_analogue_module_is_refused_by_name():
         ValueError, match="shutter_MOT on module 3: digital by its name"
     ):
         adwin.convert(timeline, adcon.new(["shutter_MOT", 3, 5]), device.new(), 5e-6)
+
+
+def _console_holding(machine, digits, touched):
+    """The console's record: one entry, the coil on module 4, channel 1, at `digits`."""
+    machine.par[console.PAR__ENTRIES] = 1
+    machine.arrays = {
+        console.DATA__MODULE: [4],
+        console.DATA__CHANNEL: [1],
+        console.DATA__WRITTEN: [digits],
+        console.DATA__TOUCHED: [touched],
+    }
+
+
+def _coil_run():
+    connections = adcon.new(["coil_MOT__A", 4, 1])
+    devices = device.new(["coil_MOT__A", 2.0, -5, 5])
+    timeline = tl.stack(
+        tl.create(coil_MOT__A=-1.5, t=0.0, context="run"),
+        tl.update(coil_MOT__A=-1.0, t=1.0),
+    )
+    return timeline, connections, devices
+
+
+def test_upload_warns_of_a_channel_the_run_jumps_from_a_console_value(caplog):
+    """The coil set to 2 A by hand, and the run's first row for it at -1.5 A."""
+    machine = _MachineRecording()
+    _console_holding(machine, conversion.to_digits(4.0), touched=1)
+    with caplog.at_level("WARNING", logger="wtlog"):
+        adwin.upload(*_coil_run(), machine, 1)
+    assert [r.message for r in caplog.records] == [
+        "The run will jump 1 analogue channel(s) from a value set on the console:"
+        " coil_MOT__A from 2 to -1.5 A, at 0 s."
+    ]
+
+
+def test_upload_is_quiet_about_a_value_the_console_did_not_set(caplog):
+    """The same record, but adopted from the last run's final state rather than set by hand."""
+    machine = _MachineRecording()
+    _console_holding(machine, conversion.to_digits(4.0), touched=0)
+    with caplog.at_level("WARNING", logger="wtlog"):
+        adwin.upload(*_coil_run(), machine, 1)
+    assert not caplog.records
 
 
 def test_a_specification_carrying_a_cycle_period_is_refused():

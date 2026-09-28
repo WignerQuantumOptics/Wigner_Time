@@ -57,6 +57,8 @@ class _Machine:
         wanted, written = self._array(51), self._array(52)
         modules, channels = self._array(53), self._array(54)
         par = self.par
+        for i in range(par.get(75, 0)):
+            self._array(55)[i] = 0
         if par.get(FINISHED, 0) != par.get(76, 0):
             analogue = [self._array(31 + k) for k in range(3)]
             digital = [self._array(42 + k) for k in range(2)]
@@ -93,6 +95,7 @@ class _Machine:
             ):
                 self.hardware.append((modules[i], channels[i], digits))
                 written[i] = digits
+                self._array(55)[i] = 1
                 writes += 1
 
     def sequence(self, analogue__finish=(), digital__finish=(), during=None):
@@ -136,11 +139,7 @@ def _configured(**kw):
     return machine, console.configure(machine, _panel(**kw))
 
 
-DEFAULTS = [
-    (1, 11, 1),
-    (4, 1, conversion.to_digits(3.0)),
-    (3, 8, conversion.to_digits(0.0)),
-]
+DEFAULTS = [(1, 11, 1), (4, 1, conversion.to_digits(3.0))]  # the lockbox has none
 
 
 # The panel
@@ -149,8 +148,20 @@ DEFAULTS = [
 def test_the_panel_takes_its_defaults_from_the_timeline(capsys):
     table = _panel()
     values = dict(zip(table["variable"], table["default_value"]))
-    assert values == {"shutter_MOT": 1.0, "coil_MOT__A": 1.5, "lockbox_MOT__MHz": 0.0}
+    assert values["shutter_MOT"] == 1.0 and values["coil_MOT__A"] == 1.5
+    assert np.isnan(values["lockbox_MOT__MHz"]), "no default: left as it is"
     assert "lockbox_MOT__MHz" in capsys.readouterr().out, "the missing one is reported"
+
+
+def test_a_variable_without_a_default_is_left_alone_and_unknown():
+    """
+    The lab leaves the MOT coils out of its initial state, so that the MOT stays in its steady
+    state between runs, and building the console should not set them to 0.
+    """
+    machine, panel = _configured()
+    machine.sweep()
+    assert (3, 8) not in [(m, c) for m, c, _ in machine.hardware]
+    assert np.isnan(console.readback(panel)["value"][2])
 
 
 def test_an_analogue_channel_without_a_device_is_refused():
@@ -211,7 +222,8 @@ def test_the_sweep_writes_the_defaults_then_nothing():
 
 def test_a_sweep_writes_at_most_eight():
     connections = adcon.new(*[["shutter_{}".format(i), 1, i] for i in range(1, 11)])
-    table = console.panel(connections, device.new(), tl.create(shutter_1=0, t=0.0))
+    defaults = tl.create(**{"shutter_{}".format(i): 0 for i in range(1, 11)}, t=0.0)
+    table = console.panel(connections, device.new(), defaults)
     machine = _Machine()
     machine.start()
     console.configure(machine, table)
@@ -365,6 +377,65 @@ def test_the_final_state_is_read_back_in_the_devices_units(to_V):
     assert state["coil_MOT__A"] == pytest.approx(-1.2, abs=1e-3)
     assert state["lockbox_MOT__MHz"] == pytest.approx(120.0, abs=0.01)
     assert state["shutter_MOT"] == 0
+
+
+# Jumps, before a run
+
+
+def _run(coil, lockbox=None):
+    """The analogue rows of a run: the coil first set at t = 0, the lockbox in the initial state."""
+    rows = [(0, 4, 1, conversion.to_digits(coil * 2.0))]
+    if lockbox is not None:
+        rows.insert(0, (-2, 3, 8, conversion.to_digits(lockbox * 0.05)))
+    return rows + [(wt_adwin.CONTEXTS__SPECIAL["ADwin_Finish"], 4, 1, 0)]
+
+
+def test_a_value_set_on_the_console_that_the_run_jumps_is_found():
+    machine, panel = _configured()
+    machine.sweep()  # the coil at its default, 1.5 A
+    console.set_value(panel, "coil_MOT__A", 2.0)
+    machine.sweep()
+
+    (jump,) = console.jumps(machine, _run(coil=-1.5), *_tables()[:2])
+    assert jump.variable == "coil_MOT__A" and jump.cycle == 0
+    assert (jump.held, jump.commanded) == (
+        pytest.approx(2.0, abs=1e-3),
+        pytest.approx(-1.5, abs=1e-3),
+    )
+
+
+def test_a_run_that_starts_where_the_console_left_a_channel_jumps_nothing():
+    machine, panel = _configured()
+    machine.sweep()
+    assert console.jumps(machine, _run(coil=1.5), *_tables()[:2]) == []
+
+
+def test_after_a_run_the_adopted_state_is_not_a_jump():
+    """In a scan, each shot starting from the last one's final state would otherwise warn."""
+    machine, panel = _configured()
+    machine.sweep()
+    machine.sequence(analogue__finish=[(4, 1, conversion.to_digits(-1.2 * 2.0))])
+    assert console.jumps(machine, _run(coil=-1.5), *_tables()[:2]) == []
+
+
+def test_a_jump_in_the_initial_state_is_found_too():
+    machine, panel = _configured()
+    machine.sweep()
+    console.set_value(panel, "lockbox_MOT__MHz", 50.0)
+    machine.sweep()
+    (jump,) = console.jumps(machine, _run(coil=1.5, lockbox=0.0), *_tables()[:2])
+    assert jump.variable == "lockbox_MOT__MHz" and jump.cycle < 0
+
+
+def test_a_console_that_has_not_seen_the_last_run_reports_nothing():
+    """Closed during a run, its record is older than what the apparatus holds."""
+    machine, panel = _configured()
+    machine.sweep()
+    console.set_value(panel, "coil_MOT__A", 2.0)
+    machine.sweep()
+    machine.running = 0
+    machine.sequence()
+    assert console.jumps(machine, _run(coil=-1.5), *_tables()[:2]) == []
 
 
 def test_health():

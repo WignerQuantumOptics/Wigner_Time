@@ -30,6 +30,7 @@
 '   data_52[i]   the digits last written for entry i; -1 to write again, -2 when unknown
 '   data_53[i]   the module of entry i (module 1 is digital, and takes 0 or 1)
 '   data_54[i]   the channel of entry i
+'   data_55[i]   1 where this process has written entry i since it started, else 0
 '   par_75       the number of entries; Python sets it to 0 while it rewrites them
 '   par_74       hardware writes since this process was started
 '   par_77       sweeps since this process was started, as a heartbeat
@@ -44,6 +45,10 @@
 ' discarded (the maintainer's policy, 2026-09-27). When the count has not moved, it is a start by
 ' hand, and every entry is written again from data_51, which repairs any disagreement between
 ' what Python wants and what the hardware holds.
+'
+' data_55 tells Python which channels hold a value set on the console rather than one a run left
+' there: Python warns, before a run, about each analogue channel of that kind that the run will
+' jump from its value.
 
 ' WHY Priority_Low_Level IS 2, AND MUST STAY ABOVE 1
 '
@@ -96,12 +101,16 @@ dim data_51[consoleMaxEntries] as long ' digits wanted, written by Python; -2 un
 dim data_52[consoleMaxEntries] as long ' digits last written; -1 to write again, -2 unknown
 dim data_53[consoleMaxEntries] as long ' module of each entry; 1 is digital
 dim data_54[consoleMaxEntries] as long ' channel of each entry
+dim data_55[consoleMaxEntries] as long ' 1 where written since this process started
 
 dim i, f, digits, writes as long
 
 init:
   p2_digprog(1,1111b) ' set all the digital ports to output
   sweeps = 0 : writesTotal = 0
+  for i = 1 to entryCount
+    data_55[i] = 0
+  next i
 
   if (sequencesFinished <> sequencesSeen) then
     ' A sequence has finished since this process last looked: adopt its final state.
@@ -150,6 +159,7 @@ event:
         ' What was asked for, not a clamped value: a request the hardware cannot take exactly
         ' would otherwise differ from data_52 on every sweep, and be written for ever.
         data_52[i] = digits
+        data_55[i] = 1
         inc writes
         inc writesTotal
       endif

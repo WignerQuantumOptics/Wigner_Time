@@ -17,7 +17,9 @@ import ADwin
 from wignertime import timeline as tl
 from wignertime.config import wtlog as wtl
 import wignertime.adwin as wt_adwin
+from wignertime import variable as wt_variable
 from wignertime.adwin import connection
+from wignertime.adwin import console as wt_console
 from wignertime.adwin import internal as ad
 from wignertime.adwin import validate as wt_validate
 
@@ -243,8 +245,12 @@ def upload(
     before writing, saying so once. The machine accepts writes mid-run and the running
     sequence reads them, so writing at once would rewrite the arrays under a run that is
     still playing (A15/#151). A parameter scan that uploads shot N+1 while shot N plays its
-    tail is the case in point. Only `process` is waited for. Another process playing the
-    same arrays, such as the ADC variant, is not seen here.
+    tail is the case in point. The process that owns the arrays (`Par_17`) is waited for
+    too, when it is another one, such as the ADC variant.
+
+    Then it warns about each analogue channel set on the console that the run will jump from
+    its value (`console.jumps`), once the previous run is over and the console has seen it. A
+    jump from a value set by hand is often intended, so it is reported, not refused.
 
     NOTE: Stateful. It writes `Par_1..3` and the data arrays, and starts nothing.
     """
@@ -309,6 +315,9 @@ def upload(
         "uploading, so as not to rewrite the arrays it is playing",
         "uploading for process {process}, so as not to rewrite the arrays it is playing",
     )
+    _warn_of_jumps(
+        wt_console.jumps(machine, analogue, connections, devices), cycle_period
+    )
 
     # `endCC`, `analogArrayDim` and `digitalArrayDim` in `WignerTimeADwin.bas`: the event
     # loop ends after the last cycle, and the counts say how far into each array to read.
@@ -357,6 +366,31 @@ def upload(
         digital=digital,
         analogue__finish=analogue__finish,
         digital__finish=digital__finish,
+    )
+
+
+def _warn_of_jumps(jumps, cycle_period):
+    """One warning for all the `console.Jump`s of an upload, each with its unit and instant."""
+    if not jumps:
+        return
+    wtl.warning(
+        "The run will jump {} analogue channel(s) from a value set on the console: {}.".format(
+            len(jumps),
+            "; ".join(
+                "{} from {:.4g} to {:.4g} {}, {}".format(
+                    jump.variable,
+                    jump.held,
+                    jump.commanded,
+                    wt_variable.unit(jump.variable),
+                    (
+                        "in the initial state"
+                        if jump.cycle < 0
+                        else "at {:.6g} s".format(jump.cycle * cycle_period)
+                    ),
+                )
+                for jump in jumps
+            ),
+        )
     )
 
 

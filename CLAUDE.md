@@ -353,7 +353,10 @@ from `panel(connections, devices, defaults)`, so a channel is converted and boun
 the pipeline does it. Values are refused while a sequence owns the outputs. When a sequence has
 finished since the program last looked (`Par_18`, counted by every `finish:`), it adopts the
 run's final state on starting, and marks unknown what the final state does not name. A start
-by hand writes everything again.
+by hand writes everything again. A variable the defaults do not name is left alone, since the lab
+keeps the MOT coils steady between runs. `upload` warns, after its wait and before writing, about
+each analogue channel the console itself wrote since it last started (`data_55`) that the run will
+jump from its value, in the initial state or at the first row that sets it (`console.jumps`).
 
 **Keep the real-time program arithmetic-free.** Its whole job is "at this cycle, if a value differs
 from the previous one, output it": one comparison per channel group, early exit, no computation. Every

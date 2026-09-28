@@ -26,6 +26,8 @@ The contract with the program, whose `#define`s must agree with the numbers belo
   either means unknown.
 - `data_53[i]` / `data_54[i]`: the module and channel of entry `i`, in the panel's row order;
   module 1 is the digital one, and takes 0 or 1.
+- `data_55[i]`: 1 where the program has written entry `i` since it started, which is what makes
+  its value one set on the console rather than one a run left there. `jumps` reads it.
 - `Par_75`: the number of entries. `configure` sets it to 0 while it rewrites them.
 - `Par_78`: a token `configure` draws, so that a panel configured again elsewhere makes the old
   one refuse, rather than write its values into another panel's entries.
@@ -38,6 +40,12 @@ an entry the final state names takes its digits, and one it does not name become
 because it holds whatever the run left it at. Nothing is written to either, and anything wanted
 before or during the run is discarded. `set_value` refuses while a sequence owns the outputs. A
 start by hand, with no run since, writes every entry again from what was wanted.
+
+**Before a run.** `adwin.core.upload` warns about each analogue channel set on the console that
+the run will jump from its value, whether in the initial state or at the first row that commands
+it (`jumps`). The MOT coils are the case in point: the lab leaves them out of the initial state,
+so that the MOT stays in its steady state between runs, and the jump from a value set by hand
+comes with the first stage that sets them.
 """
 
 import importlib.util
@@ -63,6 +71,7 @@ DATA__WANTED = 51
 DATA__WRITTEN = 52
 DATA__MODULE = 53
 DATA__CHANNEL = 54
+DATA__TOUCHED = 55
 
 PAR__WRITES = 74
 PAR__ENTRIES = 75
@@ -114,7 +123,12 @@ def panel(connections, devices, timeline__defaults):
     that matters more than anywhere: a variable with no device is taken for a digital line,
     so an analogue channel whose device name was mistyped would be switched between digits
     0 and 1, that is, to -10 V. Every analogue variable needs finite bounds, which are its
-    slider's range. A channel the defaults do not mention starts at 0, and is reported.
+    slider's range.
+
+    A variable the defaults do not mention keeps NaN as its `default_value`, is reported, and is
+    left as it is: `configure` writes nothing to it until it is set. The lab leaves the MOT coils
+    and the dispenser out of its initial state so that the MOT stays in its steady state between
+    runs, and building the console should not undo that.
     """
     device.check_correspondence(connections, devices)
     # The program switches module 1 as digital and writes every other one as analogue, so a
@@ -149,11 +163,9 @@ def panel(connections, devices, timeline__defaults):
     missing = sorted(table.loc[table["default_value"].isna(), "variable"])
     if missing:
         print(
-            "console: the defaults give no value for {}; they start at 0.".format(
-                missing
-            )
+            "console: the defaults give no value for {}; the console leaves them as they are"
+            " until they are set.".format(missing)
         )
-    table["default_value"] = table["default_value"].fillna(0.0)
 
     return table
 
@@ -173,7 +185,12 @@ def from_digits(row, digits):
     """
     specification = conversion.SPECIFICATIONS__DEFAULT
     v_min, v_max = np.asarray(specification["voltage_range"]) / specification["gain"]
-    voltage = v_min + digits / (2 ** specification["num_bits"] - 1) * (v_max - v_min)
+    step = (v_max - v_min) / (2 ** specification["num_bits"] - 1)
+    voltage = v_min + digits * step
+    # 0 V falls on the boundary between two codes, and is read back as 0 rather than as the
+    # middle of the code it was rounded to, half a step away.
+    if abs(voltage) <= step / 2:
+        voltage = 0.0
     if not callable(row.to_V):
         return float(voltage / row.to_V)
 
@@ -227,7 +244,8 @@ def _digits(table, name, value):
 def configure(machine, table):
     """
     Writes the panel into the console program as its entries, each wanting its
-    `default_value`, and returns the `Console`. The program writes them all to the hardware.
+    `default_value`, and returns the `Console`. The program writes them to the hardware, except
+    the variables without a default, which are unknown until they are set.
 
     The entries are rewritten with their count at 0, so that the program never sweeps a
     half-written list, and a fresh token is drawn. A run finished before this does not count
@@ -244,7 +262,7 @@ def configure(machine, table):
         )
 
     wanted = [
-        _digits(table, name, value)[1]
+        DIGITS__UNKNOWN if wt_frame.isnull(value) else _digits(table, name, value)[1]
         for name, value in zip(table["variable"], table["default_value"])
     ]
     count = len(table)
@@ -254,6 +272,7 @@ def configure(machine, table):
         (DATA__CHANNEL, [int(c) for c in table["channel"]]),
         (DATA__WANTED, wanted),
         (DATA__WRITTEN, [DIGITS__REASSERT] * count),
+        (DATA__TOUCHED, [0] * count),
     ):
         machine.SetData_Long(values, number, 1, count)
     machine.Set_Par(
@@ -358,6 +377,66 @@ def final_state(machine, table):
     return state
 
 
+class Jump(NamedTuple):
+    """
+    An analogue channel that a run will move, at once, from a value set on the console: the
+    `variable`, the value it `held`, the value the run first `commanded`, both in its own unit,
+    and the `cycle` at which the run does so, negative for the initial state.
+    """
+
+    variable: str
+    held: float
+    commanded: float
+    cycle: int
+
+
+def jumps(machine, analogue, connections, devices):
+    """
+    The `Jump`s of a run whose analogue rows are `analogue`, as `adwin.core.convert` gives them:
+    each analogue channel that holds a value written by the console since it last started, and
+    whose first value in the run differs from it by more than one DAC step.
+
+    Only values the console wrote count. After a run the console holds the run's final state,
+    and a jump from that is part of the sequence, not a surprise. Nothing is reported when the
+    console has not yet seen the last run that finished, because its record is then older than
+    what the apparatus holds.
+    """
+    count = machine.Get_Par(PAR__ENTRIES)
+    seen = machine.Get_Par(PAR__SEQUENCES__SEEN)
+    if not count or seen != machine.Get_Par(wt_adwin.PAR__SEQUENCES__FINISHED):
+        return []
+
+    first = {}
+    for cycle, module, channel, digits in analogue:
+        if cycle != wt_adwin.CONTEXTS__SPECIAL["ADwin_Finish"]:
+            first.setdefault((int(module), int(channel)), (int(cycle), int(digits)))
+
+    table = wt_frame.join(connections, devices)
+    by_port = {(int(r.module), int(r.channel)): r for r in table.itertuples()}
+    modules, channels, written, touched = (
+        np.asarray(machine.GetData_Long(number, 1, count))
+        for number in (DATA__MODULE, DATA__CHANNEL, DATA__WRITTEN, DATA__TOUCHED)
+    )
+
+    found = []
+    for module, channel, held, mark in zip(modules, channels, written, touched):
+        port = (int(module), int(channel))
+        if not mark or held < 0 or port not in first or port not in by_port:
+            continue
+        cycle, digits = first[port]
+        if abs(digits - held) > 1:
+            row = by_port[port]
+            found.append(
+                Jump(
+                    row.variable,
+                    from_digits(row, held),
+                    from_digits(row, digits),
+                    cycle,
+                )
+            )
+    return found
+
+
 class Health(NamedTuple):
     """
     A snapshot of the machine as the console sees it. `workload` is ADwin's processor workload
@@ -391,7 +470,8 @@ def create_UI(machine, table, continuous_update=True):
     """
     Configures the console with the `panel` and returns its widgets: a vertical slider per
     analogue variable, a toggle per digital line, a button that shows what the program holds,
-    and a line for messages. Configuring writes every default to the apparatus.
+    and a line for messages. Configuring writes every default to the apparatus; a variable
+    without one is marked as unknown and left as it is.
 
     A slider sends its value while it is dragged, since a write costs one driver call and
     repeated values coalesce in the program. `continuous_update=False` sends it on release.
@@ -462,9 +542,10 @@ def create_UI(machine, table, continuous_update=True):
 
     sliders, toggles = [], [[], [], []]
     for row in table.itertuples():
+        unknown = wt_frame.isnull(row.default_value)
         if wt_frame.isnull(row.to_V):
             control = widgets.ToggleButton(
-                value=bool(row.default_value),
+                value=False if unknown else bool(row.default_value),
                 description=row.variable,
                 layout=widgets.Layout(margin="20px 5px"),
             )
@@ -472,7 +553,11 @@ def create_UI(machine, table, continuous_update=True):
             toggles[group].append(control)
         else:
             control = widgets.FloatSlider(
-                value=row.default_value,
+                value=(
+                    min(max(0.0, row.value__min), row.value__max)
+                    if unknown
+                    else row.default_value
+                ),
                 min=row.value__min,
                 max=row.value__max,
                 step=0.01,
@@ -486,6 +571,7 @@ def create_UI(machine, table, continuous_update=True):
             sliders.append(control)
         observe(control, row.variable)
         controls[row.variable] = control
+        mark(control, unknown)
 
     button = widgets.Button(description="Refresh")
     button.on_click(refresh)
