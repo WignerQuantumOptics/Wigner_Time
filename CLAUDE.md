@@ -63,6 +63,8 @@ before any non-trivial design decision. Useful section map: `sec:definitions` (t
 `sec:origin` + appendix `sec:origin_full` (the complete `origin` specification and resolution order),
 `sec:functions` (`create`/`update`/`ramp`/`anchor` with input-format tables), `sec:context`,
 `sec:stacking` and `sec:interweaving`, `sec:adwin` (the whole real-time program, in ~15 lines),
+appendix `sec:adwin_operation` (how the sequencer and the manual console share the outputs, at a
+high level: the period check, the final state, the hand-over, the jump warning),
 `sec:discussion` (comparison with labscript / ARTIQ / Cicero / Entangleware, and stated future work).
 
 The manuscript is now committed and self-contained under `docs/paper/`, imported from Overleaf:
