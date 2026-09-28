@@ -206,26 +206,8 @@ def test_an_unset_variable_can_start_from_a_stated_value(tline):
 
 
 def test_an_unset_variable_can_state_both_ends(tline):
-    """
-    The other escape, and the one the 2-D form exists for.
-
-    Needs `origin=[None, 0.0]` since the two-table split was refined away (A8/#106,
-    2026-09-23): a stated 2-D start now resolves against the same `"variable"`-valued
-    default an inferred one does, unless the caller says otherwise, so a variable with
-    no prior history would otherwise fail exactly as it would through the 1-D form --
-    `fresh__A` has nothing to look up.
-
-    A blanket `origin=None` would be too blunt here: it turns off resolution in *both*
-    slots, and this call still wants its start time anchored normally (`tline`'s most
-    recent anchor sits at 3.5, and the ramp should start there, not at the literal 0.0
-    written in the 2-D form). `[None, 0.0]` asks for exactly the split needed --
-    `None` in the time slot defers to the usual anchor-then-last chain, `0.0` in the
-    value slot means *absolute, no shift* -- both already-existing per-slot meanings
-    (see the module docstring), just no longer bundled into one row-category default.
-    """
-    assert points(
-        tl.ramp(timeline=tline, fresh__A=[[0.0, 0.0], [0.5, 5.0]], origin=[None, 0.0])
-    ) == [
+    """The other escape, and the one the 2-D form exists for."""
+    assert points(tl.ramp(timeline=tline, fresh__A=[[0.0, 0.0], [0.5, 5.0]])) == [
         [3.5, 0.0],
         [4.0, 5.0],
     ]
@@ -299,3 +281,85 @@ def test_auto_requires_its_defaults():
         inspect.signature(wt_origin.auto).parameters["origin__defaults"].default
         is inspect.Parameter.empty
     )
+
+
+# --- #142: `INFER` is a visible name for the default, not a second meaning ----
+
+
+@pytest.mark.parametrize(
+    "origin", [None, wt_config.INFER, [None, None], [wt_config.INFER, None]]
+)
+def test_none_and_infer_are_the_same_default(tline, origin):
+    """
+    The marker only makes the default visible in a signature. As the whole argument or
+    in a slot, `None` and `INFER` both mean "use the default", for all three functions.
+    """
+    wt_frame.assert_equal(
+        tl.update(timeline=tline, x=[[0.5, 1]], origin=origin),
+        tl.update(timeline=tline, x=[[0.5, 1]]),
+    )
+    wt_frame.assert_equal(
+        tl.anchor(0.5, timeline=tline, origin=origin),
+        tl.anchor(0.5, timeline=tline),
+    )
+    wt_frame.assert_equal(
+        tl.ramp(timeline=tline, coil__A=9.0, duration=0.5, origin=origin),
+        tl.ramp(timeline=tline, coil__A=9.0, duration=0.5),
+    )
+
+
+def test_a_stage_forwarding_none_keeps_the_default(tline):
+    """
+    The usual way of writing a stage with no opinion of its own about `origin` is to
+    take `origin=None` and pass it on. That must place it where leaving `origin` out
+    would, `t` after the most recent anchor (3.5), not in absolute time.
+    """
+
+    def trigger_camera(t, exposure, context, origin=None, timeline=None):
+        return tl.update(
+            trigger_camera=[[t, 1], [t + exposure, 0]],
+            context=context,
+            origin=origin,
+            timeline=timeline,
+        )
+
+    new = tl.stack(tline, trigger_camera(0.5, 0.1, "imaging"))
+    assert new[new["variable"] == "trigger_camera"]["time"].tolist() == [4.0, 4.1]
+
+
+def test_absolute_placement_is_a_number(tline):
+    """
+    No shift is written as one: `0.0` for `update`, and `[0.0, 0.0]` for `ramp`. A bare
+    `0.0` fills only the time slot, so a ramp's start value is still looked up, as the
+    value the variable holds at that instant (2.0 at t=0.0, not the 5.0 it reaches later).
+    """
+    assert tl.update(timeline=tline, x=[[0.5, 1]], origin=0.0).iloc[-1][
+        ["time", "value"]
+    ].tolist() == [0.5, 1.0]
+    assert points(
+        tl.ramp(timeline=tline, coil__A=9.0, t=0.5, duration=0.5, origin=[0.0, 0.0])
+    ) == [[0.5, 0.0], [1.0, 9.0]]
+    assert points(
+        tl.ramp(timeline=tline, coil__A=9.0, t=0.5, duration=0.5, origin=0.0)
+    ) == [[0.5, 2.0], [1.0, 9.0]]
+
+
+def test_the_marker_is_one_object_that_prints_as_its_name():
+    """
+    `is` is how it is recognised, so copying or pickling it -- a deferred call holds its
+    defaults -- must not make a second one. It prints as `INFER` in `help()`.
+    """
+    import copy
+    import inspect
+    import pickle
+
+    assert copy.copy(wt_config.INFER) is wt_config.INFER
+    assert copy.deepcopy(wt_config.INFER) is wt_config.INFER
+    assert pickle.loads(pickle.dumps(wt_config.INFER)) is wt_config.INFER
+    assert wt_config.ORIGIN__INFER is wt_config.CONTEXT__INFER is wt_config.INFER
+
+    for f in (tl.update, tl.anchor, tl.ramp):
+        parameters = inspect.signature(f).parameters
+        assert parameters["origin"].default is wt_config.INFER
+        assert parameters["context"].default is wt_config.INFER
+    assert "origin=INFER" in str(inspect.signature(tl.update))
