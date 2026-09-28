@@ -346,10 +346,14 @@ file and plays the same arrays. It also records an ADC channel in burst mode ove
 `adwin.adc.arm` writes in cycles (`Par_42`/`Par_43`), armed for one run and disarmed by its
 `finish:`. The program itself has no notion of the period (step 10). The manual console is
 `adwin.console` with `WignerTimeConsole.bas` as process 10, which includes the same file. It
-serves one request at a time through `Par_70..74`, from `panel(connections, devices, defaults)`,
-so it converts and bounds a channel exactly as the pipeline does. It refuses to write while a
-sequence owns the outputs, and after a run the apparatus holds the run's final state, which
-`console.final_state` reads back.
+keeps a shadow state rather than a mailbox: `configure` writes the panel as entries into
+`data_51..54`, `set_value` writes the digits wanted for one entry and returns, and the program's
+sweep writes wherever wanted and written differ, so nothing waits on anything. The panel comes
+from `panel(connections, devices, defaults)`, so a channel is converted and bounded exactly as
+the pipeline does it. Values are refused while a sequence owns the outputs. When a sequence has
+finished since the program last looked (`Par_18`, counted by every `finish:`), it adopts the
+run's final state on starting, and marks unknown what the final state does not name. A start
+by hand writes everything again.
 
 **Keep the real-time program arithmetic-free.** Its whole job is "at this cycle, if a value differs
 from the previous one, output it": one comparison per channel group, early exit, no computation. Every

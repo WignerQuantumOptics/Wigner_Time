@@ -42,6 +42,11 @@
 ' stopped. ADbasic takes the process number as part of the name, so it is written twice here
 ' and the two must agree.
 #define consoleRunning Process10_Running
+' How many sequences have finished since the machine was booted, counted at the end of every
+' finish:. The console compares it with the count it last saw when it starts: if a sequence has
+' finished since, the apparatus holds that run's final state, and the console adopts it rather
+' than re-asserting what it held before the run.
+#define sequencesFinished par_18
 
 
 sub processUpdates(cc)

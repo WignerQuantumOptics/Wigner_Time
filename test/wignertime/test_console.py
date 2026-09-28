@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 import wignertime.adwin as wt_adwin
@@ -7,37 +8,111 @@ from wignertime import timeline as tl
 from wignertime.adwin import connection as adcon
 from wignertime.adwin import console
 
+OWNER = wt_adwin.PAR__SEQUENCE__OWNER
+FINISHED = wt_adwin.PAR__SEQUENCES__FINISHED
+
 
 class _Machine:
     """
-    Stands in for `ADwin.ADwin` with `WignerTimeConsole.bas` loaded as process 10, serving a
-    request the moment it is written, as its `event:` does, unless a sequence owns the
-    outputs or `serving` is off. `running` is what `Process_Status(10)` answers.
+    Stands in for `ADwin.ADwin` with `WignerTimeConsole.bas` loaded as process 10, and plays
+    the program line for line: `start` is its `init:`, `sweep` one `event:`, and `sequence` a
+    run of a sequencer, from its `lowinit:` to its `finish:`. `hardware` records what reached
+    the outputs, as (module, channel, digits).
     """
 
-    def __init__(self, running=1, serving=True):
-        self.par, self.data, self.written = {}, {}, []
-        self.running, self.serving = running, serving
+    MAX_WRITES_PER_SWEEP = 8  # maxWritesPerSweep
 
+    def __init__(self):
+        self.par, self.data, self.hardware = {}, {}, []
+        self.running = 0
+
+    # the driver
     def Get_Par(self, number):
         return self.par.get(number, 0)
 
     def Set_Par(self, number, value):
         self.par[number] = value
-        owner = self.par.get(wt_adwin.PAR__SEQUENCE__OWNER, 0)
-        if number == console.PAR__REQUEST and value and self.serving and not owner:
-            self.written.append(tuple(self.par[n] for n in (70, 71, 72)))
-            self.par[console.PAR__REQUEST] = 0
-            self.par[console.PAR__SERVED] = self.par.get(console.PAR__SERVED, 0) + 1
+
+    def SetData_Long(self, values, number, startindex, count):
+        array = self.data.setdefault(number, [0] * console.ENTRIES__MAX)
+        array[startindex - 1 : startindex - 1 + count] = list(values)[:count]
+
+    def GetData_Long(self, number, startindex, count):
+        return self.data.get(number, [0] * console.ENTRIES__MAX)[
+            startindex - 1 : startindex - 1 + count
+        ]
 
     def Process_Status(self, process):
         return self.running
 
-    def GetData_Long(self, number, startindex, count):
-        return self.data[number][startindex - 1 : startindex - 1 + count]
-
     def Workload(self):
         return 3
+
+    # the program
+    def _array(self, number):
+        return self.data.setdefault(number, [0] * console.ENTRIES__MAX)
+
+    def start(self):
+        self.running = 1
+        wanted, written = self._array(51), self._array(52)
+        modules, channels = self._array(53), self._array(54)
+        par = self.par
+        if par.get(FINISHED, 0) != par.get(76, 0):
+            analogue = [self._array(31 + k) for k in range(3)]
+            digital = [self._array(42 + k) for k in range(2)]
+            for i in range(par.get(75, 0)):
+                wanted[i] = written[i] = -2
+                if modules[i] == 1:
+                    for f in range(par.get(16, 0)):
+                        if digital[0][f] == channels[i]:
+                            wanted[i] = written[i] = digital[1][f]
+                else:
+                    for f in range(par.get(15, 0)):
+                        if (analogue[0][f], analogue[1][f]) == (
+                            modules[i],
+                            channels[i],
+                        ):
+                            wanted[i] = written[i] = analogue[2][f]
+            par[76] = par.get(FINISHED, 0)
+        else:
+            for i in range(par.get(75, 0)):
+                written[i] = -1
+
+    def sweep(self):
+        if not self.running or self.par.get(OWNER, 0):
+            return
+        wanted, written = self._array(51), self._array(52)
+        modules, channels = self._array(53), self._array(54)
+        writes = 0
+        for i in range(self.par.get(75, 0)):
+            digits = wanted[i]
+            if (
+                digits >= 0
+                and digits != written[i]
+                and writes < self.MAX_WRITES_PER_SWEEP
+            ):
+                self.hardware.append((modules[i], channels[i], digits))
+                written[i] = digits
+                writes += 1
+
+    def sequence(self, analogue__finish=(), digital__finish=(), during=None):
+        """A run whose final state is these rows, as `upload` writes them."""
+        was = self.running
+        self.par[OWNER] = 1
+        self.running = 0
+        for k in range(3):
+            self.SetData_Long([r[k] for r in analogue__finish], 31 + k, 1, 256)
+        for k in range(2):
+            self.SetData_Long([r[k] for r in digital__finish], 42 + k, 1, 256)
+        self.par[15], self.par[16] = len(analogue__finish), len(digital__finish)
+        if during:
+            during(self)
+        self.hardware += [r for r in analogue__finish]
+        self.hardware += [(1, c, v) for c, v in digital__finish]
+        self.par[FINISHED] = self.par.get(FINISHED, 0) + 1
+        self.par[OWNER] = 0
+        if was:
+            self.start()
 
 
 def _tables(to_V=2.0):
@@ -53,6 +128,22 @@ def _tables(to_V=2.0):
 
 def _panel(**kw):
     return console.panel(*_tables(**kw))
+
+
+def _configured(**kw):
+    machine = _Machine()
+    machine.start()
+    return machine, console.configure(machine, _panel(**kw))
+
+
+DEFAULTS = [
+    (1, 11, 1),
+    (4, 1, conversion.to_digits(3.0)),
+    (3, 8, conversion.to_digits(0.0)),
+]
+
+
+# The panel
 
 
 def test_the_panel_takes_its_defaults_from_the_timeline(capsys):
@@ -79,109 +170,246 @@ def test_an_unbounded_analogue_channel_is_refused():
         console.panel(connections, devices, defaults)
 
 
+# Configuring, and the sweep
+
+
+def test_configuring_writes_the_entries_with_their_count_last():
+    machine = _Machine()
+    calls = []
+    set_par = machine.Set_Par
+    machine.Set_Par = lambda n, v: (calls.append((n, v)), set_par(n, v))
+    console.configure(machine, _panel())
+
+    assert calls[0] == (
+        console.PAR__ENTRIES,
+        0,
+    ), "nothing is swept while it is rewritten"
+    assert calls[-1] == (console.PAR__ENTRIES, 3)
+    assert machine.data[console.DATA__MODULE][:3] == [1, 4, 3]
+    assert machine.data[console.DATA__WRITTEN][:3] == [-1, -1, -1]
+
+
+def test_the_sweep_writes_the_defaults_then_nothing():
+    machine, _ = _configured()
+    machine.sweep()
+    assert machine.hardware == DEFAULTS
+    machine.sweep()
+    assert machine.hardware == DEFAULTS, "written once"
+
+
+def test_a_sweep_writes_at_most_eight():
+    connections = adcon.new(*[["shutter_{}".format(i), 1, i] for i in range(1, 11)])
+    table = console.panel(connections, device.new(), tl.create(shutter_1=0, t=0.0))
+    machine = _Machine()
+    machine.start()
+    console.configure(machine, table)
+    machine.sweep()
+    assert len(machine.hardware) == 8
+    machine.sweep()
+    assert len(machine.hardware) == 10
+
+
+# Setting values
+
+
 @pytest.mark.parametrize("to_V", [2.0, lambda amps: 2.0 * amps])
 def test_a_value_is_converted_as_the_sequencer_converts_it(to_V):
-    machine = _Machine()
-    console.set_value(machine, _panel(to_V=to_V), "coil_MOT__A", 1.25)
-    assert machine.written == [(4, 1, conversion.to_digits(2.5))]
+    machine, panel = _configured(to_V=to_V)
+    console.set_value(panel, "coil_MOT__A", 1.25)
+    assert machine.data[console.DATA__WANTED][1] == conversion.to_digits(2.5)
+
+
+def test_values_coalesce_and_nothing_waits():
+    """Two values before a sweep are one write: intermediate slider positions never reach it."""
+    machine, panel = _configured()
+    machine.sweep()
+    console.set_value(panel, "coil_MOT__A", 1.0)
+    console.set_value(panel, "coil_MOT__A", 2.0)
+    machine.sweep()
+    assert machine.hardware[len(DEFAULTS) :] == [(4, 1, conversion.to_digits(4.0))]
 
 
 def test_a_value_outside_the_devices_range_is_refused_and_not_written():
-    machine = _Machine()
+    machine, panel = _configured()
     with pytest.raises(ValueError, match="outside their device safety range"):
-        console.set_value(machine, _panel(), "coil_MOT__A", 6.0)
-    assert machine.written == []
+        console.set_value(panel, "coil_MOT__A", 6.0)
+    assert machine.data[console.DATA__WANTED][1] == conversion.to_digits(3.0)
 
 
 def test_a_digital_line_takes_0_or_1():
-    machine = _Machine()
-    table = _panel()
-    console.set_value(machine, table, "shutter_MOT", True)
-    assert machine.written == [(1, 11, 1)]
+    machine, panel = _configured()
+    console.set_value(panel, "shutter_MOT", False)
+    assert machine.data[console.DATA__WANTED][0] == 0
     with pytest.raises(ValueError, match="takes 0 or 1"):
-        console.set_value(machine, table, "shutter_MOT", 0.5)
+        console.set_value(panel, "shutter_MOT", 0.5)
 
 
 def test_an_unknown_name_lists_the_panels():
+    _, panel = _configured()
     with pytest.raises(ValueError, match="no variable 'coil_MOT__B'"):
-        console.set_value(_Machine(), _panel(), "coil_MOT__B", 1.0)
+        console.set_value(panel, "coil_MOT__B", 1.0)
 
 
-def test_a_request_while_a_sequence_owns_the_outputs_is_discarded():
-    """The policy (maintainer, 2026-09-27): after a run the final state is what holds."""
-    machine = _Machine()
-    machine.par[wt_adwin.PAR__SEQUENCE__OWNER] = 1
+def test_a_value_while_a_sequence_owns_the_outputs_is_refused():
+    machine, panel = _configured()
+    machine.par[OWNER] = 1
     with pytest.raises(console.OutputsOwned, match="process 1, owns the outputs"):
-        console.set_value(machine, _panel(), "coil_MOT__A", 1.0)
-    assert console.PAR__REQUEST not in machine.par, "nothing was written"
+        console.set_value(panel, "coil_MOT__A", 1.0)
 
 
-def test_a_request_is_refused_when_the_console_is_not_running():
-    """It would wait unserved; the old handshake then hung the notebook on the next one."""
+def test_a_value_is_refused_when_the_console_is_not_running():
+    machine, panel = _configured()
+    machine.running = 0
     with pytest.raises(RuntimeError, match="is not running"):
-        console.actuate(_Machine(running=0), 4, 1, 100)
+        console.set_value(panel, "coil_MOT__A", 1.0)
 
 
-def test_a_request_waits_for_the_previous_one_and_gives_up(monkeypatch):
-    monkeypatch.setattr(console, "WAIT__MAX", 0.05)
-    monkeypatch.setattr(console, "POLL__PERIOD", 0.01)
-    machine = _Machine(serving=False)
-    console.actuate(machine, 4, 1, 100)
-    with pytest.raises(TimeoutError, match="previous request"):
-        console.actuate(machine, 4, 2, 200)
-    assert machine.par[console.PAR__CHANNEL] == 1, "the waiting request is intact"
+def test_a_panel_configured_again_elsewhere_refuses():
+    """Its entries are then another panel's, and its values would land on other channels."""
+    machine, panel = _configured()
+    console.configure(machine, _panel())
+    with pytest.raises(RuntimeError, match="configured again"):
+        console.set_value(panel, "coil_MOT__A", 1.0)
+
+
+# After a run
+
+
+FINAL = dict(
+    analogue__finish=[(4, 1, conversion.to_digits(-1.2 * 2.0))],  # the coil
+    digital__finish=[(11, 0)],  # the shutter
+)
+
+
+def test_after_a_run_the_console_adopts_the_final_state_and_writes_nothing():
+    machine, panel = _configured()
+    machine.sweep()
+    hardware = list(machine.hardware)
+
+    machine.sequence(**FINAL)
+    machine.sweep()
+
+    assert machine.hardware == hardware + [
+        (4, 1, FINAL["analogue__finish"][0][2]),
+        (1, 11, 0),
+    ]
+    held = console.readback(panel)
+    values = dict(zip(held["variable"], held["value"]))
+    assert values["coil_MOT__A"] == pytest.approx(-1.2, abs=1e-3)
+    assert values["shutter_MOT"] == 0
+    assert np.isnan(values["lockbox_MOT__MHz"]), "not named by the final state: unknown"
+    assert not held["pending"].any()
+
+
+def test_a_value_wanted_just_before_the_run_is_discarded():
+    """Written, then the sequence took the outputs before a sweep: the final state holds."""
+    machine, panel = _configured()
+    machine.sweep()
+    console.set_value(panel, "coil_MOT__A", 4.0)
+    machine.sequence(**FINAL)
+    machine.sweep()
+    assert (4, 1, conversion.to_digits(8.0)) not in machine.hardware
+
+
+def test_a_start_by_hand_writes_every_entry_again():
+    """The students' habit of restarting the console keeps working: it repairs the outputs."""
+    machine, _ = _configured()
+    machine.sweep()
+    machine.start()
+    machine.sweep()
+    assert machine.hardware == DEFAULTS + DEFAULTS
+
+
+def test_an_unknown_entry_is_never_written_as_digits():
+    """After an adoption, a start by hand writes the known entries again, and not -2."""
+    machine, _ = _configured()
+    machine.sequence(**FINAL)
+    machine.start()
+    machine.sweep()
+    assert all(digits >= 0 for _, _, digits in machine.hardware)
+
+
+def test_a_console_closed_during_the_run_adopts_when_it_is_started():
+    machine, panel = _configured()
+    machine.running = 0
+    machine.sequence(**FINAL)
+    machine.start()
+    held = console.readback(panel)
+    assert np.isnan(held["value"][2])
+    assert held["value"][1] == pytest.approx(-1.2, abs=1e-3)
 
 
 @pytest.mark.parametrize("to_V", [2.0, lambda amps: 2.0 * amps])
 def test_the_final_state_is_read_back_in_the_devices_units(to_V):
     machine = _Machine()
-    machine.par[wt_adwin.PAR__FINISH__ANALOGUE] = 2
-    machine.par[wt_adwin.PAR__FINISH__DIGITAL] = 1
-    first = wt_adwin.DATA__FINISH__ANALOGUE
-    machine.data[first] = [4, 3]
-    machine.data[first + 1] = [1, 8]
-    machine.data[first + 2] = [
-        conversion.to_digits(-1.2 * 2.0),
-        conversion.to_digits(120.0 * 0.05),
-    ]
-    machine.data[wt_adwin.DATA__FINISH__DIGITAL] = [11]
-    machine.data[wt_adwin.DATA__FINISH__DIGITAL + 1] = [0]
-
+    machine.sequence(
+        analogue__finish=[
+            (4, 1, conversion.to_digits(-1.2 * 2.0)),
+            (3, 8, conversion.to_digits(120.0 * 0.05)),
+        ],
+        digital__finish=[(11, 0)],
+    )
     state = console.final_state(machine, _panel(to_V=to_V))
-
     assert state["coil_MOT__A"] == pytest.approx(-1.2, abs=1e-3)
     assert state["lockbox_MOT__MHz"] == pytest.approx(120.0, abs=0.01)
     assert state["shutter_MOT"] == 0
 
 
 def test_health():
-    machine = _Machine()
-    machine.par[console.PAR__SERVED] = 5
+    machine, _ = _configured()
+    machine.par[console.PAR__SWEEPS], machine.par[console.PAR__WRITES] = 40, 3
     assert console.health(machine) == console.Health(
-        workload=3, console=1, owner=0, served=5, pending=False
+        workload=3, console=1, owner=0, entries=3, sweeps=40, writes=3
     )
 
 
-def test_the_UI_writes_the_defaults_and_puts_a_refused_move_back():
+# The widgets
+
+
+def _ui(machine):
     widgets = pytest.importorskip("ipywidgets")
-    machine = _Machine()
     ui = console.create_UI(machine, _panel())
+    sliders = [w for w in ui.children[0].children if isinstance(w, widgets.FloatSlider)]
+    toggles = [w for box in ui.children[1:4] for w in box.children]
+    return ui, dict(zip(["coil_MOT__A", "lockbox_MOT__MHz"], sliders)), toggles
 
-    assert sorted(machine.written) == sorted(
-        [
-            (1, 11, 1),
-            (4, 1, conversion.to_digits(3.0)),
-            (3, 8, conversion.to_digits(0.0)),
-        ]
-    )
 
-    slider = next(
-        w for w in ui.children[0].children if isinstance(w, widgets.FloatSlider)
-    )
-    assert slider.continuous_update is False, "one request per release, not per pixel"
+def _messages(ui):
+    return "".join(o["text"] for o in ui.children[-1].outputs)
 
-    machine.par[wt_adwin.PAR__SEQUENCE__OWNER] = 1
-    slider.value = 2.0
-    assert slider.value == 1.5, "put back, since nothing was written"
-    messages = ui.children[-1]
-    assert "owns the outputs" in "".join(o["text"] for o in messages.outputs)
+
+def test_the_UI_configures_the_console_and_sends_while_dragging():
+    machine = _Machine()
+    machine.start()
+    ui, sliders, _ = _ui(machine)
+    machine.sweep()
+    assert machine.hardware == DEFAULTS
+    assert sliders["coil_MOT__A"].continuous_update is True
+
+
+def test_the_UI_puts_a_refused_move_back():
+    machine = _Machine()
+    machine.start()
+    ui, sliders, _ = _ui(machine)
+    machine.par[OWNER] = 1
+    sliders["coil_MOT__A"].value = 2.0
+    assert sliders["coil_MOT__A"].value == 1.5, "put back, since nothing was written"
+    assert "owns the outputs" in _messages(ui)
+
+
+def test_the_UI_catches_up_with_a_run_at_the_next_move():
+    machine = _Machine()
+    machine.start()
+    ui, sliders, toggles = _ui(machine)
+    machine.sweep()
+    machine.sequence(**FINAL)
+
+    sliders["lockbox_MOT__MHz"].value = 10.0
+
+    assert sliders["coil_MOT__A"].value == pytest.approx(-1.2, abs=0.01)
+    assert toggles[0].value is False, "the shutter as the final state left it"
+    assert "Unknown after the last run: lockbox_MOT__MHz" in _messages(ui)
+    assert (
+        sliders["lockbox_MOT__MHz"].style.handle_color is None
+    ), "known again once set"
+    assert machine.data[console.DATA__WANTED][2] == conversion.to_digits(10.0 * 0.05)

@@ -62,7 +62,8 @@ finish:
     p2_digout(1,data_42[finishIdx],data_43[finishIdx])
   next finishIdx
 
-  ' Last of all, once the final state is out: the arrays are free.
+  ' Last of all, once the final state is out: the run is counted, and the arrays are free.
+  inc sequencesFinished
   sequenceOwner = 0
 
   ' And the console, if the run stopped it, comes back on the final state.

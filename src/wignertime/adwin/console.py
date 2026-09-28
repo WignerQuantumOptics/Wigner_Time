@@ -11,21 +11,37 @@ through its device's `to_V`, a function where it is one, and then through
 `conversion.to_digits`, the conversion the sequencer's arrays are made with. The console
 has no notion of a timeline beyond the one it takes its starting values from.
 
-The contract with the program:
+**Shadow state, not a mailbox.** `configure` writes the panel into the program as a list of
+entries, one per variable. `set_value` writes one word, the digits wanted for one entry, and
+returns without waiting. The program's sweep writes to the hardware wherever the wanted digits
+differ from the ones last written, so repeated values coalesce and nothing on either side waits
+on the other. The mailbox this replaced made Python poll `Par_73` until the program had served
+the previous request, and both explanations kept for the fault in which the processor saturated
+for seconds at a time involved that loop (D22).
 
-- `Par_70`, `Par_71`, `Par_72`: the module, channel and digits of one request, and `Par_73`,
-  nonzero while it waits to be served. The program serves it and clears `Par_73`. A request
-  is written only once the previous one is served, so the program never reads half of one.
-- `Par_74`: how many requests the program has served since it was started.
-- `Par_17` (`adwin.PAR__SEQUENCE__OWNER`): nonzero while a sequence owns the outputs. A
-  sequence stops the console for its run and starts it again afterwards, and the apparatus
-  then holds the run's final state. A request made meanwhile is discarded (maintainer,
-  2026-09-27). `actuate` refuses to write one, and the program's `init:` drops one that was
-  written in the instant before the sequence took the outputs.
+The contract with the program, whose `#define`s must agree with the numbers below:
+
+- `data_51[i]` / `data_52[i]`: the digits wanted for entry `i`, written here, and the digits
+  last written to the hardware, written by the program. -1 in `data_52` means write again; -2 in
+  either means unknown.
+- `data_53[i]` / `data_54[i]`: the module and channel of entry `i`, in the panel's row order;
+  module 1 is the digital one, and takes 0 or 1.
+- `Par_75`: the number of entries. `configure` sets it to 0 while it rewrites them.
+- `Par_78`: a token `configure` draws, so that a panel configured again elsewhere makes the old
+  one refuse, rather than write its values into another panel's entries.
+- `Par_74`, `Par_77`: hardware writes and sweeps since the program started, for `health`.
+- `Par_76`: the value of `adwin.PAR__SEQUENCES__FINISHED` the program last saw.
+
+**After a run.** A sequence stops the console for its run, and starts it again afterwards if it
+was running. The program then adopts the run's final state (maintainer's policy, 2026-09-27):
+an entry the final state names takes its digits, and one it does not name becomes unknown,
+because it holds whatever the run left it at. Nothing is written to either, and anything wanted
+before or during the run is discarded. `set_value` refuses while a sequence owns the outputs. A
+start by hand, with no run since, writes every entry again from what was wanted.
 """
 
 import importlib.util
-import time
+import random
 from typing import NamedTuple
 
 import numpy as np
@@ -39,16 +55,22 @@ from wignertime.internal import dataframe as wt_frame
 PROCESS = 10
 """The process number in the header of `WignerTimeConsole.bas`."""
 
-PAR__MODULE = 70
-PAR__CHANNEL = 71
-PAR__DIGITS = 72
-PAR__REQUEST = 73
-PAR__SERVED = 74
+ENTRIES__MAX = 512
+"""`consoleMaxEntries` in the program: 16 modules of 32 channels."""
 
-WAIT__MAX = 1.0
-"""How long `actuate` waits for the previous request to be served, in seconds."""
+DATA__WANTED = 51
+DATA__WRITTEN = 52
+DATA__MODULE = 53
+DATA__CHANNEL = 54
 
-POLL__PERIOD = 0.01
+PAR__WRITES = 74
+PAR__ENTRIES = 75
+PAR__SEQUENCES__SEEN = 76
+PAR__SWEEPS = 77
+PAR__TOKEN = 78
+
+DIGITS__REASSERT = -1
+DIGITS__UNKNOWN = -2
 
 MODULE__DIGITAL = 1
 """The digital module, the only one the program switches as such (D18)."""
@@ -56,18 +78,29 @@ MODULE__DIGITAL = 1
 
 class OutputsOwned(RuntimeError):
     """
-    A sequence owns the outputs, so a request is discarded: after the run the apparatus
-    holds the run's final state, and a move made during it does not follow.
+    A sequence owns the outputs, so a value is refused: after the run the apparatus holds the
+    run's final state, and the console adopts it.
     """
 
     def __init__(self, owner):
         self.owner = owner
         super().__init__(
-            "A sequence, process {}, owns the outputs, so the request is discarded. After"
-            " the run the apparatus holds its final state; `final_state` reads it back.".format(
+            "A sequence, process {}, owns the outputs, so the value is refused. After the run"
+            " the apparatus holds its final state, which the console adopts.".format(
                 owner
             )
         )
+
+
+class Console(NamedTuple):
+    """
+    A console configured with a panel: the machine, the panel `table` whose rows are its
+    entries, and the `token` that `configure` drew for it.
+    """
+
+    machine: object
+    table: wt_frame.CLASS
+    token: int
 
 
 def panel(connections, devices, timeline__defaults):
@@ -120,69 +153,50 @@ def panel(connections, devices, timeline__defaults):
     return table
 
 
-def actuate(machine, module, channel, digits):
-    """
-    Asks the console to write `digits` to `channel` of `module`, and returns once the
-    request is written, not once it is served.
-
-    Refuses while a sequence owns the outputs (`OutputsOwned`), and when the console process
-    is not running, since the request would then wait unserved. Waits for the previous
-    request to be served, at most `WAIT__MAX` seconds.
-    """
-    owner = machine.Get_Par(wt_adwin.PAR__SEQUENCE__OWNER)
-    if owner:
-        raise OutputsOwned(owner)
-    if machine.Process_Status(PROCESS) == 0:
-        raise RuntimeError(
-            "The console, process {}, is not running, so nothing would serve the request."
-            " Load `WignerTimeConsole.bas` and start it.".format(PROCESS)
-        )
-
-    deadline = time.monotonic() + WAIT__MAX
-    while machine.Get_Par(PAR__REQUEST) != 0:
-        if time.monotonic() > deadline:
-            raise TimeoutError(
-                "The console has not served the previous request within {:g} s.".format(
-                    WAIT__MAX
-                )
-            )
-        time.sleep(POLL__PERIOD)
-
-    machine.Set_Par(PAR__MODULE, int(module))
-    machine.Set_Par(PAR__CHANNEL, int(channel))
-    machine.Set_Par(PAR__DIGITS, int(digits))
-    machine.Set_Par(PAR__REQUEST, 1)
-
-
 def to_digits(value, to_V):
     """The digits for `value` of a device with conversion `to_V`, as the sequencer gets them."""
     voltage = to_V(value) if callable(to_V) else value * to_V
     return int(conversion.to_digits(voltage))
 
 
-def actuate_analog(machine, module, channel, value, to_V):
-    """`actuate` with a value in the device's own unit."""
-    actuate(machine, module, channel, to_digits(value, to_V))
+def from_digits(row, digits):
+    """
+    The value of the panel's `row` whose digits are `digits`. The digits give the voltage
+    exactly, as `conversion.to_digits` is linear. A linear `to_V` then gives the value; a
+    calibration function, which cannot in general be inverted, is inverted by interpolation
+    over the row's range, which assumes that it is monotonic there.
+    """
+    specification = conversion.SPECIFICATIONS__DEFAULT
+    v_min, v_max = np.asarray(specification["voltage_range"]) / specification["gain"]
+    voltage = v_min + digits / (2 ** specification["num_bits"] - 1) * (v_max - v_min)
+    if not callable(row.to_V):
+        return float(voltage / row.to_V)
+
+    grid = np.linspace(row.value__min, row.value__max, 4097)
+    voltages = np.vectorize(row.to_V)(grid)
+    order = np.argsort(voltages)
+    return float(np.interp(voltage, voltages[order], grid[order]))
 
 
-def _row(table, name):
-    rows = table.loc[table["variable"] == name]
-    if rows.empty:
+def _index(table, name):
+    positions = np.flatnonzero(table["variable"].to_numpy() == name)
+    if not len(positions):
         raise ValueError(
             "The panel has no variable {!r}. It has: {}.".format(
                 name, sorted(table["variable"])
             )
         )
-    return rows.iloc[0]
+    return int(positions[0])
 
 
-def set_value(machine, table, name, value):
+def _digits(table, name, value):
     """
-    Sets the variable `name` of the `panel` to `value`, in its own unit: 0 or 1 for a
-    digital line. An analogue value is checked against the device's range by
-    `device.check_within_range`, as a timeline's values are.
+    The entry index and digits for setting `name` to `value`: 0 or 1 for a digital line, and
+    for an analogue one a value inside its device's range, checked by
+    `device.check_within_range` as a timeline's values are.
     """
-    row = _row(table, name)
+    index = _index(table, name)
+    row = table.iloc[index]
     if wt_frame.isnull(row["to_V"]):
         if value not in (0, 1):
             raise ValueError(
@@ -190,8 +204,7 @@ def set_value(machine, table, name, value):
                     name, value
                 )
             )
-        actuate(machine, row["module"], row["channel"], int(value))
-        return
+        return index, int(value)
 
     device.check_within_range(
         wt_frame.new(
@@ -203,18 +216,114 @@ def set_value(machine, table, name, value):
             }
         )
     )
-    actuate_analog(machine, row["module"], row["channel"], value, row["to_V"])
+    return index, to_digits(value, row["to_V"])
+
+
+def configure(machine, table):
+    """
+    Writes the panel into the console program as its entries, each wanting its
+    `default_value`, and returns the `Console`. The program writes them all to the hardware.
+
+    The entries are rewritten with their count at 0, so that the program never sweeps a
+    half-written list, and a fresh token is drawn. A run finished before this does not count
+    as one the program has yet to adopt, since these values are newer.
+    """
+    owner = machine.Get_Par(wt_adwin.PAR__SEQUENCE__OWNER)
+    if owner:
+        raise OutputsOwned(owner)
+    if len(table) > ENTRIES__MAX:
+        raise ValueError(
+            "The console holds at most {} entries, and this panel has {}.".format(
+                ENTRIES__MAX, len(table)
+            )
+        )
+
+    wanted = [
+        _digits(table, name, value)[1]
+        for name, value in zip(table["variable"], table["default_value"])
+    ]
+    count = len(table)
+    machine.Set_Par(PAR__ENTRIES, 0)
+    for number, values in (
+        (DATA__MODULE, [int(m) for m in table["module"]]),
+        (DATA__CHANNEL, [int(c) for c in table["channel"]]),
+        (DATA__WANTED, wanted),
+        (DATA__WRITTEN, [DIGITS__REASSERT] * count),
+    ):
+        machine.SetData_Long(values, number, 1, count)
+    machine.Set_Par(
+        PAR__SEQUENCES__SEEN, machine.Get_Par(wt_adwin.PAR__SEQUENCES__FINISHED)
+    )
+    token = random.randrange(1, 2**31 - 1)
+    machine.Set_Par(PAR__TOKEN, token)
+    machine.Set_Par(PAR__ENTRIES, count)
+    return Console(machine, table, token)
+
+
+def set_value(console, name, value):
+    """
+    Sets the variable `name` to `value`, in its own unit, and returns without waiting: the
+    program writes it to the hardware within a sweep or two.
+
+    Refuses while a sequence owns the outputs (`OutputsOwned`), when the console process is
+    not running, and when the console has been configured again since `console` was, from this
+    notebook or another, since its entries are then another panel's.
+    """
+    machine = console.machine
+    owner = machine.Get_Par(wt_adwin.PAR__SEQUENCE__OWNER)
+    if owner:
+        raise OutputsOwned(owner)
+    if machine.Get_Par(PAR__TOKEN) != console.token:
+        raise RuntimeError(
+            "The console has been configured again since this panel was, so its entries are"
+            " another panel's. Configure it again, or rebuild the widgets."
+        )
+    if machine.Process_Status(PROCESS) == 0:
+        raise RuntimeError(
+            "The console, process {}, is not running, so nothing would write the value. Load"
+            " `WignerTimeConsole.bas` and start it.".format(PROCESS)
+        )
+
+    index, digits = _digits(console.table, name, value)
+    machine.SetData_Long([digits], DATA__WANTED, index + 1, 1)
+
+
+def readback(console):
+    """
+    What the console program holds for each variable of the panel: a frame of `variable`,
+    `value` (NaN where unknown), and `pending`, true where the value wanted has not yet been
+    written to the hardware. That should last a sweep or two at most.
+
+    After a run, this is the final state the program adopted, and NaN for the variables the
+    final state does not name.
+    """
+    machine, table = console.machine, console.table
+    count = len(table)
+    wanted = np.asarray(machine.GetData_Long(DATA__WANTED, 1, count))
+    written = np.asarray(machine.GetData_Long(DATA__WRITTEN, 1, count))
+
+    values = []
+    for row, digits in zip(table.itertuples(), wanted):
+        if digits == DIGITS__UNKNOWN:
+            values.append(np.nan)
+        elif wt_frame.isnull(row.to_V):
+            values.append(float(digits))
+        else:
+            values.append(from_digits(row, digits))
+
+    return wt_frame.new(
+        {
+            "variable": list(table["variable"]),
+            "value": values,
+            "pending": list((wanted >= 0) & (wanted != written)),
+        }
+    )
 
 
 def final_state(machine, table):
     """
-    What the last run left the apparatus holding, as `{variable: value}` for the variables
-    of the `panel` that its final state sets, read back from the machine.
-
-    An analogue value is recovered from its digits over the variable's range: the value
-    whose digits come closest, among 2**16 + 1 evenly spaced ones. This works for any
-    `to_V`, a calibration function included, which cannot in general be inverted
-    otherwise.
+    The final state of the last upload, as `{variable: value}` for the variables of the
+    `panel` it sets, read from the arrays `upload` writes for the sequencer's `finish:`.
     """
     by_port = {(row.module, row.channel): row for row in table.itertuples()}
     state = {}
@@ -228,14 +337,7 @@ def final_state(machine, table):
         for module, channel, digit in zip(modules, channels, digits):
             row = by_port.get((int(module), int(channel)))
             if row is not None:
-                grid = np.linspace(row.value__min, row.value__max, 2**16 + 1)
-                voltages = (
-                    np.vectorize(row.to_V)(grid)
-                    if callable(row.to_V)
-                    else grid * row.to_V
-                )
-                closest = np.argmin(np.abs(conversion.to_digits(voltages) - digit))
-                state[row.variable] = float(grid[closest])
+                state[row.variable] = from_digits(row, digit)
 
     count = machine.Get_Par(wt_adwin.PAR__FINISH__DIGITAL)
     if count:
@@ -253,62 +355,103 @@ def final_state(machine, table):
 
 class Health(NamedTuple):
     """
-    A snapshot of the machine as the console sees it. `workload` is ADwin's processor
-    workload in percent. It is for the fault reported in the lab, the processor saturating
-    for seconds at a time while the console runs: sampled over a session, it dates each
-    episode.
+    A snapshot of the machine as the console sees it. `workload` is ADwin's processor workload
+    in percent, `sweeps` the program's heartbeat and `writes` its hardware writes since it
+    started. They are for the fault reported in the lab, the processor saturating for seconds
+    at a time while the console is in use: sampled over a session, they date an episode, and
+    show whether the console was writing while it lasted.
     """
 
     workload: int
     console: int
     owner: int
-    served: int
-    pending: bool
+    entries: int
+    sweeps: int
+    writes: int
 
 
 def health(machine):
-    """The console's `Health` now: workload, its process status, the arrays' owner, requests."""
+    """The console's `Health` now."""
     return Health(
         workload=machine.Workload(),
         console=machine.Process_Status(PROCESS),
         owner=machine.Get_Par(wt_adwin.PAR__SEQUENCE__OWNER),
-        served=machine.Get_Par(PAR__SERVED),
-        pending=machine.Get_Par(PAR__REQUEST) != 0,
+        entries=machine.Get_Par(PAR__ENTRIES),
+        sweeps=machine.Get_Par(PAR__SWEEPS),
+        writes=machine.Get_Par(PAR__WRITES),
     )
 
 
-def create_UI(machine, table):
+def create_UI(machine, table, continuous_update=True):
     """
-    The console's widgets for the `panel`: a vertical slider per analogue variable, a toggle
-    per digital line, a button that shows the final state of the last run, and a line for
-    messages. Building it writes every default to the apparatus.
+    Configures the console with the `panel` and returns its widgets: a vertical slider per
+    analogue variable, a toggle per digital line, a button that shows what the program holds,
+    and a line for messages. Configuring writes every default to the apparatus.
 
-    A slider sends its value when it is released, not while it is dragged; a drag used to
-    send one request per pixel. A move that is refused, because a sequence owns the outputs
-    or the console is not running, puts the widget back and says why, so that what the
-    widgets show is what was written.
+    A slider sends its value while it is dragged, since a write costs one driver call and
+    repeated values coalesce in the program. `continuous_update=False` sends it on release.
+
+    A value that is refused, because a sequence owns the outputs or the console is not
+    running, puts the widget back and says why, so that the widgets show what was asked for.
+    After a run the widgets are brought up to the adopted final state at the next move, or
+    with the button. A variable the final state does not name is marked, since what it
+    holds is unknown until it is set.
     """
     if not importlib.util.find_spec("ipywidgets"):
         raise ImportError("The console's widgets require `ipywidgets` to be installed.")
     import ipywidgets as widgets
 
+    console = configure(machine, table)
     messages = widgets.Output()
     quiet = {"on": False}  # set while widgets are moved from here rather than by hand
+    adopted = {"seen": machine.Get_Par(PAR__SEQUENCES__SEEN)}
     controls = {}
+
+    def mark(control, unknown):
+        if isinstance(control, widgets.ToggleButton):
+            control.button_style = "warning" if unknown else ""
+        else:
+            control.style.handle_color = "orange" if unknown else None
+
+    def refresh(_=None):
+        adopted["seen"] = machine.Get_Par(PAR__SEQUENCES__SEEN)
+        held = readback(console)
+        unknown = []
+        quiet["on"] = True
+        try:
+            for name, value in zip(held["variable"], held["value"]):
+                control = controls[name]
+                if np.isnan(value):
+                    unknown.append(name)
+                else:
+                    is_toggle = isinstance(control, widgets.ToggleButton)
+                    control.value = bool(value) if is_toggle else value
+                mark(control, np.isnan(value))
+        finally:
+            quiet["on"] = False
+        messages.append_stdout(
+            "Showing what the console holds. Unknown after the last run: {}.\n".format(
+                ", ".join(unknown) or "nothing"
+            )
+        )
 
     def observe(control, name):
         def on_change(change):
             if quiet["on"]:
                 return
+            if machine.Get_Par(PAR__SEQUENCES__SEEN) != adopted["seen"]:
+                refresh()
             try:
-                set_value(machine, table, name, change["new"])
-            except (RuntimeError, TimeoutError) as refused:
+                set_value(console, name, change["new"])
+            except RuntimeError as refused:
                 quiet["on"] = True
                 try:
                     control.value = change["old"]
                 finally:
                     quiet["on"] = False
                 messages.append_stdout("{}: {}\n".format(name, refused))
+                return
+            mark(control, False)
 
         control.observe(on_change, names="value")
 
@@ -332,32 +475,15 @@ def create_UI(machine, table):
                     row.variable.rsplit("__", 1)[0], wt_variable.unit(row.variable)
                 ),
                 orientation="vertical",
-                continuous_update=False,
+                continuous_update=continuous_update,
                 layout=widgets.Layout(margin="20px 40px", height="300px"),
             )
             sliders.append(control)
         observe(control, row.variable)
         controls[row.variable] = control
-        set_value(machine, table, row.variable, row.default_value)
 
-    def show_final_state(_):
-        state = final_state(machine, table)
-        quiet["on"] = True
-        try:
-            for name, value in state.items():
-                control = controls[name]
-                digital = wt_frame.isnull(_row(table, name)["to_V"])
-                control.value = bool(value) if digital else value
-        finally:
-            quiet["on"] = False
-        messages.append_stdout(
-            "Showing the final state of the last run, {} variables.\n".format(
-                len(state)
-            )
-        )
-
-    button = widgets.Button(description="Final state")
-    button.on_click(show_final_state)
+    button = widgets.Button(description="Refresh")
+    button.on_click(refresh)
 
     return widgets.VBox(
         [widgets.HBox(sliders), *[widgets.HBox(t) for t in toggles], button, messages]

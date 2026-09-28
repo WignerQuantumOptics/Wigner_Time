@@ -40,6 +40,13 @@ running is asked of the process itself, so that a value left behind by one that 
 cannot hold anything up.
 """
 
+PAR__SEQUENCES__FINISHED = 18
+"""
+`sequencesFinished` in the sequencer: how many sequences have finished since the machine was
+booted, incremented at the end of every `finish:`. The console uses it to tell a restart after a
+run, when the apparatus holds the run's final state, from a restart by hand.
+"""
+
 PAR__FINISH__ANALOGUE = 15
 PAR__FINISH__DIGITAL = 16
 DATA__FINISH__ANALOGUE = 31
