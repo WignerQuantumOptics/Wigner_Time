@@ -33,7 +33,7 @@ Every item here has a GitHub issue, and the two carry different things. **This f
 | `Feature` | A request, idea, or new functionality |
 | `Decision` | An open API or design decision that must be settled before dependent work can proceed |
 
-`Decision` is the tracker's counterpart of §C, and carries "flag and ask, never settle unilaterally" onto GitHub. Set it on anything whose entry here offers two options rather than a fix. Open `Decision` issues as of 2026-09-23: **#85, #97, #133, #143, #144, #145** (#53 was settled and closed on 2026-09-23). #85's direction was settled on 2026-09-25 (C7); it stays a `Decision` until its name and its two open details are.
+`Decision` is the tracker's counterpart of §C, and carries "flag and ask, never settle unilaterally" onto GitHub. Set it on anything whose entry here offers two options rather than a fix. Open `Decision` issues as of 2026-09-23: **#85, #97, #133, #143, #144, #145** (#53 was settled and closed on 2026-09-23). #85 was settled on 2026-09-25 and 2026-09-27 (C7) and has a roadmap; one detail of `expand`'s grid is open. #154 (2026-09-27) is new.
 
 **Labels say _what kind_.** `silent` (a wrong answer with no error — outranks visible failures, and puts the item in `10 — paper` by default); `paper-affecting` (falsifies a claim in `main.tex`, so §G applies and the *code* changes); `consistency` (causes mental friction); `potentially surprising` (not wrong as such, but likely to surprise a user); and the area tags `ux`, `performance`, `docs`, `adwin`, `origin`.
 
@@ -989,7 +989,7 @@ Options:
 
 Depends on #85 and, through it, on B10 (#136).
 
-### C7 — composition takes stages only, and one function turns a stage into a table **[#85; direction settled 2026-09-25; the name and two details open]**
+### C7 — composition takes stages only, and `to_timeline` turns a stage into a table **[#85; settled 2026-09-25 and 2026-09-27; roadmap 2026-09-28, worked on the branch `issue#85`]**
 
 **The question, as Thomas meant it** (maintainer, reopening #85 on 2026-09-25): not whether to rename `create`, but whether `stack` and `cascade` should compose *stages* only — functions of a timeline — and never a timeline. `create` then has nothing left to set it apart from `update`, and a separate step turns a composition into a table. Thomas's own words on #145: "Just always `stack` functions and then resolve them when needed?"
 
@@ -999,15 +999,38 @@ Depends on #85 and, through it, on B10 (#136).
 2. **`create` is deleted, not redefined.** On an empty table `update` already does what `create` does: the origin falls back to zero and the context must be stated. Redefining `create` as `update(origin=0.0)` was the alternative, and is a silent hazard: written after an anchor at 5.0, such a row lands at 0.0, before everything it was written to follow — A4's failure, by construction.
 3. **The fallback warning goes** (A4's terminal `0.0`). Every experiment now starts from an empty table, so it would fire once per experiment and tell nobody anything.
 4. **A keyword forwarded by `stack` is a default, not an override.** Without this the change turns C6 into its mirror image; see C6.
-5. **The bridge is a plain function**, `f(stage, onto=None)`: the stage applied to `onto`, or to an empty table. Not a marker placed inside `stack`, which would make `stack` return a table or a function depending on its arguments again — Thomas's complaint on #145. `resolve` is ruled out as its name, because origin resolution already owns the word (`docs/origin-resolution.md`, `fig:origin`).
+5. **The bridge is a plain function**, `to_timeline(stage, onto=None)`: the stage applied to `onto`, or to an empty table. Not a marker placed inside `stack`, which would make `stack` return a table or a function depending on its arguments again — Thomas's complaint on #145. The name was settled on 2026-09-27; `unravel` was the other candidate, `seed` and `crystallize` were judged too metaphorical, and `resolve` is taken, since origin resolution already owns the word (`docs/origin-resolution.md`, `fig:origin`).
 
-**Open:**
+**`onto` is first-class, not a convenience** (maintainer, 2026-09-28). Building a timeline can be expensive, so a parameter scan keeps its base as a table and places each variation onto it, rather than rebuilding the base from its stages per point. `to_timeline(b, onto=to_timeline(a))` and `to_timeline(stack(a, b))` are the same table by construction, and a test is to pin that, so the two can be exchanged freely.
 
-- **the name.** `to_timeline` (the issue's title) and `seed`, after crystallization (maintainer, 2026-09-25), are proposed;
-- **whether `expand` stays usable inside a `stack`.** It has the dual form today, so `expand(time_resolution=...)` can sit in one. Unlike `update`, `ramp` and `anchor`, which add rows, it transforms the whole timeline it receives, and that is the trap recorded in CLAUDE.md: mid-`stack` it expands every ramp so far and drops `function`, so the `expand` inside `convert` becomes a no-op. No stage in the demo, the lab or its notebooks uses it that way — three tests do — and `convert` composes it as a plain table function. The recommendation is that `expand` take a table only, like `convert` and the display, which removes the trap rather than documenting it;
-- **what time a row in a special context should carry.** Raised by the maintainer against item 3: `ADwin_LowInit` has to be given a fictional negative time, which makes it awkward to program. Being explored.
+**Settled by the maintainer, 2026-09-27:**
 
-**Prerequisite: B10 (#136).** `init()` becomes a stack, and a `context` forwarded into a nested stack raises today.
+6. **`expand` takes a table only**, like `convert` and the display, so it can no longer sit inside a `stack`. It has the dual form today, and unlike `update`, `ramp` and `anchor`, which add rows, it transforms the whole timeline it receives: mid-`stack` it expands every ramp so far and drops `function`, so the `expand` inside `convert` becomes a no-op (the trap recorded in CLAUDE.md). No stage in the demo, the lab or its notebooks used it that way; three tests did.
+7. **`expand` loses its `time_resolution` argument.** The resolution of a ramp belongs to the ramp (#65), which is already expressible by binding it into the ramp's `function`. But one way of binding is silently undone today. Measured, expanding a 1 s ramp bound to 0.25 at a global `time_resolution=0.01`:
+
+   ```
+   lambda o, t: tanh(o, t, 0.25)                     -> 6 rows     bound resolution kept
+   lambda o, t, time_resolution: tanh(o, t, 0.25)    -> 6 rows     bound resolution kept
+   functools.partial(tanh, time_resolution=0.25)     -> 102 rows   the global one wins, silently
+   ```
+
+   A `partial` still declares `time_resolution`, and `util.function__filtered_kws` hands `expand`'s value to every function that declares it. With no resolution on `expand`, nothing is left to override a bound one. **Open detail:** a ramp that binds nothing still needs a grid — the cycle period at conversion, which `convert` has, and something when plotting an expanded timeline (main.tex:876) — and it must be supplied without overriding a bound value, or the trap moves into `convert`. The ramp functions' default `time_resolution=wt_config.TIME_RESOLUTION` is also a #144 (D23) default, bound at import, and should not survive the change in that form.
+8. **#143 is bundled in**: `t` becomes `time` in the same pass, so every signature, and every call site in the demo, the lab and the paper, changes once.
+
+**Moved out:** what time a row in a special context should carry — raised by the maintainer against item 3, because `ADwin_LowInit` has to be given a fictional negative time — is #154 (a `Decision`), together with the display's sort, #153.
+
+**Roadmap** (2026-09-28; posted on #85). The work is on `issue#85`, branched from `issue#142`'s tip: #85 rewrites the very signatures #142 changed, and #142's `INFER` marker is what makes item 4 implementable, since a stage's captured arguments show `INFER` wherever nothing was given. Merge order into `claude_code`: `issue#94`, `issue#142`, `issue#85`. P3 and P4 wait until `issue#94` is merged in, because it rewrote `adwin/core.py` and the display.
+
+- **P0 — groundwork.** Settle #142's two open questions; one, the spelling of "no inheritance", is tied to #145's option 2 (if every row must have a context, `context=""` has no place). Freeze today's outputs as references: the demo table, the lab's `prepare_sample` in all 20 cases, its interwoven imaging, `convert`'s arrays at 5, 2 and 1 µs.
+- **P1 — forwarding, not breaking.** B10 (#136); a forwarded keyword fills only `INFER` slots (C6, N3).
+- **P2 — stages only, breaking.** `to_timeline`; `stack` and `cascade` take stages only, and refuse a table anywhere (D17's correction); `create` deleted; stages and core functions lose `timeline=`; the empty-table rules and their messages (item 3; C6, N4); #143. `function__lambda`'s frame-reading can then give way to an explicit wrapper.
+- **P3 — `expand`, after `issue#94`.** Items 6 and 7; #65.
+- **P4 — rows outside the run, after `issue#94`.** #154 and #153, with #80. Touches `wignertime/adwin/`, so the rig has the last word.
+- **P5 — the operation layer.** The demo; the lab on a branch of its own (`prepare_sample` as a list of stages, closing L6 there; the diagnostics; `tof_timelines` with `onto=`; the notebooks).
+- **P6 — manuscript and docs, in one pass with D7 (#121).** The sections listed below, `fig:origin` if the origin rules changed, README/`docs/index.md`, CLAUDE.md's "dual-return idiom".
+- **Later, optional:** #140 and #77 — `to_timeline` is the one point where a composition becomes data, so it is where the resolved parameter set would be attached.
+
+**Prerequisite: B10 (#136)** — P1. `init()` becomes a stack, and a `context` forwarded into a nested stack raises today.
 
 **Measured on a prototype built over the current package** (scratchpad, nothing committed): the bridge as `f(onto or an empty table)`, and `create` replaced by `update`.
 
@@ -1018,7 +1041,7 @@ Depends on #85 and, through it, on B10 (#136).
 
 **What it removes from the manuscript** are the sentences that exist to qualify the present behaviour: `main.tex:727` (`MOT` takes a timeline and passes it to its first constituent), `:749` (why `init`'s stack evaluates immediately), `:773` (what `cascade` returns depends on its first stage) and `:864` (`create` and `update` distinguished only by how they compose). That is §G's signal, read the right way round. `default_state` loses `f=tl.create`/`f=tl.update`, which brings `:892` ("differing only in an argument, `MOT_ON`") closer to true. 22 stage signatures lose `timeline=None`: 8 in the demo, 14 in the lab.
 
-**Blast radius.** Package: `timeline.py`, `util.ensure_timeline`'s messages, the demo. Tests: 12 files, about 56 calls handing a table to a core function and 31 stacks led by a table, `create` or `init`. Lab: `prepare_sample`, 7 stages in `diagnostics.py`, a line each in `time_of_flight.py` and `camera_control.py`, 14 interweaving calls in `diagnosticsStageByStage.ipynb`. Untouched: the ADwin backend, and the Lab2 fixture, which is a frozen table. Manuscript: nearly every listing, which is why #85 moved to `10 — paper` on 2026-09-25; best done in one pass with D7 (#121), which rewrites the same listings.
+**Blast radius.** Package: `timeline.py`, `util.ensure_timeline`'s messages, the demo. Tests: 12 files, about 56 calls handing a table to a core function and 31 stacks led by a table, `create` or `init`. Lab: `prepare_sample`, 7 stages in `diagnostics.py`, a line each in `time_of_flight.py` and `camera_control.py`, 14 interweaving calls in `diagnosticsStageByStage.ipynb`. The ADwin backend is touched by P3 and P4 only; the Lab2 fixture, a frozen table, not at all. Manuscript: nearly every listing, which is why #85 moved to `10 — paper` on 2026-09-25; best done in one pass with D7 (#121), which rewrites the same listings.
 
 **Folded in:** the non-running opening listing of `sec:definitions` (see the paper items at the top), and D17's correction — under C7 a table is refused in any position of a `stack`, with a message naming the bridge.
 
