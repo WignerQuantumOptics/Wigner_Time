@@ -246,7 +246,9 @@ The figure's leaf wording already leans that way: `"last"` and `"anchor"` are de
 
 Fix direction: split the vocabulary by slot. The time slot admits a number, `"anchor"`, `"last"`, `"variable"`, a variable name or a context name; the value slot admits a number, `"variable"` or a variable name, and **raises** on the rest. Raise rather than warn — unlike the time slot there is no sensible value to fall back to. Nothing is lost, because "the value `coil__A` held at the end of molasses" is already `["molasses", "variable"]`. See `docs/origin-resolution.md` for the full branch map.
 
-### A8 — a value origin is added on top of an explicitly stated `ramp` start value — **RESOLVED AND FIXED 2026-09-18; amended 2026-09-28 with #142**
+### A8 — a value origin is added on top of an explicitly stated `ramp` start value — **RESOLVED AND FIXED 2026-09-18; amended 2026-09-28 with #142; moot since 2026-09-29**
+
+**Moot since 2026-09-29 (C7 item 9, P2 step 4):** a ramp's start value is never written any more, so there is no stated start for a value origin to be added to. The 2-D form is refused, and so is anything but `"variable"` in the value slot of `ramp`'s `origin`; a wanted jump is an `update` before the ramp. The tests that pinned the stated-start rules are replaced by `test_a_written_start_is_refused_and_a_jump_is_an_update`. The account below is kept as the record.
 
 `ramp`'s value origin defaults to `"variable"`, and `_update_future` applies it **additively**. That is right for a variable whose start point was inferred, but it is applied just as readily to a start value the user stated explicitly in the 2-D input form.
 
@@ -521,7 +523,9 @@ Fix direction: a variable is in at most one ramp at a time — `ramp` refuses a 
 
 ## B. Correctness
 
-### B1 — `ramp`'s degenerate-row check aligns on index, not on variable — **RESOLVED AND FIXED 2026-09-18**
+### B1 — `ramp`'s degenerate-row check aligns on index, not on variable — **RESOLVED AND FIXED 2026-09-18; moot since 2026-09-29**
+
+**Moot since 2026-09-29:** with one input form left (C7 item 9), a ramp's start rows are a copy of its end rows, so the two frames hold the same variables in the same order by construction. `test_boundary_frames_are_compared_variable_by_variable`, which needed the two forms mixed in one call, is gone with them.
 
 The two boundary frames are now aligned on `variable` (`dataframe.align_to`) before being subtracted. Each holds exactly one row per variable, `df_1` and `df__no_start_points` being disjoint by construction, so the alignment is total.
 
@@ -1063,7 +1067,7 @@ Depends on #85 and, through it, on B10 (#136).
 
 - **P0 — groundwork. Done 2026-09-29 (`95f62bd`).** #142's two questions are settled (items 9 and 11), and today's outputs are frozen as references (`test_reference.py`, `fixtures/reference/`): the demo table, the lab's `prepare_sample` in all 20 cases, its interwoven imaging, `convert`'s arrays at 5, 2 and 1 µs.
 - **P1 — not breaking for any real timeline. Done 2026-09-29 (`1ed4172`, `e1fb7d4`, `2cda9fe`; #136, #156, #157 closed).** B10 (#136); a forwarded keyword fills only unstated slots (C6, N3); every row has a context (#156, with the empty-table message of N4); a ramp inside another ramp of the same variable is refused (A17, #157).
-- **P2 — stages only, breaking.** *Step 1 done 2026-09-29: `to_timeline`, `stack` and `cascade` composing stages only, `create` gone, the empty-table origin without a warning (item 3) — the demo reproduces its reference through the new API, and #145 and D17's correction are settled with it.* *Step 3 done the same day: the core functions and the demo's stages take no timeline, `update`, `ramp` and `anchor` are keyword-only, `expand` takes a table only (item 6, brought forward from P3), and `util.stage` replaced the frame-reading `function__lambda`.* `to_timeline`; `stack` and `cascade` take stages only, and refuse a table anywhere (D17's correction); `create` deleted; stages and core functions lose `timeline=`; the empty-table origin rule (item 3); a ramp starts where its variable is (item 9); the tags (item 10, #158); #143. `function__lambda`'s frame-reading can then give way to an explicit wrapper.
+- **P2 — stages only, breaking.** *Step 1 done 2026-09-29: `to_timeline`, `stack` and `cascade` composing stages only, `create` gone, the empty-table origin without a warning (item 3) — the demo reproduces its reference through the new API, and #145 and D17's correction are settled with it.* *Step 3 done the same day: the core functions and the demo's stages take no timeline, `update`, `ramp` and `anchor` are keyword-only, `expand` takes a table only (item 6, brought forward from P3), and `util.stage` replaced the frame-reading `function__lambda`. Step 4 too: a ramp starts where its variable is (item 9) — the 2-D form and the value slot of `ramp`'s `origin` are refused, a ramp function of more than two points is refused, and A8 and B1 are moot.* `to_timeline`; `stack` and `cascade` take stages only, and refuse a table anywhere (D17's correction); `create` deleted; stages and core functions lose `timeline=`; the empty-table origin rule (item 3); a ramp starts where its variable is (item 9); the tags (item 10, #158); #143. `function__lambda`'s frame-reading can then give way to an explicit wrapper.
 - **P3 — `expand`, after `issue#94`.** Item 7 (item 6 was done in P2); #65.
 - **P4 — rows outside the run, after `issue#94`.** #154 and #153, with #80. Touches `wignertime/adwin/`, so the rig has the last word.
 - **P5 — the operation layer.** The demo; the lab on a branch of its own (`prepare_sample` as a list of stages, closing L6 there; the diagnostics; `tof_timelines` with `onto=`; the notebooks).

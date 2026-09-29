@@ -240,14 +240,16 @@ Three properties of the mechanism that are easy to break:
   instant*, not the variable's last value in the timeline overall. This is what the `time__max` /
   `time__max__relative` plumbing in `origin.py` is for, and what makes interweaving see the state that
   physically precedes it.
-- **`ramp` is the exception that carries a value-relative default**, and it matters. It bypasses
-  `config.ORIGIN__DEFAULTS` for `config.ORIGIN__DEFAULTS__RAMP`
-  (`[["anchor", "variable"], ["last", "variable"]]`), because a ramp must look up where the variable
-  currently sits; `update` needs no value origin since its values are absolute. Since 2026-09-18 an
-  explicitly given origin *completes* rather than replaces that default, so
+- **A ramp always starts where its variable is** (#142, 2026-09-29). Its start value is never
+  written: the 2-D form `v=[[t1, v1], [t2, v2]]` is refused, and so is anything but `"variable"` in
+  the value slot of its `origin`. A start that differs from the current value is a step hidden in a
+  ramp, and a wanted jump is an `update` before the ramp, where it shows. This is why
+  `config.ORIGIN__DEFAULTS__RAMP` (`[["anchor", "variable"], ["last", "variable"]]`) carries a value
+  slot at all, and it is the only thing that slot can hold; `update` needs none since its values are
+  absolute. An explicitly given origin *completes* rather than replaces the default, so
   `ramp(..., origin="stage1")` means what it reads as — time from `stage1`, value from the variable
-  itself. (It used to start the ramp from **0.0**, silently: A6.) `sec:origin_full` has been
-  corrected; it claimed no default in the package was value-relative.
+  itself (it used to start the ramp from **0.0**, silently: A6). `origin=0.0` is absolute time and
+  reads the same in `update` and `ramp`.
 - **A ramp must end after it begins**: zero and negative durations both raise. The negative case was
   the dangerous one — `expand` sorts each ramp's boundaries by time, so the endpoints were silently
   exchanged and the variable finished at its *old* value (A12). A ramp whose value does not change is
@@ -256,12 +258,10 @@ Three properties of the mechanism that are easy to break:
   boundaries only, so a ramp starting inside another took the other's *start* value, and `expand`
   paired the boundaries wrongly. Overlaps raise; meeting end to start is fine, compared exactly —
   a tolerance would let a ramp placed by a different sum start 4e-17 s early, from the wrong value.
-- **A ramp of a variable with no previous value raises**, because there is nothing to start from.
-  Set the variable first, or say what the start is: `origin=[None, 0.0]` (defer the time to the
-  default, state the value) or the 2-D form `v=[[t1, v1], [t2, v2]]`. Note the behaviour change of
-  2026-09-18: before per-slot completion, `ramp(..., origin=0.0)` on an unset variable left the value
-  slot empty and started the ramp at **0.0** without comment. Zero amps on an uninitialised coil is a
-  command, not a neutral default, so it now refuses and names both escapes.
+- **A ramp of a variable with no previous value raises**, because there is nothing to start from,
+  and the message says to `update` it first. Zero amps on an uninitialised coil is a command, not a
+  neutral default. (The escapes that used to exist, `origin=[None, 0.0]` and the 2-D form, went with
+  #142's rule.)
 
 *Anchors* are a non-physical variable named `⚓` (`config.LABEL__ANCHOR`), auto-numbered `⚓_001`, used
 as a time reference within a `context`. They deliberately have no `connection`, so
@@ -370,13 +370,10 @@ and the verification results are recorded in the entries themselves.
 
 The trap that used to lead this section, **A4**, was fixed on 2026-09-18: a `ramp` onto an
 anchorless timeline no longer lands at absolute time, because `ramp`'s chain now has a `"last"` step
-and a terminal `0.0`. **A8 was fixed the same day**: a start value stated in the 2-D form is now taken as
-written, and the value origin is resolved only for the variables whose start had to be inferred. The
-rule to keep in mind when writing a ramp is which form you are in — `ramp(v=target, t=..., duration=...)`
-starts from wherever the variable currently sits, while `ramp(v=[[t1, v1], [t2, v2]])` starts from `v1`
-unless the caller *writes* a value origin, which since 2026-09-28 applies to a stated start too
-(A8's amendment). **B1 and A3 are both settled** (2026-09-18): the boundary frames are aligned on `variable` before
-being compared, a zero-duration ramp raises, and a flat ramp is kept as the hold it is.
+and a terminal `0.0`. **A8 and B1 are moot since 2026-09-29**: both were about a start value stated
+in the 2-D form, which #142's rule removed — every ramp now starts from wherever its variable sits,
+`ramp(v=target, t=..., duration=...)`, and a wanted jump is an `update` before it. **A3 is settled**
+(2026-09-18): a zero-duration ramp raises, and a flat ramp is kept as the hold it is.
 
 Not covered by `KNOWN_ISSUES.md`:
 

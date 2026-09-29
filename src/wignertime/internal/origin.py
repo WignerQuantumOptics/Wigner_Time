@@ -394,11 +394,11 @@ def find(
                         "No previous value of {!r} to start from: it does not appear in"
                         " this timeline.".format(label),
                         "",
-                        "A ramp runs from where the variable currently sits, so it needs"
-                        " one. Either set the variable before ramping it, or state both"
-                        " ends -- `{}=[[t_start, value_start], [t_end, value_end]]`"
-                        " -- and give an absolute value origin,"
-                        " `origin=[<time>, 0.0]`.".format(label),
+                        "A ramp starts where its variable is (#142), so the variable has"
+                        " to have been set: `update` it first --"
+                        " `stack(update({0}=...), ramp({0}=..., duration=...))`.".format(
+                            label
+                        ),
                     ]
                 )
             )

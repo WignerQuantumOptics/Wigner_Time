@@ -50,10 +50,11 @@ from it, and `help(tl.update)` reads `origin=INFER`.
 origin pair. That is deliberate. A stage that takes `origin=None` or `context=None` and
 passes it on -- the usual way of writing "no opinion of my own" -- then gets the
 library's default without having to know that this object exists, and a pair such as
-`[None, 0.0]` reads the same as `[INFER, 0.0]`. Absolute placement is a number:
-`origin=0.0` for `update` and `anchor`, `origin=[0.0, 0.0]` for `ramp`, whose value slot
-otherwise still defaults to the variable. There is no way to switch context
-inheritance off: every row has a context, stated or inherited (#156).
+`[None, 0.0]` reads the same as `[INFER, 0.0]`. Absolute placement is a number,
+`origin=0.0`, and reads the same in `update`, `anchor` and `ramp`: a ramp always starts
+where its variable is (#142), so its value slot is never an origin question. There is
+no way to switch context inheritance off: every row has a context, stated or inherited
+(#156).
 
 It is an object rather than a string so that it cannot be mistaken for a name:
 `context="INFER"` is an ordinary context.
@@ -75,7 +76,8 @@ ORIGIN__DEFAULTS__RAMP = [["anchor", "variable"], ["last", "variable"]]
 For `ramp`, which is the one core function that *needs* a value origin: a ramp runs from
 wherever the variable currently sits to the target, so its start value has to be looked
 up. Hence `"variable"` in the value slot -- the variable's own previous value, bounded by
-the time origin.
+the time origin. It is the only thing that slot can hold: a ramp always starts where its
+variable is (#142), and `ramp` refuses anything else written there.
 
 The `"last"` step is not decoration. Without it (this was a single-entry list until
 2026-09-18) a `ramp` onto a timeline holding no anchor fell off the end of the chain and

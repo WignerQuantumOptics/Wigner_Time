@@ -147,67 +147,31 @@ def test_ramp1(args):
     return wt_frame.assert_equal(tl_ramp, tl_check)
 
 
-def test_ramp_start_stated_explicitly_is_protected_by_default(tl_anchor):
+def test_a_written_start_is_refused_and_a_jump_is_an_update():
     """
-    A start value written in the 2-D form is taken as written (A8/#106).
-    `lockbox_MOT__V` sits at 0.2, and the ramp still starts at the 0.0 that was written,
-    with a time-only `origin="anchor"` as with none at all. Contrast
-    `test_ramp_start_stated_explicitly_with_explicit_value_origin`, where the caller
-    writes a value origin too.
-    """
-    timeline = tl._populate_timeline(
-        [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
-    )
-    result = tl.to_timeline(
-        tl.ramp(
-            lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]], origin="anchor", context="init"
-        ),
-        onto=timeline,
-    )
-    assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
-        [0.05, 0.0],
-        [0.10, 5.0],
-    ]
-
-
-def test_ramp_start_stated_explicitly_with_explicit_value_origin(tl_anchor):
-    """
-    A stated start value is offset by a value origin the caller *writes*: what keeps a
-    stated start as written is only the default for the value slot, and a default never
-    overrides a slot the caller filled (see `internal.origin.auto`). `lockbox_MOT__V`
-    sits at 0.2, so the written start of 0.0 comes out as 0.2.
+    #142, 2026-09-29: a ramp always starts where its variable is. The 2-D form stated a
+    start -- taken as written by default, offset by a value origin the caller wrote, or
+    kept literal with `origin=[0.0, 0.0]` -- and a start that differs from the current
+    value is a step hidden inside the ramp. The step is now an `update`, where it shows.
     """
     timeline = tl._populate_timeline(
         [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
     )
-    result = tl.to_timeline(
-        tl.ramp(
-            lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
-            origin=["anchor", "variable"],
-            context="init",
-        ),
-        onto=timeline,
-    )
-    assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
-        [0.05, 0.2],
-        [0.10, 5.0],
-    ]
+    with pytest.raises(ValueError, match="its start is not written: lockbox_MOT__V"):
+        tl.to_timeline(
+            tl.ramp(lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]], context="init"),
+            onto=timeline,
+        )
+    for origin in (["anchor", 0.0], [0.0, 0.0], ["anchor", "lockbox_MOT__V"]):
+        with pytest.raises(ValueError, match="value slot of its `origin`"):
+            tl.ramp(lockbox_MOT__V=5, t=0.05, duration=0.05, origin=origin)
 
-
-def test_ramp_start_stated_explicitly_can_be_kept_literal(tl_anchor):
-    """
-    `origin=[0.0, 0.0]` is no shift in either slot, so a stated 2-D start comes back
-    exactly as written even when the caller wants no origin at all.
-    """
-    timeline = tl._populate_timeline(
-        [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
+    jump_then_ramp = tl.stack(
+        tl.update(lockbox_MOT__V=0.0, t=0.05),
+        tl.ramp(lockbox_MOT__V=5, t=0.05, duration=0.05),
+        context="init",
     )
-    result = tl.to_timeline(
-        tl.ramp(
-            lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]], origin=[0.0, 0.0], context="init"
-        ),
-        onto=timeline,
-    )
+    result = tl.to_timeline(jump_then_ramp, onto=timeline)
     assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
         [0.05, 0.0],
         [0.10, 5.0],
@@ -287,13 +251,13 @@ def test_ramp_combined():
     return wt_frame.assert_equal(tl_check, tl_ramp)
 
 
-@pytest.mark.parametrize(
-    "args",
-    [[[0.05, 0.0], [0.05, 5]]],
-)
-def test_ramp_start(tl_anchor, args):
+def test_ramp_start(tl_anchor):
+    """
+    Where a ramp starts is `t`; what it starts from is where the variable is. What the
+    2-D form `[[0.05, 0.0], [0.05, 5]]` said from a variable at 0.0 is said this way.
+    """
     tl_ramp = tl.to_timeline(
-        tl.ramp(lockbox_MOT__V=args, duration=100e-3), onto=tl_anchor
+        tl.ramp(lockbox_MOT__V=[0.05, 5], t=0.05, duration=100e-3), onto=tl_anchor
     )
 
     tl_check = tl._populate_timeline(
@@ -337,7 +301,7 @@ def test_ramp_expand():
         tl.stack(
             tl.ramp(
                 lockbox_MOT__V=[1.0, 10.0],
-                origin=["lockbox_MOT__V", "lockbox_MOT__V"],
+                origin="lockbox_MOT__V",
                 origin2=["variable"],
             ),
             lambda tline: tl.expand(tline, time_resolution=0.2),
@@ -535,28 +499,6 @@ def test_a_flat_ramp_is_kept(tl_anchor):
     ]
 
 
-def test_boundary_frames_are_compared_variable_by_variable():
-    """
-    B1/#108. `new1` and `new2` do not hold their variables in the same order once the
-    1-D and 2-D input forms are mixed in one call: `new1` takes the explicitly started
-    variables first, `new2` the inferred ones. The degenerate-row mask subtracted them
-    positionally, so it compared one variable's boundary against another's.
-
-    Here nothing is degenerate -- `X__A` runs 7.0 -> 5.0 and `Y__A` 5.0 -> 7.0, at
-    different times -- but positionally each start matches the *other* variable's end in
-    value, so every row was flagged, and A3's early return then discarded the entire
-    ramp without a word. Measured on `5d5a0cd`: 0 rows added instead of 4.
-    """
-    base = tl.to_timeline(tl.update(X__A=1.0, Y__A=5.0, t=0.0, context="s"))
-    result = tl.to_timeline(
-        tl.ramp(X__A=[[1.0, 7.0], [2.0, 5.0]], Y__A=7.0, duration=3.0, origin=0.0),
-        onto=base,
-    )
-
-    assert len(result) - len(base) == 4
-    assert set(result[result["function"].notna()]["variable"]) == {"X__A", "Y__A"}
-
-
 def test_ramp_leaves_the_timeline_it_was_given_alone():
     """
     B4/#111, and the invariant behind it: `ramp` derives its start points from the same
@@ -580,7 +522,7 @@ def test_ramp_leaves_the_timeline_it_was_given_alone():
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         result = tl.to_timeline(
-            tl.ramp(c__A=9.0, d__A=[[0.0, 1.0], [0.5, 7.0]], duration=0.5), onto=base
+            tl.ramp(c__A=9.0, d__A=[0.5, 7.0], duration=0.5), onto=base
         )
 
     assert [w.category.__name__ for w in caught] == []
@@ -611,15 +553,28 @@ def test_a_ramp_function_declares_how_many_points_it_takes():
     assert ramp_function.points(spline) == 3
 
 
-def test_a_third_point_is_refused_rather_than_discarded(tl_anchor):
+def test_a_list_of_points_is_refused_rather_than_discarded(tl_anchor):
     """
-    A13. `ramp` read the first two points and dropped the rest in silence, while its own
-    docstring promised an error -- the defect A10 fixed in `create`, in the one function
-    that sweep did not reach.
+    A13. `ramp` read the first two points and dropped the rest in silence. Since #142 a
+    ramp's start is never written, so a list of points is refused as a whole.
     """
-    with pytest.raises(ValueError, match="needs 2 point"):
+    with pytest.raises(ValueError, match="its start is not written"):
         tl.to_timeline(
             tl.ramp(lockbox_MOT__V=[[0.0, 1.0], [0.5, 5.0], [1.0, 9.0]]), onto=tl_anchor
+        )
+
+
+def test_a_function_of_more_than_two_points_is_refused(tl_anchor):
+    """A ramp is its start, where the variable is, and its end; interior points belong
+    to the function, bound as its parameters."""
+
+    @ramp_function.with_points(3)
+    def spline(origin, middle, terminus, time_resolution=1e-6):
+        raise NotImplementedError
+
+    with pytest.raises(ValueError, match="made of 3 points"):
+        tl.to_timeline(
+            tl.ramp(lockbox_MOT__V=5.0, duration=1.0, function=spline), onto=tl_anchor
         )
 
 

@@ -289,6 +289,35 @@ def _refuse_timeline(name, vtvc_dict):
         )
 
 
+def _refuse_value_origin(origin):
+    """
+    A ramp starts where its variable is (#142), so the value slot of its `origin` has
+    nothing to set: only `INFER`, `None` or `"variable"`, which all say the same. A value
+    written there -- a number, or another variable's name -- is refused rather than
+    added to the start, which is what made a stated `1.0` come out as `8.0` (A8).
+    """
+    if origin is None or origin is wt_config.ORIGIN__INFER:
+        return
+    value = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))[1]
+    if value is None or value is wt_config.ORIGIN__INFER:
+        return
+    if isinstance(value, str) and value == "variable":
+        return
+    raise ValueError(
+        "\n".join(
+            [
+                "A ramp starts where its variable is (#142): the value slot of its"
+                " `origin` has nothing to set, and was given {!r}.".format(value),
+                "",
+                "`origin` places the ramp's start in time. To start from another value,"
+                " `update` the variable first, so that the jump shows in the table:",
+                "",
+                "    stack(update(coil__A=1.0), ramp(coil__A=3.0, duration=0.1))",
+            ]
+        )
+    )
+
+
 def _given(timeline, name):
     """The timeline a stage is applied to, checked (`util.ensure_timeline`)."""
     if timeline is None:
@@ -388,7 +417,10 @@ def ramp(
 
     A `ramp` defines ranges of values for each variable across time from a beginning time-value pair to an ending time-value pair. Primarily, for the sake of switching analogue devices on and off in a controllable way. Although a `ramp` can be as simple as a linear `value` progression from start to end, the default function for a `timeline` is hyperbolic tan. This allows the user to soften the value gradient at the beginning and end of the function.
 
-    `ramp` has a slightly different interface to `update`. `**vtvc_dict` follows that of `update`; to specify the points manually (in big lists), use `update`. Also, ramps are defined in terms of the groups of points needed for the accompanying function. Usually, this will be starting and ending points. Supplying a different number of points will result in an error.
+    `ramp` has a slightly different interface to `update`. `**vtvc_dict` follows that of `update`; to specify the points manually (in big lists), use `update`.
+
+    A ramp is two points and a function between them: its start, which is always where the
+    variable is at that instant, and its end, which is written.
 
     *Examples of calling ramp*
     Normally, it will look something like
@@ -411,23 +443,20 @@ def ramp(
     `tl.ramp(lockbox_MOT__MHz=[500e-3, 0.0, "final_ramps"])` - if you want a new `context`.
     This works because by default the ending time is relative to the starting time (see the `origin` keyword argument), such that 't_end' and 'duration' are the same.
 
-    This will cover the vast majority of use cases, but sometimes there might be a need to control the start of a ramp explicitly, even with respect to the `origin`. This can be done similarly,  e.g.
-    `lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]]`,
-    but with the condition that the lists are not inhomogenous.
+    **A ramp always starts where its variable is** (#142, 2026-09-29). A start value that
+    differs from the current one is a step hidden inside a ramp, the discontinuity a ramp
+    exists to avoid. A jump that is wanted is an `update` before the ramp, where it shows
+    in the table::
 
-    A start value stated like that is taken as written. Its value is already absolute,
-    as `update`'s are, so its value slot is completed from the same table
-    (`config.ORIGIN__DEFAULTS`, value slot `None`), and a stated `0.0` stays `0.0`
-    wherever the variable already sits. An inferred start (the 1-D shorthand) is
-    completed from `config.ORIGIN__DEFAULTS__RAMP`, whose value slot is `"variable"`.
-    Only the defaults differ: a value origin the caller *writes*, as in
-    `origin=["stage1", "variable"]`, is applied to both kinds of start, since a default
-    only fills a slot left unstated (see `internal.origin.auto`).
+        stack(update(coil__A=1.0), ramp(coil__A=3.0, duration=0.1))
 
-    `origin` defaults to `wt_config.INFER`, and `None` means the same, in either slot.
-    For no shift at all, in time or value, write `origin=[0.0, 0.0]`: `origin=0.0` alone
-    places the start in absolute time but still takes an inferred start's value from the
-    variable.
+    So a start is never written: the 2-D form that stated one is refused, and so is a
+    value in the value slot of `origin`. A variable not yet set has to be set first.
+    Nor may a ramp start or end inside another ramp of the same variable (#157).
+
+    `origin` places the start in time. It defaults to `wt_config.INFER`, the
+    anchor-then-last chain, and `None` means the same; `origin=0.0` is absolute time, as
+    for `update`.
 
     `context` defaults to `wt_config.INFER`, and `None` means the same: an unstated row
     inherits the latest context of `timeline`. Every row has a context (#156), so
@@ -437,6 +466,7 @@ def ramp(
     """
     _refuse_timeline("ramp", vtvc_dict)
     inherit.resolve(context)  # refused where it is written, not where it is applied
+    _refuse_value_origin(origin)
 
     return wt_util.stage(
         _ramp,
@@ -459,122 +489,66 @@ def _ramp(timeline, duration, t, t2, context, origin, origin2, function, **vtvc_
     timeline = _given(timeline, "ramp")
 
     context = inherit.resolve(context)
+    _refuse_value_origin(origin)
 
-    _vtvcs = {k: np.array(v) for k, v in vtvc_dict.items()}
-    max_ndim = np.array([a.ndim for a in _vtvcs.values()]).flatten().max()
+    # A ramp always starts where its variable is (#142, 2026-09-29). A start value that
+    # differs from the current one is a step hidden inside a ramp -- the discontinuity a
+    # ramp exists to avoid -- so a jump that is wanted is an `update` before the ramp,
+    # where it shows in the table. The 2-D form, which stated a start, is therefore gone,
+    # and every start is inferred: the end rows' variables, placed at `t` from the time
+    # origin, at the value each has there.
+    points__required = wt_ramp_function.points(function)
+    if points__required != 2:
+        raise ValueError(
+            "\n".join(
+                [
+                    "{} is made of {} points, and a ramp of two: its start, where the"
+                    " variable is, and its end.".format(
+                        getattr(function, "__name__", repr(function)), points__required
+                    ),
+                    "",
+                    "Interior points belong to the function: bind them as its"
+                    " parameters, as a ramp's own resolution is bound.",
+                ]
+            )
+        )
+
+    written = sorted(k for k, v in vtvc_dict.items() if np.array(v).ndim >= 2)
+    if written:
+        raise ValueError(
+            "\n".join(
+                [
+                    "A ramp starts where its variable is (#142), so its start is not"
+                    " written: {}.".format(", ".join(written)),
+                    "",
+                    "Give the end only -- `v=target`, or `v=[time, target]` -- and `t`"
+                    " for when the ramp starts. To start from another value, `update`"
+                    " the variable first, so that the jump shows in the table:",
+                    "",
+                    "    stack(update(coil__A=1.0), ramp(coil__A=3.0, duration=0.1))",
+                ]
+            )
+        )
 
     if t2 is None and duration is not None:
         t2 = duration
 
-    match max_ndim:
-        case 0 | 1:
-            rows1 = None
-            rows2 = wt_input.rows_from_arguments(
-                *[], time=t2, context=context, **vtvc_dict
-            )
+    df_2 = wt_frame.new(
+        wt_input.rows_from_arguments(*[], time=t2, context=context, **vtvc_dict),
+        columns=_SCHEMA.keys(),
+    ).astype(_SCHEMA)
 
-        case 2:
-            # How many points a ramp is made of belongs to the interpolating function,
-            # not to this call: `tanh` is defined by two, and an interpolation with
-            # interior control points would want more.
-            points__required = wt_ramp_function.points(function)
+    # Copied, not sliced: these rows have their time and value overwritten to make start
+    # points out of them, and writing through would zero the very end values the ramp is
+    # aiming at (B4/#111; pandas 3 makes copy-on-write unconditional, #88).
+    df_1 = df_2.copy()
+    df_1.loc[:, "time"] = 0.0 if t is None else t
+    df_1.loc[:, "value"] = 0.0
 
-            # Anything past the first two used to be read and silently dropped -- three
-            # points gave a ramp between the first two, with the third discarded, while
-            # this function's own docstring promised an error. The same defect A10 fixed
-            # in `create`, in the one function that sweep did not reach (A13).
-            counts__wrong = {
-                k: len(v)
-                for k, v in _vtvcs.items()
-                if v.ndim == 2 and len(v) != points__required
-            }
-            if counts__wrong:
-                raise ValueError(
-                    "\n".join(
-                        [
-                            "{} needs {} point(s) per variable, and got: {}.".format(
-                                getattr(function, "__name__", repr(function)),
-                                points__required,
-                                ", ".join(
-                                    "{} with {}".format(k, n)
-                                    for k, n in sorted(counts__wrong.items())
-                                ),
-                            ),
-                            "",
-                            "A ramp is a start point, an end point, and an interpolation"
-                            " between them. To hold a value and then move, use two"
-                            " ramps; to command several instants, use `update`.",
-                        ]
-                    )
-                )
-
-            _vtvc_1d = {k: v for k, v in _vtvcs.items() if v.ndim != 2}
-            if _vtvc_1d and points__required != 2:
-                raise ValueError(
-                    "{} needs {} points per variable, so every one of them must be"
-                    " stated: {} gave only an end value, which is a shorthand that"
-                    " only works when the single missing point is the start.".format(
-                        getattr(function, "__name__", repr(function)),
-                        points__required,
-                        ", ".join(sorted(_vtvc_1d)),
-                    )
-                )
-
-            _vtvc_2d_0 = {k: v[0] for k, v in _vtvcs.items() if v.ndim == 2}
-            _vtvc_2d_1 = {k: v[1] for k, v in _vtvcs.items() if v.ndim == 2}
-
-            rows1 = wt_input.rows_from_arguments(
-                *[], time=t, context=context, **_vtvc_2d_0
-            )
-            rows2 = wt_input.rows_from_arguments(
-                *[], time=t2, context=context, **(_vtvc_1d | _vtvc_2d_1)
-            )
-
-        case _:
-            raise ValueError(
-                "Unsupported input to the `ramp` function. Only one or two tuples can be processed per variable."
-            )
-
-    # Prepare the starting points and then basically do two (shorcut-ed) `create`s. One depending on the previous timeline and one depending on the previous `create`.
-
-    df_1 = wt_frame.new(rows1, columns=_SCHEMA.keys()).astype(_SCHEMA)
-    df_2 = wt_frame.new(rows2, columns=_SCHEMA.keys()).astype(_SCHEMA)
-
-    # Copied, not sliced. These rows are about to have their time and value overwritten
-    # to make start points out of them, and they are a *subset of `df_2`*, which is the
-    # frame the end points come from. Writing through would therefore zero the very end
-    # values the ramp is aiming at. It does not today -- measured in both copy-on-write
-    # modes -- but "does not today" is the whole of B4/#111, and pandas 3 makes
-    # copy-on-write unconditional (#88).
-    df__no_start_points = df_2[~df_2["variable"].isin(df_1["variable"])].copy()
-    if t is None:
-        df__no_start_points.loc[:, ["time", "value"]] = 0.0
-    else:
-        df__no_start_points.loc[:, "time"] = t
-        df__no_start_points.loc[:, "value"] = 0.0
-
-    # A start the caller stated (`df_1`) is absolute in value, like `update`'s rows, so
-    # its unstated slots are completed from `update`'s table; a start that has to be
-    # inferred (`df__no_start_points`) from `ramp`'s, whose value slot looks the
-    # variable up. The same `origin` goes into both, so a slot the caller wrote applies
-    # to both (A8/#106, #142).
-    origin__stated_start = wt_origin.auto(
-        timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
-    )
     origin = wt_origin.auto(
         timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS__RAMP
     )
-
-    # The two calls to `internal.origin.update` below stay separate: each computes its
-    # own `time__max__relative` bound from only its own rows (B2/#109), and merging the
-    # frames first would widen that bound to the union's earliest row -- tightening
-    # what either half of a mixed call could see as its own "previous" value, silently.
-    new1 = wt_frame.concat(
-        [
-            wt_origin.update(df_1, timeline, origin=origin__stated_start),
-            wt_origin.update(df__no_start_points, timeline, origin=origin),
-        ]
-    )
+    new1 = wt_origin.update(df_1, timeline, origin=origin)
     new1["function"] = function
     inherit.context(new1, timeline, context=context)
     inherit.require(new1)
@@ -583,16 +557,11 @@ def _ramp(timeline, duration, t, t2, context, origin, origin2, function, **vtvc_
     new2["function"] = function
     new2["context"] = new1["context"]
 
-    # ===
-    # TODO: It would be more efficient to do these checks earlier on (but more complicated).
-
-    # `new1` and `new2` are assembled from different dictionaries and so do not hold
-    # their variables in the same order: `new1` takes the explicitly started ones first
-    # and the inferred ones after, `new2` the reverse. Subtracting them positionally
-    # therefore compared one variable's boundary against another's whenever the two
-    # input forms were mixed in a single call (B1/#108). Align on `variable` first --
-    # each frame holds exactly one row per variable, `df_1` and `df__no_start_points`
-    # being disjoint by construction.
+    # `new1` is a copy of `df_2`, so the two frames hold the same variables in the same
+    # order. They used to be built from different dictionaries, one per input form, and
+    # subtracting them positionally compared one variable's boundary against another's
+    # whenever the forms were mixed in one call (B1/#108); with one form there is nothing
+    # to mix, and the alignment below only states what holds by construction.
     new2__aligned = wt_frame.align_to(new2, new1["variable"])
 
     # A ramp has two degeneracies and they are not the same thing. The mask here used to

@@ -213,23 +213,27 @@ def test_a_ramp_of_an_unset_variable_refuses_even_with_a_time_origin(tline):
         tl.to_timeline(tl.ramp(fresh__A=5.0, duration=0.5, origin=0.0), onto=tline)
 
 
-def test_an_unset_variable_can_start_from_a_stated_value(tline):
-    """An absolute value origin: defer the time to the default, state the value."""
-    assert points(
-        tl.to_timeline(
-            tl.ramp(fresh__A=5.0, duration=0.5, origin=[None, 0.0]), onto=tline
-        )
-    ) == [[3.5, 0.0], [4.0, 5.0]]
+def test_an_unset_variable_has_to_be_set_first(tline):
+    """
+    A ramp starts where its variable is (#142, 2026-09-29), so there is no start to state
+    for one that has never been set. The two escapes this replaces -- an absolute value
+    origin, `origin=[None, 0.0]`, and the 2-D form stating both ends -- are refused, and
+    the message says what to write.
+    """
+    for stage in (
+        tl.ramp(fresh__A=5.0, duration=0.5),
+        tl.ramp(fresh__A=5.0, duration=0.5, origin=[None, "variable"]),
+    ):
+        with pytest.raises(ValueError, match="update` it first"):
+            tl.to_timeline(stage, onto=tline)
 
-
-def test_an_unset_variable_can_state_both_ends(tline):
-    """The other escape, and the one the 2-D form exists for."""
-    assert points(
+    with pytest.raises(ValueError, match="value slot of its `origin`"):
+        tl.ramp(fresh__A=5.0, duration=0.5, origin=[None, 0.0])
+    with pytest.raises(ValueError, match="its start is not written: fresh__A"):
         tl.to_timeline(tl.ramp(fresh__A=[[0.0, 0.0], [0.5, 5.0]]), onto=tline)
-    ) == [
-        [3.5, 0.0],
-        [4.0, 5.0],
-    ]
+
+    set_first = tl.stack(tl.update(fresh__A=0.0), tl.ramp(fresh__A=5.0, duration=0.5))
+    assert points(tl.to_timeline(set_first, onto=tline)) == [[3.5, 0.0], [4.0, 5.0]]
 
 
 def test_a_per_variable_self_reference_places_each_on_its_own_history(tline):
@@ -342,23 +346,21 @@ def test_a_stage_forwarding_none_keeps_the_default(tline):
 
 def test_absolute_placement_is_a_number(tline):
     """
-    No shift is written as one: `0.0` for `update`, and `[0.0, 0.0]` for `ramp`. A bare
-    `0.0` fills only the time slot, so a ramp's start value is still looked up, as the
-    value the variable holds at that instant (2.0 at t=0.0, not the 5.0 it reaches later).
+    `origin=0.0` means the same in `update` and `ramp`: absolute time, with nothing added
+    to the values written (#142). For a ramp that leaves its start where the variable is
+    at that instant -- 2.0 at t=0.5, not the 5.0 it reaches later. `[0.0, 0.0]`, which
+    used to be the ramp's own spelling of "no shift" and started it from zero, is refused.
     """
     assert tl.to_timeline(tl.update(x=[[0.5, 1]], origin=0.0), onto=tline).iloc[-1][
         ["time", "value"]
     ].tolist() == [0.5, 1.0]
     assert points(
         tl.to_timeline(
-            tl.ramp(coil__A=9.0, t=0.5, duration=0.5, origin=[0.0, 0.0]), onto=tline
-        )
-    ) == [[0.5, 0.0], [1.0, 9.0]]
-    assert points(
-        tl.to_timeline(
             tl.ramp(coil__A=9.0, t=0.5, duration=0.5, origin=0.0), onto=tline
         )
     ) == [[0.5, 2.0], [1.0, 9.0]]
+    with pytest.raises(ValueError, match="value slot of its `origin`"):
+        tl.ramp(coil__A=9.0, t=0.5, duration=0.5, origin=[0.0, 0.0])
 
 
 def test_the_marker_is_one_object_that_prints_as_its_name():
