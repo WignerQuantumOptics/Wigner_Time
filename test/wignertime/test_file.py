@@ -33,15 +33,12 @@ def _in_a_directory_of_its_own(tmp_path, monkeypatch):
 
 @pytest.fixture
 def timeline__demo():
-    return tl.cascade(
-        demo.init,
-        demo.MOT,
-    )
+    return tl.to_timeline(tl.cascade(demo.init, demo.MOT))
 
 
 @pytest.fixture
 def timeline__demo__function():
-    return tl.cascade(demo.init, demo.MOT, demo.MOT__detuned_growth)
+    return tl.to_timeline(tl.cascade(demo.init, demo.MOT, demo.MOT__detuned_growth))
 
 
 def test_save_load__autoname(timeline__demo):

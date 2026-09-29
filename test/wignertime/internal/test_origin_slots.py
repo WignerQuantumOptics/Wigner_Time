@@ -20,12 +20,14 @@ def tline():
     `coil__A` holds 2.0 through `stage1` (anchor at t=1.0) and 5.0 from t=1.5 through
     `stage2` (anchor at t=3.5 -- an `anchor` places itself relative to the previous one). `shutter__V` changes last, so it is what "last" finds.
     """
-    return tl.stack(
-        tl.create(coil__A=2.0, t=0.0, context="stage1"),
-        tl.anchor(1.0, context="stage1"),
-        tl.update(coil__A=5.0, t=1.5, context="stage2", origin=0.0),
-        tl.update(shutter__V=1.0, t=2.0, context="stage2", origin=0.0),
-        tl.anchor(2.5, context="stage2"),
+    return tl.to_timeline(
+        tl.stack(
+            tl.anchor(1.0, context="stage1"),
+            tl.update(coil__A=5.0, t=1.5, context="stage2", origin=0.0),
+            tl.update(shutter__V=1.0, t=2.0, context="stage2", origin=0.0),
+            tl.anchor(2.5, context="stage2"),
+        ),
+        onto=tl.to_timeline(tl.update(coil__A=2.0, t=0.0, context="stage1")),
     )
 
 
@@ -103,13 +105,13 @@ def test_ramp_still_chains_on_its_own_default(tline):
 @pytest.mark.parametrize("name", wt_origin._ORIGINS)
 def test_a_context_may_not_shadow_a_reserved_word(name):
     with pytest.raises(ValueError, match="Reserved origin label used as a name"):
-        tl.create(coil__A=1.0, context=name)
+        tl.to_timeline(tl.update(coil__A=1.0, context=name))
 
 
 @pytest.mark.parametrize("name", wt_origin._ORIGINS)
 def test_a_variable_may_not_shadow_a_reserved_word(name):
     with pytest.raises(ValueError, match="Reserved origin label used as a name"):
-        tl.create(**{name: 1.0})
+        tl.to_timeline(tl.update(**{name: 1.0}))
 
 
 def test_the_reserved_words_have_one_source():

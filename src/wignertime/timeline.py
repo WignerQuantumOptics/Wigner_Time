@@ -42,6 +42,32 @@ survives a `stack` that forwards keywords -- `identity` did not, and raised
 `TypeError: identity() got an unexpected keyword argument 'context'`.
 """
 
+
+def __getattr__(name):
+    """
+    Say what replaced a public name that is gone, rather than only that it is missing.
+
+    `create` initialised a timeline, and was the one core function a `stack` could not
+    begin with anything but. Since #85 a `stack` composes stages only, and the first rows
+    of a timeline are an `update` applied to an empty timeline by `to_timeline`.
+    """
+    if name == "create":
+        raise AttributeError(
+            "\n".join(
+                [
+                    "`create` is gone (#85). The first rows of a timeline are an `update`"
+                    " like any other, applied to an empty timeline by `to_timeline`:",
+                    "",
+                    '    to_timeline(update(AOM_MOT=1, shutter_MOT=0, t=0.0, context="init"))',
+                    "",
+                    "On an empty timeline the origin is absolute zero, and the rows must"
+                    " name their context (#156). In a `stack`, write the `update` itself.",
+                ]
+            )
+        )
+    raise AttributeError("module {!r} has no attribute {!r}".format(__name__, name))
+
+
 ###############################################################################
 #                   Constants                                                 #
 ###############################################################################
@@ -92,35 +118,20 @@ def _populate_timeline(
     **vtvc_dict,
 ) -> wt_frame.CLASS:
     """
-    The shared body of `create` and `update`. **Internal**: the argument resolution is
-    common to both, but the two public entry points expose different parts of it.
+    The body of `update`, and the constructor `expand` rebuilds a ramp's rows with.
+    **Internal.**
 
     Resolves the flexible `*vtvc` / `**vtvc_dict` input into rows, places them with
     respect to `origin`, and — when a `timeline` is given — inherits its context and
     concatenates.
 
-    The input grammar itself is documented on `create`, not here: only `create` exposes
-    the positional forms (`update` lost `*vtvc` with #71, `ramp` never had it), and this
-    function is private, so mkdocstrings would not publish a description written here —
-    which matters because `tab:inputSpecs` defers to the API documentation for exactly
-    those forms.
+    The input grammar is documented on `update`, which publishes it through mkdocstrings;
+    only the keyword forms are public. The positional forms are reachable only from here,
+    where rows are assembled rather than named.
 
-    The split exists because `create` and `update` differ only in how they compose, and
-    that difference is entirely about `timeline` and `origin`:
-
-    - `create` starts a timeline from scratch, so neither argument means anything to it
-      and neither is part of its signature. See §sec:functions of the manuscript, where
-      `create` is documented as `create(*vtvc, t=0.0, context=None, **vtvc_dict)`.
-    - `update` extends an existing one, so it takes both — and routes `origin` through
-      `origin.auto` first, which is what makes its times relative by default.
-
-    Positional `*vtvc` combined with a `timeline` is reachable only from here: `create`
-    has the positional forms but no timeline, and `update` has the timeline but no
-    positional forms.
-
-    `context` and `origin` are taken here already resolved: `create` and `update` read
-    the public default, `wt_config.INFER`, as `None` before calling this (see
-    `inherit.resolve` and `origin.auto`).
+    `context` and `origin` are taken here already resolved: `update` reads the public
+    default, `wt_config.INFER`, as `None` before calling this (see `inherit.resolve` and
+    `origin.auto`).
     """
     rows = wt_input.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
 
@@ -180,22 +191,27 @@ def _populate_timeline(
     return inherit.require(new)
 
 
-def create(t=0.0, context=wt_config.CONTEXT__INFER, **vtvc_dict) -> wt_frame.CLASS:
+def update(
+    timeline: wt_frame.CLASS | None = None,
+    t=0.0,
+    context=wt_config.CONTEXT__INFER,
+    origin=wt_config.ORIGIN__INFER,
+    **vtvc_dict,
+):
     """
-    Establishes a new timeline from the given (flexible) input collection.
+    Commands variables at instants: the rows of a timeline.
 
-    `create` initialises a timeline *from scratch*. It deliberately takes no `timeline`
-    and no `origin`: there is nothing for the new rows to be relative to, which is the
-    whole of the difference between it and `update`. To add to an existing timeline,
-    use `update` — `update(..., origin=0.0)` reproduces exactly what passing a timeline
-    to `create` used to do, and the default (anchor-then-last) origin is usually what
-    was actually wanted.
+    Called without `timeline`, it returns a stage, for a `stack` and for `to_timeline`;
+    called with one, it returns that timeline extended. The first rows of a timeline are
+    an `update` like any other, applied to an empty timeline by `to_timeline`::
+
+        initial = to_timeline(update(AOM_MOT=1, shutter_MOT=0, t=0.0, context="init"))
 
     Input grammar
     -------------
     A variable is named as a keyword, and followed by what it does::
 
-        create(AOM_MOT=<follows>)
+        update(AOM_MOT=<follows>)
 
     where ``<follows>`` is one of
 
@@ -208,8 +224,8 @@ def create(t=0.0, context=wt_config.CONTEXT__INFER, **vtvc_dict) -> wt_frame.CLA
 
     Several variables are given at once, and a computed set through ``**``::
 
-        create(AOM_MOT=1, shutter_MOT=[0.1, 1, "MOT"])
-        create(**{name: value for name, value in ...})
+        update(AOM_MOT=1, shutter_MOT=[0.1, 1, "MOT"])
+        update(**{name: value for name, value in ...})
 
     ``t`` and ``context`` are **defaults, not overrides** — a variable stating its own
     keeps it. The keyword namespace is open by design, so an unrecognised keyword is
@@ -217,63 +233,20 @@ def create(t=0.0, context=wt_config.CONTEXT__INFER, **vtvc_dict) -> wt_frame.CLA
     that is what makes the injection idiom work, and it is why there is no second,
     positional way in to be confused with it.
 
-    NOTE: It seems to be the case that dataframes use less memory than lists of
-    dictionaries or dictionaries of lists (in general).
-    """
-    # `**vtvc_dict` is an open namespace -- an unrecognised keyword is read as a
-    # variable name -- so `timeline=` and `origin=` would otherwise be swallowed by it
-    # and then re-bound by `_populate_timeline`, which does declare them. That would
-    # reinstate the very arguments this signature exists to withhold, silently. Neither
-    # is a valid `variable` name (`config.VARIABLE__REGEX` requires two segments), so
-    # intercepting them cannot shadow a legitimate one.
-    for name, instead in [
-        (
-            "timeline",
-            "`update(..., timeline=...)`; add `origin=0.0` for the absolute placement `create` used to give",
-        ),
-        ("origin", "`update(..., origin=...)`, or fold the offset into `t`"),
-    ]:
-        if name in vtvc_dict:
-            raise TypeError(
-                "`create` does not take `{n}`: it starts a timeline from scratch, so "
-                "there is nothing for the new rows to be placed relative to. Use "
-                "{i}.".format(n=name, i=instead)
-            )
-
-    # There is nothing to inherit from here, but the marker must not reach the rows.
-    context = inherit.resolve(context)
-
-    return _populate_timeline(t=t, context=context, **vtvc_dict)
-
-
-def update(
-    timeline: wt_frame.CLASS | None = None,
-    t=0.0,
-    context=wt_config.CONTEXT__INFER,
-    origin=wt_config.ORIGIN__INFER,
-    **vtvc_dict,
-):
-    """
-    Creates a timeline for a single or many variables, the same as for the `create` function.
-
-    One difference is that when an existing timeline is not specified,
-    then it returns an anonymous function for use in function chaining,
-    like the other main functions in this module.
-
-    For such chaining, see the `stack` function.
-
-    Like other functions, when `context` is not specified for a given variable, it is taken to be the latest context in the timeline.
-    WARNING: In this case, beware of accidentally putting timelines into special contexts.
-
+    Origin and context
+    ------------------
     `origin` defaults to `wt_config.INFER`: the anchor-then-last chain
     (`config.ORIGIN__DEFAULTS`) fills whichever slots are left unstated, so `t` is a
     duration from the end of the preceding stage. `None` means the same. For absolute
-    time, write `origin=0.0`.
+    time, write `origin=0.0`. On an empty timeline there is nothing to be relative to,
+    and the origin is absolute zero.
 
     `context` defaults to `wt_config.INFER` too: an unstated row inherits the latest
-    context of `timeline`, as described above. `None` means the same. Every row has a
-    context (#156): on an empty table there is nothing to inherit, so the first rows must
-    name theirs, and `context=""` is refused.
+    context of the timeline it joins. `None` means the same. Every row has a context
+    (#156): on an empty timeline there is nothing to inherit, so the first rows must name
+    theirs, and `context=""` is refused. Beware of extending a timeline past a reserved
+    context such as `ADwin_Finish` without naming one, since that is what would be
+    inherited.
     """
     timeline = wt_util.ensure_timeline(timeline, "update", columns__required=_SCHEMA)
 
@@ -711,19 +684,39 @@ def _intervals__ramp(timeline, variable):
 
 def _ensure_stackable(f):
     """
-    A `stack` constituent must be a *deferred timeline function*, not merely callable.
+    A `stack` constituent must be a *stage*: a function of a timeline. Not a timeline,
+    and not a stage function that has yet to be called.
 
-    The distinction is invisible to Python: a deferred call, a composed `stack` and an
-    uncalled user stage are all plain `function` objects with unhelpfully similar
+    A timeline is refused in any position (#85). `stack` composes stages and returns one,
+    and `to_timeline` is the one way from a stage to a table. A table used to be accepted
+    in front, which made `stack` return a table or a stage depending on its first
+    argument, and let a `context` given to the stack skip that table's rows (#145); after
+    the front it was accepted here and then failed inside the composition as
+    `'DataFrame' object is not callable` (D17's correction).
+
+    The other distinction is invisible to Python: a deferred call, a composed `stack` and
+    an uncalled user stage are all plain `function` objects with unhelpfully similar
     signatures. So the deferral machinery tags what it produces, and this checks the tag.
-
     The mistake it exists for is writing a stage's name where its call belongs --
-    `stack(timeline, MOT)` for `stack(timeline, MOT(...))`. Without the tag that composes
-    silently, binding the timeline to the stage's first parameter and returning a
-    function where a timeline was expected. It was caught only when something followed it
-    in the chain, so the tail of every composition went unguarded.
+    `stack(MOT)` for `stack(MOT(...))` -- which would bind the timeline to the stage's
+    first parameter, silently.
     """
-    if wt_util.is_deferred(f) or isinstance(f, wt_frame.CLASS):
+    if isinstance(f, wt_frame.CLASS):
+        raise TypeError(
+            "\n".join(
+                [
+                    "`stack` was given a timeline. It composes stages, and returns one;"
+                    " `to_timeline` applies it:",
+                    "",
+                    "    to_timeline(stack(update(...), ramp(...)), onto=timeline)",
+                    "",
+                    "`onto` is the timeline the stage starts from, and an empty one when"
+                    " it is not given.",
+                ]
+            )
+        )
+
+    if wt_util.is_deferred(f):
         return f
 
     if callable(f) and wt_util.takes_one_timeline(f):
@@ -739,10 +732,10 @@ def _ensure_stackable(f):
                     "`stack` was given the function `{}` itself, rather than the result"
                     " of calling it.".format(name),
                     "",
-                    "A constituent must be a deferred timeline function -- what a core"
-                    " function or a stage returns when called without a `timeline`:",
+                    "A constituent must be a stage -- what a core function or a stage"
+                    " function returns when called:",
                     "",
-                    "    stack(timeline, {}(...), update(...))".format(name),
+                    "    stack({}(...), update(...))".format(name),
                     "",
                     "If `{}` is your own timeline function, mark it with"
                     " `timeline.as_deferred`.".format(name),
@@ -756,38 +749,78 @@ def _ensure_stackable(f):
     )
 
 
-def stack(
-    timeline_or_f: wt_frame.CLASS | Callable, *fs: Callable, **kws
-) -> Callable | wt_frame.CLASS:
+def _empty():
+    """A timeline with no rows: what a stage is applied to when nothing precedes it."""
+    return wt_frame.new([], columns=_SCHEMA.keys()).astype(_SCHEMA)
+
+
+def to_timeline(stage: Callable, onto: wt_frame.CLASS | None = None) -> wt_frame.CLASS:
     """
-    For chaining modifications to the timeline in a composable way.
+    The one way from a stage to a timeline: `stage` applied to `onto`, or to an empty
+    timeline when `onto` is not given.
 
-    If the first argument is a timeline, the result is also a timeline; otherwise, the result is a functional, which can later be applied on an existing timeline, /e.g./
+    A *stage* is what `update`, `ramp`, `anchor`, `stack` and `cascade` return, and what
+    a user-defined stage returns: a function of a timeline. So it is written once,
+    relative to its own beginning, and can be placed anywhere. A timeline is data -- the
+    table that is plotted, archived and converted for the hardware. `to_timeline` is
+    where the one becomes the other, and nothing else is::
 
-    `stack(
-        timeline,
-        update(…),
-        ramp(…)
-    )`
+        timeline = to_timeline(cascade(init, MOT, molasses, finish, MOT_duration=15))
 
-    returns a timeline equivalent to
+    `onto` is first-class, not a convenience. Building a timeline can be expensive, so a
+    parameter scan keeps its base as a table and places each variation onto it::
 
-    `ramp(…, timeline=update(…, timeline=timeline))`.
+        base = to_timeline(experiment)
+        shots = [to_timeline(imaging(delay), onto=base) for delay in delays]
 
-    Constituents must **already have been called**: `stack` supplies only the timeline.
-    `stack(timeline, MOT(duration=15))`, never `stack(timeline, MOT)` -- the latter
-    raises. This is the opposite of `cascade`, which takes the stage functions themselves
-    and calls them with the keywords routed to each.
+    `to_timeline(b, onto=to_timeline(a))` is the same table as `to_timeline(stack(a, b))`.
 
-    Also, all key-word arguments that are passed to `stack` are passed through to the subsidiary functions. This is particularly convenient for creating shared 'contexts', e.g.
+    On an empty timeline there is nothing to be relative to, so the first rows are
+    placed in absolute time, and nothing to inherit a context from, so they must name
+    theirs (#156).
+    """
+    if isinstance(stage, wt_frame.CLASS):
+        raise TypeError(
+            "`to_timeline` was given a timeline, which is one already. To add a stage"
+            " to it, pass it as `onto`: `to_timeline(stage, onto=timeline)`."
+        )
+    _ensure_stackable(stage)
 
-    `stack(
-        timeline,
-        update(…),
-        ramp(…),
+    onto = (
+        _empty()
+        if onto is None
+        else wt_util.ensure_timeline(
+            onto, "to_timeline", name__argument="onto", columns__required=_SCHEMA
+        )
+    )
 
-        context='MOT'
-    )`
+    out = stage(onto)
+    if not isinstance(out, wt_frame.CLASS):
+        raise TypeError(
+            "A stage must return a timeline, and {} returned {}.".format(
+                getattr(stage, "__name__", repr(stage)), type(out).__name__
+            )
+        )
+    return out
+
+
+def stack(*stages: Callable, **kws) -> Callable:
+    """
+    Composes stages, in execution order, into one stage::
+
+        stage = stack(update(...), ramp(...), anchor(...))
+        timeline = to_timeline(stage, onto=timeline)
+
+    `stack` takes stages only and returns one. To apply it, use `to_timeline`.
+
+    Constituents must **already have been called**: `stack(MOT(duration=15))`, never
+    `stack(MOT)`, which raises. This is the opposite of `cascade`, which takes the stage
+    functions themselves and calls them with the keywords routed to each.
+
+    Keywords given to `stack` are passed on to its constituents. This is particularly
+    convenient for a shared context::
+
+        stack(update(...), ramp(...), anchor(...), context="MOT")
 
     A forwarded keyword is a **default** for the constituents, not an override: it fills
     what a constituent left unstated and leaves what it stated alone, so
@@ -797,12 +830,10 @@ def stack(
     stack's own keywords, stated closer, take precedence.
     """
 
-    for f in (timeline_or_f, *fs):
+    for f in stages:
         _ensure_stackable(f)
 
-    constituents = list(fs)
-    if not isinstance(timeline_or_f, wt_frame.CLASS):
-        constituents.insert(0, timeline_or_f)
+    constituents = list(stages)
 
     keywords__available = _keywords_available(constituents)
     if keywords__available is not None:
@@ -832,9 +863,6 @@ def stack(
                 **{k: v for k, v in kws__all.items() if wt_util.accepts_keyword(f, k)},
             )
         return timeline
-
-    if isinstance(timeline_or_f, wt_frame.CLASS):
-        return composed(timeline_or_f)
 
     return wt_util.mark_keywords(
         wt_util.mark_deferred(composed), keywords__available or ()
@@ -928,7 +956,7 @@ def cascade(*fs: Callable, **kws) -> Callable | wt_frame.CLASS:
     `stack` takes stages that have **already been called**; `cascade` takes the stage
     functions **themselves** and calls them::
 
-        stack(timeline, MOT(duration=15), molasses())     # called here
+        stack(MOT(duration=15), molasses())               # called here
         cascade(MOT, molasses, MOT_duration=15)           # called by cascade
 
     In the first, `MOT(duration=15)` has had every argument but `timeline` supplied, and
@@ -939,15 +967,14 @@ def cascade(*fs: Callable, **kws) -> Callable | wt_frame.CLASS:
     In the second, nothing has been called: `cascade` routes `MOT_duration=15` to `MOT`,
     calls it, and hands the results to `stack`. So a stage reaches `cascade` bare and
     reaches `stack` applied, and the two are not interchangeable -- writing
-    `stack(timeline, MOT)` raises (see `_ensure_stackable`), and `cascade(MOT(...))`
-    fails because the result takes no keywords to route.
+    `stack(MOT)` raises (see `_ensure_stackable`), and `cascade(MOT(...))` fails because
+    the result takes no keywords to route.
 
     *What it returns*
 
-    Whatever `stack` makes of the first stage's result: a timeline if that stage returns
-    one -- `init` ends in `create`, so it does -- and a deferred function if it does not,
-    as `MOT` ending in `update` does not. So `cascade` is itself stackable, and a
-    `cascade` beginning mid-experiment composes like any other stage.
+    A stage, like `stack`: `to_timeline(cascade(...))` is the experiment's timeline, and
+    a `cascade` is itself stackable, so one beginning mid-experiment composes like any
+    other stage.
 
     Routing is **strict**: a keyword that names no stage, or that names one but is not a
     parameter of it, raises rather than being dropped. The alternative -- letting an
@@ -995,26 +1022,20 @@ def _ensure_cascadable(f):
     """
     Refuse a `cascade` argument that is not a stage function.
 
-    The mirror of `_ensure_stackable`, and it catches the mistake that machinery makes
-    easy: `stack` takes a leading timeline and `cascade` does not, so
-    `cascade(timeline, MOT)` reads as reasonable and used to fail with
-    `AttributeError: 'DataFrame' object has no attribute '__name__'`, from the
-    dictionary comprehension that keys stages by name -- naming neither cascade, nor the
-    timeline, nor the difference between the two.
+    The mirror of `_ensure_stackable`. `cascade(timeline, MOT)` reads as reasonable and
+    used to fail with `AttributeError: 'DataFrame' object has no attribute '__name__'`,
+    from the dictionary comprehension that keys stages by name -- naming neither cascade,
+    nor the timeline, nor what to write instead.
     """
     if isinstance(f, wt_frame.CLASS):
         raise TypeError(
             "\n".join(
                 [
-                    "`cascade` does not take a timeline. `stack` is the one that does.",
+                    "`cascade` was given a timeline. It takes stage functions, calls"
+                    " them, and returns a stage; `to_timeline` applies it:",
                     "",
-                    "    stack(timeline, MOT(duration=15), molasses())",
-                    "    cascade(init, MOT, molasses, MOT_duration=15)",
-                    "",
-                    "`cascade` takes the stage functions themselves and calls them, so",
-                    "the timeline comes from the first stage -- `init`, ending in",
-                    "`create`. To cascade onto an existing timeline, stack the two:",
-                    "`stack(timeline, cascade(MOT, molasses, ...))`.",
+                    "    to_timeline(cascade(MOT, molasses, MOT_duration=15),"
+                    " onto=timeline)",
                 ]
             )
         )

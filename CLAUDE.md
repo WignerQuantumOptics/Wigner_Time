@@ -129,55 +129,57 @@ connection, and an analogue connection with no device. The second is the dangero
 mistyped device name used to leave `check_within_range` with nothing to check, so the variable ran
 with its safety limits silently absent.
 
-### The dual-return idiom
+### Stages and timelines
 
-`update`, `ramp`, `anchor` and `expand` return **a timeline when `timeline=` is passed, and a curried
-callable when it is not**. `create` is the exception and always returns a timeline: it initialises one
-from scratch, so it takes no `timeline` and no `origin` at all (2026-09-16, #45/C2 — this matches the
-signature `sec:functions` has always documented). To add to an existing timeline, use `update`;
-`update(..., origin=0.0)` is exactly what passing a timeline to `create` used to do. The callable branch is produced by
-`internal/util.py::function__lambda`, which reads the caller's frame to capture its own arguments — so
-it only works when called directly from the public function's body. `stack` and `cascade` compose
-those callables (and forward their own kwargs into every one of them, nested stacks included, as
-defaults: a constituent keeps what it states itself — #136, #145). Any new top-level timeline
-function should follow this shape.
+There are two kinds of object (#85, C7 in `KNOWN_ISSUES.md`). A **stage** is a function of a
+timeline: what `update`, `ramp`, `anchor`, `stack` and `cascade` return, and what every user-defined
+stage returns. It is written once, relative only to its own beginning, and can be placed anywhere. A
+**timeline** is the table. **`to_timeline(stage, onto=None)` is the one way from the first to the
+second**: the stage applied to `onto`, or to an empty timeline. `onto` is first-class, not a
+convenience — building a timeline can be expensive, so a parameter scan keeps its base as a table and
+places each variation onto it; `to_timeline(b, onto=to_timeline(a))` equals `to_timeline(stack(a, b))`.
 
-This is what lets a stage be written once, generically, relative only to its own beginning, and
-inserted anywhere later. `create` and `update` are otherwise near-identical — they share a body,
-`timeline._populate_timeline`, and differ only in what they expose of it: `create` is the entry point
-of a stack and withholds `timeline`/`origin`, `update` can appear anywhere inside one and takes both.
+`stack` and `cascade` **compose stages only, and always return one**: a table is refused in any
+position, with a message naming `to_timeline`. **`create` is gone** (2026-09-29): the first rows of a
+timeline are an `update` like any other, applied to the empty timeline, where the origin is absolute
+zero and the rows must name their context (#156). A module `__getattr__` in `timeline.py` says so to
+anyone still writing `tl.create`. On the way (until step 3 of P2), `update`, `ramp`, `anchor` and
+`expand` still also accept `timeline=` and then return a table. Their stage form is produced by
+`internal/util.py::function__lambda`, which reads the caller's frame to capture its own arguments —
+so it only works when called directly from the public function's body. `stack` and `cascade` forward
+their own keywords into every constituent, nested stacks included, as defaults: a constituent keeps
+what it states itself (#136, #145).
+
 `cascade` adds prefix-routed keyword forwarding (`MOT_duration=...` reaches `MOT`'s `duration`), so a
 whole experiment has a single point of contact for its nested parameters.
 
 **`stack` and `cascade` take their stages differently, and nothing in the syntax says so.** `stack`
-takes stages *already called* — `stack(timeline, MOT(duration=15))` — where everything but the
+takes stages *already called* — `stack(MOT(duration=15), molasses())` — where everything but the
 timeline is bound (partial application, not currying: the remaining argument arrives in one call).
 `cascade` takes the functions *themselves* — `cascade(MOT, molasses, MOT_duration=15)` — and calls
 them with the routed keywords. So a stage reaches `cascade` bare and `stack` applied; they are not
-interchangeable, and `stack(timeline, MOT)` raises (D17). `cascade` returns whatever `stack` makes of
-the first stage's result — a timeline if that stage yields one (`init` ends in `create`), a deferred
-function otherwise (`MOT` ends in `update`) — so a `cascade` is itself stackable.
+interchangeable, and `stack(MOT)` raises (D17).
 
-**Deferred calls compose as siblings of a `stack`, never by nesting.** `expand(ramp(...))` looks like
-composition but passes a function in as `expand`'s `timeline`; write
-`stack(timeline, ramp(...), expand(...))` instead. `util.ensure_timeline` raises a `TypeError` naming
-the mistake, and also rejects anything that is neither a frame nor `None` (C4, 2026-09-16) — but
-`stack` and `cascade` take a leading callable *legitimately* and must stay outside that guard.
-Allowing nesting to *compose* was considered and rejected; see C4 for why.
+**Stages compose as siblings of a `stack`, never by nesting.** `expand(ramp(...))` looks like
+composition but passes a function in as `expand`'s `timeline`; `util.ensure_timeline` raises a
+`TypeError` naming the mistake, and also rejects anything that is neither a frame nor `None` (C4,
+2026-09-16). Allowing nesting to *compose* was considered and rejected; see C4 for why.
 
-Deferred objects are tagged (`util.ATTRIBUTE__DEFERRED`, set by `function__lambda` and by `stack`),
-because a deferred call, a composed `stack` and an *uncalled stage* are otherwise indistinguishable —
-all plain functions with similar signatures. `stack` checks the tag on every constituent, so
-`stack(timeline, MOT)` for `stack(timeline, MOT(...))` now raises instead of binding the timeline to
-`MOT`'s first parameter (D17). An untagged callable taking exactly one required positional argument is
-accepted too, so a hand-written `lambda tline: ...` still works; `timeline.as_deferred` marks anything
-else. `noop` is consequently our own tagged function rather than `funcy.identity`.
+Stages are tagged (`util.ATTRIBUTE__DEFERRED`, set by `function__lambda` and by `stack`), because a
+stage, a composed `stack` and an *uncalled stage function* are otherwise indistinguishable — all plain
+functions with similar signatures. `stack` and `to_timeline` check the tag, so `stack(MOT)` for
+`stack(MOT(...))` raises instead of binding the timeline to `MOT`'s first parameter (D17). An untagged
+callable taking exactly one required positional argument is accepted too, so a hand-written
+`lambda tline: ...` still works; `timeline.as_deferred` marks anything else. `noop` is consequently
+our own tagged function rather than `funcy.identity`.
 
-A related trap the guard cannot catch: **`expand` acts on the whole timeline it receives**, not on the
-adjacent ramp. Mid-`stack` in a late stage it expands every ramp accumulated so far, and since it then
-drops the `function` column, the `expand` inside `adwin.core.convert` becomes a no-op and the
-hand-passed resolution is what reaches the hardware. For per-ramp resolution, bake it into the
-`function` argument as `demo.pull_coils` does.
+A related trap: **`expand` acts on the whole timeline it receives**, not on the adjacent ramp.
+Mid-`stack` in a late stage it expands every ramp accumulated so far, and since it then drops the
+`function` column, the `expand` inside `adwin.core.convert` becomes a no-op and the hand-passed
+resolution is what reaches the hardware. Decided on 2026-09-27: `expand` becomes table-only and loses
+`time_resolution` (C7, items 6 and 7). A ramp's own resolution is bound into its `function`, by a
+function that fixes it — `functools.partial(tanh, time_resolution=...)` is silently overridden by
+`expand`'s today, since a `partial` still declares the keyword.
 
 ### Origins — why chaining is causal by default
 
@@ -353,7 +355,7 @@ cycle numbers. Rows in these contexts have **no meaningful time**, so they are v
   those checksums moves, the pipeline changed; see the fixture's own `README.md` for what the
   numbers mean and why they are today's output rather than the rig's. Tests build frames as literal row lists and compare with
   `wt_frame.assert_equal`; behaviour with many input shapes is covered via `@pytest.mark.parametrize`
-  over calls to `tl.create` and friends.
+  over calls to `tl.update` and friends.
 
 ## Known rough edges
 

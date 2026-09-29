@@ -54,11 +54,13 @@ def test_expand_is_stackable():
     """
     `expand` belongs in a `stack` as its own element, after the `ramp` it expands.
     """
-    timeline = tl.stack(
-        tl.create(coil__A=0.0, t=0.0, context="init"),
-        tl.anchor(0.0),
-        tl.ramp(coil__A=1.0, duration=1e-3, context="finalize"),
-        tl.expand(time_resolution=1e-4),
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.anchor(0.0),
+            tl.ramp(coil__A=1.0, duration=1e-3, context="finalize"),
+            tl.expand(time_resolution=1e-4),
+        ),
+        onto=tl.to_timeline(tl.update(coil__A=0.0, t=0.0, context="init")),
     )
 
     assert isinstance(timeline, wt_frame.CLASS)
@@ -92,7 +94,7 @@ def test_stack_rejects_an_uncalled_stage(stage):
     caught only when something followed it in the chain.
     """
     with pytest.raises(TypeError, match="rather than the result of calling it"):
-        tl.stack(demo.init(), stage)
+        tl.to_timeline(tl.stack(demo.init(), stage))
 
 
 def test_stack_accepts_a_hand_written_transformer():
@@ -101,16 +103,18 @@ def test_stack_accepts_a_hand_written_transformer():
     told apart from an uncalled stage by arity -- a transformer takes exactly one
     required positional argument, a stage written to convention takes none.
     """
-    base = demo.init()
-    assert len(tl.stack(base, lambda tline: tline)) == len(base)
+    base = tl.to_timeline(demo.init())
+    assert len(tl.to_timeline(tl.stack(lambda tline: tline), onto=base)) == len(base)
 
 
 def test_noop_survives_a_stack_that_forwards_keywords():
     """
     `noop` was `funcy.identity`, which raised on any keyword `stack` forwarded.
     """
-    base = demo.init()
-    assert len(tl.stack(base, tl.noop, context="anything")) == len(base)
+    base = tl.to_timeline(demo.init())
+    assert len(tl.to_timeline(tl.stack(tl.noop, context="anything"), onto=base)) == len(
+        base
+    )
 
 
 @pytest.mark.parametrize(

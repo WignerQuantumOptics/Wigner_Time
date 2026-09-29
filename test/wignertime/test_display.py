@@ -14,10 +14,12 @@ from wignertime.demo import full_experiment as ex
 
 
 def test_displayIndividualTypes():
-    tl__new = tl.stack(
-        ex.init(shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
-        ex.MOT(),
-        ex.MOT__detuned_growth(),
+    tl__new = tl.to_timeline(
+        tl.stack(
+            ex.init(shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
+            ex.MOT(),
+            ex.MOT__detuned_growth(),
+        )
     ).drop(columns="function")
 
     adwin_display.quantities(

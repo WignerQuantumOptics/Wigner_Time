@@ -251,28 +251,32 @@ def test_ramp_combined():
     (A8). The 2-D form was never needed: `t` places the start point, and the default
     origin supplies its value. All four spellings were measured equal on 2026-09-18.
     """
-    tl_check = tl.create(
-        lockbox_MOT__V=[
-            [1.0, 1.0],
-            [
-                6.0,
-                1.0,
+    tl_check = tl.to_timeline(
+        tl.update(
+            lockbox_MOT__V=[
+                [1.0, 1.0],
+                [
+                    6.0,
+                    1.0,
+                ],
+                [
+                    7.0,
+                    10.0,
+                ],
             ],
-            [
-                7.0,
-                10.0,
-            ],
-        ],
-        context="badger",
+            context="badger",
+        )
     )
     tl_check.loc[
         (tl_check["variable"] == "lockbox_MOT__V") & (tl_check["time"] > 1.0),
         "function",
     ] = ramp_function.tanh
 
-    tl_ramp = tl.stack(
-        tl._populate_timeline("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
-        tl.ramp(lockbox_MOT__V=10.0, t=5.0, duration=1.0),
+    tl_ramp = tl.to_timeline(
+        tl.stack(
+            tl.ramp(lockbox_MOT__V=10.0, t=5.0, duration=1.0),
+        ),
+        onto=tl._populate_timeline("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
     )
     return wt_frame.assert_equal(tl_check, tl_ramp)
 
@@ -321,14 +325,16 @@ def test_ramp_start(tl_anchor, args):
 
 
 def test_ramp_expand():
-    tl_ramp = tl.stack(
-        tl._populate_timeline("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
-        tl.ramp(
-            lockbox_MOT__V=[1.0, 10.0],
-            origin=["lockbox_MOT__V", "lockbox_MOT__V"],
-            origin2=["variable"],
+    tl_ramp = tl.to_timeline(
+        tl.stack(
+            tl.ramp(
+                lockbox_MOT__V=[1.0, 10.0],
+                origin=["lockbox_MOT__V", "lockbox_MOT__V"],
+                origin2=["variable"],
+            ),
+            lambda tline: tl.expand(tline, time_resolution=0.2),
         ),
-        lambda tline: tl.expand(tline, time_resolution=0.2),
+        onto=tl._populate_timeline("lockbox_MOT__V", [[1.0, 1.0]], context="badger"),
     )
     tl_check = wt_frame.new(
         [
@@ -346,8 +352,12 @@ def test_ramp_expand():
 
 
 def test_random_ramp():
-    tl_ramp = tl.stack(
-        tl._populate_timeline(
+    tl_ramp = tl.to_timeline(
+        tl.stack(
+            tl.ramp(lockbox_MOT__V=11.0, duration=1.0, origin=["blah", "variable"]),
+            context="blah",
+        ),
+        onto=tl._populate_timeline(
             ["device_pump", [0.0, 0.0, "ADwin_Init"]],
             ["lockbox_MOT__V", [1.0, 00.0, "ADwin_Init"]],
             ["lockbox_MOT__V", [2.0, 10.0, "blah"]],
@@ -358,8 +368,6 @@ def test_random_ramp():
             ["device_pump", [7.0, 0.0, "ADwin_Finish"]],
             ["lockbox_MOT__V", [7.0, 0.0, "ADwin_Finish"]],
         ),
-        tl.ramp(lockbox_MOT__V=11.0, duration=1.0, origin=["blah", "variable"]),
-        context="blah",
     )
 
     return wt_frame.assert_equal(
@@ -384,12 +392,14 @@ def test_random_ramp():
 
 
 def test_rampReal():
-    timeline = tl.stack(
-        ex.init(),
-        ex.MOT(duration=1),
-        ex.MOT__detuned_growth(),
-        tl.ramp(t=1, duration=0.1, lockbox_MOT__MHz=-2),
-        tl.ramp(t=0.5, duration=0.1, lockbox_MOT__MHz=-1),
+    timeline = tl.to_timeline(
+        tl.stack(
+            ex.init(),
+            ex.MOT(duration=1),
+            ex.MOT__detuned_growth(),
+            tl.ramp(t=1, duration=0.1, lockbox_MOT__MHz=-2),
+            tl.ramp(t=0.5, duration=0.1, lockbox_MOT__MHz=-1),
+        )
     )
     timeline__simplified = timeline[timeline["time"] >= 0.0][
         ["variable", "time", "value"]
@@ -423,13 +433,15 @@ def test_rampReal():
 
 
 def test_rampReal2():
-    timeline = tl.stack(
-        ex.init(),
-        ex.MOT(duration=1),
-        ex.MOT__detuned_growth(),
-        tl.ramp(t=1, duration=0.1, lockbox_MOT__MHz=-2),
-        tl.ramp(t=0.5, duration=0.1, lockbox_MOT__MHz=-1),
-        tl.ramp(t=0.75, duration=0.1, lockbox_MOT__MHz=-5),
+    timeline = tl.to_timeline(
+        tl.stack(
+            ex.init(),
+            ex.MOT(duration=1),
+            ex.MOT__detuned_growth(),
+            tl.ramp(t=1, duration=0.1, lockbox_MOT__MHz=-2),
+            tl.ramp(t=0.5, duration=0.1, lockbox_MOT__MHz=-1),
+            tl.ramp(t=0.75, duration=0.1, lockbox_MOT__MHz=-5),
+        )
     )
     timeline__simplified = timeline[timeline["context"] == "MOT"][
         ["variable", "time", "value", "context"]
@@ -464,7 +476,7 @@ def test_rampReal2():
 
 # Check that no-ops don't cause failures
 def test_rampDoesNotRaise1(tl_anchor):
-    tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=1.0))
+    tl.to_timeline(tl.stack(tl.ramp(lockbox_MOT__V=10.0, duration=1.0)), onto=tl_anchor)
 
 
 def test_ramp_of_zero_duration_raises(tl_anchor):
@@ -475,7 +487,9 @@ def test_ramp_of_zero_duration_raises(tl_anchor):
     command simply was not there.
     """
     with pytest.raises(ValueError, match="must end after it begins"):
-        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=0.0))
+        tl.to_timeline(
+            tl.stack(tl.ramp(lockbox_MOT__V=10.0, duration=0.0)), onto=tl_anchor
+        )
 
 
 def test_ramp_of_negative_duration_raises(tl_anchor):
@@ -490,7 +504,9 @@ def test_ramp_of_negative_duration_raises(tl_anchor):
     transition landed on top of whatever preceded it. Nothing said so.
     """
     with pytest.raises(ValueError, match="must end after it begins"):
-        tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=10.0, duration=-1.0))
+        tl.to_timeline(
+            tl.stack(tl.ramp(lockbox_MOT__V=10.0, duration=-1.0)), onto=tl_anchor
+        )
 
 
 def test_a_flat_ramp_is_kept(tl_anchor):
@@ -501,7 +517,9 @@ def test_a_flat_ramp_is_kept(tl_anchor):
     `adwin.validate.drop_repeats` removes the resulting value redundancy before the
     hardware.
     """
-    result = tl.stack(tl_anchor, tl.ramp(lockbox_MOT__V=0.0, duration=1.0))
+    result = tl.to_timeline(
+        tl.stack(tl.ramp(lockbox_MOT__V=0.0, duration=1.0)), onto=tl_anchor
+    )
 
     assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
         [0.0, 0.0],
@@ -521,7 +539,7 @@ def test_boundary_frames_are_compared_variable_by_variable():
     value, so every row was flagged, and A3's early return then discarded the entire
     ramp without a word. Measured on `5d5a0cd`: 0 rows added instead of 4.
     """
-    base = tl.create(X__A=1.0, Y__A=5.0, t=0.0, context="s")
+    base = tl.to_timeline(tl.update(X__A=1.0, Y__A=5.0, t=0.0, context="s"))
     result = tl.ramp(
         base, X__A=[[1.0, 7.0], [2.0, 5.0]], Y__A=7.0, duration=3.0, origin=0.0
     )
@@ -542,9 +560,11 @@ def test_ramp_leaves_the_timeline_it_was_given_alone():
     """
     import warnings
 
-    base = tl.stack(
-        tl.create(c__A=2.0, d__A=3.0, t=0.0, context="s"),
-        tl.anchor(1.0, context="s"),
+    base = tl.to_timeline(
+        tl.stack(
+            tl.anchor(1.0, context="s"),
+        ),
+        onto=tl.to_timeline(tl.update(c__A=2.0, d__A=3.0, t=0.0, context="s")),
     )
     before = base.copy()
 
@@ -622,10 +642,12 @@ def test_expand_names_the_variable_whose_ramp_rows_do_not_pair(tl_anchor):
 
 def test_two_ramps_of_one_variable_still_expand(tl_anchor):
     """Grouping per variable must still chunk that variable's rows, not merge them."""
-    timeline = tl.stack(
-        tl_anchor,
-        tl.ramp(lockbox_MOT__V=5.0, duration=1.0),
-        tl.ramp(lockbox_MOT__V=0.0, duration=1.0, t=2.0),
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.ramp(lockbox_MOT__V=5.0, duration=1.0),
+            tl.ramp(lockbox_MOT__V=0.0, duration=1.0, t=2.0),
+        ),
+        onto=tl_anchor,
     )
     expanded = tl.expand(timeline, time_resolution=0.25)
     values = expanded[expanded["variable"] == "lockbox_MOT__V"]["value"].tolist()
@@ -639,7 +661,10 @@ def test_two_ramps_of_one_variable_still_expand(tl_anchor):
 
 @pytest.fixture
 def coil_at_zero():
-    return tl.stack(tl.create(coil_X__A=0.0, t=0.0, context="s"), tl.anchor(5.0))
+    return tl.to_timeline(
+        tl.stack(tl.anchor(5.0)),
+        onto=tl.to_timeline(tl.update(coil_X__A=0.0, t=0.0, context="s")),
+    )
 
 
 def test_a_ramp_starting_inside_another_of_its_variable_raises(coil_at_zero):
@@ -690,7 +715,10 @@ def test_meeting_by_rounding_is_refused_and_said_to_be_rounding():
     lookup is still widened by `config.TIME_RESOLUTION`, which happens to cover it;
     `issue#94` removes that widening.
     """
-    base = tl.stack(tl.create(coil_X__A=0.0, t=0.0, context="s"), tl.anchor(0.1))
+    base = tl.to_timeline(
+        tl.stack(tl.anchor(0.1)),
+        onto=tl.to_timeline(tl.update(coil_X__A=0.0, t=0.0, context="s")),
+    )
     first = tl.ramp(timeline=base, coil_X__A=10.0, duration=0.2)
     assert first["time"].max() > 0.3
     with pytest.raises(ValueError, match="within rounding"):
@@ -698,7 +726,10 @@ def test_meeting_by_rounding_is_refused_and_said_to_be_rounding():
 
 
 def test_placed_from_the_others_end_the_same_ramp_is_kept():
-    base = tl.stack(tl.create(coil_X__A=0.0, t=0.0, context="s"), tl.anchor(0.1))
+    base = tl.to_timeline(
+        tl.stack(tl.anchor(0.1)),
+        onto=tl.to_timeline(tl.update(coil_X__A=0.0, t=0.0, context="s")),
+    )
     first = tl.ramp(timeline=base, coil_X__A=10.0, duration=0.2)
     second = tl.ramp(timeline=first, coil_X__A=20.0, duration=0.2, origin="last")
     rows = second[second["variable"] == "coil_X__A"]
@@ -706,8 +737,11 @@ def test_placed_from_the_others_end_the_same_ramp_is_kept():
 
 
 def test_ramps_of_different_variables_may_overlap():
-    base = tl.stack(
-        tl.create(coil_X__A=0.0, coil_Y__A=0.0, t=0.0, context="s"), tl.anchor(5.0)
+    base = tl.to_timeline(
+        tl.stack(tl.anchor(5.0)),
+        onto=tl.to_timeline(
+            tl.update(coil_X__A=0.0, coil_Y__A=0.0, t=0.0, context="s")
+        ),
     )
     first = tl.ramp(timeline=base, coil_X__A=10.0, duration=1.0)
     both = tl.ramp(timeline=first, coil_Y__A=10.0, duration=1.0, t=0.5)

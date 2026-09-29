@@ -20,11 +20,13 @@ from wignertime.internal import origin as wt_origin
 @pytest.fixture
 def tline():
     """`coil__A` holds 2.0 through `stage1` (anchor at t=1.0), then 5.0 from t=1.5."""
-    return tl.stack(
-        tl.create(coil__A=2.0, t=0.0, context="stage1"),
-        tl.anchor(1.0, context="stage1"),
-        tl.update(coil__A=5.0, t=1.5, context="stage2", origin=0.0),
-        tl.anchor(2.5, context="stage2"),
+    return tl.to_timeline(
+        tl.stack(
+            tl.anchor(1.0, context="stage1"),
+            tl.update(coil__A=5.0, t=1.5, context="stage2", origin=0.0),
+            tl.anchor(2.5, context="stage2"),
+        ),
+        onto=tl.to_timeline(tl.update(coil__A=2.0, t=0.0, context="stage1")),
     )
 
 
@@ -94,7 +96,7 @@ def test_a_ramp_onto_an_anchorless_timeline_does_not_precede_it():
     absolute time -- here at 0.0 -> 1.0, i.e. *before* the entry at t=5.0 they were
     appended to. No exception, and the sequence was not merely mistimed but reordered.
     """
-    base = tl.create(coil__A=0.0, t=5.0, context="stage1")
+    base = tl.to_timeline(tl.update(coil__A=0.0, t=5.0, context="stage1"))
     assert points(tl.ramp(timeline=base, coil__A=2.0, duration=1.0)) == [
         [5.0, 0.0],
         [6.0, 2.0],
@@ -109,17 +111,22 @@ def test_ramps_chain_carries_the_value_default_at_every_step():
     ]
 
 
-def test_the_chain_terminates_in_absolute_time_with_a_warning(caplog):
+def test_the_chain_terminates_in_absolute_time_without_a_warning(caplog):
+    """
+    Nothing is satisfiable only on an empty timeline, where absolute zero is the one
+    answer. The warning that came with it would fire once per experiment since #85, when
+    every timeline starts from an empty one (C7, item 3).
+    """
     assert wt_origin.auto(None, None, origin__defaults=wt_config.ORIGIN__DEFAULTS) == [
         0.0,
         None,
     ]
-    assert "absolute time" in caplog.text
+    assert caplog.text == ""
 
 
 def test_an_explicit_anchor_without_one_says_so(tline):
     """The default path falls through; an explicit request cannot, so it must explain."""
-    base = tl.create(coil__A=0.0, t=5.0, context="stage1")
+    base = tl.to_timeline(tl.update(coil__A=0.0, t=5.0, context="stage1"))
     with pytest.raises(ValueError, match="holds no anchor"):
         tl.update(base, coil__A=1.0, t=1.0, origin="anchor")
 
@@ -138,11 +145,13 @@ def test_the_bound_does_not_move_as_the_loop_runs():
     to 8.0 until t=7.0. Measured against `fba0fe0`, the commit before the hoist, this
     gave 8.0.
     """
-    base = tl.stack(
-        tl.create(x__A=1.0, y__A=2.0, t=0.0, context="s"),
-        tl.anchor(5.0, context="s"),
-        tl.update(y__A=8.0, t=7.0, context="s", origin=0.0),
-        tl.update(x__A=9.0, t=10.0, context="s", origin=0.0),
+    base = tl.to_timeline(
+        tl.stack(
+            tl.anchor(5.0, context="s"),
+            tl.update(y__A=8.0, t=7.0, context="s", origin=0.0),
+            tl.update(x__A=9.0, t=10.0, context="s", origin=0.0),
+        ),
+        onto=tl.to_timeline(tl.update(x__A=1.0, y__A=2.0, t=0.0, context="s")),
     )
     new = tl.update(
         base, origin=["anchor", "variable"], x__A=[[0.0, 0.0]], y__A=[[3.0, 0.0]]
@@ -257,7 +266,7 @@ def test_ramp_default_origin2_survives_being_used():
     default = inspect.signature(tl.ramp).parameters["origin2"].default
     assert default == ["variable", 0.0]
 
-    base = tl.anchor(1.0, timeline=tl.create(coil__A=0.0, context="s"))
+    base = tl.anchor(1.0, timeline=tl.to_timeline(tl.update(coil__A=0.0, context="s")))
     for _ in range(3):
         base = tl.anchor(
             1.0, timeline=tl.ramp(coil__A=5.0, duration=1.0, timeline=base)
@@ -323,7 +332,7 @@ def test_a_stage_forwarding_none_keeps_the_default(tline):
             timeline=timeline,
         )
 
-    new = tl.stack(tline, trigger_camera(0.5, 0.1, "imaging"))
+    new = tl.to_timeline(tl.stack(trigger_camera(0.5, 0.1, "imaging")), onto=tline)
     assert new[new["variable"] == "trigger_camera"]["time"].tolist() == [4.0, 4.1]
 
 

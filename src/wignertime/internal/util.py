@@ -460,10 +460,12 @@ def ensure_timeline(
                     "    {}(ramp(...))    # `ramp(...)` here is a function, not a"
                     " timeline".format(name__function),
                     "",
-                    "Deferred calls compose as siblings of a `stack`, in execution"
-                    " order:",
+                    "Stages compose as siblings of a `stack`, in execution order, and"
+                    " `to_timeline` applies the result:",
                     "",
-                    "    stack(timeline, ramp(...), {}(...))".format(name__function),
+                    "    to_timeline(stack(ramp(...), {}(...)), onto=timeline)".format(
+                        name__function
+                    ),
                 ]
             )
         )

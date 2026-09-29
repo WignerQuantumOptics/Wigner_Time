@@ -211,24 +211,28 @@ def test_convert():
     )
 
     tuples = adwin.convert(
-        tl.stack(
-            tl.create(
-                lockbox_MOT__MHz=0.0,
-                shutter_MOT=0,
-                context="ADwin_LowInit",
+        tl.to_timeline(
+            tl.stack(
+                tl.anchor(t=0.0, origin=0.0, context="InitialAnchor"),
+                tl.update(
+                    shutter_MOT=1,
+                    context="MOT",
+                ),
+                tl.anchor(15),
+                tl.ramp(
+                    lockbox_MOT__MHz=-5,
+                    duration=10e-3,
+                    context="MOT",
+                ),
+                tl.anchor(100e-3),
             ),
-            tl.anchor(t=0.0, origin=0.0, context="InitialAnchor"),
-            tl.update(
-                shutter_MOT=1,
-                context="MOT",
+            onto=tl.to_timeline(
+                tl.update(
+                    lockbox_MOT__MHz=0.0,
+                    shutter_MOT=0,
+                    context="ADwin_LowInit",
+                )
             ),
-            tl.anchor(15),
-            tl.ramp(
-                lockbox_MOT__MHz=-5,
-                duration=10e-3,
-                context="MOT",
-            ),
-            tl.anchor(100e-3),
         ),
         connections,
         devices,
@@ -309,9 +313,11 @@ def _digital_only():
     devs = (
         device.new()
     )  # nothing analogue is connected, so there is nothing to calibrate
-    timeline = tl.stack(
-        tl.create(shutter_MOT=1, AOM_MOT=1, t=0.0, context="run"),
-        tl.update(shutter_MOT=0, t=1.0),
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(shutter_MOT=0, t=1.0),
+        ),
+        onto=tl.to_timeline(tl.update(shutter_MOT=1, AOM_MOT=1, t=0.0, context="run")),
     )
     return timeline, conns, devs
 
@@ -350,7 +356,7 @@ def test_create_refuses_a_timeline_with_no_run():
     _, conns, devs = _digital_only()
     with pytest.raises(ValueError, match="nothing to run"):
         adwin.create(
-            tl.create(shutter_MOT=1, t=-1e-6, context="ADwin_LowInit"),
+            tl.to_timeline(tl.update(shutter_MOT=1, t=-1e-6, context="ADwin_LowInit")),
             conns,
             devs,
             machine=_MachineRecording(),

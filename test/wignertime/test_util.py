@@ -41,16 +41,21 @@ def test_ensure_2d_multi(input):
 def test_function__deferred():
     tl.ramp(AOM_imaging__V=[1.0, 1.0])
 
-    actual = tl.stack(
-        tl._populate_timeline("AOM_imaging__V", 0.0, 0.0, context="s"),
-        tl.ramp(AOM_imaging__V=[1.0, 1.0]),
-        tl.update(AOM_imaging__V=[1.0, 0.0]),
+    actual = tl.to_timeline(
+        tl.stack(
+            tl.ramp(AOM_imaging__V=[1.0, 1.0]),
+            tl.update(AOM_imaging__V=[1.0, 0.0]),
+        ),
+        onto=tl._populate_timeline("AOM_imaging__V", 0.0, 0.0, context="s"),
     )
 
     return wt_frame.assert_equal(
         actual[["time", "variable", "value"]],
-        tl.create(
-            AOM_imaging__V=[[0.0, 0.0], [0.0, 0.0], [1.0, 1.0], [2.0, 0.0]], context="s"
+        tl.to_timeline(
+            tl.update(
+                AOM_imaging__V=[[0.0, 0.0], [0.0, 0.0], [1.0, 1.0], [2.0, 0.0]],
+                context="s",
+            )
         )[["time", "variable", "value"]],
     )
 

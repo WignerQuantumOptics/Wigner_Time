@@ -14,7 +14,7 @@ from wignertime.internal import util as wt_util
 
 @pytest.fixture
 def base():
-    return tl.create(a__A=0.0, t=0.0, context="init")
+    return tl.to_timeline(tl.update(a__A=0.0, t=0.0, context="init"))
 
 
 def stage__named(timeline=None, duration=1.0):
@@ -32,19 +32,21 @@ def test_an_unplaceable_keyword_raises_rather_than_becoming_a_row(base):
     at export without comment -- so nothing ever complained.
     """
     with pytest.raises(TypeError, match="could not place 1 keyword"):
-        tl.stack(base, tl.update(a__A=1.0), context="MOT", typo_duration=3.0)
+        tl.to_timeline(
+            tl.stack(tl.update(a__A=1.0), context="MOT", typo_duration=3.0), onto=base
+        )
 
 
 def test_the_refusal_says_what_could_have_been_placed(base):
     with pytest.raises(TypeError) as e:
-        tl.stack(base, tl.update(a__A=1.0), typo_duration=3.0)
+        tl.to_timeline(tl.stack(tl.update(a__A=1.0), typo_duration=3.0), onto=base)
     assert "'typo_duration'" in str(e.value)
     assert "Placeable here: context, origin, t, timeline" in str(e.value)
 
 
 def test_a_placeable_keyword_still_reaches_its_constituent(base):
     """The forwarding idiom itself, which the guard exists to protect rather than end."""
-    result = tl.stack(base, tl.update(a__A=1.0), context="MOT")
+    result = tl.to_timeline(tl.stack(tl.update(a__A=1.0), context="MOT"), onto=base)
     assert result.iloc[-1]["context"] == "MOT"
     assert "typo_duration" not in set(result["variable"])
 
@@ -57,7 +59,9 @@ def test_noop_does_not_switch_the_guard_off(base):
     """
     assert wt_util.keywords_declared(tl.noop) is None
     with pytest.raises(TypeError, match="could not place"):
-        tl.stack(base, tl.update(a__A=1.0), tl.noop, typo_duration=3.0)
+        tl.to_timeline(
+            tl.stack(tl.update(a__A=1.0), tl.noop, typo_duration=3.0), onto=base
+        )
 
 
 def test_a_nested_stage_answers_for_the_stages_inside_it():
@@ -76,7 +80,9 @@ def test_a_nested_stage_answers_for_the_stages_inside_it():
 
 def test_a_typo_behind_a_nested_stage_is_still_caught(base):
     with pytest.raises(TypeError, match="could not place"):
-        tl.stack(base, tl.stack(tl.update(a__A=1.0)), typo_duration=3.0)
+        tl.to_timeline(
+            tl.stack(tl.stack(tl.update(a__A=1.0)), typo_duration=3.0), onto=base
+        )
 
 
 def test_constituents_that_cannot_say_leave_the_guard_off(base):
@@ -84,7 +90,12 @@ def test_constituents_that_cannot_say_leave_the_guard_off(base):
     Where nothing records a set there is nothing to check against, and refusing on that
     basis would reject a legitimate hand-written transformer.
     """
-    assert tl.stack(base, tl.as_deferred(lambda t, **kw: t), anything=1.0) is not None
+    assert (
+        tl.to_timeline(
+            tl.stack(tl.as_deferred(lambda t, **kw: t), anything=1.0), onto=base
+        )
+        is not None
+    )
 
 
 # --- cascade refuses what is not a stage function -----------------------------
@@ -92,11 +103,11 @@ def test_constituents_that_cannot_say_leave_the_guard_off(base):
 
 def test_cascade_refuses_a_timeline(base):
     """
-    The mistake the two signatures make easy, `stack` taking a leading timeline where
-    `cascade` does not. It used to fail as `AttributeError: 'DataFrame' object has no
-    attribute '__name__'`, from the comprehension that keys stages by name.
+    It used to fail as `AttributeError: 'DataFrame' object has no attribute
+    '__name__'`, from the comprehension that keys stages by name. It now says what to
+    write: `cascade` returns a stage, and `to_timeline` applies it.
     """
-    with pytest.raises(TypeError, match="does not take a timeline"):
+    with pytest.raises(TypeError, match="was given a timeline.*to_timeline"):
         tl.cascade(base, stage__named)
 
 
@@ -107,10 +118,10 @@ def test_cascade_refuses_a_stage_that_was_already_called():
 
 
 def test_cascade_still_routes_by_prefix():
-    def init(timeline=None):
-        return tl.create(a__A=0.0, t=0.0, context="init")
+    def init():
+        return tl.update(a__A=0.0, t=0.0, context="init")
 
-    result = tl.cascade(init, stage__named, stage__named_duration=7.0)
+    result = tl.to_timeline(tl.cascade(init, stage__named, stage__named_duration=7.0))
     assert result.iloc[-1]["value"] == pytest.approx(7.0)
 
 
@@ -128,13 +139,15 @@ def test_a_keyword_reaches_the_constituents_of_a_nested_stack(base):
     so `sec:context`'s shared context worked one level deep only.
     """
     stage = tl.stack(tl.update(b__A=1.0), tl.anchor(1.0))
-    result = tl.stack(base, stage, context="MOT")
+    result = tl.to_timeline(tl.stack(stage, context="MOT"), onto=base)
     assert set(result.iloc[1:]["context"]) == {"MOT"}
 
 
 def test_a_nested_stacks_own_keyword_is_stated_closer_and_wins(base):
     stage = tl.stack(tl.update(b__A=1.0), context="inner")
-    result = tl.stack(base, stage, tl.update(c__A=2.0), context="outer")
+    result = tl.to_timeline(
+        tl.stack(stage, tl.update(c__A=2.0), context="outer"), onto=base
+    )
     assert _contexts(result)["b__A"] == "inner"
     assert _contexts(result)["c__A"] == "outer"
 
@@ -145,11 +158,13 @@ def test_a_forwarded_context_does_not_override_a_stated_one(base):
     context without a word -- the mirror image of the skip #145 was filed for. A keyword
     given to `stack` is a default for its constituents, not an override.
     """
-    result = tl.stack(
-        base,
-        tl.update(a_b=1, context="ADwin_Finish"),
-        tl.anchor(1.0),
-        context="finalRamps",
+    result = tl.to_timeline(
+        tl.stack(
+            tl.update(a_b=1, context="ADwin_Finish"),
+            tl.anchor(1.0),
+            context="finalRamps",
+        ),
+        onto=base,
     )
     contexts = _contexts(result)
     assert contexts["a_b"] == "ADwin_Finish"
@@ -162,12 +177,18 @@ def test_a_stage_passing_on_context_none_still_takes_the_stacks(base):
     def stage(context=None):
         return tl.update(b__A=1.0, context=context)
 
-    assert _contexts(tl.stack(base, stage(), context="MOT"))["b__A"] == "MOT"
+    assert (
+        _contexts(tl.to_timeline(tl.stack(stage(), context="MOT"), onto=base))["b__A"]
+        == "MOT"
+    )
 
 
 def test_a_transformer_taking_no_keywords_is_given_none(base):
     stage = tl.stack(tl.update(b__A=1.0), lambda tline: tline)
-    assert _contexts(tl.stack(base, stage, context="MOT"))["b__A"] == "MOT"
+    assert (
+        _contexts(tl.to_timeline(tl.stack(stage, context="MOT"), onto=base))["b__A"]
+        == "MOT"
+    )
 
 
 def test_a_keyword_nothing_accepts_raises_even_where_nothing_declares(base):
@@ -176,4 +197,4 @@ def test_a_keyword_nothing_accepts_raises_even_where_nothing_declares(base):
     here no constituent records what it consumes, so the guard above cannot help.
     """
     with pytest.raises(TypeError, match="could not place 1 keyword"):
-        tl.stack(base, lambda tline: tline, context="MOT")
+        tl.to_timeline(tl.stack(lambda tline: tline, context="MOT"), onto=base)

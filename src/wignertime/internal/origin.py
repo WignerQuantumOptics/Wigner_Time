@@ -11,7 +11,6 @@ This is important for inferring what the user means when they want to add rows t
 from copy import deepcopy
 
 from wignertime import config as wt_config
-from wignertime.config import wtlog
 from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import util as wt_util
 from wignertime.internal.timeline import anchor as wt_anchor
@@ -159,10 +158,15 @@ def auto(timeline, origin, origin__defaults):
 
     The time default is a **chain owned by the caller**, not a single constant: each
     entry's time slot is tried in turn and the first one this timeline can satisfy is
-    taken. The chain is terminal -- if nothing is satisfiable the time origin is `0.0`,
-    with a warning. It can therefore no longer return `None` implicitly, which is A4: a
-    `ramp` onto an anchorless timeline used to fall off the end of its own single-entry
-    chain and land in absolute time, *before* the rows it was appended to.
+    taken. The chain is terminal -- if nothing is satisfiable the time origin is `0.0`.
+    It can therefore no longer return `None` implicitly, which is A4: a `ramp` onto an
+    anchorless timeline used to fall off the end of its own single-entry chain and land
+    in absolute time, *before* the rows it was appended to.
+
+    Nothing is satisfiable only on an empty timeline, since `"last"` is satisfiable on any
+    other, and there absolute zero is the one answer. It used to come with a warning.
+    Since #85 every timeline starts from an empty one (`to_timeline`), so the warning
+    would fire once per experiment and tell nobody anything (C7, item 3).
 
     The value default is taken from the same entry, so a caller states the pair it wants
     once: `[["anchor", "variable"], ["last", "variable"]]` for `ramp`, whose start value
@@ -216,13 +220,6 @@ def auto(timeline, origin, origin__defaults):
                 else None
             ),
         ]
-        if o[0] is None:
-            wtlog.warning(
-                "No time origin could be resolved from %s, so the new rows are placed "
-                "in absolute time. This timeline has neither an anchor nor any entry to "
-                "be relative to; state `origin=0.0` to say so deliberately.",
-                origin__defaults,
-            )
 
     return [entry[i] if o[i] is None else o[i] for i in (0, 1)]
 

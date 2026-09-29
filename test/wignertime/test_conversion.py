@@ -11,11 +11,13 @@ from wignertime import conversion as conv
 
 @pytest.fixture
 def df_simple():
-    return tl.create(
-        AOM_imaging=[0.0, 0.0, "init"],
-        AOM_imaging__V=[0.0, 2.0, "init"],
-        AOM_repump=[0.0, 1.0, "init"],
-        AOM_science__trans=[0.0, 1.0, "MOT"],
+    return tl.to_timeline(
+        tl.update(
+            AOM_imaging=[0.0, 0.0, "init"],
+            AOM_imaging__V=[0.0, 2.0, "init"],
+            AOM_repump=[0.0, 1.0, "init"],
+            AOM_science__trans=[0.0, 1.0, "MOT"],
+        )
     )
 
 
@@ -93,11 +95,13 @@ def func(x):
 @pytest.fixture
 def df_devs():
     return device.add(
-        tl.create(
-            AOM_imaging=[0.0, 0.0, "init"],
-            AOM_imaging__transparency=[0.0, 0.5, "init"],
-            coil_MOT__A=[0.0, 1.0, "init"],
-            AOM_science__trans=[0.0, 1.0, "MOT"],
+        tl.to_timeline(
+            tl.update(
+                AOM_imaging=[0.0, 0.0, "init"],
+                AOM_imaging__transparency=[0.0, 0.5, "init"],
+                coil_MOT__A=[0.0, 1.0, "init"],
+                AOM_science__trans=[0.0, 1.0, "MOT"],
+            )
         ),
         device.new(
             [

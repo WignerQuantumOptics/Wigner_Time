@@ -78,12 +78,14 @@ def test_createSimple(input, df_simple):
             context="init",
             t=0.0,
         ),
-        tl.create(
-            context="init",
-            t=0.0,
-            AOM_imaging=0.0,
-            AOM_imaging__V=2,
-            AOM_repump=1.0,
+        tl.to_timeline(
+            tl.update(
+                context="init",
+                t=0.0,
+                AOM_imaging=0.0,
+                AOM_imaging__V=2,
+                AOM_repump=1.0,
+            )
         ),
     ],
 )
@@ -133,10 +135,12 @@ def test_createPrevious(input, df):
 @pytest.mark.parametrize(
     "input",
     [
-        tl.create(
-            AOM_imaging=[0.0, 0, "init"],
-            AOM_imaging__V=[0.0, 2.0, "init"],
-            AOM_repump=[0.0, 1, "init"],
+        tl.to_timeline(
+            tl.update(
+                AOM_imaging=[0.0, 0, "init"],
+                AOM_imaging__V=[0.0, 2.0, "init"],
+                AOM_repump=[0.0, 1, "init"],
+            )
         ),
         tl._populate_timeline(
             ["AOM_imaging", [0.0, 0, "init"]],
@@ -233,17 +237,19 @@ def test_the_first_rows_of_a_timeline_must_name_a_context():
     now holds for every row rather than for `create` alone.
     """
     with pytest.raises(ValueError, match="Every row needs a context.*AOM_MOT"):
-        tl.create(AOM_MOT=1, t=0.0)
+        tl.to_timeline(tl.update(AOM_MOT=1, t=0.0))
 
 
 def test_a_row_stating_its_own_context_needs_none_from_the_call():
-    frame = tl.create(AOM_MOT=[0.0, 1, "init"], shutter_MOT=[0.0, 0, "init"])
+    frame = tl.to_timeline(
+        tl.update(AOM_MOT=[0.0, 1, "init"], shutter_MOT=[0.0, 0, "init"])
+    )
     assert set(frame["context"]) == {"init"}
 
 
 def test_one_row_without_a_context_is_enough_to_refuse():
     with pytest.raises(ValueError, match="none: shutter_MOT"):
-        tl.create(AOM_MOT=[0.0, 1, "init"], shutter_MOT=0)
+        tl.to_timeline(tl.update(AOM_MOT=[0.0, 1, "init"], shutter_MOT=0))
 
 
 def test_onto_an_empty_table_the_refusal_is_about_the_context():
@@ -464,33 +470,21 @@ if __name__ == "__main__":
     )
 
 
-@pytest.mark.parametrize(
-    "kwargs,instead",
-    [
-        ({"timeline": "anything"}, "update"),
-        ({"origin": 0.0}, "update"),
-    ],
-)
-def test_create_rejects_timeline_and_origin(kwargs, instead):
+def test_create_is_gone_and_says_what_replaced_it():
     """
-    `create` starts a timeline from scratch, so neither argument means anything to it.
-
-    Both would otherwise be swallowed by the open `**vtvc_dict` namespace and then
-    re-bound by `_populate_timeline`, which does declare them -- reinstating silently
-    the very arguments the signature exists to withhold.
+    #85. A `stack` composes stages only, so the one core function that could only begin
+    one has nothing left to do: the first rows are an `update` on an empty timeline.
     """
-    with pytest.raises(TypeError, match=instead):
-        tl.create(AOM_MOT=1, **kwargs)
+    with pytest.raises(AttributeError, match=r"to_timeline\(update"):
+        tl.create
 
 
-def test_create_with_timeline_is_expressible_through_update():
+def test_the_first_rows_are_placed_in_absolute_time():
     """
-    Removing `timeline=` from `create` costs no capability: `update(origin=0.0)` places
-    rows at absolute time, which is what passing a timeline to `create` always did.
+    On an empty timeline there is nothing to be relative to, so an `update` places its
+    rows where `create` did, and the origin chain falls to zero without a warning.
     """
-    previous = tl.create(AOM_MOT=1, t=0.0, context="init")
-
     return wt_frame.assert_equal(
-        tl._populate_timeline(AOM_repump=0, t=10.0, timeline=previous),
-        tl.update(AOM_repump=0, t=10.0, origin=0.0, timeline=previous),
+        tl.to_timeline(tl.update(AOM_repump=0, t=10.0, context="init")),
+        tl._populate_timeline(AOM_repump=0, t=10.0, context="init"),
     )

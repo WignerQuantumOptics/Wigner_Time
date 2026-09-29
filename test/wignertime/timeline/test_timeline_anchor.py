@@ -8,21 +8,27 @@ from wignertime.internal import dataframe as wt_frame
 
 
 def test_anchor__basic():
-    tl_anchor = tl.stack(
-        tl.create(
-            lockbox_MOT__MHz=0.0,
-            context="ADwin_LowInit",
+    tl_anchor = tl.to_timeline(
+        tl.stack(
+            tl.anchor(t=10.0, context="InitialAnchor"),
+            tl.ramp(lockbox_MOT__MHz=[1.0, 10.0], context="new ramp"),
         ),
-        tl.anchor(t=10.0, context="InitialAnchor"),
-        tl.ramp(lockbox_MOT__MHz=[1.0, 10.0], context="new ramp"),
+        onto=tl.to_timeline(
+            tl.update(
+                lockbox_MOT__MHz=0.0,
+                context="ADwin_LowInit",
+            )
+        ),
     )
 
-    tl_check = tl.create(
-        lockbox_MOT__MHz=[
-            [0.0, 0.0, "ADwin_LowInit"],
-            [10.0, 0.0, "new ramp"],
-            [11.0, 10.0, "new ramp"],
-        ],
+    tl_check = tl.to_timeline(
+        tl.update(
+            lockbox_MOT__MHz=[
+                [0.0, 0.0, "ADwin_LowInit"],
+                [10.0, 0.0, "new ramp"],
+                [11.0, 10.0, "new ramp"],
+            ],
+        )
     )
 
     tl_check = tl._populate_timeline(
@@ -95,10 +101,12 @@ def test_anchor_chains_on_the_previous_anchor_not_the_last_row():
     C3. The distinction that makes a default impossible: once a stage writes rows past
     its own closing anchor, "here" has two meanings.
     """
-    timeline = tl.stack(
-        tl.create(coil__A=1.0, t=0.0, context="s1"),
-        tl.anchor(3.0),
-        tl.update(coil__A=2.0, t=5.0, origin=0.0),
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.anchor(3.0),
+            tl.update(coil__A=2.0, t=5.0, origin=0.0),
+        ),
+        onto=tl.to_timeline(tl.update(coil__A=1.0, t=0.0, context="s1")),
     )
 
     def anchor_time(frame):

@@ -67,9 +67,11 @@ def filter_ramps(df, var_cons, index=0):
 
 
 def test_MOT():
-    tl__new = tl.stack(
-        ex.init(shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
-        ex.MOT(),
+    tl__new = tl.to_timeline(
+        tl.stack(
+            ex.init(shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
+            ex.MOT(),
+        )
     )
 
     tl__original = pd.DataFrame(
@@ -226,10 +228,12 @@ def test_MOT():
 
 
 def test_MOTdetuned():
-    tl__new = tl.stack(
-        ex.init(shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
-        ex.MOT(),
-        ex.MOT__detuned_growth(),
+    tl__new = tl.to_timeline(
+        tl.stack(
+            ex.init(shutter_imaging=0, AOM_imaging=1, trigger_camera=0),
+            ex.MOT(),
+            ex.MOT__detuned_growth(),
+        )
     ).drop(columns="function")
 
     tl__original = pd.DataFrame(
@@ -301,15 +305,17 @@ def remove_anchors(timeline):
 
 
 def test_fullDemo():
-    actual = tl.stack(
-        ex.init(),
-        ex.MOT(duration=1),
-        ex.MOT__detuned_growth(),
-        ex.molasses(),
-        ex.optical_pumping(),
-        ex.magnetic_trapping(),
-        ex.pull_coils(50e-3, -4.1, -4.7, -0.6, -0.6),
-        ex.finish(),
+    actual = tl.to_timeline(
+        tl.stack(
+            ex.init(),
+            ex.MOT(duration=1),
+            ex.MOT__detuned_growth(),
+            ex.molasses(),
+            ex.optical_pumping(),
+            ex.magnetic_trapping(),
+            ex.pull_coils(50e-3, -4.1, -4.7, -0.6, -0.6),
+            ex.finish(),
+        )
     ).drop(columns=["function"])
     expected = pd.DataFrame(
         {
@@ -767,14 +773,16 @@ def test_trigger_camera_interweaves_into_a_finished_timeline():
     already complete, `finish` included, without restructuring it. This is how the lab
     images the sample after each preparation stage.
     """
-    full = tl.stack(
-        ex.init(trigger_camera=0),
-        ex.MOT(duration=1),
-        ex.MOT__detuned_growth(),
-        ex.molasses(),
-        ex.optical_pumping(),
-        ex.magnetic_trapping(),
-        ex.finish(trigger_camera=0),
+    full = tl.to_timeline(
+        tl.stack(
+            ex.init(trigger_camera=0),
+            ex.MOT(duration=1),
+            ex.MOT__detuned_growth(),
+            ex.molasses(),
+            ex.optical_pumping(),
+            ex.magnetic_trapping(),
+            ex.finish(trigger_camera=0),
+        )
     )
     woven = ex.trigger_camera(
         2e-3, 1e-3, context="imaging", origin="molasses", timeline=full

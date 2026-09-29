@@ -46,7 +46,7 @@ def test_the_public_and_internal_forms_agree(follows, expected):
     rest, so `["v", t, value, context]` produced the *time* as its value and lost the
     context entirely (A10 / #58).
     """
-    by_keyword = tl.create(**{VARIABLE: follows}, context=CONTEXT)
+    by_keyword = tl.to_timeline(tl.update(**{VARIABLE: follows}, context=CONTEXT))
     by_row = tl._populate_timeline([VARIABLE, follows], context=CONTEXT)
 
     assert _one(by_keyword) == {**expected, "context": expected["context"] or CONTEXT}
@@ -67,7 +67,9 @@ def test_the_public_and_internal_forms_agree(follows, expected):
 
 
 def test_several_instants_for_one_variable():
-    frame = tl.create(**{VARIABLE: [[0.0, 1.0], [2.0, 0.0]]}, context=CONTEXT)
+    frame = tl.to_timeline(
+        tl.update(**{VARIABLE: [[0.0, 1.0], [2.0, 0.0]]}, context=CONTEXT)
+    )
     assert list(frame["time"]) == [0.0, 2.0]
     assert list(frame["value"]) == [1.0, 0.0]
 
@@ -81,7 +83,7 @@ def test_rows_may_be_batched():
 
 @pytest.mark.parametrize("follows,expected", FOLLOWS)
 def test_t_and_context_are_defaults_not_overrides(follows, expected):
-    frame = tl.create(**{VARIABLE: follows}, t=99.0, context="kw")
+    frame = tl.to_timeline(tl.update(**{VARIABLE: follows}, t=99.0, context="kw"))
 
     assert frame.iloc[0]["time"] == (
         99.0 if not isinstance(follows, list) else expected["time"]
@@ -115,7 +117,8 @@ def test_mixing_positional_and_keyword_raises():
             lambda: tl._populate_timeline(VARIABLE, 1, 2, 3, 4), id="too many elements"
         ),
         pytest.param(
-            lambda: tl.create(**{VARIABLE: [[[[1.0, 2.0]]]]}), id="too deeply nested"
+            lambda: tl.to_timeline(tl.update(**{VARIABLE: [[[[1.0, 2.0]]]]})),
+            id="too deeply nested",
         ),
     ],
 )
@@ -144,7 +147,7 @@ def test_no_shape_lands_in_between():
 
     shapes = scalars + pairs + triples + nested + malformed
     builders = [
-        lambda f: tl.create(**{VARIABLE: f}),
+        lambda f: tl.to_timeline(tl.update(**{VARIABLE: f})),
         lambda f: tl._populate_timeline([VARIABLE, f]),
         lambda f: tl._populate_timeline(VARIABLE, f),
     ]

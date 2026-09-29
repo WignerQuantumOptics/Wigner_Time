@@ -103,14 +103,17 @@ constants = Munch(
 # NOTE: The idea behind the function wrapping is that we enclose what will rarely change and expose just those attributes that we are likely to want to vary.
 
 
-def default_state(f=tl.create, MOT_ON=True, **kwargs):
+def default_state(MOT_ON=True, **kwargs):
     """
     Starts/leaves the system in a sane state that is appropriate for creating a new timeline
 
     As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. When needed, we turn them off before the opening of the shutter.
+
+    The same stage at both ends of the experiment: `init` and `finish` differ only in the
+    time, the context and `MOT_ON`.
     """
     return tl.stack(
-        f(
+        tl.update(
             lockbox_MOT__MHz=0.0,
             coil_compensationX__A=constants.Compensation.X__A,
             coil_compensationY__A=constants.Compensation.Y__A,
@@ -134,9 +137,8 @@ def default_state(f=tl.create, MOT_ON=True, **kwargs):
     )
 
 
-def init(f=tl.create, MOT_ON=False, **kwargs):
+def init(MOT_ON=False, **kwargs):
     return default_state(
-        f=f,
         t=-1e-6,  # time is simply a placeholder here as 'ADwin_LowInit' is a 'special' context, that will be treated differently by the ADwin system.
         context="ADwin_LowInit",
         MOT_ON=MOT_ON,
@@ -169,7 +171,6 @@ def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
             context="finalRamps",
         ),
         default_state(
-            f=tl.update,
             t=duration
             + 1e-6,  # time is just fictive here, the important thing is the context
             context="ADwin_Finish",
@@ -374,47 +375,49 @@ def trigger_camera(t, exposure, context, origin=None, timeline=None):
 #                   Stage composition                                     #
 ###########################################################################
 
-timeline__demo = tl.cascade(
-    init,
-    MOT,
-    MOT__detuned_growth,
-    molasses,
-    optical_pumping,
-    magnetic_trapping,
-    finish,
-    #
-    # KW args
-    # Basic setup
-    init_MOT_ON=True,
-    finish_MOT_ON=True,
-    # MOT stage
-    MOT_duration=15,
-    MOT_lA=-1.0,
-    MOT_uA=-0.98,
-    # MOT detuned stage
-    MOT__detuned_growth_duration=0.1,
-    MOT__detuned_growth_duration__ramp=1e-2,
-    MOT__detuned_growth_detuning__MHz=-5,  # pt=3,
-    # molasses stage
-    molasses_duration=4.5e-3,
-    molasses_duration__coil_ramp=9e-4,
-    molasses_duration__lockbox_ramp=1e-3,
-    molasses_toMHz=-90,
-    molasses_delay=-200e-6,
-    # OP stage
-    optical_pumping_duration__exposition=80e-6,
-    optical_pumping_duration__coil_ramp=500e-6,
-    optical_pumping_i=-0.12,
-    optical_pumping_delay1=-350e-6,
-    optical_pumping_delay2=450e-6,
-    optical_pumping_delay__repump=0,
-    # magnetic trapping stage
-    magnetic_trapping_duration__initial=50e-6,
-    magnetic_trapping_li=-1.8,
-    magnetic_trapping_ui=-1.7,
-    magnetic_trapping_duration__strengthen=3e-3,
-    magnetic_trapping_ls=-4.8,
-    magnetic_trapping_us=-4.7,
+timeline__demo = tl.to_timeline(
+    tl.cascade(
+        init,
+        MOT,
+        MOT__detuned_growth,
+        molasses,
+        optical_pumping,
+        magnetic_trapping,
+        finish,
+        #
+        # KW args
+        # Basic setup
+        init_MOT_ON=True,
+        finish_MOT_ON=True,
+        # MOT stage
+        MOT_duration=15,
+        MOT_lA=-1.0,
+        MOT_uA=-0.98,
+        # MOT detuned stage
+        MOT__detuned_growth_duration=0.1,
+        MOT__detuned_growth_duration__ramp=1e-2,
+        MOT__detuned_growth_detuning__MHz=-5,  # pt=3,
+        # molasses stage
+        molasses_duration=4.5e-3,
+        molasses_duration__coil_ramp=9e-4,
+        molasses_duration__lockbox_ramp=1e-3,
+        molasses_toMHz=-90,
+        molasses_delay=-200e-6,
+        # OP stage
+        optical_pumping_duration__exposition=80e-6,
+        optical_pumping_duration__coil_ramp=500e-6,
+        optical_pumping_i=-0.12,
+        optical_pumping_delay1=-350e-6,
+        optical_pumping_delay2=450e-6,
+        optical_pumping_delay__repump=0,
+        # magnetic trapping stage
+        magnetic_trapping_duration__initial=50e-6,
+        magnetic_trapping_li=-1.8,
+        magnetic_trapping_ui=-1.7,
+        magnetic_trapping_duration__strengthen=3e-3,
+        magnetic_trapping_ls=-4.8,
+        magnetic_trapping_us=-4.7,
+    )
 )
 
 ###########################################################################
