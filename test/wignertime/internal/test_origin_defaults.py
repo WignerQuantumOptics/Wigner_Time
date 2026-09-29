@@ -56,7 +56,7 @@ def test_the_shorthand_agrees_with_the_explicit_pair(tline):
         tl.to_timeline(tl.ramp(coil__A=9.0, duration=0.5, origin="stage1"), onto=tline)
     ) == points(
         tl.to_timeline(
-            tl.ramp(coil__A=9.0, duration=0.5, origin=["stage1", "variable"]),
+            tl.ramp(coil__A=9.0, duration=0.5, origin=["stage1", tl.VARIABLE]),
             onto=tline,
         )
     )
@@ -70,11 +70,11 @@ def test_a_deferred_time_slot_takes_the_chain(tline):
     """
     assert points(
         tl.to_timeline(
-            tl.ramp(coil__A=9.0, duration=0.5, origin=[None, "variable"]), onto=tline
+            tl.ramp(coil__A=9.0, duration=0.5, origin=[None, tl.VARIABLE]), onto=tline
         )
     ) == points(
         tl.to_timeline(
-            tl.ramp(coil__A=9.0, duration=0.5, origin=["anchor", "variable"]),
+            tl.ramp(coil__A=9.0, duration=0.5, origin=[tl.ANCHOR, tl.VARIABLE]),
             onto=tline,
         )
     )
@@ -108,10 +108,10 @@ def test_a_ramp_onto_an_anchorless_timeline_does_not_precede_it():
 
 
 def test_ramps_chain_carries_the_value_default_at_every_step():
-    """Both entries must name `"variable"`, or the fallback would silently change kind."""
+    """Both entries must name `VARIABLE`, or the fallback would silently change kind."""
     assert [entry[1] for entry in wt_config.ORIGIN__DEFAULTS__RAMP] == [
-        "variable",
-        "variable",
+        tl.VARIABLE,
+        tl.VARIABLE,
     ]
 
 
@@ -132,7 +132,7 @@ def test_an_explicit_anchor_without_one_says_so(tline):
     """The default path falls through; an explicit request cannot, so it must explain."""
     base = tl.to_timeline(tl.update(coil__A=0.0, t=5.0, context="stage1"))
     with pytest.raises(ValueError, match="holds no anchor"):
-        tl.to_timeline(tl.update(coil__A=1.0, t=1.0, origin="anchor"), onto=base)
+        tl.to_timeline(tl.update(coil__A=1.0, t=1.0, origin=tl.ANCHOR), onto=base)
 
 
 # --- B2: the lookup bound does not depend on what else is being resolved ------
@@ -158,7 +158,9 @@ def test_the_bound_does_not_move_as_the_loop_runs():
         onto=tl.to_timeline(tl.update(x__A=1.0, y__A=2.0, t=0.0, context="s")),
     )
     new = tl.to_timeline(
-        tl.update(origin=["anchor", "variable"], x__A=[[0.0, 0.0]], y__A=[[3.0, 0.0]]),
+        tl.update(
+            origin=[tl.ANCHOR, tl.VARIABLE], x__A=[[0.0, 0.0]], y__A=[[3.0, 0.0]]
+        ),
         onto=base,
     )
     assert new.iloc[-1]["variable"] == "y__A"
@@ -172,7 +174,7 @@ def test_the_bound_is_the_instant_the_rows_will_occupy(tline):
     """
     assert points(
         tl.to_timeline(
-            tl.ramp(coil__A=9.0, duration=0.5, origin=["stage1", "variable"]),
+            tl.ramp(coil__A=9.0, duration=0.5, origin=["stage1", tl.VARIABLE]),
             onto=tline,
         )
     )[0][1] == pytest.approx(2.0)
@@ -184,7 +186,7 @@ def test_the_bound_is_the_instant_the_rows_will_occupy(tline):
 def test_an_empty_timeline_says_it_is_empty():
     empty = wt_frame.new([], columns=tl._SCHEMA.keys()).astype(tl._SCHEMA)
     with pytest.raises(ValueError, match="the timeline is empty"):
-        tl.to_timeline(tl.update(coil__A=1.0, t=1.0, origin="last"), onto=empty)
+        tl.to_timeline(tl.update(coil__A=1.0, t=1.0, origin=tl.LAST), onto=empty)
 
 
 def test_a_variable_with_no_history_says_so(tline):
@@ -222,7 +224,7 @@ def test_an_unset_variable_has_to_be_set_first(tline):
     """
     for stage in (
         tl.ramp(fresh__A=5.0, duration=0.5),
-        tl.ramp(fresh__A=5.0, duration=0.5, origin=[None, "variable"]),
+        tl.ramp(fresh__A=5.0, duration=0.5, origin=[None, tl.VARIABLE]),
     ):
         with pytest.raises(ValueError, match="update` it first"):
             tl.to_timeline(stage, onto=tline)
@@ -244,12 +246,14 @@ def test_a_per_variable_self_reference_places_each_on_its_own_history(tline):
     """
     assert points(
         tl.to_timeline(
-            tl.ramp(coil__A=9.0, t=5.0, duration=1.0, origin=["variable", "variable"]),
+            tl.ramp(
+                coil__A=9.0, t=5.0, duration=1.0, origin=[tl.VARIABLE, tl.VARIABLE]
+            ),
             onto=tline,
         )
     ) == points(
         tl.to_timeline(
-            tl.ramp(coil__A=9.0, t=5.0, duration=1.0, origin=["coil__A", "variable"]),
+            tl.ramp(coil__A=9.0, t=5.0, duration=1.0, origin=["coil__A", tl.VARIABLE]),
             onto=tline,
         )
     )
@@ -272,7 +276,7 @@ def test_ramp_default_origin2_survives_being_used():
     from wignertime import timeline as tl
 
     default = inspect.signature(tl.ramp).parameters["origin2"].default
-    assert default == ["variable", 0.0]
+    assert default == [tl.VARIABLE, 0.0]
 
     base = tl.to_timeline(
         tl.anchor(1.0), onto=tl.to_timeline(tl.update(coil__A=0.0, context="s"))
@@ -283,7 +287,10 @@ def test_ramp_default_origin2_survives_being_used():
             onto=tl.to_timeline(tl.ramp(coil__A=5.0, duration=1.0), onto=base),
         )
 
-    assert inspect.signature(tl.ramp).parameters["origin2"].default == ["variable", 0.0]
+    assert inspect.signature(tl.ramp).parameters["origin2"].default == [
+        tl.VARIABLE,
+        0.0,
+    ]
 
 
 def test_auto_requires_its_defaults():

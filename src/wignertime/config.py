@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2024 Thomas W. Clark and András Vukics
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import enum
 import logging
 import re
 
@@ -63,23 +64,56 @@ It is an object rather than a string so that it cannot be mistaken for a name:
 ORIGIN__INFER = INFER
 """`INFER`, under the name the `origin` signatures use."""
 
+
 # Time references in order of priority, each paired with the value reference that goes
 # with it. `origin.auto` walks the list and takes the first entry whose time reference
 # this timeline can satisfy, then completes whichever slots the caller left as `None`.
 # The chain is terminal: if nothing is satisfiable the time origin is 0.0, with a
 # warning.
-ORIGIN__DEFAULTS = [["anchor", None], ["last", None]]
+class Origin(enum.Enum):
+    """
+    The reserved origin words, as tags rather than strings (#158, 2026-09-29).
+
+    A string in an `origin` is always a *name* -- of a variable or of a context -- and a
+    tag is always a *rule*. While the rules were the strings `"anchor"`, `"last"` and
+    `"variable"`, a string was sometimes one and sometimes the other, so a context or a
+    variable named after one of the words could not be referred to, and had to be refused
+    where it was written (A9). Tags are compared with `is`, print as their bare names, as
+    `INFER` does, and never reach the data, since an origin is resolved while the
+    timeline is built.
+
+    - `ANCHOR`: the most recent anchor;
+    - `LAST`: the latest entry of the timeline;
+    - `VARIABLE`: each variable relative to its own most recent entry, in time or in
+      value -- the one tag admissible in either slot.
+    """
+
+    ANCHOR = "anchor"
+    LAST = "last"
+    VARIABLE = "variable"
+
+    def __repr__(self):
+        return self.name
+
+    __str__ = __repr__
+
+
+ANCHOR = Origin.ANCHOR
+LAST = Origin.LAST
+VARIABLE = Origin.VARIABLE
+
+ORIGIN__DEFAULTS = [[ANCHOR, None], [LAST, None]]
 """For `update` and `anchor`, whose values are absolute -- hence `None` in every value slot."""
 
-ORIGIN__DEFAULTS__RAMP = [["anchor", "variable"], ["last", "variable"]]
+ORIGIN__DEFAULTS__RAMP = [[ANCHOR, VARIABLE], [LAST, VARIABLE]]
 """
 For `ramp`, which is the one core function that *needs* a value origin: a ramp runs from
 wherever the variable currently sits to the target, so its start value has to be looked
-up. Hence `"variable"` in the value slot -- the variable's own previous value, bounded by
+up. Hence `VARIABLE` in the value slot -- the variable's own previous value, bounded by
 the time origin. It is the only thing that slot can hold: a ramp always starts where its
 variable is (#142), and `ramp` refuses anything else written there.
 
-The `"last"` step is not decoration. Without it (this was a single-entry list until
+The `LAST` step is not decoration. Without it (this was a single-entry list until
 2026-09-18) a `ramp` onto a timeline holding no anchor fell off the end of the chain and
 landed in absolute time, so it could be placed *before* the rows it was appended to, with
 no warning. See KNOWN_ISSUES A4.

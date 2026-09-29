@@ -19,17 +19,19 @@ from wignertime.internal.timeline import anchor as wt_anchor
 #                                  CONSTANTS                                   #
 ###############################################################################
 
-_ORIGINS__TIME = ["anchor", "last", "variable"]
+ANCHOR, LAST, VARIABLE = wt_config.ANCHOR, wt_config.LAST, wt_config.VARIABLE
+
+_ORIGINS__TIME = [ANCHOR, LAST, VARIABLE]
 """
-Reserved origin labels admissible in the TIME slot. Every one of them names an instant.
+The tags admissible in the TIME slot (`config.Origin`). Every one of them names an instant.
 """
 
-_ORIGINS__VALUE = ["variable"]
+_ORIGINS__VALUE = [VARIABLE]
 """
-Reserved origin labels admissible in the VALUE slot.
+The tags admissible in the VALUE slot.
 
-Only `"variable"` survives the narrowing, because only it names a quantity of the right
-physical kind: the value *this* variable held. `"anchor"` and `"last"` are defined
+Only `VARIABLE` survives the narrowing, because only it names a quantity of the right
+physical kind: the value *this* variable held. `ANCHOR` and `LAST` are defined
 temporally, so the value they yield belongs to whichever variable happens to hold the
 relevant row -- a shutter's 0/1 added to a current in amps, silently. See KNOWN_ISSUES
 A7.
@@ -37,11 +39,12 @@ A7.
 
 _ORIGINS = _ORIGINS__TIME
 """
-These origin labels are reserved for interpretation by the package. Other origin strings
-are interpreted as `variable`s, then as `context`s -- so a `variable` or `context` named
-after one of these would be unreachable as an origin, and the name is therefore refused
-where it is written (`timeline._populate_timeline`).
+The tags, all of them. Since #158 they are not strings, so a string in an origin is always
+a name -- of a variable first, then of a context -- and nothing needs reserving.
 """
+
+_WORDS = {tag.value: tag for tag in _ORIGINS}
+"""The strings the tags were, until #158, for the message that says so."""
 
 _ORIGINS__BY_SLOT = {"time": _ORIGINS__TIME, "value": _ORIGINS__VALUE}
 """The vocabulary admitted by each slot of an `origin` pair. `find` dispatches on this."""
@@ -70,12 +73,12 @@ def error__slot__value(label, reason):
             [
                 "{!r} cannot serve as a VALUE origin: {}.".format(label, reason),
                 "",
-                'The value slot admits a number, "variable", or the name of a variable.',
+                "The value slot admits a number, VARIABLE, or the name of a variable.",
                 "",
                 "To take a value from a named instant, name the variable and let the"
                 " instant bound it in time:",
                 "",
-                '    origin=[{!r}, "variable"]'.format(label),
+                "    origin=[{!r}, VARIABLE]".format(label),
                 "",
                 "which reads the value this variable held there -- a time origin and a"
                 " value origin, rather than one label asked to be both.",
@@ -138,9 +141,9 @@ def previous(
 
 def _is_satisfiable__time(timeline, label):
     """Whether this time reference has anything to refer to in this timeline."""
-    if label == "anchor":
+    if label is ANCHOR:
         return wt_anchor.is_available(timeline)
-    if label == "last":
+    if label is LAST:
         return (timeline is not None) and (not timeline.empty)
     return True
 
@@ -163,14 +166,14 @@ def auto(timeline, origin, origin__defaults):
     anchorless timeline used to fall off the end of its own single-entry chain and land
     in absolute time, *before* the rows it was appended to.
 
-    Nothing is satisfiable only on an empty timeline, since `"last"` is satisfiable on any
+    Nothing is satisfiable only on an empty timeline, since `LAST` is satisfiable on any
     other, and there absolute zero is the one answer. It used to come with a warning.
     Since #85 every timeline starts from an empty one (`to_timeline`), so the warning
     would fire once per experiment and tell nobody anything (C7, item 3).
 
     The value default is taken from the same entry, so a caller states the pair it wants
-    once: `[["anchor", "variable"], ["last", "variable"]]` for `ramp`, whose start value
-    must be looked up; `[["anchor", None], ["last", None]]` for `update` and `anchor`,
+    once: `[[ANCHOR, VARIABLE], [LAST, VARIABLE]]` for `ramp`, whose start value
+    must be looked up; `[[ANCHOR, None], [LAST, None]]` for `update` and `anchor`,
     whose values are absolute.
 
     `origin__defaults` is **required**, and deliberately has no default of its own.
@@ -202,9 +205,9 @@ def auto(timeline, origin, origin__defaults):
     entry = None
     for od in origin__defaults:
         candidate = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(od))
-        if isinstance(candidate[0], str) and not _is_satisfiable__time(
-            timeline, candidate[0]
-        ):
+        if isinstance(
+            candidate[0], (str, wt_config.Origin)
+        ) and not _is_satisfiable__time(timeline, candidate[0]):
             continue
         entry = candidate
         break
@@ -228,7 +231,7 @@ def sanitize_origin(timeline, orig):
     o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(orig))
     if len(o) != 2:
         raise error__unsupported_option(orig)
-    if any(isinstance(e, str) for e in o) and timeline is None:
+    if any(isinstance(e, (str, wt_config.Origin)) for e in o) and timeline is None:
         raise error__timeline(orig)
     return o
 
@@ -244,7 +247,7 @@ def find(
 
     Often, `None` will be returned for a value as it would be presumptuous to assume the same value origin for all devices.
 
-    N.B. `"variable"` is **not** resolved here: it is a placeholder for whichever variable
+    N.B. `VARIABLE` is **not** resolved here: it is a placeholder for whichever variable
     is being placed, and `origin.update` substitutes the actual name before calling this
     function. It is listed among the reserved words because that is where users meet it.
 
@@ -256,30 +259,30 @@ def find(
     ------------------------------------------
 
     ======  ======================================================================
-    time    a number, "anchor", "last", "variable", a variable name, a context name
-    value   a number, "variable", a variable name
+    time    a number, ANCHOR, LAST, VARIABLE, a variable name, a context name
+    value   a number, VARIABLE, a variable name
     ======  ======================================================================
 
     The time slot asks *when*, and each of its options names an instant. The value slot
-    asks *how much, of what*, and only a variable names a quantity: `"anchor"`, `"last"`
+    asks *how much, of what*, and only a variable names a quantity: `ANCHOR`, `LAST`
     and a context name all resolve to whichever variable happens to hold the row at that
     instant, so they answer in the wrong units without saying so. They therefore raise
     here rather than resolving (KNOWN_ISSUES A7, settled by the maintainer 2026-09-18).
 
     Nothing is lost by the narrowing, because the intended reading is already sayable as
     a pair: "the value `coil__A` held at the end of molasses" is `["molasses",
-    "variable"]` -- the context bounds the lookup in time, the variable names what is
+    VARIABLE]` -- the context bounds the lookup in time, the variable names what is
     looked up.
 
     Example origins:
     - [0.0,0.0]
     - 0.0
-    - "anchor"
-    - ["anchor", 0.0]
-    - "last" (The row highest in time)
+    - ANCHOR
+    - [ANCHOR, 0.0]
+    - LAST (The row highest in time)
     - "AOM_shutter" (A variable name that is present in the dataframe)
     - "init" (A context name that is present in the dataframe)
-    - ["init", "variable"] (time from a context, value from each variable itself)
+    - ["init", VARIABLE] (time from a context, value from each variable itself)
     """
 
     # TODO:
@@ -331,15 +334,15 @@ def find(
         The two slots admit different vocabularies, because they ask different
         questions. The time slot asks *when*, and anything naming an instant answers it.
         The value slot asks *how much, of what*, and only a variable names a quantity:
-        `"anchor"`, `"last"` and context names each resolve to whichever variable
+        `ANCHOR`, `LAST` and context names each resolve to whichever variable
         happens to hold the row at that instant, so they answer in the wrong units
         without saying so.
         """
-        if (label in _ORIGINS) and (label not in _ORIGINS__BY_SLOT[slot]):
+        if isinstance(label, wt_config.Origin) and label not in _ORIGINS__BY_SLOT[slot]:
             raise error__slot__value(label, "it names an instant, not a quantity")
 
-        if label == "variable":
-            # `"variable"` is a placeholder, not a reference: it means "each variable
+        if label is VARIABLE:
+            # `VARIABLE` is a placeholder, not a reference: it means "each variable
             # relative to its own entry", which only has an answer once a variable has
             # been named. `origin.update`'s per-variable loop substitutes the actual
             # name before calling `find`, so `find` never sees it through the public
@@ -349,7 +352,7 @@ def find(
             raise ValueError(
                 "\n".join(
                     [
-                        '`origin="variable"` cannot be resolved by `origin.find`'
+                        "`origin=VARIABLE` cannot be resolved by `origin.find`"
                         " alone: it stands for whichever variable is being placed, and"
                         " `find` resolves one origin for the frame as a whole.",
                         "",
@@ -360,16 +363,16 @@ def find(
                 )
             )
 
-        if label == "anchor":
+        if label is ANCHOR:
             if not wt_anchor.is_available(timeline):
                 raise ValueError(
-                    "`origin='anchor'` was asked for, but this timeline holds no"
+                    "`origin=ANCHOR` was asked for, but this timeline holds no"
                     " anchor. Close the preceding stage with `anchor(duration)`, or"
-                    " name what to be relative to -- `origin='last'`, a context, a"
+                    " name what to be relative to -- `origin=LAST`, a context, a"
                     " variable, or a number."
                 )
             return ["variable", label__anchor]
-        elif label == "last":
+        elif label is LAST:
             return ["variable", None]
         elif _is_available__variable(label):
             return ["variable", label]
@@ -382,8 +385,23 @@ def find(
                 )
             anchor = wt_anchor.last(timeline, context=label)
             return ["variable", anchor] if (anchor is not None) else ["context", label]
+        elif label in _WORDS:
+            # One of the words the tags were: a name now, and nothing here has it.
+            raise ValueError(
+                "\n".join(
+                    [
+                        "`{0!r}` is taken as a name, and nothing in this timeline is"
+                        " called that.".format(label),
+                        "",
+                        "The reserved origin words are tags since #158, so that a"
+                        " string is always a name:",
+                        "",
+                        "    origin=tl.{0}".format(_WORDS[label]),
+                    ]
+                )
+            )
         elif slot == "value":
-            # Reached most often through `ramp`'s `"variable"` default, once
+            # Reached most often through `ramp`'s `VARIABLE` default, once
             # `find_every_origin` has substituted the actual name: the variable is being
             # ramped but has no history to start from. `error__unsupported_option` reads
             # as though the name were malformed, which sends the reader to the wrong
@@ -412,7 +430,7 @@ def find(
     # it (`sec:origin_full`).
     #
     # There is now one definition of that bound instead of two (B7/#114). The numeric
-    # branch used to build it from the *raw* time slot, so `[None, "variable"]` was
+    # branch used to build it from the *raw* time slot, so `[None, VARIABLE]` was
     # `None + float` -- a `TypeError` that made a value-only origin unusable through the
     # public API -- and the two branches disagreed about what "in effect" meant.
     time__relative = 0.0 if time__max__relative is None else time__max__relative
@@ -424,8 +442,10 @@ def find(
             raise error__unsupported_option(o)
         case float() | int():
             t = o[0]
-        case str(s):
-            t = _previous_vt(*([timeline, "time"] + _to_col_var(timeline, s, "time")))
+        case wt_config.Origin() | str():
+            t = _previous_vt(
+                *([timeline, "time"] + _to_col_var(timeline, o[0], "time"))
+            )
         case _:
             raise error__unsupported_option(o)
 
@@ -436,9 +456,9 @@ def find(
             raise error__unsupported_option(o)
         case float() | int():
             v = o[1]
-        case str(s):
+        case wt_config.Origin() | str():
             v = _previous_vt(
-                *([timeline, "value"] + _to_col_var(timeline, s, "value")),
+                *([timeline, "value"] + _to_col_var(timeline, o[1], "value")),
                 # `TIME_RESOLUTION` makes the bound inclusive of a row sitting exactly
                 # at the origin instant, against floating-point drift.
                 time__max=(0.0 if t is None else t)
@@ -498,7 +518,7 @@ def update(
 
             _t0, _v0 = find(
                 timeline__past,
-                origin=[var if e == "variable" else e for e in input],
+                origin=[var if e is VARIABLE else e for e in input],
                 time__max__relative=time__max__relative,
             )
             timeline__future = _update_future(

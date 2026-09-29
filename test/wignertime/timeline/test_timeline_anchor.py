@@ -115,5 +115,6 @@ def test_anchor_chains_on_the_previous_anchor_not_the_last_row():
 
     assert anchor_time(tl.to_timeline(tl.anchor(0.0), onto=timeline)) == 3.0
     assert (
-        anchor_time(tl.to_timeline(tl.anchor(0.0, origin="last"), onto=timeline)) == 5.0
+        anchor_time(tl.to_timeline(tl.anchor(0.0, origin=tl.LAST), onto=timeline))
+        == 5.0
     )

@@ -53,14 +53,14 @@ def tl_anchor():
         Munch(
             lockbox_MOT__V=[100e-3, 5],
             context="init",
-            origin=["last", "variable"],
-            origin2=["variable"],
+            origin=[tl.LAST, tl.VARIABLE],
+            origin2=[tl.VARIABLE],
         ),
         Munch(
             lockbox_MOT__V=[100e-3, 5],
             context="init",
-            origin=["last", "variable"],
-            origin2=["variable", "variable"],
+            origin=[tl.LAST, tl.VARIABLE],
+            origin2=[tl.VARIABLE, tl.VARIABLE],
         ),
     ],
 )
@@ -94,16 +94,18 @@ def test_ramp0(args):
         Munch(
             lockbox_MOT__V=5,
             duration=0.05,
-            origin=[0.05, "variable"],
-            origin2=["variable"],
+            origin=[0.05, tl.VARIABLE],
+            origin2=[tl.VARIABLE],
         ),
         Munch(
-            lockbox_MOT__V=[50e-3, 5], origin=["last", "variable"], origin2=["variable"]
+            lockbox_MOT__V=[50e-3, 5],
+            origin=[tl.LAST, tl.VARIABLE],
+            origin2=[tl.VARIABLE],
         ),
         Munch(
             lockbox_MOT__V=[50e-3, 4.8],
-            origin=["last", "variable"],
-            origin2=["variable", "variable"],
+            origin=[tl.LAST, tl.VARIABLE],
+            origin2=[tl.VARIABLE, tl.VARIABLE],
         ),
     ],
 )
@@ -302,7 +304,7 @@ def test_ramp_expand():
             tl.ramp(
                 lockbox_MOT__V=[1.0, 10.0],
                 origin="lockbox_MOT__V",
-                origin2=["variable"],
+                origin2=[tl.VARIABLE],
             ),
             lambda tline: tl.expand(tline, time_resolution=0.2),
         ),
@@ -326,7 +328,9 @@ def test_ramp_expand():
 def test_random_ramp():
     tl_ramp = tl.to_timeline(
         tl.stack(
-            tl.ramp(lockbox_MOT__V=11.0, duration=1.0, origin=["blah", "variable"]),
+            tl.ramp(
+                lockbox_MOT__V=11.0, duration=1.0, origin=["blah", tl.VARIABLE]
+            ),
             context="blah",
         ),
         onto=tl._populate_timeline(
@@ -703,7 +707,7 @@ def test_placed_from_the_others_end_the_same_ramp_is_kept():
     )
     first = tl.to_timeline(tl.ramp(coil_X__A=10.0, duration=0.2), onto=base)
     second = tl.to_timeline(
-        tl.ramp(coil_X__A=20.0, duration=0.2, origin="last"), onto=first
+        tl.ramp(coil_X__A=20.0, duration=0.2, origin=tl.LAST), onto=first
     )
     rows = second[second["variable"] == "coil_X__A"]
     assert rows["value"].iloc[-2] == 10.0  # it starts where the first one ended

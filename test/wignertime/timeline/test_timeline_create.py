@@ -411,11 +411,11 @@ expected2 = tl._populate_timeline(
     "input",
     [
         [
-            "variable",
+            tl.VARIABLE,
             expected,
         ],
         [
-            ["variable"],
+            [tl.VARIABLE],
             expected,
         ],
     ],
@@ -436,7 +436,7 @@ def test_createOriginVariable(input):
     "input",
     [
         [
-            ["variable", "variable"],
+            [tl.VARIABLE, tl.VARIABLE],
             expected2,
         ],
     ],

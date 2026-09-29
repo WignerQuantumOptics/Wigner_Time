@@ -31,6 +31,15 @@ Mark a user-written function as a deferred timeline function, so that `stack` wi
 accept it as a constituent. See `stack`.
 """
 
+ANCHOR = wt_config.ANCHOR
+"""An origin at the most recent anchor. See `config.Origin`."""
+
+LAST = wt_config.LAST
+"""An origin at the latest entry of the timeline. See `config.Origin`."""
+
+VARIABLE = wt_config.VARIABLE
+"""An origin at each variable's own most recent entry, in time or value. See `config.Origin`."""
+
 noop = wt_util.mark_deferred(lambda timeline, **kwargs: timeline)
 """
 A `stack` constituent that contributes nothing, for the branch of a conditional that
@@ -150,37 +159,6 @@ def _populate_timeline(
             )
         )
 
-    # `anchor`, `last` and `variable` are reserved as origin labels
-    # (`internal.origin._ORIGINS`), and `origin.find` tests them before it looks for a
-    # variable or a context of that name -- so a name colliding with one is silently
-    # unreachable as an origin (A9). Refused where the name is written rather than where
-    # it fails to resolve, because by then the timeline no longer records that anything
-    # else was meant.
-    names__shadowing = {
-        column: sorted(set(df_rows[column]) & set(wt_origin._ORIGINS))
-        for column in ("variable", "context")
-    }
-    if any(names__shadowing.values()):
-        raise ValueError(
-            "\n".join(
-                [
-                    "Reserved origin label used as a name: {}.".format(
-                        ", ".join(
-                            "{} {}".format(column, names)
-                            for column, names in names__shadowing.items()
-                            if names
-                        )
-                    ),
-                    "",
-                    "{} are reserved for `origin`, and are resolved before any variable"
-                    " or context of the same name -- so such a name could never be"
-                    " referred to.".format(", ".join(map(repr, wt_origin._ORIGINS))),
-                    "",
-                    "Rename it: `molasses_end` rather than `last`.",
-                ]
-            )
-        )
-
     df_rows = df_rows.astype(schema)
     new = wt_origin.update(df_rows, timeline, origin=origin)
 
@@ -292,7 +270,7 @@ def _refuse_timeline(name, vtvc_dict):
 def _refuse_value_origin(origin):
     """
     A ramp starts where its variable is (#142), so the value slot of its `origin` has
-    nothing to set: only `INFER`, `None` or `"variable"`, which all say the same. A value
+    nothing to set: only `INFER`, `None` or `VARIABLE`, which all say the same. A value
     written there -- a number, or another variable's name -- is refused rather than
     added to the start, which is what made a stated `1.0` come out as `8.0` (A8).
     """
@@ -301,7 +279,7 @@ def _refuse_value_origin(origin):
     value = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))[1]
     if value is None or value is wt_config.ORIGIN__INFER:
         return
-    if isinstance(value, str) and value == "variable":
+    if value is wt_config.VARIABLE:
         return
     raise ValueError(
         "\n".join(
@@ -353,7 +331,7 @@ def anchor(
 
     To mark the end of everything written so far instead, ask for it explicitly:
 
-        anchor(0.0, origin="last")     # here, at the last entry in the timeline
+        anchor(0.0, origin=LAST)       # here, at the last entry in the timeline
         anchor(0.0)                    # here, at the most recent anchor
 
     The two coincide until some stage writes past its own anchor, and then they do not:
@@ -408,7 +386,7 @@ def ramp(
     t2=None,
     context=wt_config.CONTEXT__INFER,
     origin=wt_config.ORIGIN__INFER,
-    origin2=["variable", 0.0],
+    origin2=[wt_config.VARIABLE, 0.0],
     function=wt_ramp_function.tanh,
     **vtvc_dict,
 ) -> Callable:

@@ -196,16 +196,22 @@ explicit times.
 
 | slot | admits |
 | --- | --- |
-| time | a number, `"anchor"`, `"last"`, `"variable"`, a variable name, a context name |
-| value | a number, `"variable"`, a variable name |
+| time | a number, `ANCHOR`, `LAST`, `VARIABLE`, a variable name, a context name |
+| value | a number, `VARIABLE`, a variable name (and for `ramp` only `VARIABLE`, #142) |
+
+**The rules are tags, not strings** (#158, 2026-09-29): `config.Origin`, exported as `tl.ANCHOR`,
+`tl.LAST` and `tl.VARIABLE`, recognised with `is` and printing as their bare names, like `INFER`. So a
+string in an origin is always a *name* — a variable's first, then a context's — and nothing needs
+reserving: A9's refusal of contexts and variables named `anchor`, `last` or `variable` is gone. One of
+those words written as a string, where nothing in the timeline has that name, raises with a message
+naming the tag.
 
 The time slot asks *when*; the value slot asks *how much, of what*, and only a variable names a
-quantity — `"anchor"`, `"last"` and a context name each resolve to whichever variable happens to hold
+quantity — `ANCHOR`, `LAST` and a context name each resolve to whichever variable happens to hold
 the row at that instant, so they answered in the wrong units. They now raise. Nothing is lost: "the
-value `coil__A` held at the end of molasses" is `["molasses", "variable"]`. The `fig:origin` caption
-licensed the wider reading and was amended; **the figure image still draws the old undivided tree and
-needs redrawing.** `_ORIGINS` is the single list of reserved words, and a variable or context named
-after one is refused where it is written.
+value `coil__A` held at the end of molasses" is `["molasses", VARIABLE]`. The `fig:origin` caption
+licensed the wider reading and was amended; the figure is generated
+(`docs/paper/graphic/origin_resolution_figure.py`) and must be rerun for the tags in P6.
 
 **`None` in a slot means "defer to the default for this slot"; `0.0` means "absolute".** Do not
 conflate them — that conflation was A6. `config.ORIGIN__DEFAULTS` (for `update`/`anchor`) and
@@ -244,7 +250,7 @@ Three properties of the mechanism that are easy to break:
   written: the 2-D form `v=[[t1, v1], [t2, v2]]` is refused, and so is anything but `"variable"` in
   the value slot of its `origin`. A start that differs from the current value is a step hidden in a
   ramp, and a wanted jump is an `update` before the ramp, where it shows. This is why
-  `config.ORIGIN__DEFAULTS__RAMP` (`[["anchor", "variable"], ["last", "variable"]]`) carries a value
+  `config.ORIGIN__DEFAULTS__RAMP` (`[[ANCHOR, VARIABLE], [LAST, VARIABLE]]`) carries a value
   slot at all, and it is the only thing that slot can hold; `update` needs none since its values are
   absolute. An explicitly given origin *completes* rather than replaces the default, so
   `ramp(..., origin="stage1")` means what it reads as — time from `stage1`, value from the variable
@@ -369,7 +375,7 @@ not re-report its section F. Its items were verified against the live repo on 20
 and the verification results are recorded in the entries themselves.
 
 The trap that used to lead this section, **A4**, was fixed on 2026-09-18: a `ramp` onto an
-anchorless timeline no longer lands at absolute time, because `ramp`'s chain now has a `"last"` step
+anchorless timeline no longer lands at absolute time, because `ramp`'s chain now has a `LAST` step
 and a terminal `0.0`. **A8 and B1 are moot since 2026-09-29**: both were about a start value stated
 in the 2-D form, which #142's rule removed — every ramp now starts from wherever its variable sits,
 `ramp(v=target, t=..., duration=...)`, and a wanted jump is an `update` before it. **A3 is settled**

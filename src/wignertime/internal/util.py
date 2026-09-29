@@ -80,7 +80,7 @@ def ensure_pair(l: list):
     Always a **new** list, never the argument. This is the package's single
     normalisation point for origins, so returning the caller's own object here was
     what made a mutable default argument dangerous anywhere else (D3/#117): a
-    signature default such as `ramp`'s `origin2=["variable", 0.0]` is one object
+    signature default such as `ramp`'s `origin2=[VARIABLE, 0.0]` is one object
     shared by every call, and handing it onwards unwrapped meant any later in-place
     write would have rewritten the default for the life of the process. Nothing wrote
     to it, so nothing had gone wrong -- but the asymmetry was real, since the

@@ -73,7 +73,7 @@ def test_ensure_pair_never_returns_its_argument(input):
     """
     The package's single normalisation point for origins must hand back a new list.
 
-    A signature default like `ramp`'s `origin2=["variable", 0.0]` is one object shared
+    A signature default like `ramp`'s `origin2=[tl.VARIABLE, 0.0]` is one object shared
     by every call in the process. That is safe only while nothing downstream can write
     through it, and `ensure_pair` is the one place everything downstream comes from.
     Until 2026-09-22 the two-element case returned the argument itself while the
