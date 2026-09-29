@@ -69,6 +69,29 @@ def _draw_context(axis: mpa.Axes, info__context, alpha=0.1, cmap__context="magma
     return axis
 
 
+MARGIN = 0.05
+"""The width of each margin, as a fraction of the run's duration."""
+
+
+def _into_margins(tline, fraction=MARGIN):
+    """
+    The timeline with its rows at −∞ drawn in a margin before the run, and those at +∞
+    in one after it (#154), and the margin's width. The special contexts used to be drawn
+    as hard-coded 0.5 s bands over the start of the first stage and the end of the last,
+    inside the run, where neither happens.
+    """
+    times = tline["time"].to_numpy(dtype=float)
+    finite = np.isfinite(times)
+    start, end = (times[finite].min(), times[finite].max()) if finite.any() else (0, 0)
+    margin = fraction * (end - start) or 1.0
+    if finite.all():
+        return tline, margin
+    placed = np.where(
+        times == -np.inf, start - margin, np.where(times == np.inf, end + margin, times)
+    )
+    return tline.assign(time=placed), margin
+
+
 def quantities(
     timeline: wt_frame.CLASS,
     variables=None,
@@ -94,20 +117,22 @@ def quantities(
     # and not stably, so a value superseded at the same instant could be drawn as the one
     # in force.
     tline = wt_frame.sort(tline, "time")
+    tline, margin = _into_margins(tline)
 
     # =====================================================================
     # ADwin
     # =====================================================================
-    # To make the special contexts (where there is no time) visible
+    # To make the special contexts (where there is no time) visible, each spans its
+    # margin: before the run for those whose sentinel is negative, after it otherwise.
     if do_context:
         info__context = tl.context_info(tline)
-        for label in adwin.CONTEXTS__SPECIAL:
+        for label, sentinel in adwin.CONTEXTS__SPECIAL.items():
             if label in info__context.keys():
                 d = deepcopy(info__context[label]["times"])
-                if "Init" in label:
-                    info__context[label]["times"] = [d[0], d[1] + 0.5]
-                if "Finish" in label:
-                    info__context[label]["times"] = [d[0] - 0.5, d[1]]
+                if sentinel < 0:
+                    info__context[label]["times"] = [d[0], d[1] + margin]
+                else:
+                    info__context[label]["times"] = [d[0] - margin, d[1]]
     # =====================================================================
 
     if variables is None:

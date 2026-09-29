@@ -10,6 +10,8 @@ This is important for inferring what the user means when they want to add rows t
 
 from copy import deepcopy
 
+import numpy as np
+
 from wignertime import config as wt_config
 from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import util as wt_util
@@ -139,12 +141,68 @@ def previous(
     return wt_frame.row_from_max_column(tl__filtered)
 
 
+def instants(timeline):
+    """
+    The rows of `timeline` that sit at an instant: those at a finite time.
+
+    A row at −∞ is before the run and one at +∞ after it (#154). Neither is an instant
+    anything can be placed relative to, or inherit a context from. So the time slot of an
+    origin, the default chain's `LAST`, and context inheritance all look here only. A
+    value lookup does not: it is bounded by a finite instant, so it sees what was set
+    before the run, and never what is set after it.
+    """
+    if timeline is None:
+        return None
+    return timeline[np.isfinite(timeline["time"].to_numpy(dtype=float))]
+
+
+def _refuse__no_instant(timeline, at_instants, column, name, label):
+    """
+    A time reference whose rows are all at ±∞ names no instant (#154), and says so rather
+    than reporting an empty timeline or a name that is not there. Anchors need no check:
+    one at ±∞ is refused where it is written.
+    """
+
+    def present(tline):
+        if name is None:
+            return not tline.empty
+        return (tline[column] == name).any()
+
+    if (
+        column == "variable"
+        and name is not None
+        and name.startswith(wt_config.LABEL__ANCHOR)
+    ):
+        return
+    if present(timeline) and not present(at_instants):
+        raise ValueError(
+            "\n".join(
+                [
+                    "`origin={!r}` names no instant: {} at ±∞, before or after the"
+                    " run (#154), and neither is an instant to place anything relative"
+                    " to.".format(
+                        label,
+                        (
+                            "every row of this timeline is"
+                            if name is None
+                            else "every row of {!r} is".format(name)
+                        ),
+                    ),
+                    "",
+                    "Refer to a stage of the run, or give a number: on a timeline with"
+                    " nothing at an instant yet, the first rows are placed in absolute"
+                    " time by default.",
+                ]
+            )
+        )
+
+
 def _is_satisfiable__time(timeline, label):
     """Whether this time reference has anything to refer to in this timeline."""
     if label is ANCHOR:
         return wt_anchor.is_available(timeline)
     if label is LAST:
-        return (timeline is not None) and (not timeline.empty)
+        return (timeline is not None) and (not instants(timeline).empty)
     return True
 
 
@@ -166,10 +224,13 @@ def auto(timeline, origin, origin__defaults):
     anchorless timeline used to fall off the end of its own single-entry chain and land
     in absolute time, *before* the rows it was appended to.
 
-    Nothing is satisfiable only on an empty timeline, since `LAST` is satisfiable on any
-    other, and there absolute zero is the one answer. It used to come with a warning.
-    Since #85 every timeline starts from an empty one (`to_timeline`), so the warning
-    would fire once per experiment and tell nobody anything (C7, item 3).
+    Nothing is satisfiable only on a timeline with no row at an instant (`instants`),
+    since `LAST` is satisfiable on any other, and there absolute zero is the one answer:
+    an empty timeline, or one holding only the state before the run, at −∞ (#154). That
+    is what places the first timed stage, so it needs no `origin=0.0` of its own. It used
+    to come with a warning. Since #85 every timeline starts from an empty one
+    (`to_timeline`), so the warning would fire once per experiment and tell nobody
+    anything (C7, item 3).
 
     The value default is taken from the same entry, so a caller states the pair it wants
     once: `[[ANCHOR, VARIABLE], [LAST, VARIABLE]]` for `ramp`, whose start value
@@ -443,9 +504,12 @@ def find(
         case float() | int():
             t = o[0]
         case wt_config.Origin() | str():
-            t = _previous_vt(
-                *([timeline, "time"] + _to_col_var(timeline, o[0], "time"))
-            )
+            # The time slot asks *when*, and only a row at an instant answers: one at
+            # ±∞ is before or after the run (#154).
+            column, name = _to_col_var(timeline, o[0], "time")
+            at_instants = instants(timeline)
+            _refuse__no_instant(timeline, at_instants, column, name, o[0])
+            t = _previous_vt(at_instants, "time", column, name)
         case _:
             raise error__unsupported_option(o)
 

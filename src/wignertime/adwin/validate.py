@@ -81,14 +81,25 @@ def ascending(output):
 
 def special_contexts(timeline, special_contexts=wt_adwin.CONTEXTS__SPECIAL):
     """
-    Ensures that there isn't more than one entry for a given variable inside special contexts. This is necessary as there is no concept of 'time' inside the special contexts defined for ADwin.
+    Ensures that a variable has at most one entry **before the run**, across
+    `ADwin_LowInit` and `ADwin_Init` together, and at most one after it, in
+    `ADwin_Finish`. There is no concept of 'time' inside the special contexts.
+
+    The contexts before the run are counted together (#154, (b1), settled by the
+    maintainer 2026-09-29): both are at −∞, so nothing in the timeline orders them, and a
+    value lookup would otherwise see two candidates there. They used to be counted per
+    context. What is lost is changing a variable between `lowinit:` and `init:`, which
+    nothing did. A context's side is the sign of its sentinel.
 
     Similarly, the time values are adjusted to avoid automatic removal later on.
     """
     df = timeline[timeline["context"].isin(special_contexts)]
-    df_N = df.groupby(["variable", "context"])["value"].count()
-    duplicates = df_N[df_N > 1].reset_index()
-    duplicates.columns = ["variable", "context", "variable_occurences"]
+    side = df["context"].map(
+        lambda c: "before the run" if special_contexts[c] < 0 else "after the run"
+    )
+    df_N = df.assign(side=side).groupby(["variable", "side"])["context"].agg(list)
+    duplicates = df_N[df_N.map(len) > 1].reset_index()
+    duplicates.columns = ["variable", "side", "contexts"]
 
     # Replace time values with those specified in wt_adwin.CONTEXTS__SPECIAL
     timeline = wt_frame.replace_column__filtered(timeline, wt_adwin.CONTEXTS__SPECIAL)
@@ -97,8 +108,10 @@ def special_contexts(timeline, special_contexts=wt_adwin.CONTEXTS__SPECIAL):
         return timeline
     else:
         raise ValueError(
-            "The same variable has more than one value inside a special context. This will not work as expected on export to ADwin as these special contexts have no concept of time. For details,  see the duplicate information: "
-            + str(duplicates)
+            "The same variable has more than one value before the run (ADwin_LowInit and"
+            " ADwin_Init together) or after it (ADwin_Finish). These special contexts have"
+            " no concept of time, so nothing orders the values. For details, see the"
+            " duplicate information:\n" + str(duplicates)
         )
 
 

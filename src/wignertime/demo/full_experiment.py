@@ -7,6 +7,8 @@ An example implementation of a real experiment, using 'Wigner Time' timelines.
 As well as providing conveniences, the functions can be used to document the intention and meaning of each stage.
 """
 
+import math
+
 from munch import Munch
 
 from wignertime.adwin import connection as adcon
@@ -139,7 +141,7 @@ def default_state(MOT_ON=True, **kwargs):
 
 def init(MOT_ON=False, **kwargs):
     return default_state(
-        time=-1e-6,  # time is simply a placeholder here as 'ADwin_LowInit' is a 'special' context, that will be treated differently by the ADwin system.
+        time=-math.inf,  # before the run: no instant, and 'ADwin_LowInit' is a 'special' context that the ADwin system plays before its event loop (#154)
         context="ADwin_LowInit",
         MOT_ON=MOT_ON,
         **kwargs,
@@ -171,8 +173,7 @@ def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
             context="finalRamps",
         ),
         default_state(
-            time=duration
-            + 1e-6,  # time is just fictive here, the important thing is the context
+            time=math.inf,  # after the run: no instant, and 'ADwin_Finish' is played when it ends, or is stopped (#154)
             context="ADwin_Finish",
             MOT_ON=MOT_ON,
             **kwargs,
@@ -190,10 +191,8 @@ def MOT(duration=15, lA=-1.0, uA=-0.98):
             shutter_repump=1,
             coil_MOTlower__A=lA,
             coil_MOTupper__A=uA,
-            #
-            origin=0.0,
         ),
-        tl.anchor(duration, origin=0.0),
+        tl.anchor(duration),
         context="MOT",
     )
 
@@ -347,7 +346,7 @@ def trigger_camera(t, exposure, context, origin=None):
     """
     Opens the camera for `exposure`, starting `t` after `origin`.
 
-    `context` is required rather than inherited: a trigger placed into a finished timeline would otherwise adopt the context of its last row, which is `ADwin_Finish`.
+    `context` is required rather than inherited: a trigger placed into a finished timeline would otherwise adopt the context of its last row at an instant, `finalRamps`, and a camera trigger is not part of the final ramps.
 
     The camera is not part of the default state, so the timeline it is placed into should set it initially and finally, e.g. `init(trigger_camera=0)` and `finish(trigger_camera=0)`.
     """

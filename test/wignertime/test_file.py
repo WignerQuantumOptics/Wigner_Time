@@ -121,3 +121,18 @@ def test_save_load__nulls_survive_the_round_trip(suffix, timeline__demo__functio
 
     assert kinds(back["function"]) == kinds(timeline__demo__function["function"])
     assert not any(v is None for v in back["function"])
+
+
+@pytest.mark.parametrize("suffix", [".json", ".csv", ".pickle", ".parquet"])
+def test_the_state_before_and_after_the_run_survives_a_round_trip(suffix):
+    """
+    #154: `init` is at -inf and the final state at +inf. JSON has no infinity, and pandas
+    wrote both as null, which came back as nan: on neither side of the run.
+    """
+    if suffix == ".parquet":
+        pytest.importorskip("pyarrow")
+    timeline = tl.to_timeline(tl.cascade(demo.init, demo.MOT, demo.finish))
+    back = file.load(file.save(timeline, "t" + suffix))
+    assert {float("-inf"), float("inf")} <= set(timeline["time"])
+    # JSON and CSV round the finite times in their last digits, which is not at issue.
+    assert list(back["time"]) == pytest.approx(list(timeline["time"]), rel=1e-12)

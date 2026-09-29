@@ -4,6 +4,13 @@
 roadmap (C7 in `KNOWN_ISSUES.md`, and the roadmap comment on #85). Used by
 `../../test_reference.py`; the cases themselves are defined in `../../reference_cases.py`.
 
+**The two tables were regenerated once, on 2026-09-29, for #154 (P4):** the rows in
+`ADwin_LowInit` moved from their fictional −1 µs to −∞, and those in `ADwin_Finish` from 1 µs
+after the final ramps to +∞. That was checked case by case before regenerating. Every other
+row, and every other column of those rows, is unchanged. `MOT` lost its two `origin=0.0`
+(in the demo and in the lab), since the first timed stage is now placed at absolute zero by
+default. `arrays.json` did not change: the arrays are identical at 5, 2 and 1 µs.
+
 | file | what it is |
 | --- | --- |
 | `demo.parquet` | `timeline__demo` (99 rows), and the same with the camera trigger of `sec:interweaving` placed at molasses |

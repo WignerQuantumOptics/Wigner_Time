@@ -1196,3 +1196,78 @@ def test_a_ramp_keeps_its_own_resolution_through_conversion():
     analogue, _ = adwin.convert(timeline, conns, devs, 5e-6)
     cycles = [cycle for cycle, _, _, _ in analogue]
     assert cycles == list(range(0, 201, 20))
+
+
+###############################################################################
+#   #154 -- rows before the run at -inf, after it at +inf
+###############################################################################
+
+
+def _before_and_after(before, after):
+    import math
+
+    conns = adcon.new(["shutter_MOT", 1, 11], ["AOM_MOT", 1, 1])
+    return (
+        tl.to_timeline(
+            tl.stack(
+                *[
+                    tl.update(time=-math.inf, context=context, **values)
+                    for context, values in before
+                ],
+                tl.update(shutter_MOT=1, time=0.0, context="run"),
+                tl.anchor(1.0),
+                tl.update(time=math.inf, context="ADwin_Finish", **after),
+            )
+        ),
+        conns,
+        device.new(),
+    )
+
+
+def test_the_state_before_and_after_the_run_converts_at_the_sentinels():
+    """
+    Cycles are computed for finite rows only: ±inf used to be cast to an integer, with a
+    numpy warning, before the sentinels overwrote it.
+    """
+    import warnings
+
+    timeline, conns, devs = _before_and_after(
+        [("ADwin_LowInit", dict(shutter_MOT=0, AOM_MOT=1))], dict(shutter_MOT=0)
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        _, digital = adwin.convert(timeline, conns, devs, 5e-6)
+    assert [row[0] for row in digital] == [-2, -2, 0, 2**31 - 1]
+
+
+def test_a_row_at_infinity_outside_the_special_contexts_is_refused():
+    import math
+
+    timeline, conns, devs = _digital_only()
+    timeline = tl.to_timeline(
+        tl.update(AOM_MOT=0, time=math.inf, context="run"), onto=timeline
+    )
+    with pytest.raises(ValueError, match="must be at an instant of the run"):
+        adwin.convert(timeline, conns, devs, 5e-6)
+
+
+def test_a_variable_set_in_both_lowinit_and_init_is_refused():
+    """
+    (b1): both are at -inf, so nothing orders them. They used to be counted per
+    context, so this was accepted, and the `init:` value was in force.
+    """
+    timeline, conns, devs = _before_and_after(
+        [("ADwin_LowInit", dict(shutter_MOT=0)), ("ADwin_Init", dict(shutter_MOT=1))],
+        dict(shutter_MOT=0),
+    )
+    with pytest.raises(ValueError, match="more than one value before the run"):
+        adwin.convert(timeline, conns, devs, 5e-6)
+
+
+def test_lowinit_and_init_may_set_different_variables():
+    timeline, conns, devs = _before_and_after(
+        [("ADwin_LowInit", dict(shutter_MOT=0)), ("ADwin_Init", dict(AOM_MOT=1))],
+        dict(shutter_MOT=0),
+    )
+    _, digital = adwin.convert(timeline, conns, devs, 5e-6)
+    assert [row[0] for row in digital] == [-2, -1, 0, 2**31 - 1]

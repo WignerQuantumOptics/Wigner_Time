@@ -41,3 +41,13 @@ def test_displaying_leaves_the_timeline_alone():
     before = timeline.copy()
     adwin_display.quantities(timeline, do_show=False)
     frame.assert_equal(timeline, before)
+
+
+def test_rows_before_and_after_the_run_are_drawn_in_its_margins():
+    """#154: the special contexts used to be 0.5 s bands inside the run."""
+    placed, margin = adwin_display._into_margins(ex.timeline__demo)
+    times = ex.timeline__demo["time"]
+    start, end = times[times.abs() != float("inf")].agg(["min", "max"])
+    assert margin == pytest.approx(0.05 * (end - start))
+    assert set(placed.loc[times == -float("inf"), "time"]) == {start - margin}
+    assert set(placed.loc[times == float("inf"), "time"]) == {end + margin}

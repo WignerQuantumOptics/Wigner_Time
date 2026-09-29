@@ -218,12 +218,17 @@ def update(
     time, write `origin=0.0`. On an empty timeline there is nothing to be relative to,
     and the origin is absolute zero.
 
+    `time=-math.inf` is before the run and `time=math.inf` after it (#154): the initial
+    and the final state, in the contexts a backend reserves for them (`ADwin_LowInit`,
+    `ADwin_Finish`). Neither is an instant, so nothing is placed relative to them, and
+    until something is written at an instant the origin is absolute zero.
+
     `context` defaults to `wt_config.INFER` too: an unstated row inherits the latest
-    context of the timeline it joins. `None` means the same. Every row has a context
-    (#156): on an empty timeline there is nothing to inherit, so the first rows must name
-    theirs, and `context=""` is refused. Beware of extending a timeline past a reserved
-    context such as `ADwin_Finish` without naming one, since that is what would be
-    inherited.
+    context of the timeline it joins, from a row at an instant. `None` means the same.
+    Every row has a context (#156): on an empty timeline, or one holding only the state
+    before the run, there is nothing to inherit, so the rows must name theirs, and
+    `context=""` is refused. A row added to a finished timeline inherits from the last
+    stage of the run, not from the final state at +∞.
     """
     _refuse_timeline("update", vtvc_dict)
     inherit.resolve(context)  # refused where it is written, not where it is applied
@@ -263,6 +268,24 @@ def _refuse_timeline(name, vtvc_dict):
                     "",
                     "    to_timeline({}(...), onto=timeline)".format(name),
                 ]
+            )
+        )
+
+
+def _refuse_infinite_ends(**times):
+    """
+    A ramp runs between two instants, and ±∞ is before or after the run (#154). Refused
+    where written: applied, a start at −∞ failed on its value lookup instead, as though
+    the variable had never been set.
+    """
+    infinite = sorted(
+        k for k, t in times.items() if t is not None and not np.isfinite(t)
+    )
+    if infinite:
+        raise ValueError(
+            "A ramp runs between two instants, and ±∞ is before or after the run, not an"
+            " instant (#154): {}.".format(
+                ", ".join("{}={}".format(k, times[k]) for k in infinite)
             )
         )
 
@@ -357,6 +380,14 @@ def anchor(
                 ]
             )
         )
+    if not np.isfinite(time):
+        # An anchor marks an instant, and ±∞ is none: it is before or after the run
+        # (#154), where nothing can be placed relative to anything.
+        raise ValueError(
+            "`anchor` was given `time={}`. An anchor marks an instant to place stages"
+            " relative to, and ±∞ is before or after the run, not an instant"
+            " (#154).".format(time)
+        )
 
     inherit.resolve(context)  # refused where it is written, not where it is applied
 
@@ -447,6 +478,7 @@ def ramp(
     _refuse_timeline("ramp", vtvc_dict)
     inherit.resolve(context)  # refused where it is written, not where it is applied
     _refuse_value_origin(origin)
+    _refuse_infinite_ends(time=time, time2=time2, duration=duration)
 
     return wt_util.stage(
         _ramp,
@@ -545,6 +577,17 @@ def _ramp(
     # whenever the forms were mixed in one call (B1/#108); with one form there is nothing
     # to mix, and the alignment below only states what holds by construction.
     new2__aligned = wt_frame.align_to(new2, new1["variable"])
+
+    # A ramp runs between two instants, and ±∞ is before or after the run (#154). Unlike
+    # the degeneracies below, which are about the interval, this is about the ends.
+    ends = np.concatenate([new1["time"].to_numpy(float), new2["time"].to_numpy(float)])
+    if not np.isfinite(ends).all():
+        raise ValueError(
+            "A ramp runs between two instants, and ±∞ is before or after the run, not an"
+            " instant (#154). Check `time`, `time2` and `duration`: {}.".format(
+                ", ".join(sorted(set(new1["variable"])))
+            )
+        )
 
     # A ramp has two degeneracies and they are not the same thing. The mask here used to
     # conflate them, compute cleaned frames, discard them, and then either drop the whole

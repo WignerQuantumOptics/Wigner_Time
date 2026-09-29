@@ -204,10 +204,26 @@ def add_cycle(timeline, cycle_period, special_contexts=None):
             )
         )
 
-    # Calculate cycles and handle special contexts
-    timeline["cycle"] = np.round(timeline["time"].values / cycle_period).astype(
-        np.int64
-    )
+    # Rows before the run are at −∞ and rows after it at +∞ (#154), in the special
+    # contexts, whose cycles are the sentinels below. Anywhere else a time that is not
+    # finite has no cycle, and casting it gave an arbitrary integer with a numpy warning.
+    times = timeline["time"].to_numpy(dtype=float)
+    mask__finite = np.isfinite(times)
+    mask__special = timeline["context"].isin(list(special_contexts)).to_numpy()
+    if (~mask__finite & ~mask__special).any():
+        raise ValueError(
+            "Rows outside the special contexts {} must be at an instant of the run; ±∞"
+            " is before or after it (#154). Offending rows:\n{}".format(
+                list(special_contexts),
+                timeline.loc[
+                    ~mask__finite & ~mask__special, ["variable", "time", "context"]
+                ],
+            )
+        )
+
+    cycles = np.zeros(len(times), dtype=np.int64)
+    cycles[mask__finite] = np.round(times[mask__finite] / cycle_period)
+    timeline["cycle"] = cycles
 
     # Apply special context cycles
     timeline = wt_frame.replace_column__filtered(

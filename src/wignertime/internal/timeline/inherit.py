@@ -41,7 +41,8 @@ def require(rows):
     Refuse rows that, after inheritance, still have no context (#156).
 
     That happens only where there was nothing to inherit from: the first rows of a
-    timeline, written by `create` or onto an empty table. Refused here rather than left
+    timeline, or the first at an instant, since the rows at ±∞ pass no context on
+    (#154). Refused here rather than left
     as the empty string, because a row without a context does none of the three things a
     context is for (`sec:context`), and the one silent failure recorded in this area,
     #145, produced exactly such rows: the conversion played them at cycle 0 rather than
@@ -58,7 +59,8 @@ def require(rows):
                     "",
                     "A context is stated or inherited from the timeline the rows join,"
                     " and here there is nothing to inherit it from: these are the first"
-                    ' rows. Name it -- `context="MOT"` for the call, or'
+                    " rows, or the first at an instant (rows at ±∞, before or after the"
+                    ' run, pass none on). Name it -- `context="MOT"` for the call, or'
                     " `[time, value, context]` for one variable.",
                 ]
             )
@@ -95,16 +97,25 @@ def context(
         df = deepcopy(timeline)
 
     if (timeline__previous is not None) and (context is None):
+        # Inherited from a row at an instant only. The state before the run, at −∞, and
+        # the state after it, at +∞, are in contexts a backend may reserve, and inheriting
+        # one put rows written after `init` into the initial state, or rows added to a
+        # finished timeline into the final one, without a word (#154).
+        timeline__previous = wt_origin.instants(timeline__previous)
+        if time__max == "min":
+            time__max = timeline["time"].min()
+        if time__max is not None:
+            timeline__previous = timeline__previous[
+                timeline__previous["time"] <= time__max
+            ]
         if timeline__previous.empty:
             # Nothing to inherit from. `require` says so, naming the context -- asking
             # `origin.previous` instead raised a message about the *origin*, whose advice
             # (`origin=0.0`) gave the same error again (#145).
             return df
-        if time__max == "min":
-            time__max = timeline["time"].min()
 
         df.loc[_mask__no_context(timeline), "context"] = wt_origin.previous(
-            timeline__previous, time__max=time__max
+            timeline__previous
         )["context"]
         return df
 

@@ -11,9 +11,33 @@ from typing import Any
 
 import inspect
 import importlib.util
+import math
 import re
 
 from wignertime.internal import dataframe as wt_frame
+
+
+def _times__to_json(df: wt_frame.CLASS) -> wt_frame.CLASS:
+    """
+    JSON has no infinity, and pandas writes one as `null`, which reads back as `nan`. So
+    the state before the run, at −∞, and the state after it, at +∞ (#154), would come
+    back at no time at all, on neither side. They are written as the strings `"-inf"`
+    and `"inf"` instead, which is still standard JSON, and `load` reads them back.
+    """
+    if "time" not in df.columns or not any(
+        isinstance(t, float) and math.isinf(t) for t in df["time"]
+    ):
+        return df
+    return df.assign(
+        time=[
+            (
+                ("inf" if t > 0 else "-inf")
+                if isinstance(t, float) and math.isinf(t)
+                else t
+            )
+            for t in df["time"]
+        ]
+    )
 
 
 def _available_writers() -> dict[str, Callable[[wt_frame.CLASS, Path], None]]:
@@ -21,7 +45,7 @@ def _available_writers() -> dict[str, Callable[[wt_frame.CLASS, Path], None]]:
         ".pkl": lambda df, p: df.to_pickle(p),
         ".pickle": lambda df, p: df.to_pickle(p),
         ".csv": lambda df, p: df.to_csv(p, index=False),
-        ".json": lambda df, p: df.to_json(p, orient="records"),
+        ".json": lambda df, p: _times__to_json(df).to_json(p, orient="records"),
     }
 
     if _has_module("pyarrow") or _has_module("fastparquet"):
@@ -224,6 +248,8 @@ def load(path: str | Path) -> wt_frame.CLASS:
 
         case ".json":
             df = wt_frame.read_json(path)
+            if "time" in df.columns and df["time"].dtype == object:
+                df["time"] = df["time"].astype(float)  # "-inf" and "inf" (#154)
 
         case ".parquet":
             if not (_has_module("pyarrow") or _has_module("fastparquet")):

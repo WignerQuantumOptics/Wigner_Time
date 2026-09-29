@@ -292,9 +292,21 @@ basis of interweaving; and a backend may reserve particular names (`ADwin_LowIni
 
 Contexts are **inherited, not repeated** — `update`, `ramp` and `anchor` adopt the latest context of
 the timeline they extend, and any `context=` given to `stack` is forwarded to all its constituents — as a
-default, so one that states its own context keeps it, and through nested stacks too. The
-corresponding trap, flagged in `timeline.update`'s docstring: rows appended after a stage in a reserved
-context silently inherit that reserved context, so name the context explicitly when extending past one.
+default, so one that states its own context keeps it, and through nested stacks too. **A context is
+inherited from a row at an instant only** (#154, 2026-09-29): the rows before the run sit at −∞ and
+those after it at +∞, and pass none on. That closed the trap in which rows written after `init`
+inherited `ADwin_LowInit`, and rows added to a finished timeline `ADwin_Finish`, silently. A row after
+`init` now has to name its context, as the first rows of any timeline do (#156).
+
+**Rows before the run are at −∞, rows after it at +∞** (#154, option (b), settled by the maintainer
+2026-09-29). This is one rule in the core, which does not mention ADwin: ±∞ is not an instant. So the
+time slot of an origin, the default chain's `LAST` and context inheritance see finite rows only
+(`origin.instants`), and a time reference whose rows are all at ±∞ raises. A value lookup is bounded
+by a finite instant, so it sees −∞ and never +∞. `anchor` and `ramp` refuse ±∞. On a timeline with
+nothing at an instant yet, the default origin falls back to absolute zero silently, which is what
+places the first timed stage: `MOT` no longer says `origin=0.0`. The demo and the lab write `init`
+at `time=-math.inf` and the final state at `time=math.inf`. The display draws them in margins either
+side of the run, and the JSON writer keeps them as the strings `"-inf"`/`"inf"`.
 
 ### Variable naming is load-bearing, not cosmetic
 
@@ -412,8 +424,13 @@ by variable, and always keeping the first and last row of each channel — `core
 run length from the highest non-special cycle, and tanh ramp tails are flat.
 
 `adwin/__init__.py::CONTEXTS__SPECIAL` (`ADwin_LowInit`, `ADwin_Init`, `ADwin_Finish`) map to sentinel
-cycle numbers. Rows in these contexts have **no meaningful time**, so they are validated separately
-(at most one row per variable) and exempted from both drop functions.
+cycle numbers. Rows in these contexts have **no meaningful time**, and are written at −∞ (the two
+before the run) or +∞ (after it). They are validated separately, and exempted from both drop
+functions. A variable may have at most one row **before the run, across `ADwin_LowInit` and
+`ADwin_Init` together** (#154 (b1): both are at −∞, so nothing orders them), and one after it.
+`add_cycle` computes cycles for finite rows only, and refuses a non-finite time outside these
+contexts. Finite fictional times (the old −1 µs) still convert, but the core then reads them as
+real, which is what #154 was about.
 
 ## Conventions
 
