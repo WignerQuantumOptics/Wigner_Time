@@ -17,8 +17,9 @@ The lab cases run only when `quantum_optics_lab` can be imported:
 
     PYTHONPATH=.. poetry run pytest test/wignertime/test_reference.py
 
-Between P2 and P5 of the roadmap they are expected to fail, while the package's API has
-moved and the lab's code has not; they are then the lab migration's acceptance test.
+They call the lab through the API of its `issue#85` branch (P5 of the roadmap), where
+`prepare_sample` and the imaging are stages, and were that migration's acceptance test.
+Against a lab branch from before it they fail, since the package's API moved in P2.
 
 A ramp's function is compared by what it does, not by its name: each is sampled on a fixed
 input, so renaming `pull_coils` (D7) is not a change and altering its curve is. Row order

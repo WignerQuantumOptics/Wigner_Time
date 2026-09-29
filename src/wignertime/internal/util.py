@@ -398,18 +398,25 @@ def ensure_timeline(
         return timeline
 
     if callable(timeline):
+        # `to_timeline(stage, onto=timeline)` is the remedy for the `timeline` argument,
+        # and nonsense for another: `onto` wants the stage made a table first.
+        remedy = (
+            "{}(to_timeline(stage, onto=timeline))".format(name__function)
+            if name__argument == "timeline"
+            else "{}(..., {}=to_timeline(stage))".format(name__function, name__argument)
+        )
         raise TypeError(
             "\n".join(
                 [
-                    "`{}` was given a stage where a timeline was expected.".format(
-                        name__function
+                    "`{}` was given a stage as `{}`, where a timeline was expected.".format(
+                        name__function, name__argument
                     ),
                     "",
                     "A stage is what `update`, `ramp`, `anchor`, `stack` and `cascade`"
                     " return -- a function of a timeline, not one. `to_timeline` makes a"
                     " timeline of it:",
                     "",
-                    "    {}(to_timeline(stage, onto=timeline))".format(name__function),
+                    "    " + remedy,
                 ]
             )
         )

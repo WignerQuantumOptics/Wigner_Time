@@ -132,8 +132,9 @@ def demo_cases():
 
 def lab_cases(ex, di):
     """
-    `ex` and `di` are the lab's `timeline.experiment` and `timeline.diagnostics`. Each
-    stage's context is named after the stage, which is what the imaging is placed against.
+    `ex` and `di` are the lab's `timeline.experiment` and `timeline.diagnostics`, as its
+    `issue#85` branch has them: `prepare_sample` and the imaging are stages. Each stage's
+    context is named after the stage, which is what the imaging is placed against.
     """
     cases = {}
     for stage in ex.Stage:
@@ -143,29 +144,32 @@ def lab_cases(ex, di):
                     stage.name, finish, dispenser_off
                 )
                 cases[name] = (
-                    lambda stage=stage, finish=finish, off=dispenser_off: ex.prepare_sample(
-                        stage=stage, add_finish=finish, duration_without_dispenser=off
+                    lambda stage=stage, finish=finish, off=dispenser_off: tl.to_timeline(
+                        ex.prepare_sample(
+                            stage=stage,
+                            add_finish=finish,
+                            duration_without_dispenser=off,
+                        )
                     )
                 )
 
     for stage in ex.Stage:
-        cases["imaging at {}".format(stage.name)] = (
-            lambda stage=stage: di.imaging_absorption(
-                3e-3, 1e-4, origin=stage.name, timeline=di.prepare_sample(stage=stage)
-            )
+        cases["imaging at {}".format(stage.name)] = lambda stage=stage: tl.to_timeline(
+            di.imaging_absorption(3e-3, 1e-4, origin=stage.name),
+            onto=tl.to_timeline(di.prepare_sample(stage=stage)),
         )
 
     base = {}
 
     def _base():
         if "MT" not in base:
-            base["MT"] = di.prepare_sample(stage=ex.Stage.MT)
+            base["MT"] = tl.to_timeline(di.prepare_sample(stage=ex.Stage.MT))
         return base["MT"]
 
     for delay in (1, 2, 3):
         cases["time of flight {} ms, onto one base".format(delay)] = (
-            lambda delay=delay: di.imaging_absorption(
-                1e-3 * delay, 1e-4, origin="MT", timeline=_base()
+            lambda delay=delay: tl.to_timeline(
+                di.imaging_absorption(1e-3 * delay, 1e-4, origin="MT"), onto=_base()
             )
         )
     return cases

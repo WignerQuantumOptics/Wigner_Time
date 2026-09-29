@@ -20,9 +20,10 @@ The lab cases need the lab's package next door, `../quantum_optics_lab`, on the 
 
     PYTHONPATH=.. poetry run pytest test/wignertime/test_reference.py
 
-Without it they are skipped. Between P2 and P5 they are expected to fail, because the
-package's API will have moved while the lab's code has not; once the lab is migrated (P5),
-they are its acceptance test.
+Without it they are skipped. They call the lab through the API of its `issue#85` branch,
+where `prepare_sample` and the imaging are stages; that migration (P5, 2026-09-29)
+reproduces every case, and these were its acceptance test. Against a lab branch from before
+it they fail, because the package's API moved in P2.
 
 Regenerate only when a change of output is intended, and say so in the commit:
 

@@ -22,20 +22,43 @@ def deferred():
 
 
 @pytest.mark.parametrize(
-    "name,call",
+    "call,argument,remedy",
     [
-        ("update", lambda f: tl.to_timeline(tl.update(), onto=f)),
-        ("ramp", lambda f: tl.to_timeline(tl.ramp(coil__A=2.0, duration=1.0), onto=f)),
-        ("anchor", lambda f: tl.to_timeline(tl.anchor(1.0), onto=f)),
-        ("expand", lambda f: tl.expand(f, time_resolution=1e-4)),
+        (
+            lambda f: tl.to_timeline(tl.update(), onto=f),
+            "onto",
+            "to_timeline(..., onto=to_timeline(stage))",
+        ),
+        (
+            lambda f: tl.to_timeline(tl.ramp(coil__A=2.0, duration=1.0), onto=f),
+            "onto",
+            "to_timeline(..., onto=to_timeline(stage))",
+        ),
+        (
+            lambda f: tl.to_timeline(tl.anchor(1.0), onto=f),
+            "onto",
+            "to_timeline(..., onto=to_timeline(stage))",
+        ),
+        (
+            lambda f: tl.expand(f, time_resolution=1e-4),
+            "timeline",
+            "expand(to_timeline(stage, onto=timeline))",
+        ),
     ],
+    ids=["update onto", "ramp onto", "anchor onto", "expand"],
 )
-def test_a_stage_where_a_timeline_belongs_is_named(name, call):
+def test_a_stage_where_a_timeline_belongs_is_named(call, argument, remedy):
     """
-    Nesting one call inside another names the mistake, rather than failing downstream.
+    Nesting one call inside another names the mistake, rather than failing downstream,
+    and the remedy fits the argument: a stage given as `onto` -- a scan's base, say -- is
+    made a table first. That remedy used to read `to_timeline(to_timeline(stage,
+    onto=timeline))`, the one for `expand`'s argument.
     """
-    with pytest.raises(TypeError, match="was given a stage where a timeline"):
+    with pytest.raises(TypeError) as raised:
         call(deferred())
+    message = str(raised.value)
+    assert "was given a stage as `{}`, where a timeline".format(argument) in message
+    assert remedy in message
 
 
 @pytest.mark.parametrize(
