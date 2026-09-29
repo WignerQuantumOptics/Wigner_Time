@@ -90,7 +90,10 @@ def quantities(
         tline = wt_frame.subframe(timeline, "variable", variables)
     else:
         tline = timeline
-    tline.sort_values("time", inplace=True, ignore_index=True)
+    # A sorted copy, and a stable one (#153). This sorted the caller's own frame in place,
+    # and not stably, so a value superseded at the same instant could be drawn as the one
+    # in force.
+    tline = wt_frame.sort(tline, "time")
 
     # =====================================================================
     # ADwin

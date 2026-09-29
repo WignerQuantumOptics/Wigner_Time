@@ -241,7 +241,10 @@ def add(timeline, connections, devices, cycle_period, machine_specifications=Non
 
     dff = wt_frame.join(timeline, connections)
     dff = wt_frame.join(dff, devices)
-    dff = dff.sort_values(by=["time"], ignore_index=True)
+    # Stably (A18): among a variable's rows at one instant the last written is in effect,
+    # and `drop_duplicates` keeps the last of each cycle. The quicksort this used could
+    # put a ramp's end after the `update` superseding it, and send the ramp's end.
+    dff = wt_frame.sort(dff, "time")
 
     dff = conv.add(dff)
     # TODO: ^ This 'feels' inefficient/wrong?

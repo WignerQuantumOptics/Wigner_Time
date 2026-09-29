@@ -1,6 +1,7 @@
 import pytest
 
 from wignertime import timeline as tl
+from wignertime.internal import dataframe as frame
 
 # `adwin.display` needs the optional `display` extra.
 pytest.importorskip("matplotlib", reason="the `display` extra is not installed")
@@ -32,3 +33,11 @@ def test_displayIndividualTypes():
         do_show=False,
         range__x=[14.99, 15.02],
     )
+
+
+def test_displaying_leaves_the_timeline_alone():
+    """#153: `quantities` sorted the caller's own frame in place, and renumbered it."""
+    timeline = ex.timeline__demo.drop(columns="function")
+    before = timeline.copy()
+    adwin_display.quantities(timeline, do_show=False)
+    frame.assert_equal(timeline, before)

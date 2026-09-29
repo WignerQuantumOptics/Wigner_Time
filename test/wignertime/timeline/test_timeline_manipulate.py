@@ -264,3 +264,37 @@ def test_convert_leaves_the_timeline_it_was_given_alone():
     before = ex.timeline__demo.copy()
     core.convert(ex.timeline__demo, ex.connections, ex.devices, 5e-6)
     wt_frame.assert_equal(ex.timeline__demo, before)
+
+
+def test_expand_puts_each_ramp_where_it_was_written():
+    """
+    A18. Among a variable's rows at one instant the last written is in effect, so the
+    expanded rows of a ramp must stay before the rows written after it. They were put
+    back by position arithmetic that shifted every insertion after the first, so the
+    second ramp here landed after both updates written after it, and at t = 2 its end
+    (2.0) came after the update (-2.0) written to supersede it.
+    """
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(x__A=0.0, y=0, time=0.0, context="c"),
+            tl.ramp(x__A=1.0, time=0.0, duration=1.0, origin=0.0),
+            tl.update(y=1, time=0.5, origin=0.0),
+            tl.ramp(x__A=2.0, time=1.0, duration=1.0, origin=0.0),
+            tl.update(x__A=-2.0, time=2.0, origin=0.0),
+            tl.update(y=0, time=2.5, origin=0.0),
+        )
+    )
+    expanded = tl.expand(timeline, time_resolution=0.5)
+    assert list(zip(expanded["time"], expanded["variable"], expanded["value"])) == [
+        (0.0, "x__A", 0.0),
+        (0.0, "y", 0.0),
+        (0.0, "x__A", 0.0),
+        (0.5, "x__A", 0.5),
+        (1.0, "x__A", 1.0),
+        (0.5, "y", 1.0),
+        (1.0, "x__A", 1.0),
+        (1.5, "x__A", 1.5),
+        (2.0, "x__A", 2.0),
+        (2.0, "x__A", -2.0),
+        (2.5, "y", 0.0),
+    ]

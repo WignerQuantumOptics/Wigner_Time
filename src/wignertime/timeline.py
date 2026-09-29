@@ -1128,6 +1128,9 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
         # TODO: Add test for this 'feature'
         return timeline
 
+    # Labels are the written positions from here on, which is what each ramp's rows are
+    # put back at, and what makes the label-based `drop` below exact.
+    timeline = timeline.reset_index(drop=True)
     _mask_fs = timeline["function"].notna()
     _dff = timeline[_mask_fs].sort_values(by=["variable", "time"])
     _indices_drop = _dff.index
@@ -1195,5 +1198,14 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
     # `remove_unconnected_variables` runs first and hands `expand` a fresh frame.
     timeline = timeline.drop(index=_indices_drop).drop(columns=["function"])
 
-    # Add the values back into the main timeline
-    return wt_frame.insert_dataframes(timeline, _inds__start, _dfs)
+    # Each ramp's rows go back where the ramp was written: before the first row kept from
+    # after its start, in the order the ramps were written. Among a variable's rows at
+    # one instant the last written is in effect, so this is not cosmetic. The ramps used
+    # to land after rows written after them, and a ramp's end then superseded the
+    # `update` written to supersede it (A18).
+    ramps = sorted(zip(_inds__start, _dfs), key=lambda ramp: ramp[0])
+    return wt_frame.insert_dataframes(
+        timeline,
+        list(timeline.index.searchsorted([start for start, _ in ramps])),
+        [rows for _, rows in ramps],
+    )

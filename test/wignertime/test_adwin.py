@@ -801,6 +801,39 @@ def test_the_log_is_short_to_print():
     assert "rows={} analogue".format(len(log.analogue)) in repr(log)
 
 
+def test_an_update_at_the_instant_a_ramp_ends_is_what_is_sent():
+    """
+    A18 (#153). Among a variable's rows at one instant the one written last is in
+    effect, and `drop_duplicates` keeps the last of each cycle. `internal.add` sorted by
+    time with pandas' default quicksort, which does not keep tied rows in written order:
+    at 7 of these 20 instants the ramp's superseded end was sent instead, for one cycle,
+    up to 8 A from the value commanded. Nothing raised.
+    """
+    conns = adcon.new(["coil_MOT__A", 3, 2], ["shutter_MOT", 1, 11])
+    devs = device.new(["coil_MOT__A", 2.0, -5.0, 5.0])
+    steps = [
+        step
+        for i in range(1, 21)
+        for step in (
+            tl.ramp(coil_MOT__A=0.2 * i, duration=1e-3),
+            tl.update(coil_MOT__A=-0.2 * i, time=1e-3),
+            tl.anchor(1e-3),
+        )
+    ]
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(coil_MOT__A=0.0, shutter_MOT=0, time=0.0, context="run"),
+            tl.anchor(0.0),
+            *steps,
+        )
+    )
+    analogue, _ = adwin.convert(timeline, conns, devs, 5e-6)
+    sent = {cycle: digits for cycle, _, _, digits in analogue}
+    assert [sent[200 * i] for i in range(1, 21)] == [
+        conversion.to_digits(-0.2 * i * 2.0) for i in range(1, 21)
+    ]
+
+
 def test_an_analogue_variable_on_the_digital_module_is_refused():
     """
     A16. It was rounded and switched as a digital line: 1.5 A on a coil became a 2 written

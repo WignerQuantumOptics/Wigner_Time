@@ -152,7 +152,7 @@ def panel(connections, devices, timeline__defaults):
         )
 
     defaults = (
-        timeline__defaults.sort_values("time")
+        wt_frame.sort(timeline__defaults, "time")  # stably, so the last written wins
         .groupby("variable")["value"]
         .last()
         .rename("default_value")

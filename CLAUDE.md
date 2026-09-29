@@ -396,7 +396,10 @@ deliberate trade of computation for memory, which is the entire reason `expand` 
 move logic back into ADbasic to save rows are going the wrong way.
 
 Two distinct kinds of filtering, easy to confuse: `drop_duplicates` removes *temporal* collisions
-(two rows for one variable rounding to the same cycle); `drop_repeats` removes *value* redundancy
+(two rows for one variable rounding to the same cycle, keeping the last written, so **every step
+before it must keep the written order among tied rows**: sort with `wt_frame.sort`, which is
+stable, and `expand` puts each ramp's rows back where the ramp was written — A18, where an `update`
+at the instant a ramp ended lost to the ramp's end); `drop_repeats` removes *value* redundancy
 (a row commanding a channel to the value it already holds), grouped by physical channel rather than
 by variable, and always keeping the first and last row of each channel — `core.upload` derives the
 run length from the highest non-special cycle, and tanh ramp tails are flat.

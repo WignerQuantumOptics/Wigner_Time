@@ -544,6 +544,17 @@ The timeline is internally consistent and would run. `test_two_ramps_of_one_vari
 
 Fix direction: a variable is in at most one ramp at a time — `ramp` refuses a ramp that begins or ends inside another of the same variable, naming the variable and both intervals. It is the loud form of #142's rule, since during another ramp "where the variable is" is not in the table, and it does not depend on the rest of #85, so it belongs in P1. An `update` of a variable inside one of its own ramps is probably overridden by the ramp's next point; not measured.
 
+### A18 — an `update` at the instant a ramp ends can lose to the ramp's end on the hardware **[new, found 2026-09-29, with #153]** — **FIXED the same day on `issue#85`, P4 of C7**
+
+Among a variable's rows at one instant, the one written last is in effect. `drop_duplicates` relies on this, since it keeps the last row of each (variable, cycle). Two steps of the conversion broke the written order among such rows, and neither raised:
+
+1. **`adwin.internal.add` sorted by time with pandas' default for one column, quicksort**, which does not keep tied rows in order. Measured: a coil ramped 20 times, each time with an `update` to the opposite value at the instant the ramp ends. At 5 µs the sort put the ramp's end last at 7 of the 20 instants, and the ramp's end was what reached the arrays, for one cycle, up to 8 A from the value commanded.
+2. **`expand` put a ramp's expanded rows back after rows written after the ramp.** `wt_frame.insert_dataframes` shifted each insertion by the number of rows already inserted, as though the frame grew, while it cut its slices from the original frame. `expand` also passed it labels of the frame before the ramp rows were dropped, where positions in the reduced frame were needed. So every ramp but the first landed late. With the sort made stable, this alone still sent the ramp's end at the last of the 20 instants, where no following ramp's start happened to repeat the update's value.
+
+This is #153's second defect, in the pipeline rather than the display. There it drew a superseded value; here it sent one. The demo and the lab have no `update` at the instant a ramp of the same variable ends, so none of the reference arrays moved. The two ties the sort did reorder in the demo held equal values, or values 2e-16 apart.
+
+**Fixed:** `wt_frame.sort` sorts stably and returns a copy. It is used in `internal.add`, in `display.quantities` (#153) and in `console.panel`'s defaults. `insert_dataframes` takes positions in the frame it is given. `expand` numbers the rows by where they were written, and puts each ramp's rows back where the ramp was written. Pinned by `test_an_update_at_the_instant_a_ramp_ends_is_what_is_sent` (test_adwin), `test_expand_puts_each_ramp_where_it_was_written` and `test_sort_keeps_tied_rows_in_written_order_and_leaves_its_argument`; each fails on the previous code. The change is in the Python side of the conversion and is checked against the arrays it produces. The rig has nothing to add, since what it plays is the arrays.
+
 ---
 
 ## B. Correctness

@@ -143,38 +143,48 @@ def increment_selected_rows(
         return df
 
 
+def sort(df: CLASS, by, ignore_index=True) -> CLASS:
+    """
+    `df` sorted by `by`, as a new frame, and **stably**: rows that tie keep the order
+    they were written in.
+
+    Among a variable's rows at one instant the one written last is in effect, so order
+    among ties carries meaning. pandas sorts a single column by quicksort unless told
+    otherwise, which does not keep it. Before conversion, that put a ramp's end after
+    the `update` written at the same instant to supersede it, and `drop_duplicates`,
+    which keeps the last row of each cycle, sent the ramp's end to the hardware (A18,
+    #153). (A sort on several columns is stable in pandas regardless.)
+    """
+    return df.sort_values(by=by, kind="stable", ignore_index=ignore_index)
+
+
 def drop_duplicates(df, subset=None, keep="last"):
     return df.drop_duplicates(subset=subset, keep=keep, ignore_index=True).copy()
 
 
 def insert_dataframes(df: CLASS, indices: list[int], dfs: list[CLASS]) -> CLASS:
     """
-    Inserts multiple DataFrames (`dfs`) into an existing DataFrame (`df`) at specified `indices`.
+    Inserts each of `dfs` into `df` before the row at the matching *position* in
+    `indices` (not a label; `len(df)` appends). Frames given the same position keep the
+    order they are given in.
+
+    The positions are in `df` as given. They used to be shifted by the number of rows
+    inserted so far, as though `df` grew, while the slices were still cut from the
+    original, so every insertion after the first landed that many rows too late: after
+    rows written after it (A18).
     """
-    # Sort the insertions by index to ensure correct order of insertion
     if len(indices) != len(dfs):
         raise ValueError("`indices` and `dfs` are different lengths.")
-    insertions = zip(indices, dfs)
-    insertions = sorted(insertions, key=lambda x: x[0])
+    # `sorted` is stable, so frames sharing a position keep their order.
+    insertions = sorted(zip(indices, dfs), key=lambda x: x[0])
 
-    # Track the cumulative offset caused by insertions
-    offset = 0
     result_parts = []
     current_start = 0
 
     for index, new_df in insertions:
-        # Adjust index for previous insertions
-        adjusted_index = index + offset
-
-        # Add the portion of the original DataFrame up to the insertion point
-        result_parts.append(df.iloc[current_start:adjusted_index])
-
-        # Add the new DataFrame
+        result_parts.append(df.iloc[current_start:index])
         result_parts.append(new_df)
-
-        # Update offset and the starting point for the next slice
-        offset += len(new_df)
-        current_start = adjusted_index
+        current_start = index
 
     # Add the remainder of the original DataFrame
     result_parts.append(df.iloc[current_start:])
