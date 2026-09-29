@@ -273,7 +273,10 @@ be what the bound is built from; the time slot itself is never bounded, because 
 the instant.
 
 **5. Never apply a value origin to a row whose start value the user stated explicitly** — resolve it
-only for variables in `df__no_start_points`, never for `df_1` (NEW-8).
+only for variables in `df__no_start_points`, never for `df_1` (NEW-8). *Refined 2026-09-28 (#142):
+never apply a **default** value origin to it. A stated start is completed from `ORIGIN__DEFAULTS`,
+whose value slot is empty, so a value origin the caller writes still applies; see A8's amendment in
+`KNOWN_ISSUES.md`.*
 
 **6. Promote `_ORIGINS` to the single source of reserved words**, and reject a variable or context
 name that shadows one (NEW-5). It is now derived from `_ORIGINS__TIME`, the wider of the two slot

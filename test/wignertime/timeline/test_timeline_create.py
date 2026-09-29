@@ -1,5 +1,6 @@
 import pytest
 
+from wignertime import config as wt_config
 from wignertime import timeline as tl
 from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import origin
@@ -182,13 +183,11 @@ def test_createInheritContext(df__mixed):
 
 def test_update_inherits_context_by_default(df__mixed):
     """
-    `update`'s public default is `wt_config.CONTEXT__INFER`, not a bare `None` -- but
-    it has to still *mean* the same thing a bare `None` always did: an unstated row
-    inherits the previous timeline's context. A caller who writes nothing sees no
-    change from before this sentinel existed (A8, 2026-09-24).
+    `update`'s default for `context` is `wt_config.INFER`: an unstated row inherits the
+    latest context of the timeline it joins. `origin=0.0` keeps the times as written.
     """
     return wt_frame.assert_equal(
-        tl.update(timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=None),
+        tl.update(timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=0.0),
         wt_frame.new(
             [
                 [0.0, "AOM_imaging", 0, "init"],
@@ -201,16 +200,29 @@ def test_update_inherits_context_by_default(df__mixed):
     )
 
 
-def test_update_context_none_turns_off_inheritance(df__mixed):
+@pytest.mark.parametrize("context", [None, wt_config.INFER])
+def test_update_context_none_and_infer_match_the_default(df__mixed, context):
     """
-    `context=None`, written explicitly, is the new "off" state (A8, 2026-09-24): the
-    new row is left in the plain default context, the empty string, rather than
-    inheriting `df__mixed`'s trailing "stuff" -- mirroring `origin=None`'s own "no
-    resolution at all" meaning.
+    Writing `None` or the marker is indistinguishable from leaving `context` unstated,
+    so a stage that takes `context=None` and passes it on inherits as if it had passed
+    nothing (#142).
     """
     return wt_frame.assert_equal(
         tl.update(
-            timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=None, context=None
+            timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=0.0, context=context
+        ),
+        tl.update(timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=0.0),
+    )
+
+
+def test_update_empty_context_turns_off_inheritance(df__mixed):
+    """
+    `context=""` is no context: the new row does not inherit `df__mixed`'s trailing
+    "stuff".
+    """
+    return wt_frame.assert_equal(
+        tl.update(
+            timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=0.0, context=""
         ),
         wt_frame.new(
             [
@@ -224,34 +236,12 @@ def test_update_context_none_turns_off_inheritance(df__mixed):
     )
 
 
-def test_update_context_infer_matches_the_default(df__mixed):
-    """
-    Writing the sentinel explicitly is indistinguishable from leaving `context`
-    unstated -- both are `wt_config.CONTEXT__INFER`.
-    """
-    from wignertime import config as wt_config
-
+def test_update_real_context_is_taken_as_written(df__mixed):
     return wt_frame.assert_equal(
         tl.update(
             timeline=df__mixed,
             AOM_imaging__V=[2.2, 3.0],
-            origin=None,
-            context=wt_config.CONTEXT__INFER,
-        ),
-        tl.update(timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=None),
-    )
-
-
-def test_update_real_context_is_unaffected_by_the_sentinel_split(df__mixed):
-    """
-    A caller who states a real context directly is untouched by any of this -- exactly
-    as today.
-    """
-    return wt_frame.assert_equal(
-        tl.update(
-            timeline=df__mixed,
-            AOM_imaging__V=[2.2, 3.0],
-            origin=None,
+            origin=0.0,
             context="named",
         ),
         wt_frame.new(
@@ -264,6 +254,17 @@ def test_update_real_context_is_unaffected_by_the_sentinel_split(df__mixed):
             columns=["time", "variable", "value", "context"],
         ),
     )
+
+
+def test_a_context_named_INFER_is_an_ordinary_context(df__mixed):
+    """
+    The default is an object, not the string, so the word itself is free as a name
+    (#142).
+    """
+    new = tl.update(
+        timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=0.0, context="INFER"
+    )
+    assert new["context"].iloc[-1] == "INFER"
 
 
 ###############################################################################

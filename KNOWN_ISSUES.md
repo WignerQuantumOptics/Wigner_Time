@@ -48,7 +48,7 @@ Every item here has a GitHub issue, and the two carry different things. **This f
 - **In the same `init`, the `create` rows got no context.** `create` has already produced a timeline when `stack` receives it, so `stack`'s `context="initialization"` reached only the anchor. **Listing fixed 2026-09-23**: the context is now given to `create`, and the anchor inherits it. **The behavior of `stack` is unchanged and still open**, as C6 (#145): with a reserved context it silently changes the hardware sequence;
 - ~~**The initial/final-state listing in `sec:functions` did not run.**~~ **Fixed 2026-09-23.** It read `final = init` (undefined; `initial` was meant), and even as `final = initial` the next line would have relabelled `initial` too, since both names hold one table: in-place modification, which the paper argues against. Now `final = initial.copy()`. Its `import timeline as tl` is also corrected to `from wignertime import timeline as tl`, as in the paper's other listings;
 - ~~**`sec:interweaving` pointed to `sec:demonstration` for further examples**, and that listing has none.~~ **Fixed 2026-09-23**: the section now shows `trigger_camera` placed at `origin="molasses"` into the complete `timeline__demo`, the case `test_demo.py` checks (#53), and points to `sec:parameter_scan` only. Its claims were checked against the real `timeline__demo`: the exposure runs 2.0–3.0 ms after molasses, inside magnetic trapping (0.58–3.63 ms), and no existing row moves;
-- **#142 is very likely a fifth**, though it is not labelled: it proposes replacing `origin=None` with a visible default, and `sec:functions` shows `origin=None` in the signatures of `update`, `ramp` and `anchor`. Flagged on the issue rather than labelled unilaterally, since it is the maintainer's own;
+- **#142 is very likely a fifth**, though it is not labelled: it proposes replacing `origin=None` with a visible default, and `sec:functions` shows `origin=None` in the signatures of `update`, `ramp` and `anchor`. Flagged on the issue rather than labelled unilaterally, since it is the maintainer's own. **On `issue#142` (2026-09-28) the signatures show `INFER`, and `None` still means the same**, so the listings remain correct as printed; whether they should show the marker is open (A8's amendment);
 - ~~`sec:discussion` carries a **commented-out paragraph** describing bit-flip-timed ramps, per Kowalski *et al.*, as future work.~~ **Done 2026-09-23.** Revived in the present tense and moved to `sec:adwin`, after the event-loop paragraph. That is where the conversion is described, and it leaves the Discussion's list of *remaining* gaps, where a done item does not belong. The paragraph states what the package uploads. `drop_repeats` itself has **not yet run on the rig** (the Lab2 fixture's archived tuples predate it), so the claim rests on the code, not on an observation of the hardware. Distinct from #87, which is about doing the expansion that way in `expand`.
 
 ---
@@ -245,7 +245,7 @@ The figure's leaf wording already leans that way: `"last"` and `"anchor"` are de
 
 Fix direction: split the vocabulary by slot. The time slot admits a number, `"anchor"`, `"last"`, `"variable"`, a variable name or a context name; the value slot admits a number, `"variable"` or a variable name, and **raises** on the rest. Raise rather than warn — unlike the time slot there is no sensible value to fall back to. Nothing is lost, because "the value `coil__A` held at the end of molasses" is already `["molasses", "variable"]`. See `docs/origin-resolution.md` for the full branch map.
 
-### A8 — a value origin is added on top of an explicitly stated `ramp` start value — **RESOLVED AND FIXED 2026-09-18**
+### A8 — a value origin is added on top of an explicitly stated `ramp` start value — **RESOLVED AND FIXED 2026-09-18; amended 2026-09-28 with #142**
 
 `ramp`'s value origin defaults to `"variable"`, and `_update_future` applies it **additively**. That is right for a variable whose start point was inferred, but it is applied just as readily to a start value the user stated explicitly in the 2-D input form.
 
@@ -351,6 +351,28 @@ The overloading was the same shape as A8's: `context=None` was already the param
 Six new tests: `test_update_inherits_context_by_default`, `test_update_context_none_turns_off_inheritance`, `test_update_context_infer_matches_the_default` and `test_update_real_context_is_unaffected_by_the_sentinel_split` in `test_timeline_create.py`; `test_ramp_inherits_context_by_default` and `test_ramp_context_none_turns_off_inheritance` in `test_timeline_ramp.py`. Full suite: 310 passed, the same 9 pre-existing, unrelated failures as the baseline (`ADwin` import, parquet/feather round-trips, one `test_convert` case) and none new. The shipped demo (`demo.full_experiment.timeline__demo`, 99 rows) is byte-identical in `time`/`variable`/`value`/`context` before and after, once `pull_coils` carried the sentinel too.
 
 **Not yet done, same as above:** `docs/paper/main.tex` is untouched by this extension as well, left until confirmed with a colleague.
+
+**Amended 2026-09-28, on `issue#142` — the marker kept, `None` given back its one meaning.** Reviewed after the merge (`0d13780`) against #142's own three aims: a signature should show that a default does something; "off" should have a short spelling; nothing should be inferred from something the call does not show. The first is kept as it was. Five consequences of the rest, measured on the merged code:
+
+- *"Off" was a second name for an existing state.* `origin=None` gave exactly the rows `origin=[0.0, 0.0]` already gave, for `update` and both `ramp` forms, and `context=None` exactly what `context=""` already gave.
+- *`None` still had two meanings*, now split by wrapping: `update(..., x=[[0.5, 1]], origin=None)` placed the row at t=0.5, the same call with `origin=[None, None]` at t=1.5.
+- *Forwarding.* A stage written `def f(..., origin=None): return update(..., origin=origin)`, the usual way of passing "no opinion" on, now asked for "off". Every such stage had to import and repeat the marker, and one that did not moved its rows to absolute time without a word. The demo's `pull_coils` needed exactly that change.
+- *The switch.* `ORIGIN__INFER_BY_SHAPE` made one and the same call, `ramp(base, coil__A=[[0.5, 1.0], [0.7, 3.0]])`, start at 1.0 or at 3.0 depending on a process-wide setting that neither the call nor the timeline records.
+- *The marker was a string*, so `context="INFER"`, formerly an ordinary context, silently meant "inherit".
+
+What replaced it:
+
+- `wt_config.INFER` is an object that prints as `INFER`; `ORIGIN__INFER` and `CONTEXT__INFER` are its names in the signatures. Copying and pickling return the same object, since it is recognised with `is`.
+- `None` and `INFER` mean the same, as the whole argument and in either slot. `origin.auto` reads the marker as `None`, and `inherit.resolve` does the same for `context`. `auto_or_off` is gone.
+- Absolute placement is a number, as before the merge: `origin=0.0` for `update` and `anchor`, `origin=[0.0, 0.0]` for `ramp`. No inheritance is `context=""`.
+- The switch is removed, and what it did by default is the fixed rule: a stated 2-D start has its unstated slots completed from `ORIGIN__DEFAULTS` (so its value is taken as written), an inferred start from `ORIGIN__DEFAULTS__RAMP`, and a value origin the caller *writes* applies to both. That last clause is the one behaviour that differs from 2026-09-18, when a written value slot was ignored for a stated start.
+- `demo.pull_coils` is back to `context=None`.
+
+Measured: every reproduction above gives its pre-merge result, and the demo timeline is byte-identical to `6ee43d2`'s (99 rows). The lab's own `pull_coils` and diagnostics wrappers, unchanged, place and label their rows as they did before the merge. Full suite: 353 passed, none failing. The "9 pre-existing failures" quoted above belonged to the environment they were run in: `6ee43d2` and `0d13780` both pass in full here, with `--all-extras`.
+
+With `None` meaning the default again, the two **Not yet done** notes above no longer describe a divergence: what `main.tex` says about `origin=None` is accurate, and its signature listings show `None` where `help()` now shows `INFER`, which mean the same. Whether the listings should show the marker is for the maintainers.
+
+**Left open, for the maintainers (#142):** whether "off" should have one short spelling that reads the same in `update` and `ramp`; and whether the input shape should decide how a 2-D start is completed at all, or every start be completed from one table.
 
 ### A9 — reserved origin words silently shadow real context and variable names — **RESOLVED AND FIXED 2026-09-18**
 
@@ -1324,6 +1346,8 @@ def ramp(..., origin=ORIGIN__DEFAULT):
     if origin is ORIGIN__DEFAULT:
         origin = wt_config.ORIGIN__DEFAULTS__RAMP    # read now, not at import
 ```
+
+**This is the shape #142 took on `issue#142` (2026-09-28)**: `wt_config.INFER`, an immutable object that the signatures of `update`, `anchor` and `ramp` name, and that `origin.auto` reads as `None` at call time, so the chains are still looked up on every call. See A8's amendment.
 
 The signature then announces that a default is effective, rebinding still works, nothing mutable is captured at import, and `None` stays free to mean what it means per slot. Measured while checking #142's second claim, that the default cannot easily be turned off — it can, but the spelling differs by function, which nothing at the call site says:
 

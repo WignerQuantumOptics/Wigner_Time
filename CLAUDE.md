@@ -206,6 +206,13 @@ conflate them — that conflation was A6. `config.ORIGIN__DEFAULTS` (for `update
 and if none is satisfiable the origin is `0.0` with a warning. A partially stated origin keeps the
 default for the slot it omits.
 
+**The signatures name that default `INFER`** (`wt_config.INFER`, #142, 2026-09-28), so that `help()`
+shows the default does something, and `context` defaults to it too. It is an object, recognised with
+`is`, and **`None` means exactly the same**, as the whole argument and in a slot. Keep it that way: a
+stage that takes `origin=None` or `context=None` and forwards it is the ordinary way to pass "no
+opinion" on, and giving `None` a meaning of its own would change what every such stage does (A8's
+amendment in `KNOWN_ISSUES.md`). Absolute placement is a number, and no inheritance is `context=""`.
+
 **Do not propose replacing `origin` with separate `t0`/`v0` keywords.** It is a reasonable idea and
 it was declined on 2026-09-19 (#74), on the merits rather than for inertia: the two slots really are
 independent now, and splitting would delete the normalisation layer whose string-padding rule was A6's
@@ -352,8 +359,9 @@ anchorless timeline no longer lands at absolute time, because `ramp`'s chain now
 and a terminal `0.0`. **A8 was fixed the same day**: a start value stated in the 2-D form is now taken as
 written, and the value origin is resolved only for the variables whose start had to be inferred. The
 rule to keep in mind when writing a ramp is which form you are in — `ramp(v=target, t=..., duration=...)`
-starts from wherever the variable currently sits, while `ramp(v=[[t1, v1], [t2, v2]])` starts from `v1`,
-full stop. **B1 and A3 are both settled** (2026-09-18): the boundary frames are aligned on `variable` before
+starts from wherever the variable currently sits, while `ramp(v=[[t1, v1], [t2, v2]])` starts from `v1`
+unless the caller *writes* a value origin, which since 2026-09-28 applies to a stated start too
+(A8's amendment). **B1 and A3 are both settled** (2026-09-18): the boundary frames are aligned on `variable` before
 being compared, a zero-duration ramp raises, and a flat ramp is kept as the hold it is.
 
 Not covered by `KNOWN_ISSUES.md`:

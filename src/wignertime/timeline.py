@@ -119,13 +119,9 @@ def _populate_timeline(
     has the positional forms but no timeline, and `update` has the timeline but no
     positional forms.
 
-    `context`, like `origin` above it, is taken here already resolved: a bare `None`
-    means "inherit", exactly as it always has (`inherit.context`'s own contract, direct
-    callers included, is untouched). Translating the public sentinel vocabulary
-    (`wt_config.CONTEXT__INFER`, or an explicit `None` asking for no inheritance) into
-    this function's own `None`-means-inherit convention is `create`'s and `update`'s job,
-    each at their own single resolution point -- mirroring `origin.auto_or_off`, which
-    does the same for `origin` before it reaches here.
+    `context` and `origin` are taken here already resolved: `create` and `update` read
+    the public default, `wt_config.INFER`, as `None` before calling this (see
+    `inherit.resolve` and `origin.auto`).
     """
     rows = wt_input.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
 
@@ -245,10 +241,7 @@ def create(t=0.0, context=wt_config.CONTEXT__INFER, **vtvc_dict) -> wt_frame.CLA
                 "{i}.".format(n=name, i=instead)
             )
 
-    # `create` never has a `timeline` to inherit from, so the infer/off distinction is
-    # inert here -- but the sentinel itself still has to be translated, or its literal
-    # string would land in every unstated row's `context` column rather than the empty
-    # placeholder. See `inherit.resolve`.
+    # There is nothing to inherit from here, but the marker must not reach the rows.
     context = inherit.resolve(context)
 
     return _populate_timeline(t=t, context=context, **vtvc_dict)
@@ -273,16 +266,14 @@ def update(
     Like other functions, when `context` is not specified for a given variable, it is taken to be the latest context in the timeline.
     WARNING: In this case, beware of accidentally putting timelines into special contexts.
 
-    `origin` defaults to `wt_config.ORIGIN__INFER`: run the usual anchor-then-last chase
-    (`config.ORIGIN__DEFAULTS`) for whichever slots are left unstated. Passing
-    `origin=None` explicitly asks for the opposite -- no origin resolution at all, so
-    `t` (and any stated value) is taken exactly as written.
+    `origin` defaults to `wt_config.INFER`: the anchor-then-last chain
+    (`config.ORIGIN__DEFAULTS`) fills whichever slots are left unstated, so `t` is a
+    duration from the end of the preceding stage. `None` means the same. For absolute
+    time, write `origin=0.0`.
 
-    `context` defaults to `wt_config.CONTEXT__INFER`, for the same reason and in the
-    same shape: run the inheritance just described for whichever rows leave `context`
-    unstated. Passing `context=None` explicitly asks for the opposite -- no
-    inheritance, so an unstated row is left in the plain default context, the empty
-    string, regardless of what the timeline it joins was last doing.
+    `context` defaults to `wt_config.INFER` too: an unstated row inherits the latest
+    context of `timeline`, as described above. `None` means the same, and `context=""`
+    leaves the row without one.
     """
     timeline = wt_util.ensure_timeline(timeline, "update", columns__required=_SCHEMA)
 
@@ -291,14 +282,9 @@ def update(
 
     else:
         # Check if anchor is desired and available
-        origin = wt_origin.auto_or_off(
+        origin = wt_origin.auto(
             timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
         )
-
-        # The single resolution point for `update`'s own `context`: translates the
-        # public sentinel vocabulary into `_populate_timeline`'s (and
-        # `inherit.context`'s) own, unchanged `None`-means-inherit convention. See
-        # `inherit.resolve`.
         context = inherit.resolve(context)
 
         return _populate_timeline(
@@ -370,19 +356,9 @@ def anchor(
 
     num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
 
-    # `origin` is passed straight through to `update`, unresolved: `update` is the one
-    # place that turns the public sentinel (`wt_config.ORIGIN__INFER`, or an explicit
-    # `None` asking for no resolution at all) into a concrete pair. Resolving it here
-    # too, as this used to, was harmless while `None` meant only one thing everywhere --
-    # but it would silently swallow an explicit `origin=None` passed to `anchor` itself:
-    # `auto` would see the already-resolved `[None, None]` `auto_or_off` returns for
-    # "off" and, not being the top-level sentinel any more, re-run the default chase on
-    # it, undoing the very thing the caller asked for. `update`'s own `auto_or_off` call
-    # is therefore the single place this origin is ever resolved.
-    #
-    # `context` is passed straight through for the same reason: `_populate_timeline`
-    # (reached via `update`) is the single place `inherit.resolve` runs, so `anchor`
-    # resolving it here too would risk the same double-resolution hazard.
+    # `origin` and `context` are passed through unresolved: `update` resolves both, with
+    # the same defaults `anchor` would use, so resolving them here as well would only
+    # do the work twice.
     return update(
         timeline=timeline,
         t=t,
@@ -436,44 +412,22 @@ def ramp(
     `lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]]`,
     but with the condition that the lists are not inhomogenous.
 
-    An explicitly stated start value like that is taken as written, by default: its
-    value is already absolute, exactly as `update`'s and `anchor`'s are, so it resolves
-    against the same table they do (`config.ORIGIN__DEFAULTS`, whose value slot is
-    `None`) rather than against the value-inferring table an inferred start uses
-    (`ORIGIN__DEFAULTS__RAMP`, whose value slot is `"variable"`). A stated `0.0`
-    therefore stays `0.0` regardless of where the variable already sits -- but if
-    `origin` itself explicitly names a value origin (e.g. `origin=["stage1",
-    "variable"]`, or a bare number), that is honoured and added on top of the stated
-    start too, because a default only fills a slot the caller left unstated and never
-    overrides one that is not (see `internal.origin.auto`). This is `ramp`'s
-    long-standing convention (A8/#106), and it holds for any `origin` you write -- a
-    bare call, or an explicit time-only reference such as `origin="stage1"` -- because
-    it is controlled by `wt_config.ORIGIN__INFER_BY_SHAPE`, `True` by default.
+    A start value stated like that is taken as written. Its value is already absolute,
+    as `update`'s are, so its value slot is completed from the same table
+    (`config.ORIGIN__DEFAULTS`, value slot `None`), and a stated `0.0` stays `0.0`
+    wherever the variable already sits. An inferred start (the 1-D shorthand) is
+    completed from `config.ORIGIN__DEFAULTS__RAMP`, whose value slot is `"variable"`.
+    Only the defaults differ: a value origin the caller *writes*, as in
+    `origin=["stage1", "variable"]`, is applied to both kinds of start, since a default
+    only fills a slot left unstated (see `internal.origin.auto`).
 
-    To turn off origin resolution altogether instead -- every variable in the call
-    taken exactly as written, including an *inferred* start (the 1-D shorthand), which
-    then has nothing left to infer *from* and comes out at its placeholder (`0.0`, or
-    `t` for its time) rather than a looked-up value -- ask for that explicitly:
-    `origin=None`. This is therefore for a call whose every variable states its own
-    start explicitly; mixing the two forms under `origin=None` in the same call is
-    rarely what is wanted. It is the one way to get this that never depends on
-    `ORIGIN__INFER_BY_SHAPE`.
+    `origin` defaults to `wt_config.INFER`, and `None` means the same, in either slot.
+    For no shift at all, in time or value, write `origin=[0.0, 0.0]`: `origin=0.0` alone
+    places the start in absolute time but still takes an inferred start's value from the
+    variable.
 
-    A site that instead wants every stated start resolved uniformly with an inferred
-    one -- so that *which of the two input shapes the caller used* never decides
-    anything, and a stated `0.0` is offset by the variable's current value exactly
-    like an inferred start would be -- sets `wt_config.ORIGIN__INFER_BY_SHAPE = False`.
-    This is read at call time for every `ramp` call in the running process, so it is a
-    policy for a whole site, not for one call.
-
-    `context` defaults to `wt_config.CONTEXT__INFER`, the same sentinel `create`,
-    `update` and `anchor` default to: run the usual inheritance (an unstated row takes
-    its context from wherever the timeline it joins last left off) for whichever
-    variables leave `context` unstated. Passing `context=None` explicitly asks for the
-    opposite -- no inheritance for this call, so every unstated row is left in the
-    plain default context, the empty string. `ramp` resolves this itself, once, since
-    it builds its rows directly rather than routing through `create`/`update`'s shared
-    `_populate_timeline`.
+    `context` defaults to `wt_config.INFER`, and `None` means the same: an unstated row
+    inherits the latest context of `timeline`. `context=""` leaves it without one.
 
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
@@ -482,8 +436,6 @@ def ramp(
     if timeline is None:
         return wt_util.function__lambda()
 
-    # The single resolution point for `ramp`'s own `context`, mirroring
-    # `_populate_timeline`'s for `create`/`update`: see `inherit.resolve`.
     context = inherit.resolve(context)
 
     _vtvcs = {k: np.array(v) for k, v in vtvc_dict.items()}
@@ -579,45 +531,22 @@ def ramp(
         df__no_start_points.loc[:, "time"] = t
         df__no_start_points.loc[:, "value"] = 0.0
 
-    # `df_1` (the user's explicit 2-D start) and `df__no_start_points` (a start that had
-    # to be inferred) resolve against two different default tables whenever
-    # `wt_config.ORIGIN__INFER_BY_SHAPE` is `True` (the default): a stated value origin
-    # is withheld for `df_1` (`ORIGIN__DEFAULTS`, value slot `None`) and supplied for
-    # `df__no_start_points` (`ORIGIN__DEFAULTS__RAMP`, value slot `"variable"`) --
-    # `ramp`'s original convention (A8/#106, 2026-09-18), kept as the default so that
-    # nothing about existing usage has to change, and a site adopts today's refinement
-    # by choice rather than by upgrading.
-    #
-    # `origin=None` bypasses this switch in either direction: no table is consulted at
-    # all, both slots stay `[None, None]`, and `internal.origin.update`'s existing
-    # no-op on that pair returns every stated coordinate exactly as given.
-    #
-    # With `ORIGIN__INFER_BY_SHAPE` set `False`, a site asks for the 2026-09-23
-    # refinement instead: both row categories resolve against the single table
-    # `ORIGIN__DEFAULTS__RAMP`, through the same call, so nothing about a row's origin
-    # depends on anything but `origin=` itself -- not on which of the two *input
-    # shapes* the caller used for that variable, which `origin=` cannot see. This is a
-    # process-wide policy read at call time, not a per-call choice: every `ramp` call
-    # in the running program sees whichever way the switch is set, for any `origin` it
-    # is given (other than an explicit `None`, which is never affected by it).
-    if origin is not None and wt_config.ORIGIN__INFER_BY_SHAPE:
-        origin__stated_start = wt_origin.auto_or_off(
-            timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
-        )
-        origin = wt_origin.auto_or_off(
-            timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS__RAMP
-        )
-    else:
-        origin__stated_start = origin = wt_origin.auto_or_off(
-            timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS__RAMP
-        )
+    # A start the caller stated (`df_1`) is absolute in value, like `update`'s rows, so
+    # its unstated slots are completed from `update`'s table; a start that has to be
+    # inferred (`df__no_start_points`) from `ramp`'s, whose value slot looks the
+    # variable up. The same `origin` goes into both, so a slot the caller wrote applies
+    # to both (A8/#106, #142).
+    origin__stated_start = wt_origin.auto(
+        timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
+    )
+    origin = wt_origin.auto(
+        timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS__RAMP
+    )
 
-    # The two calls to `internal.origin.update` below stay separate regardless of which
-    # branch resolved `origin`: each computes its own `time__max__relative` bound from
-    # only its own rows (B2/#109), and merging the frames first would widen that bound
-    # to the union's earliest row -- tightening what either half of a mixed call could
-    # see as its own "previous" value, silently. Keeping the split here is a correctness
-    # detail of *when* the origin is applied, unrelated to *which* origin is resolved.
+    # The two calls to `internal.origin.update` below stay separate: each computes its
+    # own `time__max__relative` bound from only its own rows (B2/#109), and merging the
+    # frames first would widen that bound to the union's earliest row -- tightening
+    # what either half of a mixed call could see as its own "previous" value, silently.
     new1 = wt_frame.concat(
         [
             wt_origin.update(df_1, timeline, origin=origin__stated_start),

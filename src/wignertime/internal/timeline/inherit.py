@@ -9,36 +9,16 @@ from wignertime.internal import origin as wt_origin
 
 def resolve(context):
     """
-    Translates the public `context=` sentinel vocabulary into what `context` below
-    already understands, at the single point each public function resolves it (A8,
-    2026-09-24) -- mirrors `internal.origin.auto_or_off`, which does the same job for
-    `origin`.
+    Reads `wt_config.INFER`, the signature default of `context` in the public functions,
+    as the `None` that `context` below has always taken to mean "inherit" (#142). It has
+    to happen before the rows are built, or the marker itself would land in the
+    `context` column.
 
-    `context` defaults to `wt_config.CONTEXT__INFER` at every public entry point
-    (`create`, `update`, `anchor`, `ramp`), not `None` -- so a caller who writes
-    nothing, or the sentinel explicitly, gets exactly what has always happened:
-    unstated rows inherit the previous timeline's context, via this module's
-    `context` function's existing `context is None` branch. Translating the sentinel to
-    `None` here, rather than leaving `None` doing double duty as both "the default" and
-    "an explicit request", is what frees `None` for its own, opposite meaning below.
-
-    A caller who writes `context=None` explicitly asks for the opposite: no
-    inheritance at all, every unstated row left at the plain default context, the empty
-    string. Translating that request to `""` here -- rather than passing `None`
-    through -- is what makes it work with zero changes to `context` itself: `""` is
-    already the placeholder `__ensure_time_context` gives an unstated row, and it is
-    not `None`, so `context`'s own "infer from previous" branch does not fire for it;
-    it falls through to the no-op branch, and the rows already carry `""` from
-    construction.
-
-    Anything else -- a real context string -- passes through unchanged, exactly as
-    today.
+    `None` and `INFER` therefore mean the same: an unstated row inherits the context of
+    the timeline it joins. No inheritance is written `context=""`, which is what an
+    unstated row is built with and which `context` leaves alone.
     """
-    if context == wt_config.CONTEXT__INFER:
-        return None
-    if context is None:
-        return ""
-    return context
+    return None if context is wt_config.CONTEXT__INFER else context
 
 
 def _mask__no_context(timeline):
