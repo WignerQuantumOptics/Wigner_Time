@@ -33,7 +33,7 @@ Every item here has a GitHub issue, and the two carry different things. **This f
 | `Feature` | A request, idea, or new functionality |
 | `Decision` | An open API or design decision that must be settled before dependent work can proceed |
 
-`Decision` is the tracker's counterpart of §C, and carries "flag and ask, never settle unilaterally" onto GitHub. Set it on anything whose entry here offers two options rather than a fix. Open `Decision` issues as of 2026-09-23: **#85, #97, #133, #143, #144, #145** (#53 was settled and closed on 2026-09-23). #85 was settled on 2026-09-25 and 2026-09-27 (C7) and has a roadmap; one detail of `expand`'s grid is open. #154 (2026-09-27) is new.
+`Decision` is the tracker's counterpart of §C, and carries "flag and ask, never settle unilaterally" onto GitHub. Set it on anything whose entry here offers two options rather than a fix. Open `Decision` issues as of 2026-09-23: **#85, #97, #133, #143, #144, #145** (#53 was settled and closed on 2026-09-23). #85 was settled on 2026-09-25 and 2026-09-27 (C7) and has a roadmap; one detail of `expand`'s grid is open. #154 (2026-09-27) is new. #142 was settled and closed on 2026-09-29.
 
 **Labels say _what kind_.** `silent` (a wrong answer with no error — outranks visible failures, and puts the item in `10 — paper` by default); `paper-affecting` (falsifies a claim in `main.tex`, so §G applies and the *code* changes); `consistency` (causes mental friction); `potentially surprising` (not wrong as such, but likely to surprise a user); and the area tags `ux`, `performance`, `docs`, `adwin`, `origin`.
 
@@ -375,6 +375,12 @@ With `None` meaning the default again, the two **Not yet done** notes above no l
 
 **Left open, for the maintainers (#142):** whether "off" should have one short spelling that reads the same in `update` and `ramp`; and whether the input shape should decide how a 2-D start is completed at all, or every start be completed from one table.
 
+**Both settled by the maintainer on 2026-09-29, and #142 closed; #155 merged into `claude_code` (`64902ec`).** The second answer removes the question and, with it, the first:
+
+- **A ramp always starts where its variable is.** A start value that differs from the current one is a step hidden inside a ramp — the discontinuity a ramp exists to avoid — and a jump that is wanted is written as an `update` before the ramp, where it shows in the table. Nothing in the demo, the lab or its notebooks writes a ramp's start value; the paper does once, in `tab:rampExamples`. So the value slot of `ramp`'s `origin` goes (a value there raises, naming `update`), the 2-D form loses its start value and is removed, and a variable not yet set has to be set first. This also retires the last bullet of "What replaced it" above: with no written start value there is nothing for a written value slot to apply to. To be done in P2 of #85 (C7); the case the rule must catch explicitly is A17.
+- **"Off" then needs no new spelling.** Once a ramp's start is never a value origin, `origin=0.0` means the same in `update`, `anchor` and `ramp`: absolute time, and nothing added to the values written. A named `ABSOLUTE` was agreed first and dropped for that reason, as a second spelling of `0.0`.
+- **For context there is no "off"**: every row has a context, stated or inherited (#156), so `context=""` stops being a way to write anything.
+
 ### A9 — reserved origin words silently shadow real context and variable names — **RESOLVED AND FIXED 2026-09-18**
 
 `_ORIGINS` is now derived from `_ORIGINS__TIME`, so there is one list rather than two that can drift, and `timeline._populate_timeline` refuses a `variable` or a `context` named after one of them — at the point the name is written, not where it later fails to resolve, because by then the timeline no longer records that anything else was meant. The diagnosis follows.
@@ -487,6 +493,27 @@ demo: 9 analogue connections, 9 devices   lab: 8 analogue connections, 8 devices
 Note also that `device.new` wraps its frame construction in a bare `except:` which discards the cause and re-raises `"=== Input to 'device' not well formatted ==="`. That is the pattern §"loud and early" forbids, and it would swallow whatever the name validation reports unless narrowed first — the same fault fixed in `adwin/connection.py` on 2026-09-11.
 
 Tracked as [#141](https://github.com/WignerQuantumOptics/Wigner_Time/issues/141).
+
+### A17 — a ramp that starts during another ramp of the same variable is accepted, and `expand` pairs their boundaries wrongly **[new, found 2026-09-29; this is #157]**
+
+Numbered A17 on this branch because A15 and A16 were taken on `issue#94` meanwhile. Found while checking the rule settled on #142 the same day, that a ramp always starts where its variable is. Measured on `4a9de53`:
+
+```python
+base = tl.stack(tl.create(coil_X__A=0.0, t=0.0, context="s"), tl.anchor(5.0))
+r1 = tl.ramp(timeline=base, coil_X__A=10.0, duration=1.0)        # 0 -> 10 A over t = 5..6
+r2 = tl.ramp(timeline=r1, coil_X__A=20.0, duration=1.0, t=0.5)   # starts at t = 5.5, half-way
+tl.expand(r2, time_resolution=0.25)
+# coil_X__A: (5.0, 0.0) (5.25, 0.0) (5.5, 0.0) (6.0, 10.0) (6.25, 15.0) (6.5, 20.0)
+```
+
+Two failures, neither raising:
+
+1. **The second ramp starts from 0 A, where the coil is at 5 A.** The value in effect at the start instant is looked up as the last *row* at or before it, and a ramp in progress holds no row for its intermediate values; the row found is the first ramp's start.
+2. **`expand` rebuilds both ramps from the wrong boundaries.** It sorts a variable's ramp rows by time and pairs them in order, (5.0, 5.5) and (6.0, 6.5), so the coil holds at 0 A until 6 s and then jumps to 10 A.
+
+The timeline is internally consistent and would run. `test_two_ramps_of_one_variable_still_expand` covers two ramps one after the other only.
+
+Fix direction: a variable is in at most one ramp at a time — `ramp` refuses a ramp that begins or ends inside another of the same variable, naming the variable and both intervals. It is the loud form of #142's rule, since during another ramp "where the variable is" is not in the table, and it does not depend on the rest of #85, so it belongs in P1. An `update` of a variable inside one of its own ramps is probably overridden by the ramp's next point; not measured.
 
 ---
 
@@ -989,7 +1016,9 @@ Options:
 
 Depends on #85 and, through it, on B10 (#136).
 
-### C7 — composition takes stages only, and `to_timeline` turns a stage into a table **[#85; settled 2026-09-25 and 2026-09-27; roadmap 2026-09-28, worked on the branch `issue#85`]**
+**2026-09-29: option 2 became a rule for every row, not only for `create`** (maintainer, #156): a row's context is stated or inherited, never absent, and `context=""` is refused. It replaces #28's "the minimum context is the empty string". Nothing real is affected — the Lab2 fixture, the demo and the lab's `prepare_sample` at every stage have no row without a context — and it is done in P1 of C7.
+
+### C7 — composition takes stages only, and `to_timeline` turns a stage into a table **[#85; settled 2026-09-25, 2026-09-27 and 2026-09-29; roadmap 2026-09-28, worked on the branch `issue#85`]**
 
 **The question, as Thomas meant it** (maintainer, reopening #85 on 2026-09-25): not whether to rename `create`, but whether `stack` and `cascade` should compose *stages* only — functions of a timeline — and never a timeline. `create` then has nothing left to set it apart from `update`, and a separate step turns a composition into a table. Thomas's own words on #145: "Just always `stack` functions and then resolve them when needed?"
 
@@ -1017,13 +1046,19 @@ Depends on #85 and, through it, on B10 (#136).
    A `partial` still declares `time_resolution`, and `util.function__filtered_kws` hands `expand`'s value to every function that declares it. With no resolution on `expand`, nothing is left to override a bound one. **Open detail:** a ramp that binds nothing still needs a grid — the cycle period at conversion, which `convert` has, and something when plotting an expanded timeline (main.tex:876) — and it must be supplied without overriding a bound value, or the trap moves into `convert`. The ramp functions' default `time_resolution=wt_config.TIME_RESOLUTION` is also a #144 (D23) default, bound at import, and should not survive the change in that form.
 8. **#143 is bundled in**: `t` becomes `time` in the same pass, so every signature, and every call site in the demo, the lab and the paper, changes once.
 
+**Settled by the maintainer, 2026-09-29** (with #142, now closed; the account is under A8):
+
+9. **A ramp always starts where its variable is.** A jump that is wanted is an `update` before the ramp. The value slot of `ramp`'s `origin` goes, the 2-D form loses its start value and is removed, and a variable not yet set has to be set first. Consequently "off" needs no new spelling: `origin=0.0` reads the same in `update`, `anchor` and `ramp`, and the `ABSOLUTE` agreed before this was dropped. The case the rule must catch explicitly is A17 (#157), a ramp starting inside another ramp of the same variable.
+10. **The reserved origin words become tags** — `tl.ANCHOR`, `tl.LAST`, `tl.VARIABLE`, an `enum.Enum` like `INFER` in spirit (#158) — so that a string in `origin` is always a name, and A9's refusal of contexts and variables named after the words can go. "Otherwise it differs from `INFER`."
+11. **Every row has a context** (#156; C6).
+
 **Moved out:** what time a row in a special context should carry — raised by the maintainer against item 3, because `ADwin_LowInit` has to be given a fictional negative time — is #154 (a `Decision`), together with the display's sort, #153.
 
-**Roadmap** (2026-09-28; posted on #85). The work is on `issue#85`, branched from `issue#142`'s tip: #85 rewrites the very signatures #142 changed, and #142's `INFER` marker is what makes item 4 implementable, since a stage's captured arguments show `INFER` wherever nothing was given. Merge order into `claude_code`: `issue#94`, `issue#142`, `issue#85`. P3 and P4 wait until `issue#94` is merged in, because it rewrote `adwin/core.py` and the display.
+**Roadmap** (2026-09-28; posted on #85). The work is on `issue#85`, branched from `issue#142`'s tip, because #85 rewrites the very signatures #142 changed. (A second reason given here at first — that #142's `INFER` is what makes item 4 implementable — was wrong, corrected 2026-09-29: an argument nobody stated arrives as `None` both before #142 and after it, where `None` and `INFER` mean the same, so P1 can recognise it either way.) #155 was merged into `claude_code` on 2026-09-29 and `claude_code` into `issue#85`; the remaining merge order is `issue#94`, then `issue#85`. P3 and P4 wait until `issue#94` is merged in, because it rewrote `adwin/core.py` and the display.
 
-- **P0 — groundwork.** Settle #142's two open questions; one, the spelling of "no inheritance", is tied to #145's option 2 (if every row must have a context, `context=""` has no place). Freeze today's outputs as references: the demo table, the lab's `prepare_sample` in all 20 cases, its interwoven imaging, `convert`'s arrays at 5, 2 and 1 µs.
-- **P1 — forwarding, not breaking.** B10 (#136); a forwarded keyword fills only `INFER` slots (C6, N3).
-- **P2 — stages only, breaking.** `to_timeline`; `stack` and `cascade` take stages only, and refuse a table anywhere (D17's correction); `create` deleted; stages and core functions lose `timeline=`; the empty-table rules and their messages (item 3; C6, N4); #143. `function__lambda`'s frame-reading can then give way to an explicit wrapper.
+- **P0 — groundwork.** #142's two questions are settled (items 9 and 11). What remains is to freeze today's outputs as references: the demo table, the lab's `prepare_sample` in all 20 cases, its interwoven imaging, `convert`'s arrays at 5, 2 and 1 µs.
+- **P1 — not breaking for any real timeline.** B10 (#136); a forwarded keyword fills only unstated slots (C6, N3); every row has a context (#156, with the empty-table message of N4); a ramp inside another ramp of the same variable is refused (A17, #157).
+- **P2 — stages only, breaking.** `to_timeline`; `stack` and `cascade` take stages only, and refuse a table anywhere (D17's correction); `create` deleted; stages and core functions lose `timeline=`; the empty-table origin rule (item 3); a ramp starts where its variable is (item 9); the tags (item 10, #158); #143. `function__lambda`'s frame-reading can then give way to an explicit wrapper.
 - **P3 — `expand`, after `issue#94`.** Items 6 and 7; #65.
 - **P4 — rows outside the run, after `issue#94`.** #154 and #153, with #80. Touches `wignertime/adwin/`, so the rig has the last word.
 - **P5 — the operation layer.** The demo; the lab on a branch of its own (`prepare_sample` as a list of stages, closing L6 there; the diagnostics; `tof_timelines` with `onto=`; the notebooks).
