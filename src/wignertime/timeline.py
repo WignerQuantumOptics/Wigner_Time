@@ -12,7 +12,6 @@ It is a goal to be able to go up and down through the layers of abstraction.
 
 from typing import Callable
 
-import funcy
 import numpy as np
 
 from wignertime import config as wt_config
@@ -708,6 +707,13 @@ def stack(
 
         context='MOT'
     )`
+
+    A forwarded keyword is a **default** for the constituents, not an override: it fills
+    what a constituent left unstated and leaves what it stated alone, so
+    `stack(update(x=1, context="ADwin_Finish"), anchor(1.0), context="finalRamps")` keeps
+    `x` in its reserved context. The same holds between stacks: a stage is itself a
+    `stack`, and a keyword given to an outer one reaches the stages inside it, where each
+    stack's own keywords, stated closer, take precedence.
     """
 
     for f in (timeline_or_f, *fs):
@@ -723,16 +729,34 @@ def stack(
         if unplaced:
             raise TypeError(_message__unplaced(unplaced, keywords__available))
 
-    fs__wrapped = [lambda x, f=f: f(x, **kws) for f in fs]
-    composed = funcy.compose(*reversed(fs__wrapped))
+    # Where no constituent says what it consumes, a keyword that none of them can even
+    # accept would otherwise be dropped below without a word.
+    unaccepted = sorted(
+        k for k in kws if not any(wt_util.accepts_keyword(f, k) for f in constituents)
+    )
+    if unaccepted:
+        raise TypeError(_message__unplaced(unaccepted, keywords__available or set()))
+
+    # One closure that threads the keywords through, rather than a `funcy.compose` of
+    # single-argument wrappers. That composition took the timeline and nothing else, so a
+    # keyword forwarded into a nested stack -- every stage is one -- raised a `TypeError`
+    # naming a lambda (B10, #136). A constituent that takes no keywords, such as a
+    # hand-written `lambda tline: ...`, is given none: the guard above has already made
+    # sure that each keyword reaches something that uses it.
+    def composed(timeline, **kws__outer):
+        kws__all = {**kws__outer, **kws}
+        for f in constituents:
+            timeline = f(
+                timeline,
+                **{k: v for k, v in kws__all.items() if wt_util.accepts_keyword(f, k)},
+            )
+        return timeline
 
     if isinstance(timeline_or_f, wt_frame.CLASS):
         return composed(timeline_or_f)
 
-    wrapped_first = lambda x: timeline_or_f(x, **kws)
     return wt_util.mark_keywords(
-        wt_util.mark_deferred(funcy.compose(*reversed(fs__wrapped), wrapped_first)),
-        keywords__available or (),
+        wt_util.mark_deferred(composed), keywords__available or ()
     )
 
 

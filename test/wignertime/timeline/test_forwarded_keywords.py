@@ -112,3 +112,68 @@ def test_cascade_still_routes_by_prefix():
 
     result = tl.cascade(init, stage__named, stage__named_duration=7.0)
     assert result.iloc[-1]["value"] == pytest.approx(7.0)
+
+
+# --- B10 and #145: forwarding reaches nested stacks, and fills only the unstated ---
+
+
+def _contexts(timeline):
+    return dict(zip(timeline["variable"], timeline["context"]))
+
+
+def test_a_keyword_reaches_the_constituents_of_a_nested_stack(base):
+    """
+    B10 (#136). Every stage is itself a `stack`, and forwarding into one used to raise
+    `TypeError: stack.<locals>.<lambda>() got an unexpected keyword argument 'context'`,
+    so `sec:context`'s shared context worked one level deep only.
+    """
+    stage = tl.stack(tl.update(b__A=1.0), tl.anchor(1.0))
+    result = tl.stack(base, stage, context="MOT")
+    assert set(result.iloc[1:]["context"]) == {"MOT"}
+
+
+def test_a_nested_stacks_own_keyword_is_stated_closer_and_wins(base):
+    stage = tl.stack(tl.update(b__A=1.0), context="inner")
+    result = tl.stack(base, stage, tl.update(c__A=2.0), context="outer")
+    assert _contexts(result)["b__A"] == "inner"
+    assert _contexts(result)["c__A"] == "outer"
+
+
+def test_a_forwarded_context_does_not_override_a_stated_one(base):
+    """
+    #145. The forwarded keyword used to be merged last, so this row left its reserved
+    context without a word -- the mirror image of the skip #145 was filed for. A keyword
+    given to `stack` is a default for its constituents, not an override.
+    """
+    result = tl.stack(
+        base,
+        tl.update(a_b=1, context="ADwin_Finish"),
+        tl.anchor(1.0),
+        context="finalRamps",
+    )
+    contexts = _contexts(result)
+    assert contexts["a_b"] == "ADwin_Finish"
+    assert contexts[result["variable"].iloc[-1]] == "finalRamps"
+
+
+def test_a_stage_passing_on_context_none_still_takes_the_stacks(base):
+    """`None` means the default, so a stage forwarding it has stated nothing."""
+
+    def stage(context=None):
+        return tl.update(b__A=1.0, context=context)
+
+    assert _contexts(tl.stack(base, stage(), context="MOT"))["b__A"] == "MOT"
+
+
+def test_a_transformer_taking_no_keywords_is_given_none(base):
+    stage = tl.stack(tl.update(b__A=1.0), lambda tline: tline)
+    assert _contexts(tl.stack(base, stage, context="MOT"))["b__A"] == "MOT"
+
+
+def test_a_keyword_nothing_accepts_raises_even_where_nothing_declares(base):
+    """
+    Handing a keyword only to constituents that take it must not turn into dropping it:
+    here no constituent records what it consumes, so the guard above cannot help.
+    """
+    with pytest.raises(TypeError, match="could not place 1 keyword"):
+        tl.stack(base, lambda tline: tline, context="MOT")

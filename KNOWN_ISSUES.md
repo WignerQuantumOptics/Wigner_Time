@@ -723,7 +723,10 @@ The endpoints and the tanh shape are right either way, so nothing looks wrong �
 
 ---
 
-### B10 — `stack` cannot forward a keyword into a nested stage **[new, found 2026-09-19]**
+### B10 — `stack` cannot forward a keyword into a nested stage **[new, found 2026-09-19]** — **FIXED 2026-09-29 on `issue#85` (#136), P1 of C7**
+
+**Fixed as the direction below proposed**: the composed stack is one closure that threads the keywords through its constituents, so a keyword given to an outer `stack` reaches the stages inside it. Each stack's own keywords, stated closer, take precedence over ones forwarded into it. A constituent that takes no keywords — a hand-written `lambda tline: ...` — is given none. That needed one more guard, because handing a keyword only to the constituents that take it could otherwise turn into dropping it: a keyword that no constituent can even accept still raises, where no constituent records what it consumes. Pinned in `test_forwarded_keywords.py`. The demo and lab references are unchanged. `sec:context`'s claim is now true of stacks of stages, with the qualification #145 adds (C6).
+
 
 `stack` wraps each constituent as `lambda x, f=f: f(x, **kws)`, and composes them. The composed object therefore takes **only** the timeline — so when an outer `stack` forwards a keyword into it, it raises:
 
@@ -1011,7 +1014,7 @@ Options:
   # a_b lands in finalRamps
   ```
 
-  With a reserved context that is the same change of hardware sequence as the skip above, in the other direction. Neither the demo nor the lab combines the two, so nothing is exposed today. It matters for #85: once `init` is a constituent, `stack(init(), ..., context="experiment")` replaces `ADwin_LowInit` in the same way (measured on the C7 prototype). Resolving the skip without this would only mirror it. **Settled with #85 (C7, item 4): a keyword forwarded by `stack` is a default, not an override** — the rule `t` and `context` already follow in `create`'s input (C5).
+  With a reserved context that is the same change of hardware sequence as the skip above, in the other direction. Neither the demo nor the lab combines the two, so nothing is exposed today. It matters for #85: once `init` is a constituent, `stack(init(), ..., context="experiment")` replaces `ADwin_LowInit` in the same way (measured on the C7 prototype). Resolving the skip without this would only mirror it. **Settled with #85 (C7, item 4): a keyword forwarded by `stack` is a default, not an override** — the rule `t` and `context` already follow in `create`'s input (C5). **Fixed 2026-09-29 on `issue#85`, P1**: `function__lambda` merges a forwarded keyword only into a parameter the call left at its default. That is exact for `origin` and `context`, which default to `INFER`, where `None` or `INFER` written out *means* "use the default"; elsewhere a value written equal to the default counts as unstated. **§G, to carry into P6:** `sec:context` (main.tex:684) says a single `context="MOT"` given to `stack` "labels every row that stack produces". It now labels every row that does not state a context of its own, which is the section's own rule a sentence later — "only what differs from the preceding state need be stated" — but the sentence as written overstates it.
 - **The skip itself disappears with #85**, because nothing but stages enters a `stack`. **Option 2 then follows without being imposed**: the first rows of a timeline have nothing to inherit a context from, so they must name one. `update` onto an empty table already refuses — but with the wrong reason: `Nothing to resolve against: the timeline is empty ... give a number instead -- origin=0.0`, and following that advice gives the same error, since what is missing is the context (`inherit.context` calls `origin.previous` on the empty table). Under #85 that is the first error every user who forgets a context meets, so the message has to name the context.
 
 Depends on #85 and, through it, on B10 (#136).

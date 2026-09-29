@@ -12,6 +12,7 @@ from typing import Callable, OrderedDict
 
 import numpy as np
 
+from wignertime import config as wt_config
 from wignertime.config import wtlog
 from wignertime.internal import dataframe as wt_frame
 
@@ -494,15 +495,52 @@ def function__lambda(lambda_key="timeline", kwargs=["vtvc_dict"]):
     else:
         raise ValueError("Function `f` needs to have arguments in `function__lambda`.")
 
+    unstated = _unstated(f, kwargs)
+
+    # A keyword forwarded later, by a `stack`, is a *default* for this call, not an
+    # override: it fills a parameter the call left unstated and leaves one it stated
+    # alone. It used to be merged last, so `stack(..., update(x=1, context="ADwin_Finish"),
+    # context="finalRamps")` moved the row out of the reserved context, silently (#145).
     deferred = mark_deferred(
         lambda x, **kwargs__new: f(
             **{
                 k: x,
                 **kwargs,
-                **kwargs__new,
+                **{
+                    name: value
+                    for name, value in kwargs__new.items()
+                    if name not in kwargs or name in unstated
+                },
             }
         )
     )
     # What the closure hides, recorded before it closes: `stack` needs to know which
     # keywords this constituent can consume, and once wrapped there is no way to ask.
     return mark_keywords(deferred, keywords__named(f) or ())
+
+
+def _unstated(f, arguments):
+    """
+    The parameters of `f` that `arguments` leaves at their defaults.
+
+    A default and a value written equal to it cannot be told apart here, since the call's
+    arguments are read back from its frame. That is exact for the parameters that default
+    to `INFER` -- `origin` and `context` -- where writing `None` or `INFER` *means* "use
+    the default", and those are the ones forwarding exists for (`sec:context`). Elsewhere
+    a value written equal to the default counts as unstated.
+    """
+    out = set()
+    for name, parameter in inspect.signature(f).parameters.items():
+        if parameter.default is parameter.empty or name not in arguments:
+            continue
+        value, default = arguments[name], parameter.default
+        if value is default or (default is wt_config.INFER and value is None):
+            out.add(name)
+        elif (
+            not callable(default)
+            and type(value) is type(default)
+            and isinstance(default, (int, float, str, list, tuple))
+            and value == default
+        ):
+            out.add(name)
+    return out

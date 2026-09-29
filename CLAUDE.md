@@ -138,7 +138,8 @@ signature `sec:functions` has always documented). To add to an existing timeline
 `update(..., origin=0.0)` is exactly what passing a timeline to `create` used to do. The callable branch is produced by
 `internal/util.py::function__lambda`, which reads the caller's frame to capture its own arguments — so
 it only works when called directly from the public function's body. `stack` and `cascade` compose
-those callables (and forward their own kwargs into every one of them). Any new top-level timeline
+those callables (and forward their own kwargs into every one of them, nested stacks included, as
+defaults: a constituent keeps what it states itself — #136, #145). Any new top-level timeline
 function should follow this shape.
 
 This is what lets a stage be written once, generically, relative only to its own beginning, and
@@ -266,7 +267,8 @@ display grouping); it is addressable as an `origin`, which makes a stage a *name
 basis of interweaving; and a backend may reserve particular names (`ADwin_LowInit`, `ADwin_Finish`).
 
 Contexts are **inherited, not repeated** — `update`, `ramp` and `anchor` adopt the latest context of
-the timeline they extend, and any `context=` given to `stack` is forwarded to all its constituents. The
+the timeline they extend, and any `context=` given to `stack` is forwarded to all its constituents — as a
+default, so one that states its own context keeps it, and through nested stacks too. The
 corresponding trap, flagged in `timeline.update`'s docstring: rows appended after a stage in a reserved
 context silently inherit that reserved context, so name the context explicitly when extending past one.
 
