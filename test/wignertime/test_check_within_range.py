@@ -31,12 +31,12 @@ NAN = np.nan
 # a realistic post-join frame: digital lines carry no device entry
 MIXED = frame(
     [
-        ("AOM_MOT", 1.0, NAN, NAN),
-        ("shutter_MOT", 1.0, NAN, NAN),
-        ("AOM_science__trans", 1.0, 0.0, 1.0),
-        ("coil_MOTlower__A", -1.0, -5.0, 5.0),
-        ("coil_MOTupper__A", -0.98, -5.0, 5.0),
-        ("lockbox_MOT__MHz", -5.0, -200.0, 200.0),
+        ("AOM__MOT", 1.0, NAN, NAN),
+        ("shutter__MOT", 1.0, NAN, NAN),
+        ("AOM__science__trans", 1.0, 0.0, 1.0),
+        ("coil__MOT_lower__A", -1.0, -5.0, 5.0),
+        ("coil__MOT_upper__A", -0.98, -5.0, 5.0),
+        ("lockbox__MOT__MHz", -5.0, -200.0, 200.0),
     ]
 )
 
@@ -49,7 +49,7 @@ def test_digital_variables_without_a_device_entry_do_not_raise():
 
 
 def test_alphabetically_first_variable_being_digital_is_harmless():
-    """`groupby` visits AOM_MOT first; NaN bounds must not be read as 'column absent'."""
+    """`groupby` visits AOM__MOT first; NaN bounds must not be read as 'column absent'."""
     assert device.check_within_range(MIXED.sort_values("variable")) is True
 
 
@@ -58,8 +58,8 @@ def test_alphabetically_first_variable_being_digital_is_harmless():
 
 def test_every_variable_is_checked_not_just_the_first():
     tl = MIXED.copy()
-    tl.loc[tl["variable"] == "coil_MOTlower__A", "value"] = 99.0
-    with pytest.raises(ValueError, match="coil_MOTlower__A"):
+    tl.loc[tl["variable"] == "coil__MOT_lower__A", "value"] = 99.0
+    with pytest.raises(ValueError, match="coil__MOT_lower__A"):
         device.check_within_range(tl)
 
 

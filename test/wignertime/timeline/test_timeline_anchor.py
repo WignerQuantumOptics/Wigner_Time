@@ -11,11 +11,11 @@ def test_anchor__basic():
     tl_anchor = tl.to_timeline(
         tl.stack(
             tl.anchor(time=10.0, context="InitialAnchor"),
-            tl.ramp(lockbox_MOT__MHz=[1.0, 10.0], context="new ramp"),
+            tl.ramp(lockbox__MOT__MHz=[1.0, 10.0], context="new ramp"),
         ),
         onto=tl.to_timeline(
             tl.update(
-                lockbox_MOT__MHz=0.0,
+                lockbox__MOT__MHz=0.0,
                 context="ADwin_LowInit",
             )
         ),
@@ -23,7 +23,7 @@ def test_anchor__basic():
 
     tl_check = tl.to_timeline(
         tl.update(
-            lockbox_MOT__MHz=[
+            lockbox__MOT__MHz=[
                 [0.0, 0.0, "ADwin_LowInit"],
                 [10.0, 0.0, "new ramp"],
                 [11.0, 10.0, "new ramp"],
@@ -32,14 +32,14 @@ def test_anchor__basic():
     )
 
     tl_check = tl._populate_timeline(
-        ["⚓_001", [10.0, 0.0, "InitialAnchor"]],
+        ["⚓__001", [10.0, 0.0, "InitialAnchor"]],
         timeline=tl_check,
         context="InitialAnchor",
         origin=[0.0, 0.0],
     )
 
     tl_check.loc[
-        (tl_check["variable"] == "lockbox_MOT__MHz") & (tl_check["time"] > 1.0),
+        (tl_check["variable"] == "lockbox__MOT__MHz") & (tl_check["time"] > 1.0),
         "function",
     ] = ramp_function.tanh
     tl_check.sort_values(["time", "context"], inplace=True, ignore_index=True)
@@ -54,7 +54,7 @@ def df_context1():
             ["thing2", 1.0, 5.0, "init"],
             ["thing", 0.0, 5.0, "init"],
             ["thing", 5.0, 5.0, "MOT"],
-            ["⚓_001", 4.5, 5.0, "MOT"],
+            ["⚓__001", 4.5, 5.0, "MOT"],
             ["thing3", 3.0, 5.0, "blah"],
         ],
         columns=["variable", "time", "value", "context"],
@@ -64,7 +64,7 @@ def df_context1():
 def test_anchorContext(df_context1):
     return wt_frame.assert_equal(
         tl._populate_timeline(
-            lockbox_MOT__MHz=[1.0, 10.0],
+            lockbox__MOT__MHz=[1.0, 10.0],
             timeline=df_context1,
             context="ramp",
             origin="MOT",
@@ -74,9 +74,9 @@ def test_anchorContext(df_context1):
                 ["thing2", 1.0, 5.0, "init"],
                 ["thing", 0.0, 5.0, "init"],
                 ["thing", 5.0, 5.0, "MOT"],
-                ["⚓_001", 4.5, 5.0, "MOT"],
+                ["⚓__001", 4.5, 5.0, "MOT"],
                 ["thing3", 3.0, 5.0, "blah"],
-                ["lockbox_MOT__MHz", 5.5, 10.0, "ramp"],
+                ["lockbox__MOT__MHz", 5.5, 10.0, "ramp"],
             ],
             columns=["variable", "time", "value", "context"],
         ),

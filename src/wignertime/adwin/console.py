@@ -562,7 +562,8 @@ def create_UI(machine, table, continuous_update=True):
                 max=row.value__max,
                 step=0.01,
                 description="{}\n({})".format(
-                    row.variable.rsplit("__", 1)[0], wt_variable.unit(row.variable)
+                    wt_variable.without_unit(row.variable),
+                    wt_variable.unit(row.variable),
                 ),
                 orientation="vertical",
                 continuous_update=continuous_update,

@@ -30,7 +30,7 @@ def _ensure_valid_names(timeline):
     else:
         offenders = [v for v in timeline.variable if not variable.is_valid(v)]
         raise ValueError(
-            "Connection name(s) {} do not follow the naming convention `<device>_<UID>(__<unit>)` set by `config.VARIABLE__REGEX`.".format(
+            "Connection name(s) {} do not follow the naming convention `<device>__<UID>(__<unit>)` set by `config.VARIABLE__REGEX`.".format(
                 offenders
             )
         )
@@ -44,11 +44,11 @@ def new(*variable_module_channel) -> pd.DataFrame:
 
     vmcs:
     e.g.
-        "AOM_MOT__V", 1, 1
+        "AOM__MOT__V", 1, 1
     or
-        ["shutter_MOT", 1, 11],
-        ["shutter_repump", 1, 12],
-        ["shutter_imaging", 1, 13],
+        ["shutter__MOT", 1, 11],
+        ["shutter__repump", 1, 12],
+        ["shutter__imaging", 1, 13],
     """
 
     try:

@@ -10,14 +10,14 @@ from wignertime.adwin import connection as adcon
     "input",
     [
         dev.new(
-            "coil_compensationX__A",
+            "coil__compensation_X__A",
             3 / 10.0,
             -3.0,
             3.0,
         ),
         dev.new(
             [
-                "coil_compensationX__A",
+                "coil__compensation_X__A",
                 3 / 10.0,
                 -3.0,
                 3.0,
@@ -29,7 +29,7 @@ def test_deviceSingle(input):
     comparison = wt_frame.new_schema(
         [
             [
-                "coil_compensationX__A",
+                "coil__compensation_X__A",
                 3 / 10.0,
                 -3.0,
                 3.0,
@@ -45,14 +45,14 @@ def test_deviceSingle(input):
     "input",
     [
         dev.new(
-            ["coil_compensationY__A", 0.33, -np.inf, np.inf],
-            ["coil_MOTlower__A", 0.5, -np.inf, np.inf],
-            ["coil_MOTupper__A", 0.5, -np.inf, np.inf],
+            ["coil__compensation_Y__A", 0.33, -np.inf, np.inf],
+            ["coil__MOT_lower__A", 0.5, -np.inf, np.inf],
+            ["coil__MOT_upper__A", 0.5, -np.inf, np.inf],
         ),
         dev.new(
-            ["coil_compensationY__A", 0.33],
-            ["coil_MOTlower__A", 0.5, -np.inf],
-            ["coil_MOTupper__A", 0.5],
+            ["coil__compensation_Y__A", 0.33],
+            ["coil__MOT_lower__A", 0.5, -np.inf],
+            ["coil__MOT_upper__A", 0.5],
         ),
     ],
 )
@@ -61,9 +61,9 @@ def test_deviceMultiple(input):
         input,
         wt_frame.new_schema(
             [
-                ["coil_compensationY__A", 0.33, -np.inf, +np.inf],
-                ["coil_MOTlower__A", 0.5, -np.inf, +np.inf],
-                ["coil_MOTupper__A", 0.5, -np.inf, +np.inf],
+                ["coil__compensation_Y__A", 0.33, -np.inf, +np.inf],
+                ["coil__MOT_lower__A", 0.5, -np.inf, +np.inf],
+                ["coil__MOT_upper__A", 0.5, -np.inf, +np.inf],
             ],
             dev.SCHEMA__expanded,
         ),
@@ -72,7 +72,7 @@ def test_deviceMultiple(input):
 
 def test_input_number():
     with pytest.raises(ValueError):
-        dev.new("coil_compensationX__A", 3 / 10.0, -3.0, 3.0, 5.0)
+        dev.new("coil__compensation_X__A", 3 / 10.0, -3.0, 3.0, 5.0)
 
 
 @pytest.fixture
@@ -83,8 +83,8 @@ def func():
 @pytest.mark.parametrize(
     "input",
     [
-        ["coil_compensationY__A", func],
-        # ["coil_compensationY__A", lambda x: "does things"],
+        ["coil__compensation_Y__A", func],
+        # ["coil__compensation_Y__A", lambda x: "does things"],
     ],
 )
 def test_function(input):
@@ -92,7 +92,7 @@ def test_function(input):
         dev.new(*input),
         wt_frame.new_schema(
             [
-                ["coil_compensationY__A", func, -np.inf, +np.inf],
+                ["coil__compensation_Y__A", func, -np.inf, +np.inf],
             ],
             dev.SCHEMA,
         ),
@@ -102,7 +102,7 @@ def test_function(input):
 @pytest.mark.parametrize(
     "input",
     [
-        ["coil_compensationY__A", func, -3, 3],
+        ["coil__compensation_Y__A", func, -3, 3],
     ],
 )
 def test_function002(input):
@@ -110,7 +110,7 @@ def test_function002(input):
         dev.new(*input),
         wt_frame.new_schema(
             [
-                ["coil_compensationY__A", func, -3, 3],
+                ["coil__compensation_Y__A", func, -3, 3],
             ],
             dev.SCHEMA,
         ),
@@ -119,9 +119,9 @@ def test_function002(input):
 
 def test_check_safety_range001():
     df = dev.new(
-        ["coil_compensationY__A", 0.33, -5, 5],
-        ["coil_MOTlower__A", 0.5, -2.5, 3],
-        ["coil_MOTupper__A", 0.5, -np.inf, np.inf],
+        ["coil__compensation_Y__A", 0.33, -5, 5],
+        ["coil__MOT_lower__A", 0.5, -2.5, 3],
+        ["coil__MOT_upper__A", 0.5, -np.inf, np.inf],
     )
     df["value"] = [5.0, -2.5, 0.0]
 
@@ -139,9 +139,9 @@ def test_check_safety_range001():
 )
 def test_check_safety_range002(input):
     df = dev.new(
-        ["coil_compensationY__A", 0.33, -5, 5],
-        ["coil_MOTlower__A", 0.5, -2.5, 3],
-        ["coil_MOTupper__A", 0.5, -np.inf, np.inf],
+        ["coil__compensation_Y__A", 0.33, -5, 5],
+        ["coil__MOT_lower__A", 0.5, -2.5, 3],
+        ["coil__MOT_upper__A", 0.5, -np.inf, np.inf],
     )
     df["value"] = input
 
@@ -160,27 +160,27 @@ def test_device_refuses_a_malformed_name():
 
 def test_a_mistyped_device_name_no_longer_passes_silently():
     """
-    A14. `coil_MOTT__A` is a perfectly well-formed name, so the shape check cannot catch
+    A14. `coil__MOTT__A` is a perfectly well-formed name, so the shape check cannot catch
     it. The device row joined to nothing, the variable arrived with no bounds, and
     `check_within_range` reads absent bounds as a digital line and skips: 500 A passed on
     a coil declared +/-5 A.
     """
-    connections = adcon.new(["coil_MOT__A", 4, 1])
-    devices = dev.new(["coil_MOTT__A", 2.0, -5.0, 5.0])
+    connections = adcon.new(["coil__MOT__A", 4, 1])
+    devices = dev.new(["coil__MOTT__A", 2.0, -5.0, 5.0])
 
     with pytest.raises(ValueError, match="do not describe the same apparatus"):
         dev.check_correspondence(connections, devices)
 
 
 def test_an_analogue_channel_without_a_device_is_refused():
-    connections = adcon.new(["coil_MOT__A", 4, 1])
+    connections = adcon.new(["coil__MOT__A", 4, 1])
     with pytest.raises(ValueError, match="connected, analogue, but no device"):
         dev.check_correspondence(connections, dev.new())
 
 
 def test_a_digital_channel_needs_no_device():
     """No unit means digital, and a digital line has nothing to calibrate or bound."""
-    connections = adcon.new(["shutter_MOT", 1, 11], ["AOM_MOT", 1, 1])
+    connections = adcon.new(["shutter__MOT", 1, 11], ["AOM__MOT", 1, 1])
     assert dev.check_correspondence(connections, dev.new())
 
 

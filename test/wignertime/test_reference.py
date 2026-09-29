@@ -6,7 +6,7 @@ goes, a ramp starts where its variable is -- but the tables it produces must not
 tests pin those tables as they were before any of it, so that every later step has to
 reproduce them:
 
-- the demo's `timeline__demo`, and the camera trigger `sec:interweaving` places into it;
+- the demo's `timeline_demo`, and the camera trigger `sec:interweaving` places into it;
 - the ADwin arrays the demo converts to, at 5, 2 and 1 us;
 - the lab's `prepare_sample` next door (`../quantum_optics_lab`) at each of its five
   stages, with and without its finish and with and without the dispenser switch-off;
@@ -77,8 +77,8 @@ def test_demo_is_unchanged(case):
 def test_demo_arrays_are_unchanged(period):
     pytest.importorskip("ADwin")
     ex, cases = ref.demo_cases()
-    built = ref.arrays(cases["timeline__demo"](), ex.connections, ex.devices, period)
-    assert built == _arrays("timeline__demo")[ref.key(period)]
+    built = ref.arrays(cases["timeline_demo"](), ex.connections, ex.devices, period)
+    assert built == _arrays("timeline_demo")[ref.key(period)]
 
 
 @pytest.mark.parametrize("case", _cases("quantum_optics_lab"))

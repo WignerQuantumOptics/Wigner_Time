@@ -23,37 +23,37 @@ def test_ensure_2d_nums(input):
 
 @pytest.mark.parametrize(
     "input",
-    [["AOM_MOT__V", 1, 1], [["AOM_MOT__V", 1, 1]]],
+    [["AOM__MOT__V", 1, 1], [["AOM__MOT__V", 1, 1]]],
 )
 def test_ensure_2d_multi(input):
-    assert util.ensure_2d(input) == [["AOM_MOT__V", 1, 1]]
+    assert util.ensure_2d(input) == [["AOM__MOT__V", 1, 1]]
 
 
 # @pytest.fixture
 # @pytest.mark.parametrize(
 #     "input",
 #     [
-#         tl._populate_timeline("AOM_imaging", [[0.0, 0.0]]),
+#         tl._populate_timeline("AOM__imaging", [[0.0, 0.0]]),
 #     ],
 # )
 
 
 def test_function__deferred():
-    tl.ramp(AOM_imaging__V=[1.0, 1.0])
+    tl.ramp(AOM__imaging__V=[1.0, 1.0])
 
     actual = tl.to_timeline(
         tl.stack(
-            tl.ramp(AOM_imaging__V=[1.0, 1.0]),
-            tl.update(AOM_imaging__V=[1.0, 0.0]),
+            tl.ramp(AOM__imaging__V=[1.0, 1.0]),
+            tl.update(AOM__imaging__V=[1.0, 0.0]),
         ),
-        onto=tl._populate_timeline("AOM_imaging__V", 0.0, 0.0, context="s"),
+        onto=tl._populate_timeline("AOM__imaging__V", 0.0, 0.0, context="s"),
     )
 
     return wt_frame.assert_equal(
         actual[["time", "variable", "value"]],
         tl.to_timeline(
             tl.update(
-                AOM_imaging__V=[[0.0, 0.0], [0.0, 0.0], [1.0, 1.0], [2.0, 0.0]],
+                AOM__imaging__V=[[0.0, 0.0], [0.0, 0.0], [1.0, 1.0], [2.0, 0.0]],
                 context="s",
             )
         )[["time", "variable", "value"]],

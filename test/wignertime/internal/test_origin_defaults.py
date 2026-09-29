@@ -365,11 +365,11 @@ def test_a_stage_forwarding_none_keeps_the_default(tline):
 
     def trigger_camera(t, exposure, context, origin=None):
         return tl.update(
-            trigger_camera=[[t, 1], [t + exposure, 0]], context=context, origin=origin
+            trigger__camera=[[t, 1], [t + exposure, 0]], context=context, origin=origin
         )
 
     new = tl.to_timeline(trigger_camera(0.5, 0.1, "imaging"), onto=tline)
-    assert new[new["variable"] == "trigger_camera"]["time"].tolist() == [4.0, 4.1]
+    assert new[new["variable"] == "trigger__camera"]["time"].tolist() == [4.0, 4.1]
 
 
 def test_absolute_placement_is_a_number(tline):

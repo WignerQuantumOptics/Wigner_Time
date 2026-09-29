@@ -120,13 +120,13 @@ class _Machine:
 
 def _tables(to_V=2.0):
     connections = adcon.new(
-        ["shutter_MOT", 1, 11], ["coil_MOT__A", 4, 1], ["lockbox_MOT__MHz", 3, 8]
+        ["shutter__MOT", 1, 11], ["coil__MOT__A", 4, 1], ["lockbox__MOT__MHz", 3, 8]
     )
     devices = device.new(
-        ["coil_MOT__A", to_V, -5, 5], ["lockbox_MOT__MHz", 0.05, -200, 200]
+        ["coil__MOT__A", to_V, -5, 5], ["lockbox__MOT__MHz", 0.05, -200, 200]
     )
     defaults = tl.to_timeline(
-        tl.update(shutter_MOT=1, coil_MOT__A=1.5, time=0.0, context="init")
+        tl.update(shutter__MOT=1, coil__MOT__A=1.5, time=0.0, context="init")
     )
     return connections, devices, defaults
 
@@ -150,9 +150,9 @@ DEFAULTS = [(1, 11, 1), (4, 1, conversion.to_digits(3.0))]  # the lockbox has no
 def test_the_panel_takes_its_defaults_from_the_timeline(capsys):
     table = _panel()
     values = dict(zip(table["variable"], table["default_value"]))
-    assert values["shutter_MOT"] == 1.0 and values["coil_MOT__A"] == 1.5
-    assert np.isnan(values["lockbox_MOT__MHz"]), "no default: left as it is"
-    assert "lockbox_MOT__MHz" in capsys.readouterr().out, "the missing one is reported"
+    assert values["shutter__MOT"] == 1.0 and values["coil__MOT__A"] == 1.5
+    assert np.isnan(values["lockbox__MOT__MHz"]), "no default: left as it is"
+    assert "lockbox__MOT__MHz" in capsys.readouterr().out, "the missing one is reported"
 
 
 def test_a_variable_without_a_default_is_left_alone_and_unknown():
@@ -169,7 +169,7 @@ def test_a_variable_without_a_default_is_left_alone_and_unknown():
 def test_an_analogue_channel_without_a_device_is_refused():
     """It would be taken for a digital line, and switched between digits 0 and 1: -10 V."""
     connections, devices, defaults = _tables()
-    devices = device.new(["coil_MOT__A", 2.0, -5, 5])  # the lockbox's entry is missing
+    devices = device.new(["coil__MOT__A", 2.0, -5, 5])  # the lockbox's entry is missing
     with pytest.raises(ValueError, match="do not describe the same apparatus"):
         console.panel(connections, devices, defaults)
 
@@ -178,19 +178,19 @@ def test_a_digital_line_on_an_analogue_module_is_refused():
     """The program would write it to the DAC as the digits 0 or 1: -10 V (A16)."""
     connections, devices, defaults = _tables()
     connections = adcon.new(
-        ["shutter_MOT", 3, 11], ["coil_MOT__A", 4, 1], ["lockbox_MOT__MHz", 3, 8]
+        ["shutter__MOT", 3, 11], ["coil__MOT__A", 4, 1], ["lockbox__MOT__MHz", 3, 8]
     )
     with pytest.raises(
-        ValueError, match="shutter_MOT on module 3: digital by its name"
+        ValueError, match="shutter__MOT on module 3: digital by its name"
     ):
         console.panel(connections, devices, defaults)
 
 
 def test_an_unbounded_analogue_channel_is_refused():
     connections, _, defaults = _tables()
-    devices = device.new(["coil_MOT__A", 2.0], ["lockbox_MOT__MHz", 0.05, -200, 200])
+    devices = device.new(["coil__MOT__A", 2.0], ["lockbox__MOT__MHz", 0.05, -200, 200])
     with pytest.raises(
-        ValueError, match=r"none, or an infinite one: \['coil_MOT__A'\]"
+        ValueError, match=r"none, or an infinite one: \['coil__MOT__A'\]"
     ):
         console.panel(connections, devices, defaults)
 
@@ -223,10 +223,10 @@ def test_the_sweep_writes_the_defaults_then_nothing():
 
 
 def test_a_sweep_writes_at_most_eight():
-    connections = adcon.new(*[["shutter_{}".format(i), 1, i] for i in range(1, 11)])
+    connections = adcon.new(*[["shutter__{}".format(i), 1, i] for i in range(1, 11)])
     defaults = tl.to_timeline(
         tl.update(
-            **{"shutter_{}".format(i): 0 for i in range(1, 11)},
+            **{"shutter__{}".format(i): 0 for i in range(1, 11)},
             time=0.0,
             context="init"
         )
@@ -247,7 +247,7 @@ def test_a_sweep_writes_at_most_eight():
 @pytest.mark.parametrize("to_V", [2.0, lambda amps: 2.0 * amps])
 def test_a_value_is_converted_as_the_sequencer_converts_it(to_V):
     machine, panel = _configured(to_V=to_V)
-    console.set_value(panel, "coil_MOT__A", 1.25)
+    console.set_value(panel, "coil__MOT__A", 1.25)
     assert machine.data[console.DATA__WANTED][1] == conversion.to_digits(2.5)
 
 
@@ -255,8 +255,8 @@ def test_values_coalesce_and_nothing_waits():
     """Two values before a sweep are one write: intermediate slider positions never reach it."""
     machine, panel = _configured()
     machine.sweep()
-    console.set_value(panel, "coil_MOT__A", 1.0)
-    console.set_value(panel, "coil_MOT__A", 2.0)
+    console.set_value(panel, "coil__MOT__A", 1.0)
+    console.set_value(panel, "coil__MOT__A", 2.0)
     machine.sweep()
     assert machine.hardware[len(DEFAULTS) :] == [(4, 1, conversion.to_digits(4.0))]
 
@@ -264,36 +264,36 @@ def test_values_coalesce_and_nothing_waits():
 def test_a_value_outside_the_devices_range_is_refused_and_not_written():
     machine, panel = _configured()
     with pytest.raises(ValueError, match="outside their device safety range"):
-        console.set_value(panel, "coil_MOT__A", 6.0)
+        console.set_value(panel, "coil__MOT__A", 6.0)
     assert machine.data[console.DATA__WANTED][1] == conversion.to_digits(3.0)
 
 
 def test_a_digital_line_takes_0_or_1():
     machine, panel = _configured()
-    console.set_value(panel, "shutter_MOT", False)
+    console.set_value(panel, "shutter__MOT", False)
     assert machine.data[console.DATA__WANTED][0] == 0
     with pytest.raises(ValueError, match="takes 0 or 1"):
-        console.set_value(panel, "shutter_MOT", 0.5)
+        console.set_value(panel, "shutter__MOT", 0.5)
 
 
 def test_an_unknown_name_lists_the_panels():
     _, panel = _configured()
-    with pytest.raises(ValueError, match="no variable 'coil_MOT__B'"):
-        console.set_value(panel, "coil_MOT__B", 1.0)
+    with pytest.raises(ValueError, match="no variable 'coil__MOT__B'"):
+        console.set_value(panel, "coil__MOT__B", 1.0)
 
 
 def test_a_value_while_a_sequence_owns_the_outputs_is_refused():
     machine, panel = _configured()
     machine.par[OWNER] = 1
     with pytest.raises(console.OutputsOwned, match="process 1, owns the outputs"):
-        console.set_value(panel, "coil_MOT__A", 1.0)
+        console.set_value(panel, "coil__MOT__A", 1.0)
 
 
 def test_a_value_is_refused_when_the_console_is_not_running():
     machine, panel = _configured()
     machine.running = 0
     with pytest.raises(RuntimeError, match="is not running"):
-        console.set_value(panel, "coil_MOT__A", 1.0)
+        console.set_value(panel, "coil__MOT__A", 1.0)
 
 
 def test_a_panel_configured_again_elsewhere_refuses():
@@ -301,7 +301,7 @@ def test_a_panel_configured_again_elsewhere_refuses():
     machine, panel = _configured()
     console.configure(machine, _panel())
     with pytest.raises(RuntimeError, match="configured again"):
-        console.set_value(panel, "coil_MOT__A", 1.0)
+        console.set_value(panel, "coil__MOT__A", 1.0)
 
 
 # After a run
@@ -327,9 +327,11 @@ def test_after_a_run_the_console_adopts_the_final_state_and_writes_nothing():
     ]
     held = console.readback(panel)
     values = dict(zip(held["variable"], held["value"]))
-    assert values["coil_MOT__A"] == pytest.approx(-1.2, abs=1e-3)
-    assert values["shutter_MOT"] == 0
-    assert np.isnan(values["lockbox_MOT__MHz"]), "not named by the final state: unknown"
+    assert values["coil__MOT__A"] == pytest.approx(-1.2, abs=1e-3)
+    assert values["shutter__MOT"] == 0
+    assert np.isnan(
+        values["lockbox__MOT__MHz"]
+    ), "not named by the final state: unknown"
     assert not held["pending"].any()
 
 
@@ -337,7 +339,7 @@ def test_a_value_wanted_just_before_the_run_is_discarded():
     """Written, then the sequence took the outputs before a sweep: the final state holds."""
     machine, panel = _configured()
     machine.sweep()
-    console.set_value(panel, "coil_MOT__A", 4.0)
+    console.set_value(panel, "coil__MOT__A", 4.0)
     machine.sequence(**FINAL)
     machine.sweep()
     assert (4, 1, conversion.to_digits(8.0)) not in machine.hardware
@@ -382,9 +384,9 @@ def test_the_final_state_is_read_back_in_the_devices_units(to_V):
         digital__finish=[(11, 0)],
     )
     state = console.final_state(machine, _panel(to_V=to_V))
-    assert state["coil_MOT__A"] == pytest.approx(-1.2, abs=1e-3)
-    assert state["lockbox_MOT__MHz"] == pytest.approx(120.0, abs=0.01)
-    assert state["shutter_MOT"] == 0
+    assert state["coil__MOT__A"] == pytest.approx(-1.2, abs=1e-3)
+    assert state["lockbox__MOT__MHz"] == pytest.approx(120.0, abs=0.01)
+    assert state["shutter__MOT"] == 0
 
 
 # Jumps, before a run
@@ -401,11 +403,11 @@ def _run(coil, lockbox=None):
 def test_a_value_set_on_the_console_that_the_run_jumps_is_found():
     machine, panel = _configured()
     machine.sweep()  # the coil at its default, 1.5 A
-    console.set_value(panel, "coil_MOT__A", 2.0)
+    console.set_value(panel, "coil__MOT__A", 2.0)
     machine.sweep()
 
     (jump,) = console.jumps(machine, _run(coil=-1.5), *_tables()[:2])
-    assert jump.variable == "coil_MOT__A" and jump.cycle == 0
+    assert jump.variable == "coil__MOT__A" and jump.cycle == 0
     assert (jump.held, jump.commanded) == (
         pytest.approx(2.0, abs=1e-3),
         pytest.approx(-1.5, abs=1e-3),
@@ -429,17 +431,17 @@ def test_after_a_run_the_adopted_state_is_not_a_jump():
 def test_a_jump_in_the_initial_state_is_found_too():
     machine, panel = _configured()
     machine.sweep()
-    console.set_value(panel, "lockbox_MOT__MHz", 50.0)
+    console.set_value(panel, "lockbox__MOT__MHz", 50.0)
     machine.sweep()
     (jump,) = console.jumps(machine, _run(coil=1.5, lockbox=0.0), *_tables()[:2])
-    assert jump.variable == "lockbox_MOT__MHz" and jump.cycle < 0
+    assert jump.variable == "lockbox__MOT__MHz" and jump.cycle < 0
 
 
 def test_a_console_that_has_not_seen_the_last_run_reports_nothing():
     """Closed during a run, its record is older than what the apparatus holds."""
     machine, panel = _configured()
     machine.sweep()
-    console.set_value(panel, "coil_MOT__A", 2.0)
+    console.set_value(panel, "coil__MOT__A", 2.0)
     machine.sweep()
     machine.running = 0
     machine.sequence()
@@ -462,7 +464,7 @@ def _ui(machine):
     ui = console.create_UI(machine, _panel())
     sliders = [w for w in ui.children[0].children if isinstance(w, widgets.FloatSlider)]
     toggles = [w for box in ui.children[1:4] for w in box.children]
-    return ui, dict(zip(["coil_MOT__A", "lockbox_MOT__MHz"], sliders)), toggles
+    return ui, dict(zip(["coil__MOT__A", "lockbox__MOT__MHz"], sliders)), toggles
 
 
 def _messages(ui):
@@ -475,7 +477,7 @@ def test_the_UI_configures_the_console_and_sends_while_dragging():
     ui, sliders, _ = _ui(machine)
     machine.sweep()
     assert machine.hardware == DEFAULTS
-    assert sliders["coil_MOT__A"].continuous_update is True
+    assert sliders["coil__MOT__A"].continuous_update is True
 
 
 def test_the_UI_puts_a_refused_move_back():
@@ -483,8 +485,8 @@ def test_the_UI_puts_a_refused_move_back():
     machine.start()
     ui, sliders, _ = _ui(machine)
     machine.par[OWNER] = 1
-    sliders["coil_MOT__A"].value = 2.0
-    assert sliders["coil_MOT__A"].value == 1.5, "put back, since nothing was written"
+    sliders["coil__MOT__A"].value = 2.0
+    assert sliders["coil__MOT__A"].value == 1.5, "put back, since nothing was written"
     assert "owns the outputs" in _messages(ui)
 
 
@@ -495,12 +497,12 @@ def test_the_UI_catches_up_with_a_run_at_the_next_move():
     machine.sweep()
     machine.sequence(**FINAL)
 
-    sliders["lockbox_MOT__MHz"].value = 10.0
+    sliders["lockbox__MOT__MHz"].value = 10.0
 
-    assert sliders["coil_MOT__A"].value == pytest.approx(-1.2, abs=0.01)
+    assert sliders["coil__MOT__A"].value == pytest.approx(-1.2, abs=0.01)
     assert toggles[0].value is False, "the shutter as the final state left it"
-    assert "Unknown after the last run: lockbox_MOT__MHz" in _messages(ui)
+    assert "Unknown after the last run: lockbox__MOT__MHz" in _messages(ui)
     assert (
-        sliders["lockbox_MOT__MHz"].style.handle_color is None
+        sliders["lockbox__MOT__MHz"].style.handle_color is None
     ), "known again once set"
     assert machine.data[console.DATA__WANTED][2] == conversion.to_digits(10.0 * 0.05)

@@ -5,78 +5,99 @@ from wignertime import variable
 
 
 def test_variable():
-    assert variable.parse("thing_deviceOfManyParts__unit") == {
-        "equipment": "thing",
-        "context": "deviceOfManyParts",
-        "unit": "unit",
+    """`<device>__<UID>__<unit>` (D7, #121)."""
+    assert variable.parse("coil__MOT_lower__A") == {
+        "device": "coil",
+        "uid": "MOT_lower",
+        "unit": "A",
     }
 
 
 def test_variable_no_unit():
-    assert variable.parse("thing_deviceOfManyParts") == {
-        "equipment": "thing",
-        "context": "deviceOfManyParts",
+    assert variable.parse("shutter__MOT") == {
+        "device": "shutter",
+        "uid": "MOT",
         "unit": "digital",
     }
 
 
 def test_variable_underscored_UID():
-    """
-    The UID may contain single underscores, so that a site preferring
-    `coil_MOT_lower__A` to `coil_MOTlower__A` is not forced onto the latter.
-    """
-    assert variable.parse("coil_MOT_lower_plus__A") == {
-        "equipment": "coil",
-        "context": "MOT_lower_plus",
+    """The UID may contain single underscores; the device and the unit may not."""
+    assert variable.parse("coil__MOT_lower_plus__A") == {
+        "device": "coil",
+        "uid": "MOT_lower_plus",
         "unit": "A",
     }
+    assert variable.parse("shutter__transverse_pump")["uid"] == "transverse_pump"
 
 
-def test_variable_underscored_UID_no_unit():
-    assert variable.parse("shutter_transverse_pump") == {
-        "equipment": "shutter",
-        "context": "transverse_pump",
-        "unit": "digital",
-    }
+def test_the_anchor_label_parses_as_an_anchor():
+    assert variable.parse("⚓__001") == {"device": "⚓", "uid": "001", "unit": "⚓"}
 
 
 def test_is_valid():
-    assert variable.is_valid("AOM_imaging__V") == True
+    assert variable.is_valid("AOM__imaging__V") == True
 
 
-def test_is_valid002():
-    assert variable.is_valid("AOMimaging__V") == False
+@pytest.mark.parametrize(
+    "name",
+    [
+        "AOM",  # no UID
+        "coil__MOT__lower__A",  # a `__` inside the UID
+        "power_supply__X__V",  # a device of two words
+        "coil__MOT_lower__A_x",  # a unit with `_`
+    ],
+)
+def test_is_valid002(name):
+    assert variable.is_valid(name) == False
 
 
-def test_is_valid003():
+def test_a_device_and_a_UID_alone_is_a_digital_line():
+    """`AOMimaging__V` is not an analog name without a UID: it was never a valid name."""
+    assert variable.unit("AOMimaging__V") == "digital"
+
+
+@pytest.mark.parametrize(
+    "old",
+    [
+        "coil_MOT_lower__A",
+        "coil_MOTlower__A",
+        "shutter_MOT",
+        "shutter_transverse_pump",
+        "lockbox_MOT__MHz",
+        "trigger_TC__V",
+        "dispenser_Rb__A",
+    ],
+)
+def test_every_name_of_the_old_grammar_is_refused(old):
     """
-    `__` is the unit separator, so it delimits the end of the name and can occur
-    only once. Neither a missing UID nor a second separator is admissible.
+    The migration is safe because of this: an old analog name has a `_` before its
+    first `__`, which a device may not contain, so it is refused rather than read with
+    its unit as a UID, i.e. as digital.
     """
-    assert variable.is_valid("dispenser__A") == False
-    assert variable.is_valid("coil_MOT__lower__A") == False
+    assert variable.is_valid(old) == False
 
 
 def test_unit():
-    assert variable.unit("AOM_imaging__MHz") == "MHz"
+    assert variable.unit("AOM__imaging__MHz") == "MHz"
 
 
 def test_unit002():
-    assert variable.unit("AOM_imaging") == "digital"
+    assert variable.unit("AOM__imaging") == "digital"
 
 
 def test_unit003():
     with pytest.raises(ValueError):
-        variable.unit("AOMimaging__V")
+        variable.unit("AOM_imaging__V")
 
 
 def test_units():
     assert variable.units(
         tl._populate_timeline(
-            ["AOM_imaging__V", [[0.0, 2]]],
-            ["AOM_repump", [[1.0, 1.0]]],
-            ["coil_MOT__A", [[1.0, 10.0]]],
-            ["AOM_repump__MHz", [[1.0, 10.0]]],
+            ["AOM__imaging__V", [[0.0, 2]]],
+            ["AOM__repump", [[1.0, 1.0]]],
+            ["coil__MOT__A", [[1.0, 10.0]]],
+            ["AOM__repump__MHz", [[1.0, 10.0]]],
             context="s",
         ),
     ) == {"A", "MHz", "V", "digital"}
@@ -85,10 +106,10 @@ def test_units():
 def test_units_nodigital():
     assert variable.units(
         tl._populate_timeline(
-            ["AOM_imaging__V", [[0.0, 2]]],
-            ["AOM_repump", [[1.0, 1.0]]],
-            ["coil_MOT__A", [[1.0, 10.0]]],
-            ["AOM_repump__MHz", [[1.0, 10.0]]],
+            ["AOM__imaging__V", [[0.0, 2]]],
+            ["AOM__repump", [[1.0, 1.0]]],
+            ["coil__MOT__A", [[1.0, 10.0]]],
+            ["AOM__repump__MHz", [[1.0, 10.0]]],
             context="s",
         ),
         do_digital=False,

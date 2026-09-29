@@ -11,11 +11,18 @@ row, and every other column of those rows, is unchanged. `MOT` lost its two `ori
 (in the demo and in the lab), since the first timed stage is now placed at absolute zero by
 default. `arrays.json` did not change: the arrays are identical at 5, 2 and 1 µs.
 
+**And a second time, the same day, for D7 (#121):** variable names moved to
+`<device>__<UID>(__<unit>)` (`shutter_MOT` → `shutter__MOT`, `coil_MOTlower__A` →
+`coil__MOT_lower__A`, the anchors `⚓_001` → `⚓__001`), and the demo's
+`timeline__demo` became `timeline_demo`, its case key here too. Checked before
+regenerating: every case of both tables is identical once the old names are mapped to
+the new, and the digests in `arrays.json` are unchanged (only its key moved).
+
 | file | what it is |
 | --- | --- |
-| `demo.parquet` | `timeline__demo` (99 rows), and the same with the camera trigger of `sec:interweaving` placed at molasses |
+| `demo.parquet` | `timeline_demo` (99 rows), and the same with the camera trigger of `sec:interweaving` placed at molasses |
 | `quantum_optics_lab.parquet` | the lab's `prepare_sample` at all five stages × finish on/off × dispenser switch-off on/off; absorption imaging interwoven into each stage; three time-of-flight delays placed onto one base (28 cases) |
-| `arrays.json` | row counts and digests of the ADwin arrays of `timeline__demo` and of one whole lab shot (`imaging at MT`), at 5, 2 and 1 µs |
+| `arrays.json` | row counts and digests of the ADwin arrays of `timeline_demo` and of one whole lab shot (`imaging at MT`), at 5, 2 and 1 µs |
 
 Each case is stored as its base columns plus, for ramp rows, the ramp function's name and
 its curve on a fixed input (`reference_cases.FUNCTION__SAMPLE`). The name is only for the

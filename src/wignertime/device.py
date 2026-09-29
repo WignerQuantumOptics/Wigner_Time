@@ -44,11 +44,11 @@ def new(*variable_toV_min_max) -> wt_frame.CLASS:
 
     vfmm:
     e.g.
-        "coil_compensationX__A", 3/10., -3.0, 3.0,
+        "coil__compensation_X__A", 3/10., -3.0, 3.0,
     or
-        ["coil_compensationY__A", 0.333, -3.0],
-        ["coil_MOTlower__A", <function>, -5, 5],
-        ["coil_MOTupper__A", lambda x: x - 100,-5, 5],
+        ["coil__compensation_Y__A", 0.333, -3.0],
+        ["coil__MOT_lower__A", <function>, -5, 5],
+        ["coil__MOT_upper__A", lambda x: x - 100,-5, 5],
     """
 
     def process_input(args):
@@ -103,7 +103,7 @@ def _ensure_valid_names(devices):
     if offenders:
         raise ValueError(
             "Device name(s) {} do not follow the naming convention"
-            " `<device>_<UID>(__<unit>)` set by `config.VARIABLE__REGEX`.".format(
+            " `<device>__<UID>(__<unit>)` set by `config.VARIABLE__REGEX`.".format(
                 offenders
             )
         )

@@ -249,7 +249,7 @@ def test_all_can_be_switched_off():
 def test_digital_channels_are_filtered_too():
     tl = frame(
         [
-            row(c, d, variable="shutter_MOT", module=1, channel=11)
+            row(c, d, variable="shutter__MOT", module=1, channel=11)
             for c, d in [(0, 1), (1, 1), (2, 0), (3, 0), (4, 1)]
         ]
     )

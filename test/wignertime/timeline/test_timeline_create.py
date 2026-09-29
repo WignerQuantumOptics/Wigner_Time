@@ -10,7 +10,7 @@ from wignertime.internal import origin
 def df_simple():
     return wt_frame.new(
         [
-            [0.0, "AOM_imaging", 0.0, "s"],
+            [0.0, "AOM__imaging", 0.0, "s"],
         ],
         columns=["time", "variable", "value", "context"],
     )
@@ -20,9 +20,9 @@ def df_simple():
 def df():
     return wt_frame.new(
         [
-            [0.0, "AOM_imaging", 0, "init"],
-            [0.0, "AOM_imaging__V", 2.0, "init"],
-            [0.0, "AOM_repump", 1, "init"],
+            [0.0, "AOM__imaging", 0, "init"],
+            [0.0, "AOM__imaging__V", 2.0, "init"],
+            [0.0, "AOM__repump", 1, "init"],
         ],
         columns=["time", "variable", "value", "context"],
     )
@@ -32,9 +32,9 @@ def df():
 def df__mixed():
     return wt_frame.new(
         [
-            [0.0, "AOM_imaging", 0, "init"],
-            [2.0, "AOM_imaging__V", 2.0, "blah"],
-            [10.0, "AOM_repump", 1, "stuff"],
+            [0.0, "AOM__imaging", 0, "init"],
+            [2.0, "AOM__imaging__V", 2.0, "blah"],
+            [10.0, "AOM__repump", 1, "stuff"],
         ],
         columns=["time", "variable", "value", "context"],
     )
@@ -43,8 +43,8 @@ def df__mixed():
 @pytest.mark.parametrize(
     "input",
     [
-        tl._populate_timeline("AOM_imaging", 0.0, 0.0, context="s"),
-        tl._populate_timeline("AOM_imaging", [[0.0, 0.0]], context="s"),
+        tl._populate_timeline("AOM__imaging", 0.0, 0.0, context="s"),
+        tl._populate_timeline("AOM__imaging", [[0.0, 0.0]], context="s"),
     ],
 )
 def test_createSimple(input, df_simple):
@@ -56,25 +56,25 @@ def test_createSimple(input, df_simple):
     [
         tl._populate_timeline(
             [
-                ["AOM_imaging", [[0.0, 0.0]]],
-                ["AOM_imaging__V", [[0.0, 2]]],
-                ["AOM_repump", [[0.0, 1.0]]],
+                ["AOM__imaging", [[0.0, 0.0]]],
+                ["AOM__imaging__V", [[0.0, 2]]],
+                ["AOM__repump", [[0.0, 1.0]]],
             ],
             context="init",
         ),
         tl._populate_timeline(
             [
-                ["AOM_imaging", 0.0],
-                ["AOM_imaging__V", 2],
-                ["AOM_repump", 1.0],
+                ["AOM__imaging", 0.0],
+                ["AOM__imaging__V", 2],
+                ["AOM__repump", 1.0],
             ],
             context="init",
             time=0.0,
         ),
         tl._populate_timeline(
-            ["AOM_imaging", 0.0],
-            ["AOM_imaging__V", 2],
-            ["AOM_repump", 1.0],
+            ["AOM__imaging", 0.0],
+            ["AOM__imaging__V", 2],
+            ["AOM__repump", 1.0],
             context="init",
             time=0.0,
         ),
@@ -82,9 +82,9 @@ def test_createSimple(input, df_simple):
             tl.update(
                 context="init",
                 time=0.0,
-                AOM_imaging=0.0,
-                AOM_imaging__V=2,
-                AOM_repump=1.0,
+                AOM__imaging=0.0,
+                AOM__imaging__V=2,
+                AOM__repump=1.0,
             )
         ),
     ],
@@ -95,9 +95,9 @@ def test_createDifferent(input, df):
 
 df_previous = wt_frame.new(
     [
-        [0.0, "AOM_imaging", 0, "init"],
-        [0.0, "AOM_imaging__V", 2.0, "init"],
-        [0.0, "AOM_repump", 1, "init"],
+        [0.0, "AOM__imaging", 0, "init"],
+        [0.0, "AOM__imaging__V", 2.0, "init"],
+        [0.0, "AOM__repump", 1, "init"],
     ],
     columns=["time", "variable", "value", "context"],
 )
@@ -107,24 +107,24 @@ df_previous = wt_frame.new(
     "input",
     [
         tl._populate_timeline(
-            AOM_repump=[10.0, 0.0, "important"], timeline=df_previous
+            AOM__repump=[10.0, 0.0, "important"], timeline=df_previous
         ),
         tl._populate_timeline(
-            "AOM_repump", 10.0, 0.0, "important", timeline=df_previous
+            "AOM__repump", 10.0, 0.0, "important", timeline=df_previous
         ),
-        # tl._populate_timeline(["AOM_repump", 10.0, 0.0, "important"], timeline=df_previous),
+        # tl._populate_timeline(["AOM__repump", 10.0, 0.0, "important"], timeline=df_previous),
         tl._populate_timeline(
-            ["AOM_repump", [10.0, 0.0, "important"]], timeline=df_previous
+            ["AOM__repump", [10.0, 0.0, "important"]], timeline=df_previous
         ),
     ],
 )
 def test_createPrevious(input, df):
     df_check = wt_frame.new(
         [
-            [0.0, "AOM_imaging", 0, "init"],
-            [0.0, "AOM_imaging__V", 2.0, "init"],
-            [0.0, "AOM_repump", 1, "init"],
-            [10.0, "AOM_repump", 0, "important"],
+            [0.0, "AOM__imaging", 0, "init"],
+            [0.0, "AOM__imaging__V", 2.0, "init"],
+            [0.0, "AOM__repump", 1, "init"],
+            [10.0, "AOM__repump", 0, "important"],
         ],
         columns=["time", "variable", "value", "context"],
     )
@@ -137,27 +137,27 @@ def test_createPrevious(input, df):
     [
         tl.to_timeline(
             tl.update(
-                AOM_imaging=[0.0, 0, "init"],
-                AOM_imaging__V=[0.0, 2.0, "init"],
-                AOM_repump=[0.0, 1, "init"],
+                AOM__imaging=[0.0, 0, "init"],
+                AOM__imaging__V=[0.0, 2.0, "init"],
+                AOM__repump=[0.0, 1, "init"],
             )
         ),
         tl._populate_timeline(
-            ["AOM_imaging", [0.0, 0, "init"]],
-            ["AOM_imaging__V", [0.0, 2.0, "init"]],
-            ["AOM_repump", [0.0, 1, "init"]],
+            ["AOM__imaging", [0.0, 0, "init"]],
+            ["AOM__imaging__V", [0.0, 2.0, "init"]],
+            ["AOM__repump", [0.0, 1, "init"]],
         ),
         tl._populate_timeline(
-            ["AOM_imaging__V", [0.0, 2.0]],
-            ["AOM_repump", [0.0, 1]],
+            ["AOM__imaging__V", [0.0, 2.0]],
+            ["AOM__repump", [0.0, 1]],
             timeline=tl._populate_timeline(
-                ["AOM_imaging", [0.0, 0, "init"]],
+                ["AOM__imaging", [0.0, 0, "init"]],
             ),
         ),
         # tl._populate_timeline(
-        #     ["AOM_imaging", 0.0, 0, "init"],
-        #     ["AOM_imaging__V", 0.0, 2.0, "init"],
-        #     ["AOM_repump", 0.0, 1, "init"],
+        #     ["AOM__imaging", 0.0, 0, "init"],
+        #     ["AOM__imaging__V", 0.0, 2.0, "init"],
+        #     ["AOM__repump", 0.0, 1, "init"],
         # ),
     ],
 )
@@ -168,16 +168,16 @@ def test_createContext(input, df):
 def test_createInheritContext(df__mixed):
     return wt_frame.assert_equal(
         tl._populate_timeline(
-            ["AOM_imaging__V", [2.2, 3.0]],
+            ["AOM__imaging__V", [2.2, 3.0]],
             ["EOM_imaging__V", [2.3, 5.0]],
             timeline=df__mixed,
         ),
         wt_frame.new(
             [
-                [0.0, "AOM_imaging", 0, "init"],
-                [2.0, "AOM_imaging__V", 2.0, "blah"],
-                [10.0, "AOM_repump", 1, "stuff"],
-                [2.2, "AOM_imaging__V", 3.0, "stuff"],
+                [0.0, "AOM__imaging", 0, "init"],
+                [2.0, "AOM__imaging__V", 2.0, "blah"],
+                [10.0, "AOM__repump", 1, "stuff"],
+                [2.2, "AOM__imaging__V", 3.0, "stuff"],
                 [2.3, "EOM_imaging__V", 5.0, "stuff"],
             ],
             columns=["time", "variable", "value", "context"],
@@ -192,14 +192,14 @@ def test_update_inherits_context_by_default(df__mixed):
     """
     return wt_frame.assert_equal(
         tl.to_timeline(
-            tl.update(AOM_imaging__V=[2.2, 3.0], origin=0.0), onto=df__mixed
+            tl.update(AOM__imaging__V=[2.2, 3.0], origin=0.0), onto=df__mixed
         ),
         wt_frame.new(
             [
-                [0.0, "AOM_imaging", 0, "init"],
-                [2.0, "AOM_imaging__V", 2.0, "blah"],
-                [10.0, "AOM_repump", 1, "stuff"],
-                [2.2, "AOM_imaging__V", 3.0, "stuff"],
+                [0.0, "AOM__imaging", 0, "init"],
+                [2.0, "AOM__imaging__V", 2.0, "blah"],
+                [10.0, "AOM__repump", 1, "stuff"],
+                [2.2, "AOM__imaging__V", 3.0, "stuff"],
             ],
             columns=["time", "variable", "value", "context"],
         ),
@@ -215,11 +215,11 @@ def test_update_context_none_and_infer_match_the_default(df__mixed, context):
     """
     return wt_frame.assert_equal(
         tl.to_timeline(
-            tl.update(AOM_imaging__V=[2.2, 3.0], origin=0.0, context=context),
+            tl.update(AOM__imaging__V=[2.2, 3.0], origin=0.0, context=context),
             onto=df__mixed,
         ),
         tl.to_timeline(
-            tl.update(AOM_imaging__V=[2.2, 3.0], origin=0.0), onto=df__mixed
+            tl.update(AOM__imaging__V=[2.2, 3.0], origin=0.0), onto=df__mixed
         ),
     )
 
@@ -231,7 +231,8 @@ def test_update_refuses_an_empty_context(df__mixed):
     """
     with pytest.raises(ValueError, match="is not a context"):
         tl.to_timeline(
-            tl.update(AOM_imaging__V=[2.2, 3.0], origin=0.0, context=""), onto=df__mixed
+            tl.update(AOM__imaging__V=[2.2, 3.0], origin=0.0, context=""),
+            onto=df__mixed,
         )
 
 
@@ -243,20 +244,20 @@ def test_the_first_rows_of_a_timeline_must_name_a_context():
     Nothing precedes them to inherit a context from. This is #145's option 2, which
     now holds for every row rather than for `create` alone.
     """
-    with pytest.raises(ValueError, match="Every row needs a context.*AOM_MOT"):
-        tl.to_timeline(tl.update(AOM_MOT=1, time=0.0))
+    with pytest.raises(ValueError, match="Every row needs a context.*AOM__MOT"):
+        tl.to_timeline(tl.update(AOM__MOT=1, time=0.0))
 
 
 def test_a_row_stating_its_own_context_needs_none_from_the_call():
     frame = tl.to_timeline(
-        tl.update(AOM_MOT=[0.0, 1, "init"], shutter_MOT=[0.0, 0, "init"])
+        tl.update(AOM__MOT=[0.0, 1, "init"], shutter__MOT=[0.0, 0, "init"])
     )
     assert set(frame["context"]) == {"init"}
 
 
 def test_one_row_without_a_context_is_enough_to_refuse():
-    with pytest.raises(ValueError, match="none: shutter_MOT"):
-        tl.to_timeline(tl.update(AOM_MOT=[0.0, 1, "init"], shutter_MOT=0))
+    with pytest.raises(ValueError, match="none: shutter__MOT"):
+        tl.to_timeline(tl.update(AOM__MOT=[0.0, 1, "init"], shutter__MOT=0))
 
 
 def test_onto_an_empty_table_the_refusal_is_about_the_context():
@@ -268,25 +269,27 @@ def test_onto_an_empty_table_the_refusal_is_about_the_context():
     empty = wt_frame.new([], columns=tl._SCHEMA.keys()).astype(tl._SCHEMA)
     for origin in (wt_config.INFER, 0.0):
         with pytest.raises(ValueError, match="Every row needs a context") as e:
-            tl.to_timeline(tl.update(AOM_MOT=1, origin=origin), onto=empty)
+            tl.to_timeline(tl.update(AOM__MOT=1, origin=origin), onto=empty)
         assert "origin=0.0" not in str(e.value)
 
-    named = tl.to_timeline(tl.update(AOM_MOT=1, context="init", origin=0.0), onto=empty)
+    named = tl.to_timeline(
+        tl.update(AOM__MOT=1, context="init", origin=0.0), onto=empty
+    )
     assert list(named["context"]) == ["init"]
 
 
 def test_update_real_context_is_taken_as_written(df__mixed):
     return wt_frame.assert_equal(
         tl.to_timeline(
-            tl.update(AOM_imaging__V=[2.2, 3.0], origin=0.0, context="named"),
+            tl.update(AOM__imaging__V=[2.2, 3.0], origin=0.0, context="named"),
             onto=df__mixed,
         ),
         wt_frame.new(
             [
-                [0.0, "AOM_imaging", 0, "init"],
-                [2.0, "AOM_imaging__V", 2.0, "blah"],
-                [10.0, "AOM_repump", 1, "stuff"],
-                [2.2, "AOM_imaging__V", 3.0, "named"],
+                [0.0, "AOM__imaging", 0, "init"],
+                [2.0, "AOM__imaging__V", 2.0, "blah"],
+                [10.0, "AOM__repump", 1, "stuff"],
+                [2.2, "AOM__imaging__V", 3.0, "named"],
             ],
             columns=["time", "variable", "value", "context"],
         ),
@@ -299,7 +302,7 @@ def test_a_context_named_INFER_is_an_ordinary_context(df__mixed):
     (#142).
     """
     new = tl.to_timeline(
-        tl.update(AOM_imaging__V=[2.2, 3.0], origin=0.0, context="INFER"),
+        tl.update(AOM__imaging__V=[2.2, 3.0], origin=0.0, context="INFER"),
         onto=df__mixed,
     )
     assert new["context"].iloc[-1] == "INFER"
@@ -312,10 +315,10 @@ def test_a_context_named_INFER_is_an_ordinary_context(df__mixed):
 
 tline = tl._populate_timeline(
     [
-        ["AOM_imaging", [[0.0, 0.0]]],
+        ["AOM__imaging", [[0.0, 0.0]]],
         ["other_thing", [[0.0, 0.0]]],
-        ["AOM_imaging__V", [[0.0, 2]]],
-        ["AOM_repump", [[1.0, 1.0]]],
+        ["AOM__imaging__V", [[0.0, 2]]],
+        ["AOM__repump", [[1.0, 1.0]]],
     ],
     context="init",
 )
@@ -326,40 +329,40 @@ tline = tl._populate_timeline(
     [
         tl._populate_timeline(
             [
-                ["AOM_imaging", [[0.0, 0.0]]],
+                ["AOM__imaging", [[0.0, 0.0]]],
                 ["other_thing", [[0.0, 0.0]]],
-                ["AOM_imaging__V", [[0.0, 2]]],
-                ["AOM_repump", [[1.0, 1.0]]],
-                ["AOM_imaging__V", [[1.0, 10.0]]],
+                ["AOM__imaging__V", [[0.0, 2]]],
+                ["AOM__repump", [[1.0, 1.0]]],
+                ["AOM__imaging__V", [[1.0, 10.0]]],
             ],
             context="init",
             # `origin=[0.0, 0.0]` was a no-op here (no timeline to be relative to);
             # `create` no longer takes the argument at all.
         ),
         tl._populate_timeline(
-            AOM_imaging__V=[1.0, 10.0],
+            AOM__imaging__V=[1.0, 10.0],
             timeline=tline,
             origin=[0.0],
         ),
         tl._populate_timeline(
-            AOM_imaging__V=[1.0, 10.0],
+            AOM__imaging__V=[1.0, 10.0],
             timeline=tline,
             origin=0.0,
         ),
         tl._populate_timeline(
-            AOM_imaging__V=[1.0, 10.0],
+            AOM__imaging__V=[1.0, 10.0],
             timeline=tline,
-            origin="AOM_imaging",
+            origin="AOM__imaging",
         ),
         tl._populate_timeline(
-            AOM_imaging__V=[1.0, 10.0],
+            AOM__imaging__V=[1.0, 10.0],
             timeline=tline,
-            origin=["AOM_imaging", "AOM_imaging"],
+            origin=["AOM__imaging", "AOM__imaging"],
         ),
         tl._populate_timeline(
-            AOM_imaging__V=[1.0, 10.0],
+            AOM__imaging__V=[1.0, 10.0],
             timeline=tline,
-            origin=["AOM_imaging", "other_thing"],
+            origin=["AOM__imaging", "other_thing"],
         ),
     ],
 )
@@ -368,11 +371,11 @@ def test_createOrigin0(input):
         input,
         tl._populate_timeline(
             [
-                ["AOM_imaging", [[0.0, 0.0]]],
+                ["AOM__imaging", [[0.0, 0.0]]],
                 ["other_thing", [[0.0, 0.0]]],
-                ["AOM_imaging__V", [[0.0, 2]]],
-                ["AOM_repump", [[1.0, 1.0]]],
-                ["AOM_imaging__V", [[1.0, 10.0]]],
+                ["AOM__imaging__V", [[0.0, 2]]],
+                ["AOM__repump", [[1.0, 1.0]]],
+                ["AOM__imaging__V", [[1.0, 10.0]]],
             ],
             context="init",
         ),
@@ -381,27 +384,27 @@ def test_createOrigin0(input):
 
 tline2 = tl._populate_timeline(
     [
-        ["AOM_imaging", [[1.0, 1.0]]],
-        ["AOM_imaging__V", [[0.0, 2]]],
+        ["AOM__imaging", [[1.0, 1.0]]],
+        ["AOM__imaging__V", [[0.0, 2]]],
     ],
     context="init",
 )
 
 expected = tl._populate_timeline(
     [
-        ["AOM_imaging", [[1.0, 1]]],
-        ["AOM_imaging__V", [[0.0, 2]]],
-        ["AOM_imaging", [[2.0, 10.0]]],
-        ["AOM_imaging__V", [[1.4, 5.0]]],
+        ["AOM__imaging", [[1.0, 1]]],
+        ["AOM__imaging__V", [[0.0, 2]]],
+        ["AOM__imaging", [[2.0, 10.0]]],
+        ["AOM__imaging__V", [[1.4, 5.0]]],
     ],
     context="init",
 )
 expected2 = tl._populate_timeline(
     [
-        ["AOM_imaging", [[1.0, 1]]],
-        ["AOM_imaging__V", [[0.0, 2]]],
-        ["AOM_imaging", [[2.0, 11.0]]],
-        ["AOM_imaging__V", [[1.4, 7.0]]],
+        ["AOM__imaging", [[1.0, 1]]],
+        ["AOM__imaging__V", [[0.0, 2]]],
+        ["AOM__imaging", [[2.0, 11.0]]],
+        ["AOM__imaging__V", [[1.4, 7.0]]],
     ],
     context="init",
 )
@@ -423,8 +426,8 @@ expected2 = tl._populate_timeline(
 def test_createOriginVariable(input):
     return wt_frame.assert_equal(
         tl._populate_timeline(
-            AOM_imaging=[1.0, 10.0],
-            AOM_imaging__V=[1.4, 5.0],
+            AOM__imaging=[1.0, 10.0],
+            AOM__imaging__V=[1.4, 5.0],
             timeline=tline2,
             origin=input[0],
         ),
@@ -444,8 +447,8 @@ def test_createOriginVariable(input):
 def test_createOriginVariableVariable(input):
     return wt_frame.assert_equal(
         tl._populate_timeline(
-            AOM_imaging=[1.0, 10.0],
-            AOM_imaging__V=[1.4, 5.0],
+            AOM__imaging=[1.0, 10.0],
+            AOM__imaging__V=[1.4, 5.0],
             timeline=tline2,
             origin=input[0],
         ),
@@ -461,17 +464,17 @@ if __name__ == "__main__":
 
     tline = tl._populate_timeline(
         [
-            ["AOM_imaging", [[0.0, 0.0]]],
-            ["AOM_imaging__V", [[0.0, 2]]],
-            ["AOM_repump", [[1.0, 1.0]]],
+            ["AOM__imaging", [[0.0, 0.0]]],
+            ["AOM__imaging__V", [[0.0, 2]]],
+            ["AOM__repump", [[1.0, 1.0]]],
         ],
         context="init",
     )
     print(
         tl._populate_timeline(
-            AOM_imaging__V=[1.0, 10.0],
+            AOM__imaging__V=[1.0, 10.0],
             timeline=tline,
-            origin="AOM_imaging",
+            origin="AOM__imaging",
         )
     )
 
@@ -491,6 +494,6 @@ def test_the_first_rows_are_placed_in_absolute_time():
     rows where `create` did, and the origin chain falls to zero without a warning.
     """
     return wt_frame.assert_equal(
-        tl.to_timeline(tl.update(AOM_repump=0, time=10.0, context="init")),
-        tl._populate_timeline(AOM_repump=0, time=10.0, context="init"),
+        tl.to_timeline(tl.update(AOM__repump=0, time=10.0, context="init")),
+        tl._populate_timeline(AOM__repump=0, time=10.0, context="init"),
     )

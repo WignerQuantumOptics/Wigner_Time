@@ -18,7 +18,7 @@ def deferred():
     """
     A representative deferred function, as returned by a core call with no `timeline`.
     """
-    return tl.update(AOM_MOT=1)
+    return tl.update(AOM__MOT=1)
 
 
 @pytest.mark.parametrize(
@@ -64,7 +64,7 @@ def test_a_stage_where_a_timeline_belongs_is_named(call, argument, remedy):
 @pytest.mark.parametrize(
     "f",
     [
-        tl.update(AOM_MOT=1),
+        tl.update(AOM__MOT=1),
         tl.ramp(coil__A=2.0, duration=1.0),
         tl.anchor(1.0),
     ],
@@ -103,7 +103,7 @@ def test_stack_still_accepts_a_leading_callable():
     """
     The guard must not catch `stack`/`cascade`, whose first argument is legitimately a function.
     """
-    assert callable(tl.stack(tl.update(AOM_MOT=1), tl.anchor(1.0)))
+    assert callable(tl.stack(tl.update(AOM__MOT=1), tl.anchor(1.0)))
 
 
 @pytest.mark.parametrize("bad", [[1, 2, 3], "yesterday", 7, {"a": 1}])
@@ -113,7 +113,7 @@ def test_non_timeline_argument_names_the_type(bad):
     attribute was touched first, naming neither the function nor the argument.
     """
     with pytest.raises(TypeError, match="where a timeline was expected"):
-        tl.to_timeline(tl.update(AOM_MOT=1), onto=bad)
+        tl.to_timeline(tl.update(AOM__MOT=1), onto=bad)
 
 
 @pytest.mark.parametrize("stage", [demo.MOT, demo.pull_coils])
@@ -150,7 +150,7 @@ def test_noop_survives_a_stack_that_forwards_keywords():
 @pytest.mark.parametrize(
     "f,args",
     [
-        (tl.update, {"AOM_MOT": 1}),
+        (tl.update, {"AOM__MOT": 1}),
         (tl.anchor, {}),
         (tl.ramp, {"coil__A": 2.0, "duration": 1.0}),
     ],

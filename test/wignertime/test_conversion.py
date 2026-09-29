@@ -13,10 +13,10 @@ from wignertime import conversion as conv
 def df_simple():
     return tl.to_timeline(
         tl.update(
-            AOM_imaging=[0.0, 0.0, "init"],
-            AOM_imaging__V=[0.0, 2.0, "init"],
-            AOM_repump=[0.0, 1.0, "init"],
-            AOM_science__trans=[0.0, 1.0, "MOT"],
+            AOM__imaging=[0.0, 0.0, "init"],
+            AOM__imaging__V=[0.0, 2.0, "init"],
+            AOM__repump=[0.0, 1.0, "init"],
+            AOM__science__trans=[0.0, 1.0, "MOT"],
         )
     )
 
@@ -46,7 +46,7 @@ def test_add_linear_conversion(df_simple):
     df_devs = device.add(
         df_simple,
         device.new(
-            "AOM_imaging__V",
+            "AOM__imaging__V",
             1.0,
             -3,
             3,
@@ -61,10 +61,10 @@ def test_add_linear_conversion(df_simple):
             {
                 "time": [0.0, 0.0, 0.0, 0.0],
                 "variable": [
-                    "AOM_imaging",
-                    "AOM_imaging__V",
-                    "AOM_repump",
-                    "AOM_science__trans",
+                    "AOM__imaging",
+                    "AOM__imaging__V",
+                    "AOM__repump",
+                    "AOM__science__trans",
                 ],
                 "value": [0.0, 2.0, 1.0, 1.0],
                 "context": ["init", "init", "init", "MOT"],
@@ -97,20 +97,20 @@ def df_devs():
     return device.add(
         tl.to_timeline(
             tl.update(
-                AOM_imaging=[0.0, 0.0, "init"],
-                AOM_imaging__transparency=[0.0, 0.5, "init"],
-                coil_MOT__A=[0.0, 1.0, "init"],
-                AOM_science__trans=[0.0, 1.0, "MOT"],
+                AOM__imaging=[0.0, 0.0, "init"],
+                AOM__imaging__transparency=[0.0, 0.5, "init"],
+                coil__MOT__A=[0.0, 1.0, "init"],
+                AOM__science__trans=[0.0, 1.0, "MOT"],
             )
         ),
         device.new(
             [
-                "AOM_imaging__transparency",
+                "AOM__imaging__transparency",
                 func,
                 0.0,
                 1.0,
             ],
-            ["coil_MOT__A", 0.333, -5.0, 5.0],
+            ["coil__MOT__A", 0.333, -5.0, 5.0],
         ),
     )
 
@@ -163,7 +163,7 @@ def test_addRealistic(df_simple):
         names=["voltage", "transparency"],
         sep=r"\s+",
     )
-    df = device.add(df_simple, device.new("AOM_science__trans", func__AOM, 0.0, 1.0))
+    df = device.add(df_simple, device.new("AOM__science__trans", func__AOM, 0.0, 1.0))
 
     actual = conv.add(df)[["value", "to_V", "value__digits"]]
     expected = pd.DataFrame(

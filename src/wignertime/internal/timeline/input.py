@@ -19,8 +19,7 @@ def __find_depth(vtvc):
 
     if not len(vtvc):
         raise ValueError(
-            "Empty input. Give at least one variable, as a keyword "
-            "(`create(AOM_MOT=1)`) or as a row (`create(['AOM_MOT', 1])`)."
+            "Empty input. Give at least one variable: `update(AOM__MOT=1)`."
         )
 
     def nested(collection):
@@ -31,10 +30,8 @@ def __find_depth(vtvc):
 
     if not len(vtvc) or any(WTutil.is_collection(v) and not len(v) for v in vtvc):
         raise ValueError(
-            "Empty input: {!r}. Give at least one variable, as a keyword "
-            "(`create(AOM_MOT=1)`) or as a row (`create(['AOM_MOT', 1])`).".format(
-                list(vtvc)
-            )
+            "Empty input: {!r}. Give at least one variable, with a value:"
+            " `update(AOM__MOT=1)`.".format(list(vtvc))
         )
 
     if WTutil.is_collection(vtvc[0]):
@@ -134,7 +131,7 @@ def __correct_variable_list(coll2D, time, context):
     A row is `[variable, <what follows>]`, and *what follows* may be spread over the rest
     of the row rather than bracketed: `["v", t, value, context]` is the same statement as
     `["v", [t, value, context]]`, exactly as the flat positional form allows
-    `create("v", t, value, context)`.
+    `_populate_timeline("v", t, value, context)`.
 
     Taking only `row[1]` is what #58 was: elements past it were dropped without comment,
     so a row stating a time, a value and a context produced a row with the *time* as its
@@ -259,9 +256,9 @@ def rows_from_arguments(*vtvc, time=0.0, context=None, **vtvc_dict):
 if __name__ == "__main__":
     convert(
         [
-            ["AOM_imaging", [[0.0, 0.0]]],
-            ["AOM_imaging__V", [[0.0, 2]]],
-            ["AOM_repump", [[0.0, 1.0]]],
+            ["AOM__imaging", [[0.0, 0.0]]],
+            ["AOM__imaging__V", [[0.0, 2]]],
+            ["AOM__repump", [[0.0, 1.0]]],
         ],
         context="init",
     )

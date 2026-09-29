@@ -19,7 +19,7 @@ import pytest
 from wignertime import timeline as tl
 from wignertime.internal import dataframe as wt_frame
 
-VARIABLE = "AOM_imaging"
+VARIABLE = "AOM__imaging"
 FOLLOWS = [
     (1.0, dict(time=0.0, value=1.0, context=None)),
     ([2.0, 1.0], dict(time=2.0, value=1.0, context=None)),

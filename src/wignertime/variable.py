@@ -13,9 +13,11 @@ from wignertime import config as wt_config
 
 def parse(variable: str) -> dict:
     """
-    A dictionary of equipment, context and unit.
+    A dictionary of device, UID and unit.
 
-    The convention is that a variable is represented by `thing_deviceOfManyParts__unit` for a non-digital unit and `thing_deviceOfManyParts` otherwise. The `deviceOfManyParts` part may itself contain single underscores, e.g. `coil_MOT_lower__A`.
+    The convention is `<device>__<UID>__<unit>` for an analog variable and
+    `<device>__<UID>` for a digital one, e.g. `coil__MOT_lower__A` and `shutter__MOT`.
+    `<device>` and `<unit>` contain no `_`; the UID may contain single ones.
 
     The convention is spelled out by `config.VARIABLE__REGEX`, which is read here on every call so that a site applying a different one can rebind it.
     """
@@ -23,15 +25,15 @@ def parse(variable: str) -> dict:
     match = re.match(wt_config.VARIABLE__REGEX, variable)
 
     if match is not None:
-        e, c, u = match.groups()
+        d, uid, u = match.groups()
         if u:
             unit = u
-        elif wt_config.LABEL__ANCHOR in e:
+        elif wt_config.LABEL__ANCHOR in d:
             unit = wt_config.LABEL__ANCHOR
         else:
             unit = "digital"
 
-        return Munch(equipment=e, context=c, unit=unit)
+        return Munch(device=d, uid=uid, unit=unit)
     else:
         raise ValueError(
             f"Variable {variable} doesn't meet the current naming convention."
@@ -48,6 +50,12 @@ def is_valid(variable: str) -> bool:
 
 def unit(variable):
     return parse(variable)["unit"]
+
+
+def without_unit(variable):
+    """`coil__MOT_lower__A` without its unit, `coil__MOT_lower`; a digital name as it is."""
+    p = parse(variable)
+    return "{}__{}".format(p.device, p.uid)
 
 
 def units(timeline: wt_frame.CLASS, do_digital: bool = True):

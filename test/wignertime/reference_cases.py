@@ -116,10 +116,10 @@ def demo_cases():
     from wignertime.demo import full_experiment as ex
 
     return ex, {
-        "timeline__demo": lambda: ex.timeline__demo,
+        "timeline_demo": lambda: ex.timeline_demo,
         "trigger_camera at molasses (sec:interweaving)": lambda: tl.to_timeline(
             ex.trigger_camera(2e-3, 1e-3, "imaging", origin="molasses"),
-            onto=ex.timeline__demo,
+            onto=ex.timeline_demo,
         ),
     }
 
@@ -190,9 +190,9 @@ if __name__ == "__main__":
     _freeze(cases__demo).to_parquet(FIXTURES / "demo.parquet", index=False)
     _freeze(cases__lab).to_parquet(FIXTURES / "quantum_optics_lab.parquet", index=False)
     frozen = {
-        "timeline__demo": {
+        "timeline_demo": {
             key(p): arrays(
-                cases__demo["timeline__demo"](), ex_demo.connections, ex_demo.devices, p
+                cases__demo["timeline_demo"](), ex_demo.connections, ex_demo.devices, p
             )
             for p in PERIODS
         },

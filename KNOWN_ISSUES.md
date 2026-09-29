@@ -1242,6 +1242,15 @@ One-character fix, no design question. Left unfixed only because it fell outside
 
 ### D7 — Settle what `__` separates, then reconcile code, labs and paper in one pass **[maintainer decision, 2026-09-02; scope reopened and sharpened 2026-09-20]**
 
+**Settled by the maintainer, 2026-09-29, and done the same day on `issue#85` (with P6 of C7):**
+
+- **Variable names are `<device>__<UID>(__<unit>)`**, with `<device>` and `<unit>` free of `_`. Every old name is refused, as the measurement below predicted, so nothing can be misread. The anchors are `⚓__001`.
+- **In what users write and the paper shows, `__` comes only before a unit.** The demo and the lab take the paper's spellings.
+- **Stage parameters mirror the core functions:** `time`, not `t`.
+- **Library internals keep the qualifier rule** (`value__digits`, `time__max`, `ORIGIN__DEFAULTS`). That scope was D7's proposed reading, and extending the rule into the package is a decision of its own.
+
+The demo, the lab and all 45 reference cases are identical under the name map, and the arrays at 5, 2 and 1 µs are unchanged. The manuscript follows in the same pass.
+
 `docs/paper/main.tex` is canonical. Where the code and the manuscript disagree, **the code changes.** This is the same direction as §G: the manuscript is not to be edited to match the code.
 
 **Renamed 2026-09-20, because the item turned out to be a naming decision with a reconciliation attached rather than the reverse.** Two questions have to be answered before anything is renamed; the full reasoning and measurements are in the comments on [#121](https://github.com/WignerQuantumOptics/Wigner_Time/issues/121).

@@ -31,9 +31,9 @@ print(str(pl.Path.cwd() / "doc"))
 def df_simple():
     return pd.DataFrame(
         [
-            [0.0, "AOM_imaging", 0.0, "init"],
-            [0.0, "AOM_imaging__V", 2.0, "init"],
-            [0.0, "AOM_repump", 1.0, "init"],
+            [0.0, "AOM__imaging", 0.0, "init"],
+            [0.0, "AOM__imaging__V", 2.0, "init"],
+            [0.0, "AOM__repump", 1.0, "init"],
             [0.0, "virtual", 1.0, "MOT"],
         ],
         columns=["time", "variable", "value", "context"],
@@ -43,9 +43,9 @@ def df_simple():
 @pytest.fixture
 def connections_simple():
     return adcon.new(
-        ["AOM_imaging", 1, 1],
-        ["AOM_imaging__V", 1, 2],
-        ["AOM_repump", 2, 3],
+        ["AOM__imaging", 1, 1],
+        ["AOM__imaging__V", 1, 2],
+        ["AOM__repump", 2, 3],
     )
 
 
@@ -55,7 +55,7 @@ def test_remove_unconnected_variables(df_simple, connections_simple):
         pd.DataFrame(
             {
                 "time": [0.0] * 3,
-                "variable": ["AOM_imaging", "AOM_imaging__V", "AOM_repump"],
+                "variable": ["AOM__imaging", "AOM__imaging__V", "AOM__repump"],
                 "value": [0.0, 2.0, 1.0],
                 "context": ["init"] * 3,
             }
@@ -114,10 +114,10 @@ def test_add_cycle():
 
 df_special1 = frame.new(
     [
-        [0.0, "AOM_imaging", 0.0, "ADwin_Init"],
-        [10.0, "AOM_imaging", 0.0, "ADwin_Init"],
-        [0.0, "AOM_imaging__V", 2.0, "ADwin_Init"],
-        [0.0, "AOM_repump", 1.0, "init"],
+        [0.0, "AOM__imaging", 0.0, "ADwin_Init"],
+        [10.0, "AOM__imaging", 0.0, "ADwin_Init"],
+        [0.0, "AOM__imaging__V", 2.0, "ADwin_Init"],
+        [0.0, "AOM__repump", 1.0, "init"],
         [0.0, "virtual", 1.0, "MOT"],
     ],
     columns=["time", "variable", "value", "context"],
@@ -126,10 +126,10 @@ df_special1 = frame.new(
 
 df_special2 = frame.new(
     [
-        [0.0, "AOM_imaging", 0, "ADwin_Init"],
-        [10.0, "AOM_imaging", 1, "ADwin_Init"],
-        [0.0, "AOM_imaging__V", 2.0, "ADwin_Init"],
-        [0.0, "AOM_repump", 1.0, "init"],
+        [0.0, "AOM__imaging", 0, "ADwin_Init"],
+        [10.0, "AOM__imaging", 1, "ADwin_Init"],
+        [0.0, "AOM__imaging__V", 2.0, "ADwin_Init"],
+        [0.0, "AOM__repump", 1.0, "init"],
         [0.0, "virtual", 1.0, "MOT"],
     ],
     columns=["time", "variable", "value", "context"],
@@ -138,10 +138,10 @@ df_special2 = frame.new(
 df_special3 = frame.cast(
     frame.new(
         [
-            [0.0, "AOM_imaging", 0.0, "ADwin_Init", 1, 1, 0, 1],
-            [0.0, "AOM_imaging__V", 2.0, "ADwin_Init", 1, 1, 0, 5],
-            [0.0, "AOM_repump", 1.0, "init", 1, 1, 0, 5],
-            [0.0, "AOM_imaging", 0.0, "ADwin_Finish", 1, 1, 0, 1],
+            [0.0, "AOM__imaging", 0.0, "ADwin_Init", 1, 1, 0, 1],
+            [0.0, "AOM__imaging__V", 2.0, "ADwin_Init", 1, 1, 0, 5],
+            [0.0, "AOM__repump", 1.0, "init", 1, 1, 0, 5],
+            [0.0, "AOM__imaging", 0.0, "ADwin_Finish", 1, 1, 0, 1],
         ],
         columns=[
             "time",
@@ -161,10 +161,10 @@ df_special3 = frame.cast(
 df_special3__corrected = frame.cast(
     frame.new(
         [
-            [-1, "AOM_imaging", 0.0, "ADwin_Init", 1, 1, 0, 1],
-            [-1, "AOM_imaging__V", 2.0, "ADwin_Init", 1, 1, 0, 5],
-            [0.0, "AOM_repump", 1.0, "init", 1, 1, 0, 5],
-            [2**31 - 1, "AOM_imaging", 0.0, "ADwin_Finish", 1, 1, 0, 1],
+            [-1, "AOM__imaging", 0.0, "ADwin_Init", 1, 1, 0, 1],
+            [-1, "AOM__imaging__V", 2.0, "ADwin_Init", 1, 1, 0, 5],
+            [0.0, "AOM__repump", 1.0, "init", 1, 1, 0, 5],
+            [2**31 - 1, "AOM__imaging", 0.0, "ADwin_Finish", 1, 1, 0, 1],
         ],
         columns=[
             "time",
@@ -183,9 +183,9 @@ df_special3__corrected = frame.cast(
 
 df_special4 = frame.new_schema(
     [
-        [0.0, "AOM_imaging", 0.0, "ADwin_Init", 1, 1, 0, 1],
-        [0.0, "AOM_imaging__V", 2.0, "ADwin_Init", 1, 1, 0, 5],
-        [0.0, "AOM_repump", 1.0, "init", 1, 1, 0, 5],
+        [0.0, "AOM__imaging", 0.0, "ADwin_Init", 1, 1, 0, 1],
+        [0.0, "AOM__imaging__V", 2.0, "ADwin_Init", 1, 1, 0, 5],
+        [0.0, "AOM__repump", 1.0, "init", 1, 1, 0, 5],
     ],
     schema=wt_adwin.SCHEMA,
 )
@@ -205,12 +205,12 @@ def test_sanitize_success():
 
 def test_convert():
     connections = adcon.new(
-        ["shutter_MOT", 1, 11],
-        ["lockbox_MOT__MHz", 3, 8],
+        ["shutter__MOT", 1, 11],
+        ["lockbox__MOT__MHz", 3, 8],
     )
 
     devices = device.new(
-        ["lockbox_MOT__MHz", 0.05],
+        ["lockbox__MOT__MHz", 0.05],
     )
 
     tuples = adwin.convert(
@@ -218,12 +218,12 @@ def test_convert():
             tl.stack(
                 tl.anchor(time=0.0, origin=0.0, context="InitialAnchor"),
                 tl.update(
-                    shutter_MOT=1,
+                    shutter__MOT=1,
                     context="MOT",
                 ),
                 tl.anchor(15),
                 tl.ramp(
-                    lockbox_MOT__MHz=-5,
+                    lockbox__MOT__MHz=-5,
                     duration=10e-3,
                     context="MOT",
                 ),
@@ -231,8 +231,8 @@ def test_convert():
             ),
             onto=tl.to_timeline(
                 tl.update(
-                    lockbox_MOT__MHz=0.0,
-                    shutter_MOT=0,
+                    lockbox__MOT__MHz=0.0,
+                    shutter__MOT=0,
                     context="ADwin_LowInit",
                 )
             ),
@@ -277,7 +277,7 @@ def test_to_tuples_separates_modules_despite_numpy_scalars():
 
     timeline = frame.new_schema(
         [
-            [0.0, "AOM_imaging", 0.0, "init", 1, 1, 0, 0],
+            [0.0, "AOM__imaging", 0.0, "init", 1, 1, 0, 0],
             [0.0, "coil__A", 1.0, "init", 3, 2, 0, 32768],
             [1.0, "coil__A", 2.0, "init", 4, 5, 1, 65535],
         ],
@@ -370,16 +370,16 @@ class _MachineRecording:
 
 
 def _digital_only():
-    conns = adcon.new(["shutter_MOT", 1, 11], ["AOM_MOT", 1, 1])
+    conns = adcon.new(["shutter__MOT", 1, 11], ["AOM__MOT", 1, 1])
     devs = (
         device.new()
     )  # nothing analogue is connected, so there is nothing to calibrate
     timeline = tl.to_timeline(
         tl.stack(
-            tl.update(shutter_MOT=0, time=1.0),
+            tl.update(shutter__MOT=0, time=1.0),
         ),
         onto=tl.to_timeline(
-            tl.update(shutter_MOT=1, AOM_MOT=1, time=0.0, context="run")
+            tl.update(shutter__MOT=1, AOM__MOT=1, time=0.0, context="run")
         ),
     )
     return timeline, conns, devs
@@ -404,7 +404,7 @@ def test_upload_transfers_an_empty_analogue_set_as_a_count_of_zero():
 
 def test_upload_transfers_both_sets_when_both_are_populated():
     machine = _MachineRecording()
-    adwin.upload(demo.timeline__demo, demo.connections, demo.devices, machine, 1)
+    adwin.upload(demo.timeline_demo, demo.connections, demo.devices, machine, 1)
 
     assert sorted(machine.data) == [10, 11, 12, 13, 20, 21, 22, 23, 31, 32, 33, 42, 43]
     assert machine.par[2] == len(machine.data[10][0]) > 0
@@ -419,19 +419,21 @@ def test_upload_transfers_both_sets_when_both_are_populated():
 
 
 def _with_a_final_state():
-    conns = adcon.new(["shutter_MOT", 1, 11], ["AOM_MOT", 1, 1], ["coil_MOT__A", 3, 2])
-    devs = device.new(["coil_MOT__A", 2.0, -5.0, 5.0])
+    conns = adcon.new(
+        ["shutter__MOT", 1, 11], ["AOM__MOT", 1, 1], ["coil__MOT__A", 3, 2]
+    )
+    devs = device.new(["coil__MOT__A", 2.0, -5.0, 5.0])
     timeline = tl.to_timeline(
         tl.stack(
             tl.update(
-                shutter_MOT=0, AOM_MOT=0, coil_MOT__A=0.0, context="ADwin_LowInit"
+                shutter__MOT=0, AOM__MOT=0, coil__MOT__A=0.0, context="ADwin_LowInit"
             ),
             tl.anchor(0.0, origin=0.0, context="run"),
-            tl.update(shutter_MOT=1, coil_MOT__A=1.0, time=0.5),
+            tl.update(shutter__MOT=1, coil__MOT__A=1.0, time=0.5),
             tl.update(
-                shutter_MOT=0,
-                AOM_MOT=1,
-                coil_MOT__A=0.0,
+                shutter__MOT=0,
+                AOM__MOT=1,
+                coil__MOT__A=0.0,
                 time=1.0,
                 context="ADwin_Finish",
             ),
@@ -480,7 +482,7 @@ def test_upload_refuses_a_timeline_with_no_run():
     with pytest.raises(ValueError, match="nothing to run"):
         adwin.upload(
             tl.to_timeline(
-                tl.update(shutter_MOT=1, time=-1e-6, context="ADwin_LowInit")
+                tl.update(shutter__MOT=1, time=-1e-6, context="ADwin_LowInit")
             ),
             conns,
             devs,
@@ -546,7 +548,7 @@ def test_upload_refuses_a_process_that_is_not_loaded():
 def test_upload_converts_against_the_specification_it_is_given():
     """D15's other half: `machine_specifications` used to stop at `create`."""
     timeline, _, devs = _digital_only()
-    conns = adcon.new(["shutter_MOT", 2, 11], ["AOM_MOT", 2, 1])
+    conns = adcon.new(["shutter__MOT", 2, 11], ["AOM__MOT", 2, 1])
     specifications = {"modules": [{"bits": 16}, {"bits": 1}]}
 
     machine = _MachineRecording()
@@ -795,7 +797,7 @@ def test_starting_a_replay_waits_for_the_previous_run(monkeypatch, caplog):
 def test_the_log_is_short_to_print():
     """The arrays can run to hundreds of thousands of rows; they are counted, not shown."""
     log = adwin.upload(
-        demo.timeline__demo, demo.connections, demo.devices, _MachineRecording(), 1
+        demo.timeline_demo, demo.connections, demo.devices, _MachineRecording(), 1
     )
     assert len(repr(log)) < 300
     assert "rows={} analogue".format(len(log.analogue)) in repr(log)
@@ -809,20 +811,20 @@ def test_an_update_at_the_instant_a_ramp_ends_is_what_is_sent():
     at 7 of these 20 instants the ramp's superseded end was sent instead, for one cycle,
     up to 8 A from the value commanded. Nothing raised.
     """
-    conns = adcon.new(["coil_MOT__A", 3, 2], ["shutter_MOT", 1, 11])
-    devs = device.new(["coil_MOT__A", 2.0, -5.0, 5.0])
+    conns = adcon.new(["coil__MOT__A", 3, 2], ["shutter__MOT", 1, 11])
+    devs = device.new(["coil__MOT__A", 2.0, -5.0, 5.0])
     steps = [
         step
         for i in range(1, 21)
         for step in (
-            tl.ramp(coil_MOT__A=0.2 * i, duration=1e-3),
-            tl.update(coil_MOT__A=-0.2 * i, time=1e-3),
+            tl.ramp(coil__MOT__A=0.2 * i, duration=1e-3),
+            tl.update(coil__MOT__A=-0.2 * i, time=1e-3),
             tl.anchor(1e-3),
         )
     ]
     timeline = tl.to_timeline(
         tl.stack(
-            tl.update(coil_MOT__A=0.0, shutter_MOT=0, time=0.0, context="run"),
+            tl.update(coil__MOT__A=0.0, shutter__MOT=0, time=0.0, context="run"),
             tl.anchor(0.0),
             *steps,
         )
@@ -839,25 +841,25 @@ def test_an_analogue_variable_on_the_digital_module_is_refused():
     A16. It was rounded and switched as a digital line: 1.5 A on a coil became a 2 written
     to a digital output, without a word.
     """
-    timeline = tl.to_timeline(tl.update(coil_MOT__A=1.5, time=0.0, context="run"))
+    timeline = tl.to_timeline(tl.update(coil__MOT__A=1.5, time=0.0, context="run"))
     with pytest.raises(
-        ValueError, match="coil_MOT__A on module 1: analogue by its name"
+        ValueError, match="coil__MOT__A on module 1: analogue by its name"
     ):
         adwin.convert(
             timeline,
-            adcon.new(["coil_MOT__A", 1, 5]),
-            device.new(["coil_MOT__A", 2.0, -5, 5]),
+            adcon.new(["coil__MOT__A", 1, 5]),
+            device.new(["coil__MOT__A", 2.0, -5, 5]),
             5e-6,
         )
 
 
 def test_a_digital_line_on_an_analogue_module_is_refused_by_name():
     """A16. It used to fail in a cast, naming neither the variable nor the cause."""
-    timeline = tl.to_timeline(tl.update(shutter_MOT=1, time=0.0, context="run"))
+    timeline = tl.to_timeline(tl.update(shutter__MOT=1, time=0.0, context="run"))
     with pytest.raises(
-        ValueError, match="shutter_MOT on module 3: digital by its name"
+        ValueError, match="shutter__MOT on module 3: digital by its name"
     ):
-        adwin.convert(timeline, adcon.new(["shutter_MOT", 3, 5]), device.new(), 5e-6)
+        adwin.convert(timeline, adcon.new(["shutter__MOT", 3, 5]), device.new(), 5e-6)
 
 
 def _console_holding(machine, digits, touched):
@@ -872,12 +874,12 @@ def _console_holding(machine, digits, touched):
 
 
 def _coil_run():
-    connections = adcon.new(["coil_MOT__A", 4, 1])
-    devices = device.new(["coil_MOT__A", 2.0, -5, 5])
+    connections = adcon.new(["coil__MOT__A", 4, 1])
+    devices = device.new(["coil__MOT__A", 2.0, -5, 5])
     timeline = tl.to_timeline(
         tl.stack(
-            tl.update(coil_MOT__A=-1.5, time=0.0, context="run"),
-            tl.update(coil_MOT__A=-1.0, time=1.0),
+            tl.update(coil__MOT__A=-1.5, time=0.0, context="run"),
+            tl.update(coil__MOT__A=-1.0, time=1.0),
         )
     )
     return timeline, connections, devices
@@ -891,7 +893,7 @@ def test_upload_warns_of_a_channel_the_run_jumps_from_a_console_value(caplog):
         adwin.upload(*_coil_run(), machine, 1)
     assert [r.message for r in caplog.records] == [
         "The run will jump 1 analogue channel(s) from a value set on the console:"
-        " coil_MOT__A from 2 to -1.5 A, at 0 s."
+        " coil__MOT__A from 2 to -1.5 A, at 0 s."
     ]
 
 
@@ -1086,7 +1088,7 @@ def test_a_window_is_read_only_after_its_own_run(monkeypatch):
 def _with_a_row_at(time, cycle_period=5e-6):
     timeline, conns, devs = _digital_only()
     timeline = tl.to_timeline(
-        tl.update(shutter_MOT=1, time=time, origin=0.0), onto=timeline
+        tl.update(shutter__MOT=1, time=time, origin=0.0), onto=timeline
     )
     return adwin.convert(timeline, conns, devs, cycle_period)
 
@@ -1115,8 +1117,8 @@ def test_the_special_contexts_are_not_held_to_the_run():
     _, conns, devs = _digital_only()
     timeline = tl.to_timeline(
         tl.stack(
-            tl.update(shutter_MOT=0, AOM_MOT=0, time=-1e-3, context="ADwin_LowInit"),
-            tl.update(shutter_MOT=1, time=1.0, origin=0.0, context="run"),
+            tl.update(shutter__MOT=0, AOM__MOT=0, time=-1e-3, context="ADwin_LowInit"),
+            tl.update(shutter__MOT=1, time=1.0, origin=0.0, context="run"),
         )
     )
     analogue, digital = adwin.convert(timeline, conns, devs, 5e-6)
@@ -1180,14 +1182,14 @@ def test_a_ramp_keeps_its_own_resolution_through_conversion():
 
     from wignertime import ramp_function
 
-    conns = adcon.new(["coil_MOT__A", 3, 2])
-    devs = device.new(["coil_MOT__A", 2.0, -5.0, 5.0])
+    conns = adcon.new(["coil__MOT__A", 3, 2])
+    devs = device.new(["coil__MOT__A", 2.0, -5.0, 5.0])
     timeline = tl.to_timeline(
         tl.stack(
-            tl.update(coil_MOT__A=0.0, time=0.0, context="run"),
+            tl.update(coil__MOT__A=0.0, time=0.0, context="run"),
             tl.anchor(0.0),
             tl.ramp(
-                coil_MOT__A=1.0,
+                coil__MOT__A=1.0,
                 duration=1e-3,
                 function=functools.partial(ramp_function.tanh, time_resolution=1e-4),
             ),
@@ -1206,7 +1208,7 @@ def test_a_ramp_keeps_its_own_resolution_through_conversion():
 def _before_and_after(before, after):
     import math
 
-    conns = adcon.new(["shutter_MOT", 1, 11], ["AOM_MOT", 1, 1])
+    conns = adcon.new(["shutter__MOT", 1, 11], ["AOM__MOT", 1, 1])
     return (
         tl.to_timeline(
             tl.stack(
@@ -1214,7 +1216,7 @@ def _before_and_after(before, after):
                     tl.update(time=-math.inf, context=context, **values)
                     for context, values in before
                 ],
-                tl.update(shutter_MOT=1, time=0.0, context="run"),
+                tl.update(shutter__MOT=1, time=0.0, context="run"),
                 tl.anchor(1.0),
                 tl.update(time=math.inf, context="ADwin_Finish", **after),
             )
@@ -1232,7 +1234,7 @@ def test_the_state_before_and_after_the_run_converts_at_the_sentinels():
     import warnings
 
     timeline, conns, devs = _before_and_after(
-        [("ADwin_LowInit", dict(shutter_MOT=0, AOM_MOT=1))], dict(shutter_MOT=0)
+        [("ADwin_LowInit", dict(shutter__MOT=0, AOM__MOT=1))], dict(shutter__MOT=0)
     )
     with warnings.catch_warnings():
         warnings.simplefilter("error")
@@ -1245,7 +1247,7 @@ def test_a_row_at_infinity_outside_the_special_contexts_is_refused():
 
     timeline, conns, devs = _digital_only()
     timeline = tl.to_timeline(
-        tl.update(AOM_MOT=0, time=math.inf, context="run"), onto=timeline
+        tl.update(AOM__MOT=0, time=math.inf, context="run"), onto=timeline
     )
     with pytest.raises(ValueError, match="must be at an instant of the run"):
         adwin.convert(timeline, conns, devs, 5e-6)
@@ -1257,8 +1259,8 @@ def test_a_variable_set_in_both_lowinit_and_init_is_refused():
     context, so this was accepted, and the `init:` value was in force.
     """
     timeline, conns, devs = _before_and_after(
-        [("ADwin_LowInit", dict(shutter_MOT=0)), ("ADwin_Init", dict(shutter_MOT=1))],
-        dict(shutter_MOT=0),
+        [("ADwin_LowInit", dict(shutter__MOT=0)), ("ADwin_Init", dict(shutter__MOT=1))],
+        dict(shutter__MOT=0),
     )
     with pytest.raises(ValueError, match="more than one value before the run"):
         adwin.convert(timeline, conns, devs, 5e-6)
@@ -1266,8 +1268,8 @@ def test_a_variable_set_in_both_lowinit_and_init_is_refused():
 
 def test_lowinit_and_init_may_set_different_variables():
     timeline, conns, devs = _before_and_after(
-        [("ADwin_LowInit", dict(shutter_MOT=0)), ("ADwin_Init", dict(AOM_MOT=1))],
-        dict(shutter_MOT=0),
+        [("ADwin_LowInit", dict(shutter__MOT=0)), ("ADwin_Init", dict(AOM__MOT=1))],
+        dict(shutter__MOT=0),
     )
     _, digital = adwin.convert(timeline, conns, devs, 5e-6)
     assert [row[0] for row in digital] == [-2, -1, 0, 2**31 - 1]

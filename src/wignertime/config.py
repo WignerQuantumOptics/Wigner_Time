@@ -14,13 +14,19 @@ LABEL__ANCHOR = "⚓"
 # `adwin.core.convert` gives the cycle period. As a default bound at import it could not
 # even be changed (#144).
 
-VARIABLE__REGEX = re.compile(r"^([^_]+)_([^_]+(?:_[^_]+)*)(?:__([^_]+))?$")
+VARIABLE__REGEX = re.compile(r"^([^_]+)__([^_]+(?:_[^_]+)*)(?:__([^_]+))?$")
 """
-The naming convention for a `variable`, as `<device>_<UID>(__<unit>)`; the three
-groups are what `variable.parse` returns. A missing `__<unit>` is what marks a line
-as digital, so the unit separator is `__` and may appear at most once, at the end.
-The `<UID>` may itself contain single underscores, so both `coil_MOTlower__A` and
-`coil_MOT_lower__A` are admissible.
+The naming convention for a `variable`, as `<device>__<UID>(__<unit>)`, e.g.
+`coil__MOT_lower__A` and `shutter__MOT`; the three groups are what `variable.parse`
+returns. A missing `__<unit>` is what marks a line as digital. `<device>` and `<unit>`
+contain no `_`; the `<UID>` may contain single ones (D7, #121, settled by the
+maintainer 2026-09-29).
+
+Keeping `_` out of `<device>` is what makes the grammar safe to migrate to: a name in the
+old `<device>_<UID>(__<unit>)` form has a `_` before its first `__`, so it is refused
+rather than read with its unit taken for a UID, i.e. as digital. It also refuses a
+device of several words, `power_supply__X__V`, which the old grammar split silently;
+such a device is `supply__power_X__V`.
 
 This lives here, rather than in `variable`, because the convention is a *default*
 rather than a law: a site that consistently applies a different one can rebind this

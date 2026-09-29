@@ -275,7 +275,7 @@ Three properties of the mechanism that are easy to break:
   neutral default. (The escapes that used to exist, `origin=[None, 0.0]` and the 2-D form, went with
   #142's rule.)
 
-*Anchors* are a non-physical variable named `⚓` (`config.LABEL__ANCHOR`), auto-numbered `⚓_001`, used
+*Anchors* are a non-physical variable named `⚓` (`config.LABEL__ANCHOR`), auto-numbered `⚓__001`, used
 as a time reference within a `context`. They deliberately have no `connection`, so
 `adwin.connection.remove_unconnected_variables` drops them at export. Their purpose is that the
 instants that matter physically are often ones where nothing is commanded — a MOT collection ends
@@ -310,9 +310,14 @@ side of the run, and the JSON writer keeps them as the strings `"-inf"`/`"inf"`.
 
 ### Variable naming is load-bearing, not cosmetic
 
-`variable.py::REGEX` — `equipment_context__unit`; **no `__unit` suffix means the line is digital**.
-`connection.new` rejects names that don't match, `conversion`/`device` key off the unit, and
-`adwin/display.py` groups plots by it.
+`config.VARIABLE__REGEX` — **`<device>__<UID>(__<unit>)`**, e.g. `coil__MOT_lower__A`,
+`shutter__MOT`; `<device>` and `<unit>` contain no `_`, the UID may contain single ones (D7, #121,
+settled 2026-09-29). **No `__<unit>` suffix means the line is digital.** `connection.new` rejects
+names that don't match, `conversion`/`device` key off the unit, and `adwin/display.py` groups plots
+by it. Keeping `_` out of `<device>` is what made the migration from the old
+`<device>_<UID>(__<unit>)` safe: every old name has a `_` before its first `__`, so it is refused
+rather than read as digital with its unit taken for the UID. The Lab2 fixture keeps its real, old
+names; its test rebinds the regex, as a site with its own convention would.
 
 ### Ramps are stored as functions, then expanded
 
@@ -434,11 +439,15 @@ real, which is what #154 was about.
 
 ## Conventions
 
-- **`__` separates a name from its qualifier or unit; `_` separates words inside the name.** It runs
-  through everything: columns (`value__digits`), kwargs (`duration__initial`, `column__value`,
-  `timeline__past`), functions (`mask__changed`, `sanitize__round_value`), and the `variable` regex.
-  Trailing `__002` on filenames is `file.py`'s collision suffix. Note the scope limit from D7: this
-  governs library-internal identifiers, and `docs/paper/main.tex` overrides it for anything the paper shows.
+- **Two rules for `__`, by audience (D7, settled 2026-09-29).** In what users write and the paper
+  shows – the demo, the lab, the stages' parameters – **`__` comes only before a unit**
+  (`duration_coil_ramp`, `lag_MOT_shutter`, `to__MHz`, `detuning__MHz`), and a variable name uses it
+  as the field separator of its grammar (above). **Library-internal identifiers keep the older rule**,
+  `__` between a name and its qualifier or unit: columns (`value__digits`), kwargs (`time__max`,
+  `column__value`), functions (`mask__changed`), config constants (`ORIGIN__DEFAULTS`). They were
+  deliberately not renamed; extending the units-only rule into the package is a separate decision.
+  Trailing `__002` on filenames is `file.py`'s collision suffix. Stage parameters mirror the core
+  functions: `time`, not `t`.
 - **Route dataframe operations through `internal/dataframe.py`** (imported as `wt_frame`), not through
   pandas directly. That module exists so a polars backend can be dropped in later; `wt_frame.CLASS` is
   the dataframe type. Several older modules (`conversion.py`, `device.py`, `adwin/connection.py`,
@@ -487,17 +496,13 @@ Not covered by `KNOWN_ISSUES.md`:
   scratch notebook rather than package code (checked 2026-09-22: 1 file would be reformatted, 57 left
   alone). Format files you touch; a repo-wide `black` run would bury your diff.
 - **The paper's demo listing (`sec:demonstration`) is a cleaned-up variant of
-  `src/wignertime/demo/full_experiment.py`, not a copy of it**, and the two have drifted: the paper
-  uses single-underscore parameter names (`duration_coil_ramp`, `lag_MOT_shutter`,
-  `lower_current_initial`, `to__MHz`), the code uses the `__` convention (`duration__coil_ramp`,
-  `lag__MOTshutter`, `li`/`ui`, `toMHz`); the paper has `shutter_OP1`/`shutter_OP2` and
-  `MOT_detuned_growth` against the code's `shutter_OP001`/`shutter_OP002` and `MOT__detuned_growth`;
-  and the paper adds a `MOT_off` stage and a `delay_shutter_reinitialization` parameter that the code
-  inlines as `0.1`. (The ADbasic subroutine `processSwitches` was renamed to
-  `processUpdates` in both `.bas` files on 2026-09-15, so that divergence is gone.) **`docs/paper/main.tex` is canonical: when they disagree, the code changes** (maintainer
-  decision, 2026-09-02 — see `KNOWN_ISSUES.md` D7 for the inventory and the prerequisites). This
-  governs only what the paper actually shows; internal identifiers it never mentions keep the `__`
-  convention below.
+  `src/wignertime/demo/full_experiment.py`, not a copy of it**: a smaller apparatus (the rule is
+  spelling, not extent). The spellings were reconciled on 2026-09-29 (D7): the demo now uses the
+  paper's names (`duration_coil_ramp`, `lower_current_initial`, `shutter__OP1`,
+  `MOT_detuned_growth`, `delay_shutter_reinitialization`, `timeline_demo`), in the new variable
+  grammar. What still differs is content: the paper's `MOT_off` respects the shutter lags, the
+  demo's does not, and the demo drives compensation coils the paper leaves out. **`docs/paper/main.tex`
+  is canonical: when they disagree, the code changes** (maintainer decision, 2026-09-02).
 - `drop_repeats` (on this branch, not yet on `main`) times analog transitions at the cycles where
   the DAC code actually changes, per Kowalski *et al.* Its docstring argues the filtering is
   *equivalent* to bit-flip-timed expansion on the hardware's own grid, not an approximation to it.

@@ -67,7 +67,7 @@ def __getattr__(name):
                     "`create` is gone (#85). The first rows of a timeline are an `update`"
                     " like any other, applied to an empty timeline by `to_timeline`:",
                     "",
-                    '    to_timeline(update(AOM_MOT=1, shutter_MOT=0, time=0.0, context="init"))',
+                    '    to_timeline(update(AOM__MOT=1, shutter__MOT=0, time=0.0, context="init"))',
                     "",
                     "On an empty timeline the origin is absolute zero, and the rows must"
                     " name their context (#156). In a `stack`, write the `update` itself.",
@@ -182,13 +182,13 @@ def update(
     It returns a stage, for a `stack` and for `to_timeline`. The first rows of a
     timeline are an `update` like any other, applied to an empty timeline::
 
-        initial = to_timeline(update(AOM_MOT=1, shutter_MOT=0, time=0.0, context="init"))
+        initial = to_timeline(update(AOM__MOT=1, shutter__MOT=0, time=0.0, context="init"))
 
     Input grammar
     -------------
     A variable is named as a keyword, and followed by what it does::
 
-        update(AOM_MOT=<follows>)
+        update(AOM__MOT=<follows>)
 
     where ``<follows>`` is one of
 
@@ -201,7 +201,7 @@ def update(
 
     Several variables are given at once, and a computed set through ``**``::
 
-        update(AOM_MOT=1, shutter_MOT=[0.1, 1, "MOT"])
+        update(AOM__MOT=1, shutter__MOT=[0.1, 1, "MOT"])
         update(**{name: value for name, value in ...})
 
     ``time`` and ``context`` are **defaults, not overrides** — a variable stating its own
@@ -408,7 +408,7 @@ def _anchor(timeline, time, context, origin):
         time=time,
         context=context,
         origin=origin,
-        **{"{}_{:03d}".format(wt_config.LABEL__ANCHOR, num_anchors + 1): 0},
+        **{"{}__{:03d}".format(wt_config.LABEL__ANCHOR, num_anchors + 1): 0},
     )
 
 
@@ -438,10 +438,10 @@ def ramp(
     `
     tl.stack(
         tl.ramp(
-            coil_compensationX__A=0.0,
-            coil_compensationY__A=0.0,
-            coil_MOTlowerPlus__A=0.0,
-            coil_MOTupperPlus__A=0.0,
+            coil__compensation_X__A=0.0,
+            coil__compensation_Y__A=0.0,
+            coil__MOT_lower_plus__A=0.0,
+            coil__MOT_upper_plus__A=0.0,
 
             duration=duration,
             context="final_ramps"))
@@ -449,9 +449,9 @@ def ramp(
     The variables are given end values independently and other options collectively. By default, the starting time is also inferred from the previous timeline and so chains of operations can be built up conveniently.
 
     For simpler ramps, it can still be easier, like in `update`, to supply everything in a list, e.g.
-    `tl.ramp(lockbox_MOT__MHz=[500e-3,0.0])`
+    `tl.ramp(lockbox__MOT__MHz=[500e-3,0.0])`
     or
-    `tl.ramp(lockbox_MOT__MHz=[500e-3, 0.0, "final_ramps"])` - if you want a new `context`.
+    `tl.ramp(lockbox__MOT__MHz=[500e-3, 0.0, "final_ramps"])` - if you want a new `context`.
     This works because by default the ending time is relative to the starting time (see the `origin` keyword argument), such that 't_end' and 'duration' are the same.
 
     **A ramp always starts where its variable is** (#142, 2026-09-29). A start value that
@@ -964,10 +964,10 @@ def _route_keyword(key, names__by_length, stages__by_name):
     Matching is anchored to the start of the key and to a `_` boundary, so a parameter
     that merely *contains* a stage name is not captured by it. Candidates are tried
     longest first, because a shorter stage name can be a prefix of a longer one
-    (`MOT_` also begins `MOT__detuned_growth_duration`).
+    (`MOT_` also begins `MOT_detuned_growth_duration`).
 
     Longest-first alone is not enough to settle the genuine collision, though: if
-    `MOT__detuned_growth` does not take the remainder but `MOT` does, the key belongs to
+    `MOT_detuned_growth` does not take the remainder but `MOT` does, the key belongs to
     `MOT`. So a split is accepted only when the target actually takes the parameter --
     or has `**kwargs`, which is how `init` and `finish` stay open for the injection
     idiom of `sec:forwarding`.

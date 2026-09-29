@@ -11,27 +11,27 @@ from wignertime.adwin import connection as adcon
 @pytest.mark.parametrize(
     "input",
     [
-        adcon.new("AOM_MOT__V", 1, 1),
-        adcon.new(["AOM_MOT__V", 1, 1]),
+        adcon.new("AOM__MOT__V", 1, 1),
+        adcon.new(["AOM__MOT__V", 1, 1]),
     ],
 )
 def test_connectionSingle(input):
     return pd.testing.assert_frame_equal(
-        input, pd.DataFrame([Munch(variable="AOM_MOT__V", module=1, channel=1)])
+        input, pd.DataFrame([Munch(variable="AOM__MOT__V", module=1, channel=1)])
     )
 
 
 def test_connectionMany():
     tst = adcon.new(
-        ["shutter_MOT", 1, 11], ["shutter_repump", 1, 12], ["shutter_imaging", 1, 13]
+        ["shutter__MOT", 1, 11], ["shutter__repump", 1, 12], ["shutter__imaging", 1, 13]
     )
     return pd.testing.assert_frame_equal(
         tst,
         pd.DataFrame(
             [
-                Munch(variable="shutter_MOT", module=1, channel=11),
-                Munch(variable="shutter_repump", module=1, channel=12),
-                Munch(variable="shutter_imaging", module=1, channel=13),
+                Munch(variable="shutter__MOT", module=1, channel=11),
+                Munch(variable="shutter__repump", module=1, channel=12),
+                Munch(variable="shutter__imaging", module=1, channel=13),
             ]
         ),
     )
@@ -40,9 +40,9 @@ def test_connectionMany():
 def test_connectionName():
     assert (
         adcon.new(
-            ["shutter_MOT", 1, 11],
-            ["shutter_repump", 1, 12],
-            ["shutter_imaging", 1, 13],
+            ["shutter__MOT", 1, 11],
+            ["shutter__repump", 1, 12],
+            ["shutter__imaging", 1, 13],
         )
         .variable.str.match(wt_config.VARIABLE__REGEX)
         .all()
@@ -52,9 +52,9 @@ def test_connectionName():
 def test_connectionName002():
     assert adcon.is_valid_name(
         adcon.new(
-            ["shutter_MOT", 1, 11],
-            ["shutter_repump", 1, 12],
-            ["shutter_imaging", 1, 13],
+            ["shutter__MOT", 1, 11],
+            ["shutter__repump", 1, 12],
+            ["shutter__imaging", 1, 13],
         )
     )
 
@@ -63,9 +63,9 @@ def test_connectionName003():
     assert (
         adcon.is_valid_name(
             tl._populate_timeline(
-                ["shutter_MOT", 1, 11],
-                ["shutter__repump", 1, 12],
-                ["shutter_imaging", 1, 13],
+                ["shutter__MOT", 1, 11],
+                ["shutter_repump", 1, 12],  # the old grammar, refused by the new one
+                ["shutter__imaging", 1, 13],
                 context="s",
             )
         )
@@ -76,7 +76,7 @@ def test_connectionName003():
 @pytest.mark.parametrize(
     "input",
     [
-        ("AOMMOT__V", 1, 1),
+        ("AOM_MOT__V", 1, 1),  # the old grammar: a `_` in <device>
         (["AOMMOT", 1, 1]),
     ],
 )
