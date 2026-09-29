@@ -14,7 +14,7 @@ from wignertime.internal import util as wt_util
 
 @pytest.fixture
 def base():
-    return tl.to_timeline(tl.update(a__A=0.0, t=0.0, context="init"))
+    return tl.to_timeline(tl.update(a__A=0.0, time=0.0, context="init"))
 
 
 def stage__named(duration=1.0):
@@ -41,7 +41,7 @@ def test_the_refusal_says_what_could_have_been_placed(base):
     with pytest.raises(TypeError) as e:
         tl.to_timeline(tl.stack(tl.update(a__A=1.0), typo_duration=3.0), onto=base)
     assert "'typo_duration'" in str(e.value)
-    assert "Placeable here: context, origin, t." in str(e.value)
+    assert "Placeable here: context, origin, time." in str(e.value)
 
 
 def test_a_placeable_keyword_still_reaches_its_constituent(base):
@@ -119,7 +119,7 @@ def test_cascade_refuses_a_stage_that_was_already_called():
 
 def test_cascade_still_routes_by_prefix():
     def init():
-        return tl.update(a__A=0.0, t=0.0, context="init")
+        return tl.update(a__A=0.0, time=0.0, context="init")
 
     result = tl.to_timeline(tl.cascade(init, stage__named, stage__named_duration=7.0))
     assert result.iloc[-1]["value"] == pytest.approx(7.0)

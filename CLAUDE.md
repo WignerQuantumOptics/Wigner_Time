@@ -144,7 +144,7 @@ position, with a message naming `to_timeline`. **`create` is gone** (2026-09-29)
 timeline are an `update` like any other, applied to the empty timeline, where the origin is absolute
 zero and the rows must name their context (#156). A module `__getattr__` in `timeline.py` says so to
 anyone still writing `tl.create`. **The core functions take no timeline** (2026-09-29, P2 step 3):
-`update`, `ramp` and `anchor` are keyword-only (`anchor` keeps `t` positional) and always return a
+`update`, `ramp` and `anchor` are keyword-only (`anchor` keeps `time` positional) and always return a
 stage, and a `timeline=` given to one is refused with a message naming `to_timeline`. Each is a thin
 public function over a private body (`_update`, `_ramp`, `_anchor`, which take the timeline first),
 joined by `util.stage(body, signature, arguments)`: that builds the stage, tags it, records which
@@ -232,7 +232,7 @@ must name theirs, `context=""` is refused, and so is a table handed in with a ro
 it was declined on 2026-09-19 (#74), on the merits rather than for inertia: the two slots really are
 independent now, and splitting would delete the normalisation layer whose string-padding rule was A6's
 mechanism. What settles it is `ramp.origin2`, which places the *end* point and does not decompose into
-the same scheme — `ramp` would carry `t0`, `v0` and two more for the end, alongside the `t`, `t2` and
+the same scheme — `ramp` would carry `t0`, `v0` and two more for the end, alongside the `time`, `time2` and
 `duration` it already has. A ramp's second reference is a different kind of thing from its first, and a
 flat `t0`/`v0` vocabulary would flatten that. The same issue's second half, a `default` sentinel in
 place of `None`, was resolved rather than declined: `None` now carries one meaning, not two.
@@ -275,7 +275,7 @@ as a time reference within a `context`. They deliberately have no `connection`, 
 instants that matter physically are often ones where nothing is commanded — a MOT collection ends
 because enough time has passed, not because a device switched. **Every user-defined stage is
 recommended to end with an anchor** carrying that stage's context; the anchor-then-last default is
-what then turns every `t` into a Δt from the end of the preceding stage.
+what then turns every `time` into a Δt from the end of the preceding stage.
 
 ### Context does three jobs
 
@@ -378,7 +378,7 @@ The trap that used to lead this section, **A4**, was fixed on 2026-09-18: a `ram
 anchorless timeline no longer lands at absolute time, because `ramp`'s chain now has a `LAST` step
 and a terminal `0.0`. **A8 and B1 are moot since 2026-09-29**: both were about a start value stated
 in the 2-D form, which #142's rule removed — every ramp now starts from wherever its variable sits,
-`ramp(v=target, t=..., duration=...)`, and a wanted jump is an `update` before it. **A3 is settled**
+`ramp(v=target, time=..., duration=...)`, and a wanted jump is an `update` before it. **A3 is settled**
 (2026-09-18): a zero-duration ramp raises, and a flat ramp is kept as the hold it is.
 
 Not covered by `KNOWN_ISSUES.md`:

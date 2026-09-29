@@ -67,7 +67,7 @@ def __getattr__(name):
                     "`create` is gone (#85). The first rows of a timeline are an `update`"
                     " like any other, applied to an empty timeline by `to_timeline`:",
                     "",
-                    '    to_timeline(update(AOM_MOT=1, shutter_MOT=0, t=0.0, context="init"))',
+                    '    to_timeline(update(AOM_MOT=1, shutter_MOT=0, time=0.0, context="init"))',
                     "",
                     "On an empty timeline the origin is absolute zero, and the rows must"
                     " name their context (#156). In a `stack`, write the `update` itself.",
@@ -120,7 +120,7 @@ def context_info(timeline):
 def _populate_timeline(
     *vtvc,
     timeline: wt_frame.CLASS | None = None,
-    t=0.0,
+    time=0.0,
     context=None,
     origin=None,
     schema=_SCHEMA,
@@ -142,7 +142,7 @@ def _populate_timeline(
     default, `wt_config.INFER`, as `None` before calling this (see `inherit.resolve` and
     `origin.auto`).
     """
-    rows = wt_input.rows_from_arguments(*vtvc, time=t, context=context, **vtvc_dict)
+    rows = wt_input.rows_from_arguments(*vtvc, time=time, context=context, **vtvc_dict)
 
     df_rows = wt_frame.new(rows, columns=schema.keys())
 
@@ -171,7 +171,7 @@ def _populate_timeline(
 
 def update(
     *,
-    t=0.0,
+    time=0.0,
     context=wt_config.CONTEXT__INFER,
     origin=wt_config.ORIGIN__INFER,
     **vtvc_dict,
@@ -182,7 +182,7 @@ def update(
     It returns a stage, for a `stack` and for `to_timeline`. The first rows of a
     timeline are an `update` like any other, applied to an empty timeline::
 
-        initial = to_timeline(update(AOM_MOT=1, shutter_MOT=0, t=0.0, context="init"))
+        initial = to_timeline(update(AOM_MOT=1, shutter_MOT=0, time=0.0, context="init"))
 
     Input grammar
     -------------
@@ -193,7 +193,7 @@ def update(
     where ``<follows>`` is one of
 
     ======================================  ==========================================
-    ``value``                               at ``t``
+    ``value``                               at ``time``
     ``[time, value]``
     ``[time, value, context]``
     ``[[time, value], [time, value], ...]``  several instants for one variable
@@ -204,7 +204,7 @@ def update(
         update(AOM_MOT=1, shutter_MOT=[0.1, 1, "MOT"])
         update(**{name: value for name, value in ...})
 
-    ``t`` and ``context`` are **defaults, not overrides** — a variable stating its own
+    ``time`` and ``context`` are **defaults, not overrides** — a variable stating its own
     keeps it. The keyword namespace is open by design, so an unrecognised keyword is
     read as a variable name rather than rejected (see the manuscript's `sec:forwarding`);
     that is what makes the injection idiom work, and it is why there is no second,
@@ -213,7 +213,7 @@ def update(
     Origin and context
     ------------------
     `origin` defaults to `wt_config.INFER`: the anchor-then-last chain
-    (`config.ORIGIN__DEFAULTS`) fills whichever slots are left unstated, so `t` is a
+    (`config.ORIGIN__DEFAULTS`) fills whichever slots are left unstated, so `time` is a
     duration from the end of the preceding stage. `None` means the same. For absolute
     time, write `origin=0.0`. On an empty timeline there is nothing to be relative to,
     and the origin is absolute zero.
@@ -229,11 +229,11 @@ def update(
     inherit.resolve(context)  # refused where it is written, not where it is applied
 
     return wt_util.stage(
-        _update, update, dict(t=t, context=context, origin=origin, **vtvc_dict)
+        _update, update, dict(time=time, context=context, origin=origin, **vtvc_dict)
     )
 
 
-def _update(timeline, t, context, origin, **vtvc_dict):
+def _update(timeline, time, context, origin, **vtvc_dict):
     """`update`, applied."""
     timeline = _given(timeline, "update")
     origin = wt_origin.auto(
@@ -241,7 +241,7 @@ def _update(timeline, t, context, origin, **vtvc_dict):
     )
     return _populate_timeline(
         timeline=timeline,
-        t=t,
+        time=time,
         context=inherit.resolve(context),
         origin=origin,
         **vtvc_dict,
@@ -307,7 +307,7 @@ def _given(timeline, name):
 
 
 def anchor(
-    t,
+    time,
     *,
     context=wt_config.CONTEXT__INFER,
     origin=wt_config.ORIGIN__INFER,
@@ -317,14 +317,14 @@ def anchor(
 
     This can be very convenient in the context of `ramp`s, where the starting and ending times are often built around a hypothetical point in time, due to physical switching speeds.
 
-    `t` is required. There is no sensible default: it is a displacement from whatever
+    `time` is required. There is no sensible default: it is a displacement from whatever
     the `origin` resolves to, and the two readings a default would have to choose
     between are genuinely different instants (see below).
 
     *Where the anchor lands*
 
     By default the `origin` is the most recent anchor where one exists and the last
-    entry otherwise, so `t` is normally a duration measured **from the end of the
+    entry otherwise, so `time` is normally a duration measured **from the end of the
     preceding stage**. That is what makes stages chain: a stage may write rows past its
     own closing anchor -- `optical_pumping` reinitialises shutters 0.1 s later -- without
     dragging the next stage along with them.
@@ -343,15 +343,15 @@ def anchor(
     """
     # NOTE: Makes use of a global variable (LABEL__ANCHOR).
 
-    if t is None:
+    if time is None:
         raise TypeError(
             "\n".join(
                 [
-                    "`anchor` requires `t`, a displacement from whatever `origin`"
+                    "`anchor` requires `time`, a displacement from whatever `origin`"
                     " resolves to.",
                     "",
                     "    anchor(0.0)                    # at the most recent anchor",
-                    "    anchor(0.0, origin='last')     # at the last entry so far",
+                    "    anchor(0.0, origin=LAST)       # at the last entry so far",
                     "    anchor(duration)               # `duration` after the"
                     " preceding stage",
                 ]
@@ -360,10 +360,12 @@ def anchor(
 
     inherit.resolve(context)  # refused where it is written, not where it is applied
 
-    return wt_util.stage(_anchor, anchor, dict(t=t, context=context, origin=origin))
+    return wt_util.stage(
+        _anchor, anchor, dict(time=time, context=context, origin=origin)
+    )
 
 
-def _anchor(timeline, t, context, origin):
+def _anchor(timeline, time, context, origin):
     """`anchor`, applied."""
     timeline = _given(timeline, "anchor")
     num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
@@ -372,7 +374,7 @@ def _anchor(timeline, t, context, origin):
     # the same defaults `anchor` would use.
     return _update(
         timeline,
-        t=t,
+        time=time,
         context=context,
         origin=origin,
         **{"{}_{:03d}".format(wt_config.LABEL__ANCHOR, num_anchors + 1): 0},
@@ -382,8 +384,8 @@ def _anchor(timeline, t, context, origin):
 def ramp(
     *,
     duration=None,
-    t=None,
-    t2=None,
+    time=None,
+    time2=None,
     context=wt_config.CONTEXT__INFER,
     origin=wt_config.ORIGIN__INFER,
     origin2=[wt_config.VARIABLE, 0.0],
@@ -440,7 +442,7 @@ def ramp(
     inherits the latest context of `timeline`. Every row has a context (#156), so
     `context=""` is refused.
 
-    NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
+    NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `time2` will have supremacy. It is `time2` because `origin2` places the same point, the end.
     """
     _refuse_timeline("ramp", vtvc_dict)
     inherit.resolve(context)  # refused where it is written, not where it is applied
@@ -451,8 +453,8 @@ def ramp(
         ramp,
         dict(
             duration=duration,
-            t=t,
-            t2=t2,
+            time=time,
+            time2=time2,
             context=context,
             origin=origin,
             origin2=origin2,
@@ -462,7 +464,9 @@ def ramp(
     )
 
 
-def _ramp(timeline, duration, t, t2, context, origin, origin2, function, **vtvc_dict):
+def _ramp(
+    timeline, duration, time, time2, context, origin, origin2, function, **vtvc_dict
+):
     """`ramp`, applied."""
     timeline = _given(timeline, "ramp")
 
@@ -473,7 +477,7 @@ def _ramp(timeline, duration, t, t2, context, origin, origin2, function, **vtvc_
     # differs from the current one is a step hidden inside a ramp -- the discontinuity a
     # ramp exists to avoid -- so a jump that is wanted is an `update` before the ramp,
     # where it shows in the table. The 2-D form, which stated a start, is therefore gone,
-    # and every start is inferred: the end rows' variables, placed at `t` from the time
+    # and every start is inferred: the end rows' variables, placed at `time` from the
     # origin, at the value each has there.
     points__required = wt_ramp_function.points(function)
     if points__required != 2:
@@ -499,7 +503,7 @@ def _ramp(timeline, duration, t, t2, context, origin, origin2, function, **vtvc_
                     "A ramp starts where its variable is (#142), so its start is not"
                     " written: {}.".format(", ".join(written)),
                     "",
-                    "Give the end only -- `v=target`, or `v=[time, target]` -- and `t`"
+                    "Give the end only -- `v=target`, or `v=[time, target]` -- and `time`"
                     " for when the ramp starts. To start from another value, `update`"
                     " the variable first, so that the jump shows in the table:",
                     "",
@@ -508,11 +512,11 @@ def _ramp(timeline, duration, t, t2, context, origin, origin2, function, **vtvc_
             )
         )
 
-    if t2 is None and duration is not None:
-        t2 = duration
+    if time2 is None and duration is not None:
+        time2 = duration
 
     df_2 = wt_frame.new(
-        wt_input.rows_from_arguments(*[], time=t2, context=context, **vtvc_dict),
+        wt_input.rows_from_arguments(*[], time=time2, context=context, **vtvc_dict),
         columns=_SCHEMA.keys(),
     ).astype(_SCHEMA)
 
@@ -520,7 +524,7 @@ def _ramp(timeline, duration, t, t2, context, origin, origin2, function, **vtvc_
     # points out of them, and writing through would zero the very end values the ramp is
     # aiming at (B4/#111; pandas 3 makes copy-on-write unconditional, #88).
     df_1 = df_2.copy()
-    df_1.loc[:, "time"] = 0.0 if t is None else t
+    df_1.loc[:, "time"] = 0.0 if time is None else time
     df_1.loc[:, "value"] = 0.0
 
     origin = wt_origin.auto(
@@ -581,7 +585,7 @@ def _ramp(timeline, duration, t, t2, context, origin, origin2, function, **vtvc_
                         sorted(set(new1.loc[time__reversed, "variable"])) or "none"
                     ),
                     "",
-                    "Check `duration` (or `t2`) -- a duration computed as a difference"
+                    "Check `duration` (or `time2`) -- a duration computed as a difference"
                     " of two stage times is the usual way this comes out wrong. To"
                     " command a value at a single instant, use `update`.",
                 ]

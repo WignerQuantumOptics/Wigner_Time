@@ -139,7 +139,7 @@ def default_state(MOT_ON=True, **kwargs):
 
 def init(MOT_ON=False, **kwargs):
     return default_state(
-        t=-1e-6,  # time is simply a placeholder here as 'ADwin_LowInit' is a 'special' context, that will be treated differently by the ADwin system.
+        time=-1e-6,  # time is simply a placeholder here as 'ADwin_LowInit' is a 'special' context, that will be treated differently by the ADwin system.
         context="ADwin_LowInit",
         MOT_ON=MOT_ON,
         **kwargs,
@@ -171,7 +171,7 @@ def finish(wait=1, lA=-1.0, uA=-0.98, MOT_ON=True, **kwargs):
             context="finalRamps",
         ),
         default_state(
-            t=duration
+            time=duration
             + 1e-6,  # time is just fictive here, the important thing is the context
             context="ADwin_Finish",
             MOT_ON=MOT_ON,
@@ -292,15 +292,15 @@ def optical_pumping(
         ),
         tl.update(
             shutter_repump=0,
-            t=duration__full - constants.lag__repump_shutter + delay__repump,
+            time=duration__full - constants.lag__repump_shutter + delay__repump,
         ),
-        tl.update(AOM_repump=0, t=duration__full),
+        tl.update(AOM_repump=0, time=duration__full),
         tl.anchor(duration__full),
         context="optical_pumping",
     )
 
 
-def pull_coils(duration, l, u, lp=0, up=0, pt=3, t=None, context=None):
+def pull_coils(duration, l, u, lp=0, up=0, pt=3, time=None, context=None):
     """
     Controls the concentric coil pairs responsible for 'pulling' the atoms.
     """
@@ -313,7 +313,7 @@ def pull_coils(duration, l, u, lp=0, up=0, pt=3, t=None, context=None):
             origin, terminus, time_resolution, pt
         ),
         duration=duration,
-        t=t,
+        time=time,
         context=context,
     )
 
@@ -331,7 +331,7 @@ def magnetic_trapping(
     """
     return tl.stack(
         pull_coils(duration__initial, li, ui, context="magnetic_trapping"),
-        pull_coils(duration__strengthen, ls, us, t=duration__initial),
+        pull_coils(duration__strengthen, ls, us, time=duration__initial),
         tl.anchor(duration__initial + duration__strengthen),
         context="magnetic_trapping",
     )

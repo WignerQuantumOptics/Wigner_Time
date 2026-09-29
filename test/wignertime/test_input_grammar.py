@@ -83,7 +83,7 @@ def test_rows_may_be_batched():
 
 @pytest.mark.parametrize("follows,expected", FOLLOWS)
 def test_t_and_context_are_defaults_not_overrides(follows, expected):
-    frame = tl.to_timeline(tl.update(**{VARIABLE: follows}, t=99.0, context="kw"))
+    frame = tl.to_timeline(tl.update(**{VARIABLE: follows}, time=99.0, context="kw"))
 
     assert frame.iloc[0]["time"] == (
         99.0 if not isinstance(follows, list) else expected["time"]

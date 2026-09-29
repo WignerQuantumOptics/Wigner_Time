@@ -69,19 +69,19 @@ def test_createSimple(input, df_simple):
                 ["AOM_repump", 1.0],
             ],
             context="init",
-            t=0.0,
+            time=0.0,
         ),
         tl._populate_timeline(
             ["AOM_imaging", 0.0],
             ["AOM_imaging__V", 2],
             ["AOM_repump", 1.0],
             context="init",
-            t=0.0,
+            time=0.0,
         ),
         tl.to_timeline(
             tl.update(
                 context="init",
-                t=0.0,
+                time=0.0,
                 AOM_imaging=0.0,
                 AOM_imaging__V=2,
                 AOM_repump=1.0,
@@ -244,7 +244,7 @@ def test_the_first_rows_of_a_timeline_must_name_a_context():
     now holds for every row rather than for `create` alone.
     """
     with pytest.raises(ValueError, match="Every row needs a context.*AOM_MOT"):
-        tl.to_timeline(tl.update(AOM_MOT=1, t=0.0))
+        tl.to_timeline(tl.update(AOM_MOT=1, time=0.0))
 
 
 def test_a_row_stating_its_own_context_needs_none_from_the_call():
@@ -491,6 +491,6 @@ def test_the_first_rows_are_placed_in_absolute_time():
     rows where `create` did, and the origin chain falls to zero without a warning.
     """
     return wt_frame.assert_equal(
-        tl.to_timeline(tl.update(AOM_repump=0, t=10.0, context="init")),
-        tl._populate_timeline(AOM_repump=0, t=10.0, context="init"),
+        tl.to_timeline(tl.update(AOM_repump=0, time=10.0, context="init")),
+        tl._populate_timeline(AOM_repump=0, time=10.0, context="init"),
     )

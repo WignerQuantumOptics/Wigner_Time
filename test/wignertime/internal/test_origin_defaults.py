@@ -23,10 +23,10 @@ def tline():
     return tl.to_timeline(
         tl.stack(
             tl.anchor(1.0, context="stage1"),
-            tl.update(coil__A=5.0, t=1.5, context="stage2", origin=0.0),
+            tl.update(coil__A=5.0, time=1.5, context="stage2", origin=0.0),
             tl.anchor(2.5, context="stage2"),
         ),
-        onto=tl.to_timeline(tl.update(coil__A=2.0, t=0.0, context="stage1")),
+        onto=tl.to_timeline(tl.update(coil__A=2.0, time=0.0, context="stage1")),
     )
 
 
@@ -82,12 +82,12 @@ def test_a_deferred_time_slot_takes_the_chain(tline):
 
 def test_update_values_stay_absolute(tline):
     """Completion must not give `update` a value origin it never had."""
-    new = tl.to_timeline(tl.update(coil__A=1.0, t=0.0, origin="stage1"), onto=tline)
+    new = tl.to_timeline(tl.update(coil__A=1.0, time=0.0, origin="stage1"), onto=tline)
     assert new.iloc[-1]["value"] == pytest.approx(1.0)
 
 
 def test_zero_still_means_absolute(tline):
-    new = tl.to_timeline(tl.update(coil__A=1.0, t=2.0, origin=0.0), onto=tline)
+    new = tl.to_timeline(tl.update(coil__A=1.0, time=2.0, origin=0.0), onto=tline)
     assert new.iloc[-1]["time"] == pytest.approx(2.0)
 
 
@@ -100,7 +100,7 @@ def test_a_ramp_onto_an_anchorless_timeline_does_not_precede_it():
     absolute time -- here at 0.0 -> 1.0, i.e. *before* the entry at t=5.0 they were
     appended to. No exception, and the sequence was not merely mistimed but reordered.
     """
-    base = tl.to_timeline(tl.update(coil__A=0.0, t=5.0, context="stage1"))
+    base = tl.to_timeline(tl.update(coil__A=0.0, time=5.0, context="stage1"))
     assert points(tl.to_timeline(tl.ramp(coil__A=2.0, duration=1.0), onto=base)) == [
         [5.0, 0.0],
         [6.0, 2.0],
@@ -130,9 +130,9 @@ def test_the_chain_terminates_in_absolute_time_without_a_warning(caplog):
 
 def test_an_explicit_anchor_without_one_says_so(tline):
     """The default path falls through; an explicit request cannot, so it must explain."""
-    base = tl.to_timeline(tl.update(coil__A=0.0, t=5.0, context="stage1"))
+    base = tl.to_timeline(tl.update(coil__A=0.0, time=5.0, context="stage1"))
     with pytest.raises(ValueError, match="holds no anchor"):
-        tl.to_timeline(tl.update(coil__A=1.0, t=1.0, origin=tl.ANCHOR), onto=base)
+        tl.to_timeline(tl.update(coil__A=1.0, time=1.0, origin=tl.ANCHOR), onto=base)
 
 
 # --- B2: the lookup bound does not depend on what else is being resolved ------
@@ -152,10 +152,10 @@ def test_the_bound_does_not_move_as_the_loop_runs():
     base = tl.to_timeline(
         tl.stack(
             tl.anchor(5.0, context="s"),
-            tl.update(y__A=8.0, t=7.0, context="s", origin=0.0),
-            tl.update(x__A=9.0, t=10.0, context="s", origin=0.0),
+            tl.update(y__A=8.0, time=7.0, context="s", origin=0.0),
+            tl.update(x__A=9.0, time=10.0, context="s", origin=0.0),
         ),
-        onto=tl.to_timeline(tl.update(x__A=1.0, y__A=2.0, t=0.0, context="s")),
+        onto=tl.to_timeline(tl.update(x__A=1.0, y__A=2.0, time=0.0, context="s")),
     )
     new = tl.to_timeline(
         tl.update(
@@ -186,7 +186,7 @@ def test_the_bound_is_the_instant_the_rows_will_occupy(tline):
 def test_an_empty_timeline_says_it_is_empty():
     empty = wt_frame.new([], columns=tl._SCHEMA.keys()).astype(tl._SCHEMA)
     with pytest.raises(ValueError, match="the timeline is empty"):
-        tl.to_timeline(tl.update(coil__A=1.0, t=1.0, origin=tl.LAST), onto=empty)
+        tl.to_timeline(tl.update(coil__A=1.0, time=1.0, origin=tl.LAST), onto=empty)
 
 
 def test_a_variable_with_no_history_says_so(tline):
@@ -247,13 +247,15 @@ def test_a_per_variable_self_reference_places_each_on_its_own_history(tline):
     assert points(
         tl.to_timeline(
             tl.ramp(
-                coil__A=9.0, t=5.0, duration=1.0, origin=[tl.VARIABLE, tl.VARIABLE]
+                coil__A=9.0, time=5.0, duration=1.0, origin=[tl.VARIABLE, tl.VARIABLE]
             ),
             onto=tline,
         )
     ) == points(
         tl.to_timeline(
-            tl.ramp(coil__A=9.0, t=5.0, duration=1.0, origin=["coil__A", tl.VARIABLE]),
+            tl.ramp(
+                coil__A=9.0, time=5.0, duration=1.0, origin=["coil__A", tl.VARIABLE]
+            ),
             onto=tline,
         )
     )
@@ -363,11 +365,11 @@ def test_absolute_placement_is_a_number(tline):
     ].tolist() == [0.5, 1.0]
     assert points(
         tl.to_timeline(
-            tl.ramp(coil__A=9.0, t=0.5, duration=0.5, origin=0.0), onto=tline
+            tl.ramp(coil__A=9.0, time=0.5, duration=0.5, origin=0.0), onto=tline
         )
     ) == [[0.5, 2.0], [1.0, 9.0]]
     with pytest.raises(ValueError, match="value slot of its `origin`"):
-        tl.ramp(coil__A=9.0, t=0.5, duration=0.5, origin=[0.0, 0.0])
+        tl.ramp(coil__A=9.0, time=0.5, duration=0.5, origin=[0.0, 0.0])
 
 
 def test_the_marker_is_one_object_that_prints_as_its_name():

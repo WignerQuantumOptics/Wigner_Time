@@ -10,7 +10,7 @@ from wignertime.internal import dataframe as wt_frame
 def test_anchor__basic():
     tl_anchor = tl.to_timeline(
         tl.stack(
-            tl.anchor(t=10.0, context="InitialAnchor"),
+            tl.anchor(time=10.0, context="InitialAnchor"),
             tl.ramp(lockbox_MOT__MHz=[1.0, 10.0], context="new ramp"),
         ),
         onto=tl.to_timeline(
@@ -92,7 +92,7 @@ def test_anchor_requires_t():
     with pytest.raises(TypeError, match="required positional argument"):
         tl.anchor()
 
-    with pytest.raises(TypeError, match="requires `t`"):
+    with pytest.raises(TypeError, match="requires `time`"):
         tl.anchor(None)
 
 
@@ -104,9 +104,9 @@ def test_anchor_chains_on_the_previous_anchor_not_the_last_row():
     timeline = tl.to_timeline(
         tl.stack(
             tl.anchor(3.0),
-            tl.update(coil__A=2.0, t=5.0, origin=0.0),
+            tl.update(coil__A=2.0, time=5.0, origin=0.0),
         ),
-        onto=tl.to_timeline(tl.update(coil__A=1.0, t=0.0, context="s1")),
+        onto=tl.to_timeline(tl.update(coil__A=1.0, time=0.0, context="s1")),
     )
 
     def anchor_time(frame):

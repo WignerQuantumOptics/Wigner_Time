@@ -108,7 +108,7 @@ def __ensure_time_context(collection, time, context=None, context__default=""):
                             ),
                             "",
                             "Either state it in the row -- `[time, value]` -- or supply "
-                            "`t=` for the call to use as its default.",
+                            "`time=` for the call to use as its default.",
                         ]
                     )
                 )

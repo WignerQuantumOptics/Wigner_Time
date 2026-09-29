@@ -65,7 +65,7 @@ def test_expand_takes_a_timeline_and_is_not_a_stage():
                 tl.anchor(0.0),
                 tl.ramp(coil__A=1.0, duration=1e-3, context="finalize"),
             ),
-            onto=tl.to_timeline(tl.update(coil__A=0.0, t=0.0, context="init")),
+            onto=tl.to_timeline(tl.update(coil__A=0.0, time=0.0, context="init")),
         ),
         time_resolution=1e-4,
     )

@@ -50,7 +50,7 @@ def dfseq():
 def test_stack(dfseq):
     tst = tl.to_timeline(
         tl.stack(
-            tl.ramp(t=5.0, lockbox_MOT__V=[0.8, 1.0]),
+            tl.ramp(time=5.0, lockbox_MOT__V=[0.8, 1.0]),
             lambda tline: tl.expand(tline, time_resolution=0.2),
         ),
         onto=tl._populate_timeline(
@@ -66,7 +66,7 @@ def test_stack__kws(dfseq):
     )
     tst = tl.expand(
         tl.to_timeline(
-            tl.stack(tl.ramp(t=5.0, lockbox_MOT__V=[0.8, 1.0]), context="test"),
+            tl.stack(tl.ramp(time=5.0, lockbox_MOT__V=[0.8, 1.0]), context="test"),
             onto=tline,
         ),
         time_resolution=0.2,
@@ -238,7 +238,7 @@ def test_expand_leaves_the_timeline_it_was_given_alone():
             tl.anchor(1.0, context="s"),
             tl.ramp(c__A=9.0, duration=0.5),
         ),
-        onto=tl.to_timeline(tl.update(c__A=2.0, t=0.0, context="s")),
+        onto=tl.to_timeline(tl.update(c__A=2.0, time=0.0, context="s")),
     )
     before = timeline.copy()
 

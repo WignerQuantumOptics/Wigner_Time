@@ -213,7 +213,7 @@ def test_convert():
     tuples = adwin.convert(
         tl.to_timeline(
             tl.stack(
-                tl.anchor(t=0.0, origin=0.0, context="InitialAnchor"),
+                tl.anchor(time=0.0, origin=0.0, context="InitialAnchor"),
                 tl.update(
                     shutter_MOT=1,
                     context="MOT",
@@ -315,9 +315,11 @@ def _digital_only():
     )  # nothing analogue is connected, so there is nothing to calibrate
     timeline = tl.to_timeline(
         tl.stack(
-            tl.update(shutter_MOT=0, t=1.0),
+            tl.update(shutter_MOT=0, time=1.0),
         ),
-        onto=tl.to_timeline(tl.update(shutter_MOT=1, AOM_MOT=1, t=0.0, context="run")),
+        onto=tl.to_timeline(
+            tl.update(shutter_MOT=1, AOM_MOT=1, time=0.0, context="run")
+        ),
     )
     return timeline, conns, devs
 
@@ -356,7 +358,9 @@ def test_create_refuses_a_timeline_with_no_run():
     _, conns, devs = _digital_only()
     with pytest.raises(ValueError, match="nothing to run"):
         adwin.create(
-            tl.to_timeline(tl.update(shutter_MOT=1, t=-1e-6, context="ADwin_LowInit")),
+            tl.to_timeline(
+                tl.update(shutter_MOT=1, time=-1e-6, context="ADwin_LowInit")
+            ),
             conns,
             devs,
             machine=_MachineRecording(),
