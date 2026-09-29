@@ -1,0 +1,42 @@
+{
+  "timeline__demo": {
+    "5e-06": {
+      "analogue__rows": 8261,
+      "analogue__digest": "9c9828d65d8a6c2453f293984b9bc811231f0616ac884545ea71ccbb1c3c5640",
+      "digital__rows": 35,
+      "digital__digest": "1d790e4b7c4a035677708d883ec9dace18db7c532771129a5eefb3d6d9b8ad07"
+    },
+    "2e-06": {
+      "analogue__rows": 17377,
+      "analogue__digest": "810ed39190fe5758246f99b545ce967f9c2a70ebe5b43dad783c2eed4ffccef1",
+      "digital__rows": 35,
+      "digital__digest": "c138111df0e69a0eedb79ff15de501ed45ee113fc2734d932b70260f82b11a54"
+    },
+    "1e-06": {
+      "analogue__rows": 29841,
+      "analogue__digest": "9b2897e13ed98ff1dab5a6e89c9849af6757040edd054bc3f1c7183ecdc2c124",
+      "digital__rows": 35,
+      "digital__digest": "aa6aa0273a64d697e59824d5d8a42621f776e16d684cfdf3eeb3144faad1c486"
+    }
+  },
+  "imaging at MT": {
+    "5e-06": {
+      "analogue__rows": 8188,
+      "analogue__digest": "152e4e18de5fc36cee8c0ee762db59c341f843ad04d01114bb3c2348a642efd3",
+      "digital__rows": 60,
+      "digital__digest": "ee495345e210c3482a2590e5bd1d0ffd69c1b1dd459cb46ed739000e3549b1aa"
+    },
+    "2e-06": {
+      "analogue__rows": 17188,
+      "analogue__digest": "5aa49dc7d6870e9aa894e1c411d511dbf9f2b26d7efcc8424a242b50da119be9",
+      "digital__rows": 60,
+      "digital__digest": "c7cbe19b3d63e235afb53361243886434fd1cb61915a1dbff988bd74c01c04a6"
+    },
+    "1e-06": {
+      "analogue__rows": 29459,
+      "analogue__digest": "bde9d396f77593df7b9c0e008db0c5ab4258ce947746f91e4b86974d01febf43",
+      "digital__rows": 60,
+      "digital__digest": "0ef5e3c23cb39de544c179d58f8db2db484f5ae15863a54a5d7067422873e44e"
+    }
+  }
+}
