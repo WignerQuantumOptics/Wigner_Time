@@ -143,12 +143,15 @@ places each variation onto it; `to_timeline(b, onto=to_timeline(a))` equals `to_
 position, with a message naming `to_timeline`. **`create` is gone** (2026-09-29): the first rows of a
 timeline are an `update` like any other, applied to the empty timeline, where the origin is absolute
 zero and the rows must name their context (#156). A module `__getattr__` in `timeline.py` says so to
-anyone still writing `tl.create`. On the way (until step 3 of P2), `update`, `ramp`, `anchor` and
-`expand` still also accept `timeline=` and then return a table. Their stage form is produced by
-`internal/util.py::function__lambda`, which reads the caller's frame to capture its own arguments —
-so it only works when called directly from the public function's body. `stack` and `cascade` forward
-their own keywords into every constituent, nested stacks included, as defaults: a constituent keeps
-what it states itself (#136, #145).
+anyone still writing `tl.create`. **The core functions take no timeline** (2026-09-29, P2 step 3):
+`update`, `ramp` and `anchor` are keyword-only (`anchor` keeps `t` positional) and always return a
+stage, and a `timeline=` given to one is refused with a message naming `to_timeline`. Each is a thin
+public function over a private body (`_update`, `_ramp`, `_anchor`, which take the timeline first),
+joined by `util.stage(body, signature, arguments)`: that builds the stage, tags it, records which
+keywords it can consume, and makes a keyword forwarded later by a `stack` a *default*, filling only
+what the call left unstated (#136, #145). It replaced `function__lambda`, which recovered the
+arguments by reading the caller's frame. User-defined stages take no `timeline` either: they return a
+`stack`, and are applied with `to_timeline`.
 
 `cascade` adds prefix-routed keyword forwarding (`MOT_duration=...` reaches `MOT`'s `duration`), so a
 whole experiment has a single point of contact for its nested parameters.
@@ -165,7 +168,7 @@ composition but passes a function in as `expand`'s `timeline`; `util.ensure_time
 `TypeError` naming the mistake, and also rejects anything that is neither a frame nor `None` (C4,
 2026-09-16). Allowing nesting to *compose* was considered and rejected; see C4 for why.
 
-Stages are tagged (`util.ATTRIBUTE__DEFERRED`, set by `function__lambda` and by `stack`), because a
+Stages are tagged (`util.ATTRIBUTE__DEFERRED`, set by `util.stage` and by `stack`), because a
 stage, a composed `stack` and an *uncalled stage function* are otherwise indistinguishable — all plain
 functions with similar signatures. `stack` and `to_timeline` check the tag, so `stack(MOT)` for
 `stack(MOT(...))` raises instead of binding the timeline to `MOT`'s first parameter (D17). An untagged
@@ -173,13 +176,14 @@ callable taking exactly one required positional argument is accepted too, so a h
 `lambda tline: ...` still works; `timeline.as_deferred` marks anything else. `noop` is consequently
 our own tagged function rather than `funcy.identity`.
 
-A related trap: **`expand` acts on the whole timeline it receives**, not on the adjacent ramp.
-Mid-`stack` in a late stage it expands every ramp accumulated so far, and since it then drops the
-`function` column, the `expand` inside `adwin.core.convert` becomes a no-op and the hand-passed
-resolution is what reaches the hardware. Decided on 2026-09-27: `expand` becomes table-only and loses
-`time_resolution` (C7, items 6 and 7). A ramp's own resolution is bound into its `function`, by a
-function that fixes it — `functools.partial(tanh, time_resolution=...)` is silently overridden by
-`expand`'s today, since a `partial` still declares the keyword.
+A trap now closed: **`expand` acts on the whole timeline it receives**, not on the adjacent ramp.
+Mid-`stack` in a late stage it expanded every ramp accumulated so far, and since it then drops the
+`function` column, the `expand` inside `adwin.core.convert` became a no-op and the hand-passed
+resolution is what reached the hardware. **`expand` now takes a table only** (C7 item 6, done in P2
+step 3): it is not a stage and cannot sit in a `stack`. Still to come (item 7, P3): it loses
+`time_resolution`. A ramp's own resolution is bound into its `function`, by a function that fixes it —
+`functools.partial(tanh, time_resolution=...)` is silently overridden by `expand`'s today, since a
+`partial` still declares the keyword.
 
 ### Origins — why chaining is causal by default
 

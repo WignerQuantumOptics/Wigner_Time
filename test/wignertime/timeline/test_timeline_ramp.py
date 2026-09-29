@@ -72,7 +72,7 @@ def test_ramp0(args):
         ],
         context="init",
     )
-    tl_ramp = tl.ramp(timeline, **args)
+    tl_ramp = tl.to_timeline(tl.ramp(**args), onto=timeline)
     tl_check = tl._populate_timeline(
         [
             ["lockbox_MOT__V", [0.0, 0.0, "init"]],
@@ -112,7 +112,7 @@ def test_ramp1(args):
         [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
     )
 
-    tl_ramp = tl.ramp(timeline, **args, context="init")
+    tl_ramp = tl.to_timeline(tl.ramp(**args, context="init"), onto=timeline)
     tl_check = tl._populate_timeline(
         [
             ["lockbox_MOT__V", [50e-3, 0.2]],
@@ -158,11 +158,11 @@ def test_ramp_start_stated_explicitly_is_protected_by_default(tl_anchor):
     timeline = tl._populate_timeline(
         [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
     )
-    result = tl.ramp(
-        timeline,
-        lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
-        origin="anchor",
-        context="init",
+    result = tl.to_timeline(
+        tl.ramp(
+            lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]], origin="anchor", context="init"
+        ),
+        onto=timeline,
     )
     assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
         [0.05, 0.0],
@@ -180,11 +180,13 @@ def test_ramp_start_stated_explicitly_with_explicit_value_origin(tl_anchor):
     timeline = tl._populate_timeline(
         [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
     )
-    result = tl.ramp(
-        timeline,
-        lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
-        origin=["anchor", "variable"],
-        context="init",
+    result = tl.to_timeline(
+        tl.ramp(
+            lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
+            origin=["anchor", "variable"],
+            context="init",
+        ),
+        onto=timeline,
     )
     assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
         [0.05, 0.2],
@@ -200,11 +202,11 @@ def test_ramp_start_stated_explicitly_can_be_kept_literal(tl_anchor):
     timeline = tl._populate_timeline(
         [["lockbox_MOT__V", [50e-3, 0.2]], ["⚓_001", [0.0, 0.0]]], context="init"
     )
-    result = tl.ramp(
-        timeline,
-        lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]],
-        origin=[0.0, 0.0],
-        context="init",
+    result = tl.to_timeline(
+        tl.ramp(
+            lockbox_MOT__V=[[0.05, 0.0], [0.05, 5]], origin=[0.0, 0.0], context="init"
+        ),
+        onto=timeline,
     )
     assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
         [0.05, 0.0],
@@ -217,7 +219,7 @@ def test_ramp_inherits_context_by_default(tl_anchor):
     `context` defaults to `wt_config.INFER`: a `ramp` that does not state its own
     context lands in `tl_anchor`'s "init".
     """
-    result = tl.ramp(tl_anchor, lockbox_MOT__V=5, duration=100e-3)
+    result = tl.to_timeline(tl.ramp(lockbox_MOT__V=5, duration=100e-3), onto=tl_anchor)
     assert sorted(set(result["context"])) == ["init"]
 
 
@@ -227,8 +229,10 @@ def test_ramp_context_none_inherits_too(tl_anchor):
     and passes it on to `ramp` inherits as if it had passed nothing (#142).
     """
     wt_frame.assert_equal(
-        tl.ramp(tl_anchor, lockbox_MOT__V=5, duration=100e-3, context=None),
-        tl.ramp(tl_anchor, lockbox_MOT__V=5, duration=100e-3),
+        tl.to_timeline(
+            tl.ramp(lockbox_MOT__V=5, duration=100e-3, context=None), onto=tl_anchor
+        ),
+        tl.to_timeline(tl.ramp(lockbox_MOT__V=5, duration=100e-3), onto=tl_anchor),
     )
 
 
@@ -238,7 +242,9 @@ def test_ramp_refuses_an_empty_context(tl_anchor):
     context. Every row has one, stated or inherited, so there is nothing to switch off.
     """
     with pytest.raises(ValueError, match="is not a context"):
-        tl.ramp(tl_anchor, lockbox_MOT__V=5, duration=100e-3, context="")
+        tl.to_timeline(
+            tl.ramp(lockbox_MOT__V=5, duration=100e-3, context=""), onto=tl_anchor
+        )
 
 
 def test_ramp_combined():
@@ -286,7 +292,9 @@ def test_ramp_combined():
     [[[0.05, 0.0], [0.05, 5]]],
 )
 def test_ramp_start(tl_anchor, args):
-    tl_ramp = tl.ramp(tl_anchor, lockbox_MOT__V=args, duration=100e-3)
+    tl_ramp = tl.to_timeline(
+        tl.ramp(lockbox_MOT__V=args, duration=100e-3), onto=tl_anchor
+    )
 
     tl_check = tl._populate_timeline(
         [
@@ -308,7 +316,7 @@ def test_ramp_start(tl_anchor, args):
 #     [[[0.05], [0.05, 5]], [0.05, [0.05, 5]]],
 # )
 # def test_ramp_start2(tl_anchor, args):
-#     tl_ramp = tl.ramp(tl_anchor, lockbox_MOT__V=args, duration=0.0)
+#     tl_ramp = tl.to_timeline(tl.ramp(lockbox_MOT__V=args, duration=0.0), onto=tl_anchor)
 
 #     tl_check = tl._populate_timeline(
 #         [
@@ -540,8 +548,9 @@ def test_boundary_frames_are_compared_variable_by_variable():
     ramp without a word. Measured on `5d5a0cd`: 0 rows added instead of 4.
     """
     base = tl.to_timeline(tl.update(X__A=1.0, Y__A=5.0, t=0.0, context="s"))
-    result = tl.ramp(
-        base, X__A=[[1.0, 7.0], [2.0, 5.0]], Y__A=7.0, duration=3.0, origin=0.0
+    result = tl.to_timeline(
+        tl.ramp(X__A=[[1.0, 7.0], [2.0, 5.0]], Y__A=7.0, duration=3.0, origin=0.0),
+        onto=base,
     )
 
     assert len(result) - len(base) == 4
@@ -570,7 +579,9 @@ def test_ramp_leaves_the_timeline_it_was_given_alone():
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        result = tl.ramp(base, c__A=9.0, d__A=[[0.0, 1.0], [0.5, 7.0]], duration=0.5)
+        result = tl.to_timeline(
+            tl.ramp(c__A=9.0, d__A=[[0.0, 1.0], [0.5, 7.0]], duration=0.5), onto=base
+        )
 
     assert [w.category.__name__ for w in caught] == []
     wt_frame.assert_equal(base, before)
@@ -607,7 +618,9 @@ def test_a_third_point_is_refused_rather_than_discarded(tl_anchor):
     that sweep did not reach.
     """
     with pytest.raises(ValueError, match="needs 2 point"):
-        tl.ramp(tl_anchor, lockbox_MOT__V=[[0.0, 1.0], [0.5, 5.0], [1.0, 9.0]])
+        tl.to_timeline(
+            tl.ramp(lockbox_MOT__V=[[0.0, 1.0], [0.5, 5.0], [1.0, 9.0]]), onto=tl_anchor
+        )
 
 
 def test_expand_no_longer_takes_num__bounds(tl_anchor):
@@ -616,7 +629,7 @@ def test_expand_no_longer_takes_num__bounds(tl_anchor):
     `**function_args` and filtered out against the ramp function's signature, so a caller
     still passing it would have been ignored without a word.
     """
-    timeline = tl.ramp(tl_anchor, lockbox_MOT__V=5.0, duration=1.0)
+    timeline = tl.to_timeline(tl.ramp(lockbox_MOT__V=5.0, duration=1.0), onto=tl_anchor)
     with pytest.raises(TypeError, match="no longer takes `num__bounds`"):
         tl.expand(timeline, num__bounds=2, time_resolution=0.1)
 
@@ -627,7 +640,7 @@ def test_expand_names_the_variable_whose_ramp_rows_do_not_pair(tl_anchor):
     the pairing of every variable after it, and surfaced as a bare
     `ValueError: not enough values to unpack (expected 2, got 1)`.
     """
-    timeline = tl.ramp(tl_anchor, lockbox_MOT__V=5.0, duration=1.0)
+    timeline = tl.to_timeline(tl.ramp(lockbox_MOT__V=5.0, duration=1.0), onto=tl_anchor)
     timeline.loc[len(timeline)] = [
         2.0,
         "lockbox_MOT__V",
@@ -673,9 +686,9 @@ def test_a_ramp_starting_inside_another_of_its_variable_raises(coil_at_zero):
     where the coil stood at 5 A, and `expand` then paired the four boundaries in time
     order, so the coil held at 0 A until 6 s and jumped to 10 A.
     """
-    first = tl.ramp(timeline=coil_at_zero, coil_X__A=10.0, duration=1.0)
+    first = tl.to_timeline(tl.ramp(coil_X__A=10.0, duration=1.0), onto=coil_at_zero)
     with pytest.raises(ValueError, match="at most one ramp") as e:
-        tl.ramp(timeline=first, coil_X__A=20.0, duration=1.0, t=0.5)
+        tl.to_timeline(tl.ramp(coil_X__A=20.0, duration=1.0, t=0.5), onto=first)
     assert "coil_X__A: this ramp, 5.5..6.5 s, overlaps its ramp over 5.0..6.0 s" in str(
         e.value
     )
@@ -691,17 +704,18 @@ def test_a_ramp_starting_inside_another_of_its_variable_raises(coil_at_zero):
     ],
 )
 def test_every_kind_of_overlap_raises(coil_at_zero, t, duration):
-    first = tl.ramp(timeline=coil_at_zero, coil_X__A=10.0, duration=1.0)
+    first = tl.to_timeline(tl.ramp(coil_X__A=10.0, duration=1.0), onto=coil_at_zero)
     with pytest.raises(ValueError, match="at most one ramp"):
-        tl.ramp(
-            timeline=first, coil_X__A=20.0, duration=duration, t=t, origin=[5.0, None]
+        tl.to_timeline(
+            tl.ramp(coil_X__A=20.0, duration=duration, t=t, origin=[5.0, None]),
+            onto=first,
         )
 
 
 def test_a_ramp_may_start_as_another_ends(coil_at_zero):
     """The ordinary sequence, as `magnetic_trapping`'s two `pull_coils` do it."""
-    first = tl.ramp(timeline=coil_at_zero, coil_X__A=10.0, duration=1.0)
-    second = tl.ramp(timeline=first, coil_X__A=20.0, duration=1.0, t=1.0)
+    first = tl.to_timeline(tl.ramp(coil_X__A=10.0, duration=1.0), onto=coil_at_zero)
+    second = tl.to_timeline(tl.ramp(coil_X__A=20.0, duration=1.0, t=1.0), onto=first)
     values = tl.expand(second, time_resolution=0.25)
     assert values[values["variable"] == "coil_X__A"]["value"].iloc[-1] == 20.0
 
@@ -719,10 +733,12 @@ def test_meeting_by_rounding_is_refused_and_said_to_be_rounding():
         tl.stack(tl.anchor(0.1)),
         onto=tl.to_timeline(tl.update(coil_X__A=0.0, t=0.0, context="s")),
     )
-    first = tl.ramp(timeline=base, coil_X__A=10.0, duration=0.2)
+    first = tl.to_timeline(tl.ramp(coil_X__A=10.0, duration=0.2), onto=base)
     assert first["time"].max() > 0.3
     with pytest.raises(ValueError, match="within rounding"):
-        tl.ramp(timeline=first, coil_X__A=20.0, duration=0.2, t=0.3, origin=[0.0, None])
+        tl.to_timeline(
+            tl.ramp(coil_X__A=20.0, duration=0.2, t=0.3, origin=[0.0, None]), onto=first
+        )
 
 
 def test_placed_from_the_others_end_the_same_ramp_is_kept():
@@ -730,8 +746,10 @@ def test_placed_from_the_others_end_the_same_ramp_is_kept():
         tl.stack(tl.anchor(0.1)),
         onto=tl.to_timeline(tl.update(coil_X__A=0.0, t=0.0, context="s")),
     )
-    first = tl.ramp(timeline=base, coil_X__A=10.0, duration=0.2)
-    second = tl.ramp(timeline=first, coil_X__A=20.0, duration=0.2, origin="last")
+    first = tl.to_timeline(tl.ramp(coil_X__A=10.0, duration=0.2), onto=base)
+    second = tl.to_timeline(
+        tl.ramp(coil_X__A=20.0, duration=0.2, origin="last"), onto=first
+    )
     rows = second[second["variable"] == "coil_X__A"]
     assert rows["value"].iloc[-2] == 10.0  # it starts where the first one ended
 
@@ -743,6 +761,6 @@ def test_ramps_of_different_variables_may_overlap():
             tl.update(coil_X__A=0.0, coil_Y__A=0.0, t=0.0, context="s")
         ),
     )
-    first = tl.ramp(timeline=base, coil_X__A=10.0, duration=1.0)
-    both = tl.ramp(timeline=first, coil_Y__A=10.0, duration=1.0, t=0.5)
+    first = tl.to_timeline(tl.ramp(coil_X__A=10.0, duration=1.0), onto=base)
+    both = tl.to_timeline(tl.ramp(coil_Y__A=10.0, duration=1.0, t=0.5), onto=first)
     assert set(both["variable"]) >= {"coil_X__A", "coil_Y__A"}

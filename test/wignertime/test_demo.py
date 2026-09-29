@@ -784,8 +784,8 @@ def test_trigger_camera_interweaves_into_a_finished_timeline():
             ex.finish(trigger_camera=0),
         )
     )
-    woven = ex.trigger_camera(
-        2e-3, 1e-3, context="imaging", origin="molasses", timeline=full
+    woven = tl.to_timeline(
+        ex.trigger_camera(2e-3, 1e-3, context="imaging", origin="molasses"), onto=full
     )
 
     time__molasses = full[anchor.mask(full) & (full["context"] == "molasses")][

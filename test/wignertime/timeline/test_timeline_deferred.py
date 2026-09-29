@@ -1,13 +1,16 @@
 """
-The deferred-function protocol: core functions return a timeline when given one and a callable otherwise, and those callables compose as siblings of a `stack` rather than by nesting.
+Stages: the core functions return one, stages compose as siblings of a `stack` rather
+than by nesting, and `to_timeline` is what makes a timeline of one (#85).
 
-The nesting mistake used to surface as an `AttributeError` about a missing dataframe attribute, far from its cause.
+The nesting mistake used to surface as an `AttributeError` about a missing dataframe
+attribute, far from its cause.
 """
 
 import pytest
 
 from wignertime import timeline as tl
 from wignertime.internal import dataframe as wt_frame
+from wignertime.internal import util as wt_util
 from wignertime.demo import full_experiment as demo
 
 
@@ -21,19 +24,17 @@ def deferred():
 @pytest.mark.parametrize(
     "name,call",
     [
-        # `create` is absent on purpose: it has no `timeline` argument, so a deferred
-        # function cannot reach it. See `test_create_rejects_timeline_and_origin`.
-        ("update", lambda f: tl.update(f)),
-        ("ramp", lambda f: tl.ramp(f, coil__A=2.0, duration=1.0)),
-        ("anchor", lambda f: tl.anchor(1.0, timeline=f)),
+        ("update", lambda f: tl.to_timeline(tl.update(), onto=f)),
+        ("ramp", lambda f: tl.to_timeline(tl.ramp(coil__A=2.0, duration=1.0), onto=f)),
+        ("anchor", lambda f: tl.to_timeline(tl.anchor(1.0), onto=f)),
         ("expand", lambda f: tl.expand(f, time_resolution=1e-4)),
     ],
 )
-def test_deferred_function_as_timeline_raises(name, call):
+def test_a_stage_where_a_timeline_belongs_is_named(name, call):
     """
-    Nesting one core call inside another names the mistake, rather than failing downstream.
+    Nesting one call inside another names the mistake, rather than failing downstream.
     """
-    with pytest.raises(TypeError, match="deferred function"):
+    with pytest.raises(TypeError, match="was given a stage where a timeline"):
         call(deferred())
 
 
@@ -43,24 +44,30 @@ def test_deferred_function_as_timeline_raises(name, call):
         tl.update(AOM_MOT=1),
         tl.ramp(coil__A=2.0, duration=1.0),
         tl.anchor(1.0),
-        tl.expand(time_resolution=1e-4),
     ],
 )
-def test_deferral_still_returns_a_callable(f):
-    assert callable(f)
+def test_every_core_function_returns_a_stage(f):
+    assert wt_util.is_deferred(f)
 
 
-def test_expand_is_stackable():
+def test_expand_takes_a_timeline_and_is_not_a_stage():
     """
-    `expand` belongs in a `stack` as its own element, after the `ramp` it expands.
+    #85, C7 item 6. Unlike the functions that add rows, `expand` transforms the whole
+    timeline it is given, so inside a `stack` it expanded every ramp built so far and the
+    `expand` in `adwin.core.convert` then did nothing. It takes a table and returns one.
     """
-    timeline = tl.to_timeline(
-        tl.stack(
-            tl.anchor(0.0),
-            tl.ramp(coil__A=1.0, duration=1e-3, context="finalize"),
-            tl.expand(time_resolution=1e-4),
+    with pytest.raises(TypeError):
+        tl.expand(time_resolution=1e-4)
+
+    timeline = tl.expand(
+        tl.to_timeline(
+            tl.stack(
+                tl.anchor(0.0),
+                tl.ramp(coil__A=1.0, duration=1e-3, context="finalize"),
+            ),
+            onto=tl.to_timeline(tl.update(coil__A=0.0, t=0.0, context="init")),
         ),
-        onto=tl.to_timeline(tl.update(coil__A=0.0, t=0.0, context="init")),
+        time_resolution=1e-4,
     )
 
     assert isinstance(timeline, wt_frame.CLASS)
@@ -82,8 +89,8 @@ def test_non_timeline_argument_names_the_type(bad):
     C4. A non-frame, non-callable used to fail far downstream on whatever dataframe
     attribute was touched first, naming neither the function nor the argument.
     """
-    with pytest.raises(TypeError, match="where a timeline or `None` was expected"):
-        tl.update(AOM_MOT=1, timeline=bad)
+    with pytest.raises(TypeError, match="where a timeline was expected"):
+        tl.to_timeline(tl.update(AOM_MOT=1), onto=bad)
 
 
 @pytest.mark.parametrize("stage", [demo.MOT, demo.pull_coils])
@@ -136,7 +143,7 @@ def test_a_frame_without_context_is_refused(f, args):
         [[0.0, "coil__A", 1.0]], columns=["time", "variable", "value"]
     )
     with pytest.raises(TypeError, match="missing the column"):
-        f(timeline=incomplete, **args) if args else f(1.0, timeline=incomplete)
+        tl.to_timeline(f(**args) if args else f(1.0), onto=incomplete)
 
 
 @pytest.mark.parametrize("missing", [None, ""])
@@ -153,4 +160,4 @@ def test_a_table_with_a_row_lacking_a_context_is_refused(missing):
         columns=["time", "variable", "value", "context"],
     )
     with pytest.raises(ValueError, match=r"1 row\(s\) have no context: coil__A"):
-        tl.update(coil__A=2.0, timeline=hand)
+        tl.to_timeline(tl.update(coil__A=2.0), onto=hand)

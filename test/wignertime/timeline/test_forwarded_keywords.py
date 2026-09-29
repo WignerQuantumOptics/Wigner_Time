@@ -17,9 +17,9 @@ def base():
     return tl.to_timeline(tl.update(a__A=0.0, t=0.0, context="init"))
 
 
-def stage__named(timeline=None, duration=1.0):
+def stage__named(duration=1.0):
     """A stage function, for `cascade` to route keywords to by name."""
-    return tl.update(timeline=timeline, b__A=duration)
+    return tl.update(b__A=duration)
 
 
 # --- A5: stack refuses a keyword no constituent can consume -------------------
@@ -41,7 +41,7 @@ def test_the_refusal_says_what_could_have_been_placed(base):
     with pytest.raises(TypeError) as e:
         tl.to_timeline(tl.stack(tl.update(a__A=1.0), typo_duration=3.0), onto=base)
     assert "'typo_duration'" in str(e.value)
-    assert "Placeable here: context, origin, t, timeline" in str(e.value)
+    assert "Placeable here: context, origin, t." in str(e.value)
 
 
 def test_a_placeable_keyword_still_reaches_its_constituent(base):

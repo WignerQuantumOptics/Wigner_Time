@@ -37,13 +37,15 @@ def tline():
 @pytest.mark.parametrize("label", ["anchor", "last"])
 def test_reserved_time_words_are_refused_as_values(tline, label):
     with pytest.raises(ValueError, match="cannot serve as a VALUE origin"):
-        tl.update(tline, coil__A=1.0, t=1.0, origin=[0.0, label])
+        tl.to_timeline(tl.update(coil__A=1.0, t=1.0, origin=[0.0, label]), onto=tline)
 
 
 def test_context_name_is_refused_as_a_value(tline):
     """A context's last row may belong to any variable in it -- here, a shutter."""
     with pytest.raises(ValueError, match="cannot serve as a VALUE origin"):
-        tl.update(tline, coil__A=1.0, t=1.0, origin=[0.0, "stage2"])
+        tl.to_timeline(
+            tl.update(coil__A=1.0, t=1.0, origin=[0.0, "stage2"]), onto=tline
+        )
 
 
 def test_the_refusal_offers_the_pair_form(tline):
@@ -52,13 +54,17 @@ def test_the_refusal_offers_the_pair_form(tline):
     the time origin bounds the lookup, the value origin names what is looked up.
     """
     with pytest.raises(ValueError) as e:
-        tl.update(tline, coil__A=1.0, t=1.0, origin=[0.0, "stage1"])
+        tl.to_timeline(
+            tl.update(coil__A=1.0, t=1.0, origin=[0.0, "stage1"]), onto=tline
+        )
     assert "origin=['stage1', \"variable\"]" in str(e.value)
 
 
 def test_one_label_for_both_slots_must_satisfy_the_value_slot(tline):
     with pytest.raises(ValueError, match="cannot serve as a VALUE origin"):
-        tl.update(tline, coil__A=1.0, t=1.0, origin=["last", "last"])
+        tl.to_timeline(
+            tl.update(coil__A=1.0, t=1.0, origin=["last", "last"]), onto=tline
+        )
 
 
 # --- what the value slot still admits ----------------------------------------
@@ -66,17 +72,21 @@ def test_one_label_for_both_slots_must_satisfy_the_value_slot(tline):
 
 def test_a_variable_name_remains_a_value_origin(tline):
     """Named explicitly, bounded by the time origin: `coil__A` held 2.0 at stage1."""
-    new = tl.update(tline, coil__A=1.0, t=0.0, origin=["stage1", "coil__A"])
+    new = tl.to_timeline(
+        tl.update(coil__A=1.0, t=0.0, origin=["stage1", "coil__A"]), onto=tline
+    )
     assert new.iloc[-1]["value"] == pytest.approx(3.0)
 
 
 def test_variable_remains_a_value_origin(tline):
-    new = tl.update(tline, coil__A=1.0, t=0.0, origin=["stage1", "variable"])
+    new = tl.to_timeline(
+        tl.update(coil__A=1.0, t=0.0, origin=["stage1", "variable"]), onto=tline
+    )
     assert new.iloc[-1]["value"] == pytest.approx(3.0)
 
 
 def test_a_number_remains_a_value_origin(tline):
-    new = tl.update(tline, coil__A=1.0, t=0.0, origin=[0.0, 10.0])
+    new = tl.to_timeline(tl.update(coil__A=1.0, t=0.0, origin=[0.0, 10.0]), onto=tline)
     assert new.iloc[-1]["value"] == pytest.approx(11.0)
 
 
@@ -88,13 +98,15 @@ def test_a_number_remains_a_value_origin(tline):
     [("anchor", 3.5), ("last", 3.5), ("stage1", 1.0), ("coil__A", 1.5)],
 )
 def test_the_time_slot_still_admits_everything(tline, label, time__expected):
-    new = tl.update(tline, coil__A=1.0, t=0.0, origin=[label, None])
+    new = tl.to_timeline(
+        tl.update(coil__A=1.0, t=0.0, origin=[label, None]), onto=tline
+    )
     assert new.iloc[-1]["time"] == pytest.approx(time__expected)
 
 
 def test_ramp_still_chains_on_its_own_default(tline):
     """`ramp`'s `[["anchor", "variable"]]` is precisely a legal pair under the split."""
-    new = tl.ramp(timeline=tline, coil__A=9.0, duration=0.5)
+    new = tl.to_timeline(tl.ramp(coil__A=9.0, duration=0.5), onto=tline)
     points = new[new["function"].notna()][["time", "value"]].values.tolist()
     assert points == [[3.5, 5.0], [4.0, 9.0]]
 

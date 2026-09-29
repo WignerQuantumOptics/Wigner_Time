@@ -44,7 +44,7 @@ def test_the_interweaving_shorthand_keeps_ramps_value_default(tline):
     from 0.0 -- on a coil, a full-scale current swing at ramp speed, silently.
     """
     assert points(
-        tl.ramp(timeline=tline, coil__A=9.0, duration=0.5, origin="stage1")
+        tl.to_timeline(tl.ramp(coil__A=9.0, duration=0.5, origin="stage1"), onto=tline)
     ) == [
         [1.0, 2.0],
         [1.5, 9.0],
@@ -53,10 +53,11 @@ def test_the_interweaving_shorthand_keeps_ramps_value_default(tline):
 
 def test_the_shorthand_agrees_with_the_explicit_pair(tline):
     assert points(
-        tl.ramp(timeline=tline, coil__A=9.0, duration=0.5, origin="stage1")
+        tl.to_timeline(tl.ramp(coil__A=9.0, duration=0.5, origin="stage1"), onto=tline)
     ) == points(
-        tl.ramp(
-            timeline=tline, coil__A=9.0, duration=0.5, origin=["stage1", "variable"]
+        tl.to_timeline(
+            tl.ramp(coil__A=9.0, duration=0.5, origin=["stage1", "variable"]),
+            onto=tline,
         )
     )
 
@@ -68,22 +69,25 @@ def test_a_deferred_time_slot_takes_the_chain(tline):
     raw `TypeError` (B7).
     """
     assert points(
-        tl.ramp(timeline=tline, coil__A=9.0, duration=0.5, origin=[None, "variable"])
+        tl.to_timeline(
+            tl.ramp(coil__A=9.0, duration=0.5, origin=[None, "variable"]), onto=tline
+        )
     ) == points(
-        tl.ramp(
-            timeline=tline, coil__A=9.0, duration=0.5, origin=["anchor", "variable"]
+        tl.to_timeline(
+            tl.ramp(coil__A=9.0, duration=0.5, origin=["anchor", "variable"]),
+            onto=tline,
         )
     )
 
 
 def test_update_values_stay_absolute(tline):
     """Completion must not give `update` a value origin it never had."""
-    new = tl.update(tline, coil__A=1.0, t=0.0, origin="stage1")
+    new = tl.to_timeline(tl.update(coil__A=1.0, t=0.0, origin="stage1"), onto=tline)
     assert new.iloc[-1]["value"] == pytest.approx(1.0)
 
 
 def test_zero_still_means_absolute(tline):
-    new = tl.update(tline, coil__A=1.0, t=2.0, origin=0.0)
+    new = tl.to_timeline(tl.update(coil__A=1.0, t=2.0, origin=0.0), onto=tline)
     assert new.iloc[-1]["time"] == pytest.approx(2.0)
 
 
@@ -97,7 +101,7 @@ def test_a_ramp_onto_an_anchorless_timeline_does_not_precede_it():
     appended to. No exception, and the sequence was not merely mistimed but reordered.
     """
     base = tl.to_timeline(tl.update(coil__A=0.0, t=5.0, context="stage1"))
-    assert points(tl.ramp(timeline=base, coil__A=2.0, duration=1.0)) == [
+    assert points(tl.to_timeline(tl.ramp(coil__A=2.0, duration=1.0), onto=base)) == [
         [5.0, 0.0],
         [6.0, 2.0],
     ]
@@ -128,7 +132,7 @@ def test_an_explicit_anchor_without_one_says_so(tline):
     """The default path falls through; an explicit request cannot, so it must explain."""
     base = tl.to_timeline(tl.update(coil__A=0.0, t=5.0, context="stage1"))
     with pytest.raises(ValueError, match="holds no anchor"):
-        tl.update(base, coil__A=1.0, t=1.0, origin="anchor")
+        tl.to_timeline(tl.update(coil__A=1.0, t=1.0, origin="anchor"), onto=base)
 
 
 # --- B2: the lookup bound does not depend on what else is being resolved ------
@@ -153,8 +157,9 @@ def test_the_bound_does_not_move_as_the_loop_runs():
         ),
         onto=tl.to_timeline(tl.update(x__A=1.0, y__A=2.0, t=0.0, context="s")),
     )
-    new = tl.update(
-        base, origin=["anchor", "variable"], x__A=[[0.0, 0.0]], y__A=[[3.0, 0.0]]
+    new = tl.to_timeline(
+        tl.update(origin=["anchor", "variable"], x__A=[[0.0, 0.0]], y__A=[[3.0, 0.0]]),
+        onto=base,
     )
     assert new.iloc[-1]["variable"] == "y__A"
     assert new.iloc[-1]["value"] == pytest.approx(2.0)
@@ -166,8 +171,9 @@ def test_the_bound_is_the_instant_the_rows_will_occupy(tline):
     at `stage1` it held 2.0, and that is what an operation interwoven there must see.
     """
     assert points(
-        tl.ramp(
-            timeline=tline, coil__A=9.0, duration=0.5, origin=["stage1", "variable"]
+        tl.to_timeline(
+            tl.ramp(coil__A=9.0, duration=0.5, origin=["stage1", "variable"]),
+            onto=tline,
         )
     )[0][1] == pytest.approx(2.0)
 
@@ -178,12 +184,12 @@ def test_the_bound_is_the_instant_the_rows_will_occupy(tline):
 def test_an_empty_timeline_says_it_is_empty():
     empty = wt_frame.new([], columns=tl._SCHEMA.keys()).astype(tl._SCHEMA)
     with pytest.raises(ValueError, match="the timeline is empty"):
-        tl.update(empty, coil__A=1.0, t=1.0, origin="last")
+        tl.to_timeline(tl.update(coil__A=1.0, t=1.0, origin="last"), onto=empty)
 
 
 def test_a_variable_with_no_history_says_so(tline):
     with pytest.raises(ValueError, match="No previous value of 'fresh__A'"):
-        tl.ramp(timeline=tline, fresh__A=1.0, duration=0.5, origin=0.0)
+        tl.to_timeline(tl.ramp(fresh__A=1.0, duration=0.5, origin=0.0), onto=tline)
 
 
 # --- a variable appearing for the first time in a ramp ------------------------
@@ -198,25 +204,29 @@ def test_a_variable_with_no_history_says_so(tline):
 
 def test_a_ramp_of_an_unset_variable_refuses(tline):
     with pytest.raises(ValueError, match="No previous value of 'fresh__A'"):
-        tl.ramp(timeline=tline, fresh__A=5.0, duration=0.5)
+        tl.to_timeline(tl.ramp(fresh__A=5.0, duration=0.5), onto=tline)
 
 
 def test_a_ramp_of_an_unset_variable_refuses_even_with_a_time_origin(tline):
     """This one used to start the ramp at 0.0 without comment."""
     with pytest.raises(ValueError, match="No previous value of 'fresh__A'"):
-        tl.ramp(timeline=tline, fresh__A=5.0, duration=0.5, origin=0.0)
+        tl.to_timeline(tl.ramp(fresh__A=5.0, duration=0.5, origin=0.0), onto=tline)
 
 
 def test_an_unset_variable_can_start_from_a_stated_value(tline):
     """An absolute value origin: defer the time to the default, state the value."""
     assert points(
-        tl.ramp(timeline=tline, fresh__A=5.0, duration=0.5, origin=[None, 0.0])
+        tl.to_timeline(
+            tl.ramp(fresh__A=5.0, duration=0.5, origin=[None, 0.0]), onto=tline
+        )
     ) == [[3.5, 0.0], [4.0, 5.0]]
 
 
 def test_an_unset_variable_can_state_both_ends(tline):
     """The other escape, and the one the 2-D form exists for."""
-    assert points(tl.ramp(timeline=tline, fresh__A=[[0.0, 0.0], [0.5, 5.0]])) == [
+    assert points(
+        tl.to_timeline(tl.ramp(fresh__A=[[0.0, 0.0], [0.5, 5.0]]), onto=tline)
+    ) == [
         [3.5, 0.0],
         [4.0, 5.0],
     ]
@@ -229,20 +239,14 @@ def test_a_per_variable_self_reference_places_each_on_its_own_history(tline):
     most recent anchor rather than each variable's own last row.
     """
     assert points(
-        tl.ramp(
-            timeline=tline,
-            coil__A=9.0,
-            t=5.0,
-            duration=1.0,
-            origin=["variable", "variable"],
+        tl.to_timeline(
+            tl.ramp(coil__A=9.0, t=5.0, duration=1.0, origin=["variable", "variable"]),
+            onto=tline,
         )
     ) == points(
-        tl.ramp(
-            timeline=tline,
-            coil__A=9.0,
-            t=5.0,
-            duration=1.0,
-            origin=["coil__A", "variable"],
+        tl.to_timeline(
+            tl.ramp(coil__A=9.0, t=5.0, duration=1.0, origin=["coil__A", "variable"]),
+            onto=tline,
         )
     )
 
@@ -266,10 +270,13 @@ def test_ramp_default_origin2_survives_being_used():
     default = inspect.signature(tl.ramp).parameters["origin2"].default
     assert default == ["variable", 0.0]
 
-    base = tl.anchor(1.0, timeline=tl.to_timeline(tl.update(coil__A=0.0, context="s")))
+    base = tl.to_timeline(
+        tl.anchor(1.0), onto=tl.to_timeline(tl.update(coil__A=0.0, context="s"))
+    )
     for _ in range(3):
-        base = tl.anchor(
-            1.0, timeline=tl.ramp(coil__A=5.0, duration=1.0, timeline=base)
+        base = tl.to_timeline(
+            tl.anchor(1.0),
+            onto=tl.to_timeline(tl.ramp(coil__A=5.0, duration=1.0), onto=base),
         )
 
     assert inspect.signature(tl.ramp).parameters["origin2"].default == ["variable", 0.0]
@@ -304,16 +311,16 @@ def test_none_and_infer_are_the_same_default(tline, origin):
     in a slot, `None` and `INFER` both mean "use the default", for all three functions.
     """
     wt_frame.assert_equal(
-        tl.update(timeline=tline, x=[[0.5, 1]], origin=origin),
-        tl.update(timeline=tline, x=[[0.5, 1]]),
+        tl.to_timeline(tl.update(x=[[0.5, 1]], origin=origin), onto=tline),
+        tl.to_timeline(tl.update(x=[[0.5, 1]]), onto=tline),
     )
     wt_frame.assert_equal(
-        tl.anchor(0.5, timeline=tline, origin=origin),
-        tl.anchor(0.5, timeline=tline),
+        tl.to_timeline(tl.anchor(0.5, origin=origin), onto=tline),
+        tl.to_timeline(tl.anchor(0.5), onto=tline),
     )
     wt_frame.assert_equal(
-        tl.ramp(timeline=tline, coil__A=9.0, duration=0.5, origin=origin),
-        tl.ramp(timeline=tline, coil__A=9.0, duration=0.5),
+        tl.to_timeline(tl.ramp(coil__A=9.0, duration=0.5, origin=origin), onto=tline),
+        tl.to_timeline(tl.ramp(coil__A=9.0, duration=0.5), onto=tline),
     )
 
 
@@ -324,15 +331,12 @@ def test_a_stage_forwarding_none_keeps_the_default(tline):
     would, `t` after the most recent anchor (3.5), not in absolute time.
     """
 
-    def trigger_camera(t, exposure, context, origin=None, timeline=None):
+    def trigger_camera(t, exposure, context, origin=None):
         return tl.update(
-            trigger_camera=[[t, 1], [t + exposure, 0]],
-            context=context,
-            origin=origin,
-            timeline=timeline,
+            trigger_camera=[[t, 1], [t + exposure, 0]], context=context, origin=origin
         )
 
-    new = tl.to_timeline(tl.stack(trigger_camera(0.5, 0.1, "imaging")), onto=tline)
+    new = tl.to_timeline(trigger_camera(0.5, 0.1, "imaging"), onto=tline)
     assert new[new["variable"] == "trigger_camera"]["time"].tolist() == [4.0, 4.1]
 
 
@@ -342,14 +346,18 @@ def test_absolute_placement_is_a_number(tline):
     `0.0` fills only the time slot, so a ramp's start value is still looked up, as the
     value the variable holds at that instant (2.0 at t=0.0, not the 5.0 it reaches later).
     """
-    assert tl.update(timeline=tline, x=[[0.5, 1]], origin=0.0).iloc[-1][
+    assert tl.to_timeline(tl.update(x=[[0.5, 1]], origin=0.0), onto=tline).iloc[-1][
         ["time", "value"]
     ].tolist() == [0.5, 1.0]
     assert points(
-        tl.ramp(timeline=tline, coil__A=9.0, t=0.5, duration=0.5, origin=[0.0, 0.0])
+        tl.to_timeline(
+            tl.ramp(coil__A=9.0, t=0.5, duration=0.5, origin=[0.0, 0.0]), onto=tline
+        )
     ) == [[0.5, 0.0], [1.0, 9.0]]
     assert points(
-        tl.ramp(timeline=tline, coil__A=9.0, t=0.5, duration=0.5, origin=0.0)
+        tl.to_timeline(
+            tl.ramp(coil__A=9.0, t=0.5, duration=0.5, origin=0.0), onto=tline
+        )
     ) == [[0.5, 2.0], [1.0, 9.0]]
 
 

@@ -64,14 +64,12 @@ def test_stack__kws(dfseq):
     tline = tl._populate_timeline(
         "lockbox_MOT__V", [[0.0, 0.0], [5.0, 0.0]], context="init"
     )
-    tst = tl.to_timeline(
-        tl.stack(
-            tl.ramp(t=5.0, lockbox_MOT__V=[0.8, 1.0]),
-            tl.expand(time_resolution=0.2),
-            #
-            context="test",
+    tst = tl.expand(
+        tl.to_timeline(
+            tl.stack(tl.ramp(t=5.0, lockbox_MOT__V=[0.8, 1.0]), context="test"),
+            onto=tline,
         ),
-        onto=tline,
+        time_resolution=0.2,
     )
 
     return frame.assert_equal(

@@ -191,7 +191,9 @@ def test_update_inherits_context_by_default(df__mixed):
     latest context of the timeline it joins. `origin=0.0` keeps the times as written.
     """
     return wt_frame.assert_equal(
-        tl.update(timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=0.0),
+        tl.to_timeline(
+            tl.update(AOM_imaging__V=[2.2, 3.0], origin=0.0), onto=df__mixed
+        ),
         wt_frame.new(
             [
                 [0.0, "AOM_imaging", 0, "init"],
@@ -212,10 +214,13 @@ def test_update_context_none_and_infer_match_the_default(df__mixed, context):
     nothing (#142).
     """
     return wt_frame.assert_equal(
-        tl.update(
-            timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=0.0, context=context
+        tl.to_timeline(
+            tl.update(AOM_imaging__V=[2.2, 3.0], origin=0.0, context=context),
+            onto=df__mixed,
         ),
-        tl.update(timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=0.0),
+        tl.to_timeline(
+            tl.update(AOM_imaging__V=[2.2, 3.0], origin=0.0), onto=df__mixed
+        ),
     )
 
 
@@ -225,7 +230,9 @@ def test_update_refuses_an_empty_context(df__mixed):
     Every row has one, stated or inherited, so there is nothing to switch off.
     """
     with pytest.raises(ValueError, match="is not a context"):
-        tl.update(timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=0.0, context="")
+        tl.to_timeline(
+            tl.update(AOM_imaging__V=[2.2, 3.0], origin=0.0, context=""), onto=df__mixed
+        )
 
 
 # --- #156: every row has a context ------------------------------------------
@@ -261,20 +268,18 @@ def test_onto_an_empty_table_the_refusal_is_about_the_context():
     empty = wt_frame.new([], columns=tl._SCHEMA.keys()).astype(tl._SCHEMA)
     for origin in (wt_config.INFER, 0.0):
         with pytest.raises(ValueError, match="Every row needs a context") as e:
-            tl.update(timeline=empty, AOM_MOT=1, origin=origin)
+            tl.to_timeline(tl.update(AOM_MOT=1, origin=origin), onto=empty)
         assert "origin=0.0" not in str(e.value)
 
-    named = tl.update(timeline=empty, AOM_MOT=1, context="init", origin=0.0)
+    named = tl.to_timeline(tl.update(AOM_MOT=1, context="init", origin=0.0), onto=empty)
     assert list(named["context"]) == ["init"]
 
 
 def test_update_real_context_is_taken_as_written(df__mixed):
     return wt_frame.assert_equal(
-        tl.update(
-            timeline=df__mixed,
-            AOM_imaging__V=[2.2, 3.0],
-            origin=0.0,
-            context="named",
+        tl.to_timeline(
+            tl.update(AOM_imaging__V=[2.2, 3.0], origin=0.0, context="named"),
+            onto=df__mixed,
         ),
         wt_frame.new(
             [
@@ -293,8 +298,9 @@ def test_a_context_named_INFER_is_an_ordinary_context(df__mixed):
     The default is an object, not the string, so the word itself is free as a name
     (#142).
     """
-    new = tl.update(
-        timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=0.0, context="INFER"
+    new = tl.to_timeline(
+        tl.update(AOM_imaging__V=[2.2, 3.0], origin=0.0, context="INFER"),
+        onto=df__mixed,
     )
     assert new["context"].iloc[-1] == "INFER"
 

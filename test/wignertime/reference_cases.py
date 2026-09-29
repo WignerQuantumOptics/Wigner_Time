@@ -18,6 +18,7 @@ import pathlib
 import numpy as np
 import pandas as pd
 
+from wignertime import timeline as tl
 from wignertime.internal import util as wt_util
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "reference"
@@ -122,8 +123,9 @@ def demo_cases():
 
     return ex, {
         "timeline__demo": lambda: ex.timeline__demo,
-        "trigger_camera at molasses (sec:interweaving)": lambda: ex.trigger_camera(
-            2e-3, 1e-3, "imaging", origin="molasses", timeline=ex.timeline__demo
+        "trigger_camera at molasses (sec:interweaving)": lambda: tl.to_timeline(
+            ex.trigger_camera(2e-3, 1e-3, "imaging", origin="molasses"),
+            onto=ex.timeline__demo,
         ),
     }
 

@@ -192,18 +192,17 @@ def _populate_timeline(
 
 
 def update(
-    timeline: wt_frame.CLASS | None = None,
+    *,
     t=0.0,
     context=wt_config.CONTEXT__INFER,
     origin=wt_config.ORIGIN__INFER,
     **vtvc_dict,
-):
+) -> Callable:
     """
     Commands variables at instants: the rows of a timeline.
 
-    Called without `timeline`, it returns a stage, for a `stack` and for `to_timeline`;
-    called with one, it returns that timeline extended. The first rows of a timeline are
-    an `update` like any other, applied to an empty timeline by `to_timeline`::
+    It returns a stage, for a `stack` and for `to_timeline`. The first rows of a
+    timeline are an `update` like any other, applied to an empty timeline::
 
         initial = to_timeline(update(AOM_MOT=1, shutter_MOT=0, t=0.0, context="init"))
 
@@ -248,33 +247,64 @@ def update(
     context such as `ADwin_Finish` without naming one, since that is what would be
     inherited.
     """
-    timeline = wt_util.ensure_timeline(timeline, "update", columns__required=_SCHEMA)
+    _refuse_timeline("update", vtvc_dict)
+    inherit.resolve(context)  # refused where it is written, not where it is applied
 
+    return wt_util.stage(
+        _update, update, dict(t=t, context=context, origin=origin, **vtvc_dict)
+    )
+
+
+def _update(timeline, t, context, origin, **vtvc_dict):
+    """`update`, applied."""
+    timeline = _given(timeline, "update")
+    origin = wt_origin.auto(
+        timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
+    )
+    return _populate_timeline(
+        timeline=timeline,
+        t=t,
+        context=inherit.resolve(context),
+        origin=origin,
+        **vtvc_dict,
+    )
+
+
+def _refuse_timeline(name, vtvc_dict):
+    """
+    `timeline=` would otherwise land in the open `**vtvc_dict` namespace and be read as a
+    variable named `timeline`, whose value is a table -- refused with the mistake named
+    rather than as "not a numeric value".
+    """
+    if "timeline" in vtvc_dict:
+        raise TypeError(
+            "\n".join(
+                [
+                    "`{}` takes no timeline (#85). It returns a stage, and"
+                    " `to_timeline` applies it:".format(name),
+                    "",
+                    "    to_timeline({}(...), onto=timeline)".format(name),
+                ]
+            )
+        )
+
+
+def _given(timeline, name):
+    """The timeline a stage is applied to, checked (`util.ensure_timeline`)."""
     if timeline is None:
-        return wt_util.function__lambda()
-
-    else:
-        # Check if anchor is desired and available
-        origin = wt_origin.auto(
-            timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS
+        raise TypeError(
+            "`{}` needs a timeline and was given none. A stage is applied to one by"
+            " `to_timeline`.".format(name)
         )
-        context = inherit.resolve(context)
-
-        return _populate_timeline(
-            timeline=timeline,
-            t=t,
-            context=context,
-            origin=origin,
-            **vtvc_dict,
-        )
+    return wt_util.ensure_timeline(timeline, name, columns__required=_SCHEMA)
 
 
 def anchor(
     t,
-    timeline=None,
+    *,
     context=wt_config.CONTEXT__INFER,
     origin=wt_config.ORIGIN__INFER,
-) -> wt_frame.CLASS | Callable:
+) -> Callable:
     """
     Creates a special, non-physical `variable` (will never have a matching `connection`), that can be used for time references, particularly within individual `context`s.
 
@@ -305,7 +335,6 @@ def anchor(
     - Anchors are automatically numbered, for 'global' referencing, but these numbers are not necessary in normal use.
     """
     # NOTE: Makes use of a global variable (LABEL__ANCHOR).
-    # TODO: Can include an example plot for illustration?
 
     if t is None:
         raise TypeError(
@@ -322,18 +351,20 @@ def anchor(
             )
         )
 
-    timeline = wt_util.ensure_timeline(timeline, "anchor", columns__required=_SCHEMA)
+    inherit.resolve(context)  # refused where it is written, not where it is applied
 
-    if timeline is None:
-        return wt_util.function__lambda()
+    return wt_util.stage(_anchor, anchor, dict(t=t, context=context, origin=origin))
 
+
+def _anchor(timeline, t, context, origin):
+    """`anchor`, applied."""
+    timeline = _given(timeline, "anchor")
     num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
 
-    # `origin` and `context` are passed through unresolved: `update` resolves both, with
-    # the same defaults `anchor` would use, so resolving them here as well would only
-    # do the work twice.
-    return update(
-        timeline=timeline,
+    # `origin` and `context` are passed through unresolved: `_update` resolves both, with
+    # the same defaults `anchor` would use.
+    return _update(
+        timeline,
         t=t,
         context=context,
         origin=origin,
@@ -342,7 +373,7 @@ def anchor(
 
 
 def ramp(
-    timeline=None,
+    *,
     duration=None,
     t=None,
     t2=None,
@@ -351,19 +382,18 @@ def ramp(
     origin2=["variable", 0.0],
     function=wt_ramp_function.tanh,
     **vtvc_dict,
-) -> wt_frame.CLASS | Callable:
+) -> Callable:
     """
     Convenient ways of defining pairs of points and a function!
 
     A `ramp` defines ranges of values for each variable across time from a beginning time-value pair to an ending time-value pair. Primarily, for the sake of switching analogue devices on and off in a controllable way. Although a `ramp` can be as simple as a linear `value` progression from start to end, the default function for a `timeline` is hyperbolic tan. This allows the user to soften the value gradient at the beginning and end of the function.
 
-    `ramp` has a slightly different interface to `create` and `update`. `**vtvc_dict` follows that of `create`, but it is assumed that `*vtvc` is not necessary, as if you wanted to specify the points manually (in big lists), you should use `create` or `update`. Also, ramps are defined in terms of the groups of points needed for the accompanying function. Usually, this will be starting and ending points. Supplying a different number of points will result in an error.
+    `ramp` has a slightly different interface to `update`. `**vtvc_dict` follows that of `update`; to specify the points manually (in big lists), use `update`. Also, ramps are defined in terms of the groups of points needed for the accompanying function. Usually, this will be starting and ending points. Supplying a different number of points will result in an error.
 
     *Examples of calling ramp*
     Normally, it will look something like
     `
     tl.stack(
-        timeline,
         tl.ramp(
             coil_compensationX__A=0.0,
             coil_compensationY__A=0.0,
@@ -375,7 +405,7 @@ def ramp(
     `
     The variables are given end values independently and other options collectively. By default, the starting time is also inferred from the previous timeline and so chains of operations can be built up conveniently.
 
-    For simpler ramps, it can still be easier, like in `create`, to supply everything in a list, e.g.
+    For simpler ramps, it can still be easier, like in `update`, to supply everything in a list, e.g.
     `tl.ramp(lockbox_MOT__MHz=[500e-3,0.0])`
     or
     `tl.ramp(lockbox_MOT__MHz=[500e-3, 0.0, "final_ramps"])` - if you want a new `context`.
@@ -405,10 +435,28 @@ def ramp(
 
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
-    timeline = wt_util.ensure_timeline(timeline, "ramp", columns__required=_SCHEMA)
+    _refuse_timeline("ramp", vtvc_dict)
+    inherit.resolve(context)  # refused where it is written, not where it is applied
 
-    if timeline is None:
-        return wt_util.function__lambda()
+    return wt_util.stage(
+        _ramp,
+        ramp,
+        dict(
+            duration=duration,
+            t=t,
+            t2=t2,
+            context=context,
+            origin=origin,
+            origin2=origin2,
+            function=function,
+            **vtvc_dict,
+        ),
+    )
+
+
+def _ramp(timeline, duration, t, t2, context, origin, origin2, function, **vtvc_dict):
+    """`ramp`, applied."""
+    timeline = _given(timeline, "ramp")
 
     context = inherit.resolve(context)
 
@@ -908,7 +956,7 @@ def _message__unplaced(unplaced, keywords__available):
             ),
             "",
             "To set a parameter of one stage rather than all of them, call that stage",
-            "with it -- `stack(timeline, MOT(duration=15))` -- or use `cascade`, which",
+            "with it -- `stack(MOT(duration=15))` -- or use `cascade`, which",
             "routes `MOT_duration=15` by prefix.",
         ]
     )
@@ -1099,11 +1147,16 @@ def _message__unroutable(unroutable, names__by_length):
     )
 
 
-def expand(timeline=None, **function_args) -> wt_frame.CLASS | Callable:
+def expand(timeline, **function_args) -> wt_frame.CLASS:
     """
     Converts the functions marked in the timeline into individual rows, i.e. applies the functions to the given data.
 
     This is generally a 'one-way' operation and so should only be carried out before the timeline is implemented on a device.
+
+    It takes a timeline and returns one, and is not a stage (#85, C7 item 6). Unlike
+    `update`, `ramp` and `anchor`, which add rows, it transforms the whole timeline it is
+    given, so inside a `stack` it expanded every ramp built so far and dropped `function`,
+    and the `expand` in `adwin.core.convert` then did nothing.
 
     How many rows make up one ramp is read from the ramp function itself
     (`ramp_function.points`), not passed in. It used to be the `num__bounds` argument,
@@ -1111,10 +1164,7 @@ def expand(timeline=None, **function_args) -> wt_frame.CLASS | Callable:
     case in which it need not have been given at all -- start and end are the *bounds*
     only while there is nothing between them (B6).
     """
-    timeline = wt_util.ensure_timeline(timeline, "expand", columns__required=_SCHEMA)
-
-    if timeline is None:
-        return wt_util.function__lambda(kwargs=["function_args"])
+    timeline = _given(timeline, "expand")
 
     if "num__bounds" in function_args:
         raise TypeError(
