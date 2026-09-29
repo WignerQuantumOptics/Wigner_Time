@@ -938,7 +938,7 @@ Loud, so not dangerous, but it blocks the natural use of varying one element of 
 
 ### Decision — narrow the open namespace to one stage **[maintainer, 2026-09-02]**
 
-`**kwargs` forwarding is superfluous for the *event* functions and will be removed from them. It remains only in `default_state`, reachable via `init`. `finish` will replicate the initial state from the timeline plus ramps, rather than receiving it through keywords.
+`**kwargs` forwarding is superfluous for the *event* functions and will be removed from them. It remains only in `default_state`, reachable via `init`. `finish` will replicate the initial state from the timeline plus ramps, rather than receiving it through keywords. Tracked as #160 (filed 2026-09-29), with what the derivation must not lose: the `MOT_ON` asymmetry, and the channels the lab's `init` leaves unset (lab L9, #148).
 
 Consequences for the routing items, each checked against a model of the proposed shape:
 
