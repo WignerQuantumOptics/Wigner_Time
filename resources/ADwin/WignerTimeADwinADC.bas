@@ -13,15 +13,25 @@
 '<Header End>
 #include ADwinPro_All.Inc
 
+' The contract with Python and the arrays, shared with the other sequencer program.
+#include .\WignerTimeSequencer.inc
+
 ''''''''''''''''''''''''''''''''''''
 ' definitions for ADC
 ''''''''''''''''''''''''''''''''''''
-#Define ADC_DataAmount Par_41
-
+' The recording window, written by Python (wignertime.adwin.adc.arm) in cycles of the run, so
+' that nothing here depends on the cycle period: the burst starts at ADC_StartCycle and is over
+' by ADC_EndCycle. finish: resets ADC_EndCycle to 0, so a window is armed for one run only.
+' FPar_62, the start in seconds, is no longer read.
+#Define ADC_StartCycle Par_42
+#Define ADC_EndCycle Par_43
 #Define ADC_Duration FPar_61 ' in s
-#Define ADC_ON_Time FPar_62 ' in s
 
-#Define ClockInterval 5 ' in us
+' Reported to Python: how many samples were recorded (0 unless the burst had its whole window),
+' and how far apart they are, in whole ns, since an FPar would reach Python in single precision.
+#Define ADC_DataAmount Par_41
+#Define ADC_SamplePeriod Par_44 ' in ns
+
 #Define ADC_Card 2
 #Define ADC_Channel 1
 
@@ -32,54 +42,23 @@
 ''''''''''''''''''''''''''''''''''''
 
 
-#define endCC par_1
-#define analogArrayDim par_2
-#define digitalArrayDim par_3
-
-#define analogMaxArrayDim 10000000
-#define digitalMaxArrayDim 10000
-
-#define cyclecount par_6
-#define analogIdx par_7
-#define digitalIdx par_8
-
 Dim i, ADC_ChannelPattern, startADC, endADC As Long
-
 Dim Data_1[ADC_MaxDataAmount] As Long
-
-
-sub processUpdates(cc)
-  ' analog
-  if ( (analogIdx <= analogArrayDim) and (data_10[analogIdx] = cc) ) then
-    do  
-      p2_dac(data_11[analogIdx],data_12[analogIdx],data_13[analogIdx])
-      '      par_10=data_10[analogIdx] : par_11=data_11[analogIdx] : par_12=data_12[analogIdx] : par_13=data_13[analogIdx]
-      inc analogIdx
-    until ( (analogIdx > analogArrayDim) or (data_10[analogIdx] > cc) )
-  endif
-  ' digital
-  if ( (digitalIdx <= digitalArrayDim) and (data_20[digitalIdx] = cc) ) then
-    do
-      p2_digout(1,data_22[digitalIdx],data_23[digitalIdx])
-      '      par_20=data_20[digitalIdx] : par_22=data_22[digitalIdx] : par_23=data_23[digitalIdx]
-      inc digitalIdx
-    until ( (digitalIdx > digitalArrayDim) or (data_20[digitalIdx] > cc) )
-  endif
-endsub
-
-
-dim data_10[analogMaxArrayDim] as long ' Clock cycles of analog updates
-dim data_11[analogMaxArrayDim] as long ' Module numbers of analog updates
-dim data_12[analogMaxArrayDim] as long ' Channels of analog updates
-dim data_13[analogMaxArrayDim] as long ' Values (digitized) of analog updates
-
-dim data_20[digitalMaxArrayDim] as long ' Clock cycles of digital updates
-dim data_22[digitalMaxArrayDim] as long ' Channels of digital updates
-dim data_23[digitalMaxArrayDim] as long ' Values (0 or 1) of digital updates
 
 'dim cyclecount, analogIdx, digitalIdx as long
 
 lowinit:
+  ' The outputs are the sequence's from here on. Claimed before the console is stopped: a
+  ' stopped process normally runs its event: once more, and the console writes nothing while
+  ' sequenceOwner is nonzero.
+  sequenceOwner = 4
+  ' The manual console must not write to the outputs while a sequence plays. Only a console
+  ' that is running now is started again after the run; one already being stopped, from the
+  ' PC or by another process, is not. The console runs at low priority level 2, above the
+  ' level 1 of this section, so an event: of it already under way has finished before this
+  ' section began (KNOWN_ISSUES.md, D22).
+  consoleWasRunning = consoleRunning
+  Stop_Process(consoleProcess)
   cyclecount = 0 : analogIdx = 1 : digitalIdx = 1
   par_4 = analogMaxArrayDim
   par_5 = digitalMaxArrayDim
@@ -96,14 +75,24 @@ lowinit:
   ' configuring ADC burst mode
   ADC_DataAmount=1000000*ADC_Duration/ADC_TimeInterval
   If (ADC_DataAmount > ADC_MaxDataAmount) Then ADC_DataAmount = ADC_MaxDataAmount
-  startADC=ADC_ON_Time*1.0e6/ClockInterval
-  endADC=startADC+ADC_Duration*1.0e6/ClockInterval
+  ADC_SamplePeriod=ADC_TimeInterval*1000
+  ' Armed only if the window has a positive length and closes within the run. Otherwise the
+  ' burst is never started, and finish: records nothing.
+  startADC=ADC_StartCycle
+  endADC=ADC_EndCycle
+  If ((startADC < 0) Or (endADC <= startADC) Or (endADC > endCC)) Then startADC=-1
   ADC_ChannelPattern=Shift_Left(1,ADC_Card-1)
   
   P2_Set_Average_Filter(ADC_Card,0) 'sets the module, where the data  is happening, and also how many values does it use for the average
   P2_Burst_Init (ADC_Card, ADC_Channel, 0, ADC_DataAmount, ADC_Pulses, 0)
 init:
   processUpdates(-1)
+
+  ' Checked here rather than in lowinit, since a program may set its own Processdelay
+  ' before this point. On a mismatch the first event ends the run: the initial state has
+  ' been applied, and nothing after it is played.
+  processdelayReported = Processdelay
+  if (processdelayReported <> processdelayExpected) then endCC = -1
 
 event:
   if (cyclecount > endCC) then end
@@ -118,8 +107,28 @@ event:
   inc cyclecount
 
 finish:
-  processUpdates(2147483647) ' 2**31-1
+  ' Unconditionally, from index 1: an interrupted run restores the final state as surely as
+  ' one that completed, which the playback arrays could not guarantee (B11).
+  for finishIdx = 1 to analogFinishDim
+    p2_dac(data_31[finishIdx],data_32[finishIdx],data_33[finishIdx])
+  next finishIdx
+  for finishIdx = 1 to digitalFinishDim
+    p2_digout(1,data_42[finishIdx],data_43[finishIdx])
+  next finishIdx
   
-  P2_Burst_Read_Unpacked1 (ADC_Card, ADC_DataAmount, 0, Data_1, 1, 3)
+  ' The samples, only if the burst had its whole window. A run that was not armed, was stopped
+  ' before endADC, or was refused by the period check (endCC = -1) reports none.
+  If ((startADC >= 0) And (cyclecount > endADC)) Then
+    P2_Burst_Read_Unpacked1 (ADC_Card, ADC_DataAmount, 0, Data_1, 1, 3)
+  Else
+    ADC_DataAmount = 0
+  EndIf
+  ' Armed for one run only.
+  ADC_EndCycle = 0
 
+  ' Last of all, once the final state is out: the run is counted, and the arrays are free.
+  inc sequencesFinished
+  sequenceOwner = 0
 
+  ' And the console, if the run stopped it, comes back on the final state.
+  if (consoleWasRunning = 1) then Start_Process(consoleProcess)

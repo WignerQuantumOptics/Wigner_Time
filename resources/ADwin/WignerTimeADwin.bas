@@ -13,49 +13,22 @@
 '<Header End>
 #include ADwinPro_All.Inc
 
-#define endCC par_1
-#define analogArrayDim par_2
-#define digitalArrayDim par_3
-
-#define analogMaxArrayDim 10000000
-#define digitalMaxArrayDim 10000
-
-#define cyclecount par_6
-#define analogIdx par_7
-#define digitalIdx par_8
-
-
-sub processUpdates(cc)
-  ' analog
-  if ( (analogIdx <= analogArrayDim) and (data_10[analogIdx] = cc) ) then
-    do  
-      p2_dac(data_11[analogIdx],data_12[analogIdx],data_13[analogIdx])
-      '      par_10=data_10[analogIdx] : par_11=data_11[analogIdx] : par_12=data_12[analogIdx] : par_13=data_13[analogIdx]
-      inc analogIdx
-    until ( (analogIdx > analogArrayDim) or (data_10[analogIdx] > cc) )
-  endif
-  ' digital
-  if ( (digitalIdx <= digitalArrayDim) and (data_20[digitalIdx] = cc) ) then
-    do
-      p2_digout(1,data_22[digitalIdx],data_23[digitalIdx])
-      '      par_20=data_20[digitalIdx] : par_22=data_22[digitalIdx] : par_23=data_23[digitalIdx]
-      inc digitalIdx
-    until ( (digitalIdx > digitalArrayDim) or (data_20[digitalIdx] > cc) )
-  endif
-endsub
-
-
-dim data_10[analogMaxArrayDim] as long ' Clock cycles of analog updates
-dim data_11[analogMaxArrayDim] as long ' Module numbers of analog updates
-dim data_12[analogMaxArrayDim] as long ' Channels of analog updates
-dim data_13[analogMaxArrayDim] as long ' Values (digitized) of analog updates
-
-dim data_20[digitalMaxArrayDim] as long ' Clock cycles of digital updates
-dim data_22[digitalMaxArrayDim] as long ' Channels of digital updates
-dim data_23[digitalMaxArrayDim] as long ' Values (0 or 1) of digital updates
+' The contract with Python and the arrays, shared with the other sequencer program.
+#include .\WignerTimeSequencer.inc
 
 
 lowinit:
+  ' The outputs are the sequence's from here on. Claimed before the console is stopped: a
+  ' stopped process normally runs its event: once more, and the console writes nothing while
+  ' sequenceOwner is nonzero.
+  sequenceOwner = 1
+  ' The manual console must not write to the outputs while a sequence plays. Only a console
+  ' that is running now is started again after the run; one already being stopped, from the
+  ' PC or by another process, is not. The console runs at low priority level 2, above the
+  ' level 1 of this section, so an event: of it already under way has finished before this
+  ' section began (KNOWN_ISSUES.md, D22).
+  consoleWasRunning = consoleRunning
+  Stop_Process(consoleProcess)
   cyclecount = 0 : analogIdx = 1 : digitalIdx = 1
   par_4 = analogMaxArrayDim
   par_5 = digitalMaxArrayDim
@@ -65,6 +38,12 @@ lowinit:
   
 init:
   processUpdates(-1)
+
+  ' Checked here rather than in lowinit, since a program may set its own Processdelay
+  ' before this point. On a mismatch the first event ends the run: the initial state has
+  ' been applied, and nothing after it is played.
+  processdelayReported = Processdelay
+  if (processdelayReported <> processdelayExpected) then endCC = -1
   
 event:
   if (cyclecount > endCC) then end
@@ -74,5 +53,18 @@ event:
   inc cyclecount
 
 finish:
-  processUpdates(2147483647) ' 2**31-1
+  ' Unconditionally, from index 1: an interrupted run restores the final state as surely as
+  ' one that completed, which the playback arrays could not guarantee (B11).
+  for finishIdx = 1 to analogFinishDim
+    p2_dac(data_31[finishIdx],data_32[finishIdx],data_33[finishIdx])
+  next finishIdx
+  for finishIdx = 1 to digitalFinishDim
+    p2_digout(1,data_42[finishIdx],data_43[finishIdx])
+  next finishIdx
 
+  ' Last of all, once the final state is out: the run is counted, and the arrays are free.
+  inc sequencesFinished
+  sequenceOwner = 0
+
+  ' And the console, if the run stopped it, comes back on the final state.
+  if (consoleWasRunning = 1) then Start_Process(consoleProcess)

@@ -26,7 +26,6 @@ for every difference, both measured rather than assumed:
 `converted/README.md` beside the takeout has the full reconciliation.
 """
 
-import copy
 import hashlib
 import pathlib
 import re
@@ -38,12 +37,11 @@ import pytest
 from wignertime import config, device, ramp_function
 from wignertime import timeline as tl
 from wignertime.adwin import core
-from wignertime.adwin import internal as wt_adwin__internal
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "lab2"
 
 CYCLE_PERIOD = 2e-6
-"""Lab2's ADwin runs at 2 us, not the 5 us of `SPECIFICATIONS__DEFAULT`."""
+"""Lab2's ADwin runs at 2 us, not the 5 us of the committed `WignerTimeADwin.bas`."""
 
 EXPANDED__ROWS = 885601
 EXPANDED__DIGEST = "7a8d2e753a12ca40643a72e289c1c570a87074d7731dac1c650ac5210b4c6eac"
@@ -116,21 +114,20 @@ def devices():
 
 
 @pytest.fixture(scope="module")
-def specifications():
-    out = copy.deepcopy(wt_adwin__internal.SPECIFICATIONS__DEFAULT)
-    out["cycle_period"] = CYCLE_PERIOD
-    return out
+def converted(timeline, connections, devices):
+    """
+    Run once for the module: the conversion takes a few seconds at this size.
 
-
-@pytest.fixture(scope="module")
-def converted(timeline, connections, devices, specifications):
-    """Run once for the module: the conversion takes a few seconds at this size."""
+    Lab2's modules are those of `SPECIFICATIONS__DEFAULT`; only the period differs, and
+    it is an argument rather than an entry in the specifications (#94). The ramps are
+    sampled at it too, as `time_resolution` defaults to it -- this used to be stated
+    twice, once for each.
+    """
     return core.convert(
         timeline,
         connections[connections["variable"] != "imaging_beam_intensity__V"],
         devices,
-        machine_specifications=specifications,
-        time_resolution=CYCLE_PERIOD,
+        CYCLE_PERIOD,
     )
 
 
@@ -219,7 +216,7 @@ def test_conversion_is_unchanged(converted):
     assert _digest__tuples(digital) == DIGITAL__DIGEST
 
 
-def test_the_run_fits_the_machine(converted, specifications):
+def test_the_run_fits_the_machine(converted):
     """
     The arrays are never cleared, so a run has to fit them (#8), and the counts are what
     tell the real-time program how much to read.

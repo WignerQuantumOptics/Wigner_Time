@@ -815,7 +815,7 @@ Two properties are worth emphasizing, precisely because they belong to the backe
  
 Wigner Time comes with a subpackage, \python{wignertime.adwin}, that provides many conveniences. Some functions, such as those within the display module, are drop-in replacements for the defaults provided by Wigner Time more centrally, catering for ADwin-specific timeline columns and contexts. Others, like those in \python{wignertime.adwin.core}, interact directly with the hardware and rely on the official ADwin Python support \cite{adwin_pypi}
  
-In practice, few of these functions are necessary on a day-to-day basis. As demonstrated in \cref{sec:demonstration}, the main function required is \python{wignertime.adwin.core.create}, which initializes the hardware and returns a machine object that can be used to start and stop processes.
+In practice, few of these functions are necessary on a day-to-day basis. As demonstrated in \cref{sec:demonstration}, the main function required is \python{wignertime.adwin.core.upload}, which converts a timeline at the cycle period read from the controller itself and writes the result into the controller’s memory. It returns a record of what was written, which can be archived alongside the data.
  
 The abstraction away from ADbasic is one of the central motivations for Wigner Time. For open-loop control, the official ADwin language is unnecessarily unwieldy: although built for real-time operation, its lack of modularity makes it difficult to maintain in the constantly evolving environment of a typical quantum optics research group. Lifting the experimental logic out of ADbasic is not only a practical convenience – it also reduces cycle time and hence increases the achievable temporal resolution, since any extra logic in the real-time program requires extra computation. To this end, the essential ADbasic code for running daily experiments, ignoring constants and variable definitions, can be reduced to:
 \begin{minted}[fontsize=\footnotesize,frame=none]{basic}
@@ -850,7 +850,7 @@ every ramp in progress, an expression of the form
 The arrays uploaded to the controller are prepared in the same spirit. Ramps are expanded at the cycle period of the controller and converted to DAC codes, and every row that would leave a channel at the code it already holds is then removed. What remains is one row for each change of code, at the first cycle at which that change occurs. This is the treatment of ramps suggested by Kowalski \textit{et al.} \cite{kowalski2023entangleware}, who time analog transitions at the instants when the DAC code actually changes, rather than sampling the trajectory at a fixed rate; on hardware that can act only at cycle boundaries, the two give the same result. A ramp is therefore as smooth as the hardware allows, the controller receives no more rows than are needed to describe it, and no time resolution has to be chosen.
 
 \medskip
-For further details, consult the API documentation \cite{wignertime_docs}.
+How the controller divides its outputs between a run and a manual console is described in \cref{sec:adwin_operation}. For further details, consult the API documentation \cite{wignertime_docs}.
  
  
 \section{Discussion}
@@ -1362,8 +1362,9 @@ timeline__demo = tl.cascade(
 ###########################################################################
  
 wtfile.save(timeline__demo)
-backend = adwin.create(timeline__demo, connections, devices)
-backend.Start_Process(1) # assuming that the ADwin backend program is loaded on slot 1 of ADwin
+machine = adwin.link_device()
+adwin.upload(timeline__demo, connections, devices, machine, process=1)
+machine.Start_Process(1) # assuming that the ADwin backend program is loaded on slot 1 of ADwin
 \end{minted}
  
 %
@@ -1443,13 +1444,13 @@ def tof_timelines(delays, exposure, base_timeline, origin,
         )
 \end{minted}
 %
-Since \python{tof_timelines} is a generator, no timelines are constructed until they are consumed. Note also the role of the \python{origin} argument: passed directly to the imaging function, it determines the reference point within \python{base_timeline} from which the imaging delay is measured. This is the interweaving mechanism of \cref{sec:interweaving} in action – the imaging stage can be hooked into any anchor or context of the base timeline, giving considerable flexibility without modifying the base timeline itself. The second function performs the actual hardware execution. Since \python{adwin.create} is pure – it constructs a backend object without side effects – it can be placed directly inside a dict comprehension, yielding a concise one-statement implementation:
+Since \python{tof_timelines} is a generator, no timelines are constructed until they are consumed. Note also the role of the \python{origin} argument: passed directly to the imaging function, it determines the reference point within \python{base_timeline} from which the imaging delay is measured. This is the interweaving mechanism of \cref{sec:interweaving} in action – the imaging stage can be hooked into any anchor or context of the base timeline, giving considerable flexibility without modifying the base timeline itself. The second function performs the actual hardware execution. For each timeline, \python{adwin.upload} writes it to the controller and returns a record of the upload, which names the machine and the process to be started. It can therefore be placed directly inside a dict comprehension, yielding a concise one-statement implementation:
 %
 \begin{minted}[fontsize=\footnotesize, frame=none]{python}
-def parameter_scan_with_imaging(exposure, iterator, **kwargs):
+def parameter_scan_with_imaging(machine, exposure, iterator, **kwargs):
     return {parameter: cc.take_images_ueye(
                 4, (exposure + 2 * di.camera_exposition_margin),
-                (adwin.create(timeline, connections, devices), 1),
+                adwin.upload(timeline, connections, devices, machine, process=1),
                 **kwargs
             ) for parameter, timeline in iterator}
 \end{minted}
@@ -1459,7 +1460,17 @@ This separation – between pure timeline generation and impure hardware executi
 This is also the point at which the extension to closed-loop operation, noted in \cref{sec:discussion}, becomes concrete: an optimizer that consumes the analysis of one shot and proposes the parameters of the next enters here, as nothing more than a different source for the iterator.
 
 %\alert{Labscript paper claims: The labscript software library can be applied to automatically generate shots based on the results of analysis. We have used this to implement a closed-loop optimization system, mise (Sec. IX) – the same is valid in our case!}
- 
+
+\section{The ADwin back-end in operation}
+\label{sec:adwin_operation}
+Besides the sequencer – the real-time program of \cref{sec:adwin} – the controller runs a manual console, with which channels are set by hand during alignment and debugging. The two share the controller’s outputs, and this appendix describes how they divide them.
+
+The sequencer checks what it is given before it plays it. \python{upload} records the cycle period at which it converted the timeline, and the sequencer compares this with its own before the first cycle. If the two differ, it plays the initial state and then the final state, and nothing in between, since every time in the experiment would otherwise be rescaled. The rows of the final state, those in the \python{"ADwin_Finish"} context, are applied however the run ends: when it completes, and when it is stopped by hand.
+
+The console is driven by the same \python{connection} and \python{device} tables as the timelines. A channel is therefore named, calibrated and bounded in one place, and a value set on the console reaches its DAC as the same value in a timeline would, through a calibration file where there is one. For each channel the console keeps the code it has been asked for and the code it has last written, and writes the channel only when the two differ, so setting a value never waits for the controller.
+
+The outputs belong to one program at a time. Starting a sequence stops the console, and the console is started again once the sequence has applied its final state. Values set on the console during a run are discarded: after the run the apparatus holds its final state, and the console takes this over as its own, marking as unknown any channel the final state does not name. Before a run, \python{upload} warns about each analog channel that has been set by hand and that the run will change at once, whether in the initial state or when a stage first sets it. In our experiment the MOT coils are the case in point. The initial state leaves them untouched, so that the MOT stays in its steady state between runs, and after they have been adjusted by hand the MOT stage would otherwise move them without comment.
+
 \end{appendix}
  
  

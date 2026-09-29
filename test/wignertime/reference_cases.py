@@ -10,7 +10,6 @@ a change of output is intended, and say so in the commit:
 `PYTHONPATH=..` makes the lab's package next door importable; regeneration needs it.
 """
 
-import copy
 import hashlib
 import json
 import pathlib
@@ -86,18 +85,13 @@ def digest__tuples(rows):
 
 def convert(timeline, connections, devices, period):
     """
-    `adwin.core.convert` at `period`. On this branch the period travels in the machine
-    specifications; `issue#94` makes it an argument of its own, and this is the one place
-    to change when that is merged in.
+    `adwin.core.convert` at `period`. The period used to travel in the machine
+    specifications; since `issue#94` it is an argument of its own, and the ramps are
+    sampled at it unless a resolution is given.
     """
     from wignertime.adwin import core
-    from wignertime.adwin import internal as wt_adwin__internal
 
-    specifications = copy.deepcopy(wt_adwin__internal.SPECIFICATIONS__DEFAULT)
-    specifications["cycle_period"] = period
-    return core.convert(
-        timeline, connections, devices, machine_specifications=specifications
-    )
+    return core.convert(timeline, connections, devices, period)
 
 
 def arrays(timeline, connections, devices, period):

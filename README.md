@@ -192,7 +192,7 @@ Specify how you want your experiment to begin and end, using readable options an
 N.B. The use of *pandas.DataFrame* for convenient edits.
 
 ``` python
-    import timeline as tl
+    from wignertime import timeline as tl
     
     initial = tl.create(
         t=1e-6,
@@ -233,12 +233,12 @@ tline = tl.stack(
 ```
 
 
-The timeline can then be exported to an ADwin-compatible format.
+The timeline can then be exported to an ADwin-compatible format. The cycle period has to be stated, in seconds, because it belongs to the program running on the ADwin rather than to the experiment.
 
 ``` python
     from wignertime.adwin import core as adwin
     
-    adwin.core.convert(tline)
+    adwin.convert(tline, connections, devices, cycle_period=5e-6)
 ```
 
 <a id="orge0a7f00"></a>
