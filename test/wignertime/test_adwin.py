@@ -1168,3 +1168,31 @@ def test_modules__digital_refuses_a_module_of_unstated_width():
     specifications = {"modules": [{"bits": 1}, {"voltage_range": [-10.0, 10.0]}]}
     with pytest.raises(ValueError, match=r"Module\(s\) \[2\] declare no `bits`"):
         adi.modules__digital(specifications)
+
+
+def test_a_ramp_keeps_its_own_resolution_through_conversion():
+    """
+    #65: a coarse ramp in a timeline converted at the cycle period. Bound with a
+    `partial`, it used to be sampled at the 5 us cycle regardless, since `convert` passes
+    the cycle period to `expand` and `expand` handed it to every function declaring it.
+    """
+    import functools
+
+    from wignertime import ramp_function
+
+    conns = adcon.new(["coil_MOT__A", 3, 2])
+    devs = device.new(["coil_MOT__A", 2.0, -5.0, 5.0])
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(coil_MOT__A=0.0, time=0.0, context="run"),
+            tl.anchor(0.0),
+            tl.ramp(
+                coil_MOT__A=1.0,
+                duration=1e-3,
+                function=functools.partial(ramp_function.tanh, time_resolution=1e-4),
+            ),
+        )
+    )
+    analogue, _ = adwin.convert(timeline, conns, devs, 5e-6)
+    cycles = [cycle for cycle, _, _, _ in analogue]
+    assert cycles == list(range(0, 201, 20))

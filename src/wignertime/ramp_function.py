@@ -3,7 +3,6 @@
 
 import numpy as np
 
-from wignertime import config as wt_config
 from wignertime.internal import util as wt_util
 
 
@@ -49,15 +48,35 @@ def points(f) -> int:
     return getattr(f, ATTRIBUTE__POINTS, POINTS__DEFAULT)
 
 
+def _require_resolution(name, time_resolution):
+    """
+    `time_resolution` defaults to `None`, which means the ramp binds none: it is sampled
+    at the one whoever expands it supplies, and `adwin.core.convert` supplies the cycle
+    period (#65, C7 item 7). The default used to be `config.TIME_RESOLUTION`, 1 us, read
+    once at import (#144), and it was never what a ramp reached the hardware at.
+    """
+    if time_resolution is None:
+        raise ValueError(
+            "`{}` was given no `time_resolution`. A ramp is sampled at the one it binds,"
+            " `functools.partial({}, time_resolution=1e-4)`, or else at the one `expand`"
+            " is given, `expand(timeline, time_resolution=1e-4)`; `adwin.core.convert`"
+            " gives the cycle period.".format(name, name)
+        )
+
+
 @with_points(2)
 def linear(
     origin: list[float],
     terminus: list[float],
-    time_resolution: float = wt_config.TIME_RESOLUTION,
+    time_resolution: float | None = None,
 ):
     """
     A series of [time, value] pairs according to the line defined by two points and the time resolution.
+
+    `time_resolution` left `None` is filled by whoever expands the ramp; see
+    `_require_resolution`.
     """
+    _require_resolution("linear", time_resolution)
     t1, v1 = origin
     t2, v2 = terminus
     m = (v2 - v1) / (t2 - t1)
@@ -84,16 +103,21 @@ def _tanh__scaled(x: np.ndarray, sharpness=3):
 def tanh(
     origin: list[float],
     terminus: list[float],
-    time_resolution: float = wt_config.TIME_RESOLUTION,
+    time_resolution: float | None = None,
     sharpness: float = 3,
 ):
     """
     Hyperbolic tan, with a call signature adapted for practical timeline population.
 
     origin/terminus are time-value pairs
+    `time_resolution` left `None` is filled by whoever expands the ramp: bind one with
+    `functools.partial(tanh, time_resolution=...)` for a ramp of its own resolution (#65).
+    See `_require_resolution`.
+
     `sharpness` is a measure of how linear the 'slope' of the function is around the halfway point and in practice is used for easing transitions between the end-points. For example, sharpness ~0 (!=0) gives a linear ramp between `origin` and `terminus`, whereas large values approximate a step-function at the half-way point. In-between these values, the ramps returned will start and end gradually, with a linear movement in the middle.
     """
 
+    _require_resolution("tanh", time_resolution)
     t1, v1 = origin
     t2, v2 = terminus
     times = wt_util.range__inclusive(t1, t2, time_resolution)

@@ -183,10 +183,13 @@ A trap now closed: **`expand` acts on the whole timeline it receives**, not on t
 Mid-`stack` in a late stage it expanded every ramp accumulated so far, and since it then drops the
 `function` column, the `expand` inside `adwin.core.convert` became a no-op and the hand-passed
 resolution is what reached the hardware. **`expand` now takes a table only** (C7 item 6, done in P2
-step 3): it is not a stage and cannot sit in a `stack`. Still to come (item 7, P3): it loses
-`time_resolution`. A ramp's own resolution is bound into its `function`, by a function that fixes it —
-`functools.partial(tanh, time_resolution=...)` is silently overridden by `expand`'s today, since a
-`partial` still declares the keyword.
+step 3): it is not a stage and cannot sit in a `stack`. **A ramp's resolution belongs to the ramp**
+(#65, C7 item 7, P3, 2026-09-29): `function=functools.partial(tanh, time_resolution=1e-4)` keeps its
+1e-4 through `expand` and `convert`. `expand` kept its `time_resolution` (maintainer, 2026-09-29,
+rather than losing it as item 7 first said), but as a *default*: it reaches only the ramp functions
+that leave it unstated, the rule a keyword forwarded by `stack` follows (#145). The ramp functions
+default to `None`, meaning unbound, and a ramp binding none, expanded with none given, raises.
+`config.TIME_RESOLUTION`, their old import-time default (#144), is gone.
 
 ### Origins — why chaining is causal by default
 
@@ -303,9 +306,13 @@ context silently inherit that reserved context, so name the context explicitly w
 
 `ramp` writes two boundary rows plus a callable in a `function` column. `timeline.expand` applies it
 to produce one row per point and drops the `function` column — a one-way operation, done only just
-before hardware export. `expand`'s `**function_args` are filtered against each function's signature
-by `util.function__filtered_kws`; that is how `time_resolution` reaches `ramp_function.tanh` from
-`adwin.core.convert`.
+before hardware export. `expand`'s `**function_args` reach each function as defaults, by
+`util.function__defaults`: a keyword a function leaves unstated (no default, or `None`) is given, one
+it states (any other default, including a value a `partial` binds) is not. That is how `convert`'s
+cycle period reaches `ramp_function.tanh` and the demo's `lambda origin, terminus,
+time_resolution: ...`, but not a ramp that binds its own resolution. (It was
+`util.function__filtered_kws`, which handed every declaring function the value.) **`expand` keeps
+each ramp's rows where the ramp was written** (A18); see the filtering note below.
 
 ### ADwin export pipeline
 

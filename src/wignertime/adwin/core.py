@@ -186,10 +186,12 @@ def convert(
     uniform rescaling of every time in the experiment, which reads as physics rather
     than as an error, so it is asked for rather than assumed.
 
-    `time_resolution` is the step at which ramps are sampled, the cycle period when not
-    given -- the finest step the hardware can act on. A coarser one thins the ramps
-    without moving anything in time, since cycles are computed from the times
-    themselves.
+    `time_resolution` is the step at which the ramps that bind none are sampled, the
+    cycle period when not given -- the finest step the hardware can act on. A coarser
+    one thins them without moving anything in time, since cycles are computed from the
+    times themselves. A ramp that binds its own keeps it, e.g.
+    `function=functools.partial(tanh, time_resolution=1e-4)` (#65): this is a default,
+    never an override (`timeline.expand`).
 
     `machine_specifications` describes the installed modules, and is
     `internal.SPECIFICATIONS__DEFAULT` when not given, read at call time.

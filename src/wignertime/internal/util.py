@@ -191,6 +191,44 @@ def function__filtered_kws(f: Callable, **kws) -> Callable:
         return lambda *args: f(*args, **filtered_kwargs)
 
 
+def parameters__unstated(f: Callable) -> set[str]:
+    """
+    The keyword parameters `f` leaves unstated: those with no default, or a default of
+    `None` or `INFER`. A parameter with any other default is *stated*, and that includes a
+    value bound by `functools.partial`, which the signature reports as the default.
+    """
+    return {
+        name
+        for name, p in inspect.signature(f).parameters.items()
+        if p.kind in (p.KEYWORD_ONLY, p.POSITIONAL_OR_KEYWORD)
+        and (p.default is p.empty or p.default is None or p.default is wt_config.INFER)
+    }
+
+
+def function__defaults(f: Callable, **kws) -> Callable:
+    """
+    `f`, given each of `kws` it leaves unstated (`parameters__unstated`): a default, never
+    an override. A function collecting `**kwargs` states nothing it does not declare, so it
+    is given the rest as well.
+
+    This is how `expand`'s `time_resolution` reaches a ramp function: `tanh` (unbound) and
+    `lambda origin, terminus, time_resolution: ...` are given it, and
+    `functools.partial(tanh, time_resolution=1e-4)` keeps its own (#65, C7 item 7). Every
+    function declaring the keyword used to be handed `expand`'s value, silently undoing
+    the one a `partial` bound. It is the rule a keyword forwarded by `stack` follows (#145).
+    """
+    parameters = inspect.signature(f).parameters.values()
+    unstated = parameters__unstated(f)
+    declared = {p.name for p in parameters}
+    collects = any(p.kind == p.VAR_KEYWORD for p in parameters)
+    given = {
+        k: v
+        for k, v in kws.items()
+        if k in unstated or (collects and k not in declared)
+    }
+    return lambda *args: f(*args, **given)
+
+
 def accepts_keyword(f, name: str) -> bool:
     """
     Whether `f` would accept `name` as a keyword argument.

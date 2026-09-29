@@ -722,3 +722,63 @@ def test_ramps_of_different_variables_may_overlap():
     first = tl.to_timeline(tl.ramp(coil_X__A=10.0, duration=1.0), onto=base)
     both = tl.to_timeline(tl.ramp(coil_Y__A=10.0, duration=1.0, time=0.5), onto=first)
     assert set(both["variable"]) >= {"coil_X__A", "coil_Y__A"}
+
+
+# --- a ramp's resolution belongs to the ramp (#65, C7 item 7) -----------------
+
+
+def _ramp_times(function, **expand):
+    """The times of a 1 s ramp of `x__A` built with `function`, expanded by `expand`."""
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(x__A=0.0, time=0.0, context="c"),
+            tl.anchor(0.0),
+            tl.ramp(x__A=1.0, duration=1.0, function=function),
+        )
+    )
+    expanded = tl.expand(timeline, **expand)
+    return list(expanded.loc[expanded["variable"] == "x__A", "time"])[1:]
+
+
+@pytest.mark.parametrize(
+    "function",
+    [
+        lambda o, t: ramp_function.tanh(o, t, 0.25),
+        lambda o, t, time_resolution: ramp_function.tanh(o, t, 0.25),
+        __import__("functools").partial(ramp_function.tanh, time_resolution=0.25),
+    ],
+    ids=["lambda", "lambda ignoring it", "partial"],
+)
+def test_a_resolution_the_ramp_binds_is_kept(function):
+    """
+    `expand`'s `time_resolution` is a default, never an override. The `partial` used to
+    be sampled at `expand`'s 0.01, 101 points instead of 5, since it still declares the
+    keyword and every function declaring it was handed `expand`'s value.
+    """
+    assert _ramp_times(function, time_resolution=0.01) == [0.0, 0.25, 0.5, 0.75, 1.0]
+
+
+def test_a_ramp_binding_no_resolution_takes_expands():
+    assert len(_ramp_times(ramp_function.tanh, time_resolution=0.01)) == 101
+
+
+@pytest.mark.parametrize(
+    "function",
+    [ramp_function.tanh, lambda origin, terminus, time_resolution: None],
+    ids=["tanh", "lambda"],
+)
+def test_a_ramp_binding_no_resolution_expanded_with_none_is_refused(function):
+    """
+    The ramp functions defaulted to `config.TIME_RESOLUTION`, 1 us, bound at import
+    (#144), which no ramp ever reached the hardware at: `convert` always gave the cycle
+    period. Now nothing is assumed, and the message names the variable.
+    """
+    with pytest.raises(
+        ValueError, match="x__A's ramp at 0.0 s binds no `time_resolution`"
+    ):
+        _ramp_times(function)
+
+
+def test_a_ramp_function_called_without_a_resolution_says_where_one_comes_from():
+    with pytest.raises(ValueError, match="`tanh` was given no `time_resolution`"):
+        ramp_function.tanh([0.0, 0.0], [1.0, 1.0])

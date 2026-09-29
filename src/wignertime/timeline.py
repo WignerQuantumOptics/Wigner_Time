@@ -1109,6 +1109,14 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
     given, so inside a `stack` it expanded every ramp built so far and dropped `function`,
     and the `expand` in `adwin.core.convert` then did nothing.
 
+    **A keyword given to `expand` is a default, never an override** (#65, C7 item 7). It
+    reaches only the ramp functions that leave it unstated (`util.function__defaults`),
+    so `expand(timeline, time_resolution=...)` samples the ramps that bind no resolution,
+    and a ramp that binds one keeps it: `function=functools.partial(tanh,
+    time_resolution=1e-3)` is a coarse ramp in a timeline expanded at the cycle period.
+    That binding used to be overridden silently, since a `partial` still declares the
+    keyword. A ramp binding none, expanded with none given, raises.
+
     How many rows make up one ramp is read from the ramp function itself
     (`ramp_function.points`), not passed in. It used to be the `num__bounds` argument,
     which could be given a number the data did not match and was named for the two-point
@@ -1175,10 +1183,20 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
             group = rows.iloc[i : i + points__required]
             _inds__start.append(group.index[0])
 
-            # Only pass on the kwargs that the function accepts
-            func = wt_util.function__filtered_kws(
-                group["function"].iloc[0], **function_args
-            )
+            # A default, never an override: each keyword reaches only the functions that
+            # leave it unstated, so a ramp keeps a resolution it binds (#65, C7 item 7).
+            function = group["function"].iloc[0]
+            if "time_resolution" not in function_args and (
+                "time_resolution" in wt_util.parameters__unstated(function)
+            ):
+                raise ValueError(
+                    "{}'s ramp at {} s binds no `time_resolution`, and `expand` was given"
+                    " none. Give one, `expand(timeline, time_resolution=1e-4)`, or bind"
+                    " one into the ramp: `function=functools.partial(tanh,"
+                    " time_resolution=1e-4)`. `adwin.core.convert` gives the cycle"
+                    " period.".format(variable, group["time"].iloc[0])
+                )
+            func = wt_util.function__defaults(function, **function_args)
 
             # The internal constructor, because this is the one caller that assembles
             # rows rather than being handed them: `create` takes keywords only.
