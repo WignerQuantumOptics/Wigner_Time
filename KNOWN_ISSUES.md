@@ -494,7 +494,9 @@ Note also that `device.new` wraps its frame construction in a bare `except:` whi
 
 Tracked as [#141](https://github.com/WignerQuantumOptics/Wigner_Time/issues/141).
 
-### A17 — a ramp that starts during another ramp of the same variable is accepted, and `expand` pairs their boundaries wrongly **[new, found 2026-09-29; this is #157]**
+### A17 — a ramp that starts during another ramp of the same variable is accepted, and `expand` pairs their boundaries wrongly **[new, found 2026-09-29; this is #157]** — **FIXED 2026-09-29 on `issue#85`, P1 of C7**
+
+**Fixed as below**: `ramp` refuses a ramp that overlaps another of the same variable, naming the variable and both intervals; one ramp starting exactly as another ends is kept, as `magnetic_trapping`'s two `pull_coils` do. Nothing in the suite, the demo or the lab overlaps, and the references are unchanged. **The comparison is exact, with no tolerance for rounding, and that is the finding worth keeping.** Two ramps placed by different sums can meet 4e-17 s apart (`0.1 + 0.2` against `0.3`). When the second then starts that little *before* the first ends, its start value is looked up at an instant the first one's end row does not yet precede. On this branch the lookup is still widened by `config.TIME_RESOLUTION` (1 µs), which covers it by luck; `issue#94` removed that widening (it admitted rows up to 1 µs after the instant), and with it gone the ramp would start from the first ramp's *start* value — #157 again, 4e-17 s deep. A tolerance in the overlap check would have let exactly that through; refused instead, the message says the two only touch to within rounding and to place the ramp from the other's end (`origin="last"` or the stage's anchor). Pinned in `test_timeline_ramp.py`; five of its new tests fail on the previous code.
 
 Numbered A17 on this branch because A15 and A16 were taken on `issue#94` meanwhile. Found while checking the rule settled on #142 the same day, that a ramp always starts where its variable is. Measured on `4a9de53`:
 

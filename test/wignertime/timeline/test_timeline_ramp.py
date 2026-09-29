@@ -632,3 +632,83 @@ def test_two_ramps_of_one_variable_still_expand(tl_anchor):
 
     assert values[-1] == pytest.approx(0.0)
     assert max(values) == pytest.approx(5.0)
+
+
+# --- #157: a variable is in at most one ramp at a time -------------------------
+
+
+@pytest.fixture
+def coil_at_zero():
+    return tl.stack(tl.create(coil_X__A=0.0, t=0.0, context="s"), tl.anchor(5.0))
+
+
+def test_a_ramp_starting_inside_another_of_its_variable_raises(coil_at_zero):
+    """
+    The case #157 measured: the second ramp took the first one's *start* value, 0 A,
+    where the coil stood at 5 A, and `expand` then paired the four boundaries in time
+    order, so the coil held at 0 A until 6 s and jumped to 10 A.
+    """
+    first = tl.ramp(timeline=coil_at_zero, coil_X__A=10.0, duration=1.0)
+    with pytest.raises(ValueError, match="at most one ramp") as e:
+        tl.ramp(timeline=first, coil_X__A=20.0, duration=1.0, t=0.5)
+    assert "coil_X__A: this ramp, 5.5..6.5 s, overlaps its ramp over 5.0..6.0 s" in str(
+        e.value
+    )
+    assert "within rounding" not in str(e.value)
+
+
+@pytest.mark.parametrize(
+    "t, duration",
+    [
+        (-0.5, 1.0),  # begins before, ends inside
+        (0.25, 0.5),  # entirely inside
+        (-0.5, 2.0),  # encloses it
+    ],
+)
+def test_every_kind_of_overlap_raises(coil_at_zero, t, duration):
+    first = tl.ramp(timeline=coil_at_zero, coil_X__A=10.0, duration=1.0)
+    with pytest.raises(ValueError, match="at most one ramp"):
+        tl.ramp(
+            timeline=first, coil_X__A=20.0, duration=duration, t=t, origin=[5.0, None]
+        )
+
+
+def test_a_ramp_may_start_as_another_ends(coil_at_zero):
+    """The ordinary sequence, as `magnetic_trapping`'s two `pull_coils` do it."""
+    first = tl.ramp(timeline=coil_at_zero, coil_X__A=10.0, duration=1.0)
+    second = tl.ramp(timeline=first, coil_X__A=20.0, duration=1.0, t=1.0)
+    values = tl.expand(second, time_resolution=0.25)
+    assert values[values["variable"] == "coil_X__A"]["value"].iloc[-1] == 20.0
+
+
+def test_meeting_by_rounding_is_refused_and_said_to_be_rounding():
+    """
+    The two times are reached by different sums: 0.1 + 0.2 is 0.30000000000000004, so a
+    ramp placed at 0.3 in absolute time starts 4e-17 s before the first one ends. Its
+    start value is looked up at 0.3, which the first one's end row does not yet precede,
+    so a tolerance here would let it start from the wrong value. On this branch the
+    lookup is still widened by `config.TIME_RESOLUTION`, which happens to cover it;
+    `issue#94` removes that widening.
+    """
+    base = tl.stack(tl.create(coil_X__A=0.0, t=0.0, context="s"), tl.anchor(0.1))
+    first = tl.ramp(timeline=base, coil_X__A=10.0, duration=0.2)
+    assert first["time"].max() > 0.3
+    with pytest.raises(ValueError, match="within rounding"):
+        tl.ramp(timeline=first, coil_X__A=20.0, duration=0.2, t=0.3, origin=[0.0, None])
+
+
+def test_placed_from_the_others_end_the_same_ramp_is_kept():
+    base = tl.stack(tl.create(coil_X__A=0.0, t=0.0, context="s"), tl.anchor(0.1))
+    first = tl.ramp(timeline=base, coil_X__A=10.0, duration=0.2)
+    second = tl.ramp(timeline=first, coil_X__A=20.0, duration=0.2, origin="last")
+    rows = second[second["variable"] == "coil_X__A"]
+    assert rows["value"].iloc[-2] == 10.0  # it starts where the first one ended
+
+
+def test_ramps_of_different_variables_may_overlap():
+    base = tl.stack(
+        tl.create(coil_X__A=0.0, coil_Y__A=0.0, t=0.0, context="s"), tl.anchor(5.0)
+    )
+    first = tl.ramp(timeline=base, coil_X__A=10.0, duration=1.0)
+    both = tl.ramp(timeline=first, coil_Y__A=10.0, duration=1.0, t=0.5)
+    assert set(both["variable"]) >= {"coil_X__A", "coil_Y__A"}

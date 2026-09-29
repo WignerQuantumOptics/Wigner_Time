@@ -246,6 +246,10 @@ Three properties of the mechanism that are easy to break:
   the dangerous one — `expand` sorts each ramp's boundaries by time, so the endpoints were silently
   exchanged and the variable finished at its *old* value (A12). A ramp whose value does not change is
   not an error: it is a hold, and is kept.
+- **A variable is in at most one ramp at a time** (#157, 2026-09-29). A ramp holds rows for its
+  boundaries only, so a ramp starting inside another took the other's *start* value, and `expand`
+  paired the boundaries wrongly. Overlaps raise; meeting end to start is fine, compared exactly —
+  a tolerance would let a ramp placed by a different sum start 4e-17 s early, from the wrong value.
 - **A ramp of a variable with no previous value raises**, because there is nothing to start from.
   Set the variable first, or say what the start is: `origin=[None, 0.0]` (defer the time to the
   default, state the value) or the 2-D form `v=[[t1, v1], [t2, v2]]`. Note the behaviour change of

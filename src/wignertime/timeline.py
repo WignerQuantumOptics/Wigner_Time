@@ -620,8 +620,86 @@ def ramp(
             )
         )
 
+    # A variable is in at most one ramp at a time (#157). A ramp starts where its
+    # variable is, and during another ramp that value is not in the table: a ramp holds
+    # rows for its boundaries only, so a second one starting half-way through the first
+    # took the first one's *start* value, and `expand`, pairing the boundaries in time
+    # order, then rebuilt both from the wrong ones -- measured, a coil held at 0 A and
+    # jumped to 10 A. One ramp starting exactly as another ends is the ordinary sequence
+    # and is kept.
+    #
+    # The comparison is exact, with no tolerance for rounding, and deliberately so. Two
+    # ramps placed by different sums can meet 4e-17 s apart -- `0.1 + 0.2` against
+    # `0.3` -- and when the second then starts that little *before* the first ends, its
+    # start value is looked up at an instant the first one's end row does not yet
+    # precede. A tolerance here would let that ramp start from the wrong value; refusing
+    # it says that which comes first is a matter of rounding.
+    overlaps = [
+        (variable, float(start), float(end), (float(before[0]), float(before[1])))
+        for variable, start, end in zip(
+            new1["variable"], new1["time"], new2__aligned["time"]
+        )
+        for before in _intervals__ramp(timeline, variable)
+        if start < before[1] and before[0] < end
+    ]
+    if overlaps:
+        by_rounding = any(min(e, b[1]) - max(s, b[0]) < 1e-9 for _, s, e, b in overlaps)
+        raise ValueError(
+            "\n".join(
+                [
+                    "A variable is in at most one ramp at a time (#157):",
+                    "",
+                    *[
+                        "  {}: this ramp, {!r}..{!r} s, overlaps its ramp over"
+                        " {!r}..{!r} s".format(v, s, e, b[0], b[1])
+                        for v, s, e, b in overlaps
+                    ],
+                    "",
+                    "A ramp starts where its variable is, and during another ramp that"
+                    " value is not in the table. Start this ramp when the other ends,"
+                    " or end the other earlier.",
+                    *(
+                        [
+                            "",
+                            "Here the two only touch, to within rounding: their times"
+                            " were reached by different sums. Place this ramp from the"
+                            " other's end -- `origin=\"last\"`, or its stage's anchor --"
+                            " rather than by arithmetic in absolute time.",
+                        ]
+                        if by_rounding
+                        else []
+                    ),
+                ]
+            )
+        )
+
     # NOTE: Don't drop duplicates until after the expansion. Currently, this messes things up.
     return wt_frame.concat([timeline, new1, new2])
+
+
+def _intervals__ramp(timeline, variable):
+    """
+    The intervals over which `variable` already ramps in `timeline`, as `(start, end)`.
+
+    Read from the ramp rows, which carry their `function`: each ramp is as many rows as
+    its function is made of (`ramp_function.points`), in time order -- which is how
+    `expand` pairs them, and valid for exactly as long as no two ramps of one variable
+    overlap.
+    """
+    if "function" not in timeline.columns:
+        return []
+
+    rows = timeline[
+        (timeline["variable"] == variable) & timeline["function"].notna()
+    ].sort_values("time", kind="stable")
+    times, functions = rows["time"].tolist(), rows["function"].tolist()
+
+    out, i = [], 0
+    while i < len(times):
+        chunk = times[i : i + wt_ramp_function.points(functions[i])]
+        out.append((chunk[0], chunk[-1]))
+        i += len(chunk)
+    return out
 
 
 # def stack(firstArgument, *fs: list[Callable]) -> Callable | wt_frame.CLASS:
