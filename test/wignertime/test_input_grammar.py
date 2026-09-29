@@ -21,10 +21,14 @@ from wignertime.internal import dataframe as wt_frame
 
 VARIABLE = "AOM_imaging"
 FOLLOWS = [
-    (1.0, dict(time=0.0, value=1.0, context="")),
-    ([2.0, 1.0], dict(time=2.0, value=1.0, context="")),
+    (1.0, dict(time=0.0, value=1.0, context=None)),
+    ([2.0, 1.0], dict(time=2.0, value=1.0, context=None)),
     ([2.0, 1.0, "ctx"], dict(time=2.0, value=1.0, context="ctx")),
 ]
+"""`context=None` in the expectation: the row states none, and takes the call's."""
+
+CONTEXT = "call"
+"""The call's context. Every row has one (#156), so each form below is given it."""
 
 
 def _one(frame):
@@ -42,30 +46,36 @@ def test_the_public_and_internal_forms_agree(follows, expected):
     rest, so `["v", t, value, context]` produced the *time* as its value and lost the
     context entirely (A10 / #58).
     """
-    by_keyword = tl.create(**{VARIABLE: follows})
-    by_row = tl._populate_timeline([VARIABLE, follows])
+    by_keyword = tl.create(**{VARIABLE: follows}, context=CONTEXT)
+    by_row = tl._populate_timeline([VARIABLE, follows], context=CONTEXT)
 
-    assert _one(by_keyword) == expected
+    assert _one(by_keyword) == {**expected, "context": expected["context"] or CONTEXT}
     wt_frame.assert_equal(by_row, by_keyword)
 
     if isinstance(follows, list):
         # the brackets around `<follows>` are optional in the positional forms
-        wt_frame.assert_equal(tl._populate_timeline([VARIABLE, *follows]), by_keyword)
-        wt_frame.assert_equal(tl._populate_timeline(VARIABLE, *follows), by_keyword)
+        wt_frame.assert_equal(
+            tl._populate_timeline([VARIABLE, *follows], context=CONTEXT), by_keyword
+        )
+        wt_frame.assert_equal(
+            tl._populate_timeline(VARIABLE, *follows, context=CONTEXT), by_keyword
+        )
     else:
-        wt_frame.assert_equal(tl._populate_timeline(VARIABLE, follows), by_keyword)
+        wt_frame.assert_equal(
+            tl._populate_timeline(VARIABLE, follows, context=CONTEXT), by_keyword
+        )
 
 
 def test_several_instants_for_one_variable():
-    frame = tl.create(**{VARIABLE: [[0.0, 1.0], [2.0, 0.0]]})
+    frame = tl.create(**{VARIABLE: [[0.0, 1.0], [2.0, 0.0]]}, context=CONTEXT)
     assert list(frame["time"]) == [0.0, 2.0]
     assert list(frame["value"]) == [1.0, 0.0]
 
 
 def test_rows_may_be_batched():
     wt_frame.assert_equal(
-        tl._populate_timeline([["a_x__V", 1.0], ["b_y__V", 2.0]]),
-        tl._populate_timeline(["a_x__V", 1.0], ["b_y__V", 2.0]),
+        tl._populate_timeline([["a_x__V", 1.0], ["b_y__V", 2.0]], context=CONTEXT),
+        tl._populate_timeline(["a_x__V", 1.0], ["b_y__V", 2.0], context=CONTEXT),
     )
 
 
@@ -77,7 +87,7 @@ def test_t_and_context_are_defaults_not_overrides(follows, expected):
         99.0 if not isinstance(follows, list) else expected["time"]
     )
     assert frame.iloc[0]["context"] == (
-        "kw" if expected["context"] == "" else expected["context"]
+        "kw" if expected["context"] is None else expected["context"]
     )
 
 

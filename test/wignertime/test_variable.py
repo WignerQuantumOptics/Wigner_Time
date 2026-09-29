@@ -77,6 +77,7 @@ def test_units():
             ["AOM_repump", [[1.0, 1.0]]],
             ["coil_MOT__A", [[1.0, 10.0]]],
             ["AOM_repump__MHz", [[1.0, 10.0]]],
+            context="s",
         ),
     ) == {"A", "MHz", "V", "digital"}
 
@@ -88,6 +89,7 @@ def test_units_nodigital():
             ["AOM_repump", [[1.0, 1.0]]],
             ["coil_MOT__A", [[1.0, 10.0]]],
             ["AOM_repump__MHz", [[1.0, 10.0]]],
+            context="s",
         ),
         do_digital=False,
     ) == {"A", "MHz", "V"}

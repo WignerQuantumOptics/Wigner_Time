@@ -135,16 +135,18 @@ def test_a_frame_without_context_is_refused(f, args):
         f(timeline=incomplete, **args) if args else f(1.0, timeline=incomplete)
 
 
-def test_a_null_context_is_normalised_to_the_empty_string():
+@pytest.mark.parametrize("missing", [None, ""])
+def test_a_table_with_a_row_lacking_a_context_is_refused(missing):
     """
-    #28. The empty string is the minimum context. A hand-built frame carrying `None`
-    used to propagate a real `None` into every row that inherited from it.
+    #156. Every row has a context. A hand-built frame carrying `None` or the empty string
+    used to be normalised to the empty string as the minimum (#28), which every row
+    appended after it then inherited. It is refused where it enters instead.
     """
     import pandas as pd
 
     hand = pd.DataFrame(
-        [[0.0, "coil__A", 1.0, None]],
+        [[0.0, "coil__A", 1.0, missing]],
         columns=["time", "variable", "value", "context"],
     )
-    out = tl.update(coil__A=2.0, timeline=hand)
-    assert list(out["context"]) == ["", ""]
+    with pytest.raises(ValueError, match=r"1 row\(s\) have no context: coil__A"):
+        tl.update(coil__A=2.0, timeline=hand)

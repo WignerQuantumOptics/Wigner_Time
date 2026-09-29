@@ -394,7 +394,7 @@ def ensure_timeline(
     Three outcomes, and the third is the point of the function:
 
     - a dataframe -- evaluate against it, after checking it carries `columns__required`
-      and normalising a null `context` to the empty string
+      and that every row has a context (#156)
     - `None`      -- defer, returning a callable
     - anything else -- `TypeError`
 
@@ -419,21 +419,31 @@ def ensure_timeline(
             if missing:
                 raise TypeError(
                     "`{}` was given a frame missing the column(s) {}. A timeline has "
-                    "{}; `context` is required and is the empty string where "
-                    "unspecified, not absent and not `None` (#28).".format(
+                    "{}, and every row has a context (#28, #156).".format(
                         name__function, missing, list(columns__required)
                     )
                 )
 
-        # A hand-built frame can carry a null here, which used to propagate as a real
-        # `None` into every row that inherited from it. The empty string is the
-        # documented minimum, so normalise rather than carry two spellings of "no
-        # context" through the rest of the package.
-        if (
-            column__context in timeline.columns
-            and wt_frame.isnull(timeline[column__context]).any()
-        ):
-            return wt_frame.fill_null(timeline, column__context, "")
+        # Every row has a context (#156). A hand-built frame can carry a null or an empty
+        # string here, which used to be normalised to the empty string as the documented
+        # minimum (#28) and then inherited by every row appended after it. Refused
+        # instead, where the table enters, since from here on nothing records that
+        # anything was missing.
+        if column__context in timeline.columns:
+            missing = wt_frame.isnull(timeline[column__context]) | (
+                timeline[column__context] == ""
+            )
+            if missing.any():
+                raise ValueError(
+                    "`{}` was given a timeline in which {} row(s) have no context: {}."
+                    " Every row has one (#156).".format(
+                        name__function,
+                        int(missing.sum()),
+                        ", ".join(
+                            sorted(set(map(str, timeline.loc[missing, "variable"])))
+                        ),
+                    )
+                )
 
         return timeline
 

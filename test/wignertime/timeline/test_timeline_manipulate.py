@@ -35,13 +35,13 @@ def dfseq():
     """
     return frame.new(
         [
-            [0.0, "lockbox_MOT__V", 0.000000, ""],
-            [5.0, "lockbox_MOT__V", 0.000000, ""],
-            [10.0, "lockbox_MOT__V", 0.000000, ""],
-            [10.2, "lockbox_MOT__V", 0.045177, ""],
-            [10.4, "lockbox_MOT__V", 0.500000, ""],
-            [10.6, "lockbox_MOT__V", 0.954823, ""],
-            [10.8, "lockbox_MOT__V", 1.000000, ""],
+            [0.0, "lockbox_MOT__V", 0.000000, "init"],
+            [5.0, "lockbox_MOT__V", 0.000000, "init"],
+            [10.0, "lockbox_MOT__V", 0.000000, "init"],
+            [10.2, "lockbox_MOT__V", 0.045177, "init"],
+            [10.4, "lockbox_MOT__V", 0.500000, "init"],
+            [10.6, "lockbox_MOT__V", 0.954823, "init"],
+            [10.8, "lockbox_MOT__V", 1.000000, "init"],
         ],
         columns=["time", "variable", "value", "context"],
     )
@@ -49,7 +49,9 @@ def dfseq():
 
 def test_stack(dfseq):
     tst = tl.stack(
-        tl._populate_timeline("lockbox_MOT__V", [[0.0, 0.0], [5.0, 0.0]]),
+        tl._populate_timeline(
+            "lockbox_MOT__V", [[0.0, 0.0], [5.0, 0.0]], context="init"
+        ),
         tl.ramp(t=5.0, lockbox_MOT__V=[0.8, 1.0]),
         lambda tline: tl.expand(tline, time_resolution=0.2),
     )
@@ -57,7 +59,9 @@ def test_stack(dfseq):
 
 
 def test_stack__kws(dfseq):
-    tline = tl._populate_timeline("lockbox_MOT__V", [[0.0, 0.0], [5.0, 0.0]])
+    tline = tl._populate_timeline(
+        "lockbox_MOT__V", [[0.0, 0.0], [5.0, 0.0]], context="init"
+    )
     tst = tl.stack(
         tline,
         tl.ramp(t=5.0, lockbox_MOT__V=[0.8, 1.0]),
@@ -70,8 +74,8 @@ def test_stack__kws(dfseq):
         tst,
         frame.new(
             [
-                [0.0, "lockbox_MOT__V", 0.000000, ""],
-                [5.0, "lockbox_MOT__V", 0.000000, ""],
+                [0.0, "lockbox_MOT__V", 0.000000, "init"],
+                [5.0, "lockbox_MOT__V", 0.000000, "init"],
                 [10.0, "lockbox_MOT__V", 0.000000, "test"],
                 [10.2, "lockbox_MOT__V", 0.045177, "test"],
                 [10.4, "lockbox_MOT__V", 0.500000, "test"],

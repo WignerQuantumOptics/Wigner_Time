@@ -232,11 +232,13 @@ def test_ramp_context_none_inherits_too(tl_anchor):
     )
 
 
-def test_ramp_empty_context_turns_off_inheritance(tl_anchor):
-    """`context=""` is no context: the ramp's rows do not inherit "init"."""
-    result = tl.ramp(tl_anchor, lockbox_MOT__V=5, duration=100e-3, context="")
-    new_rows = result[result["context"] != "init"]
-    assert sorted(set(new_rows["context"])) == [""]
+def test_ramp_refuses_an_empty_context(tl_anchor):
+    """
+    #156. `context=""` used to switch inheritance off and leave the ramp's rows without a
+    context. Every row has one, stated or inherited, so there is nothing to switch off.
+    """
+    with pytest.raises(ValueError, match="is not a context"):
+        tl.ramp(tl_anchor, lockbox_MOT__V=5, duration=100e-3, context="")
 
 
 def test_ramp_combined():

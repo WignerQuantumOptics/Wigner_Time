@@ -175,9 +175,9 @@ def _populate_timeline(
 
     if timeline is not None:
         inherit.context(new, timeline, context=context)
-        return wt_frame.concat([timeline, new])
+        return wt_frame.concat([timeline, inherit.require(new)])
 
-    return new
+    return inherit.require(new)
 
 
 def create(t=0.0, context=wt_config.CONTEXT__INFER, **vtvc_dict) -> wt_frame.CLASS:
@@ -271,8 +271,9 @@ def update(
     time, write `origin=0.0`.
 
     `context` defaults to `wt_config.INFER` too: an unstated row inherits the latest
-    context of `timeline`, as described above. `None` means the same, and `context=""`
-    leaves the row without one.
+    context of `timeline`, as described above. `None` means the same. Every row has a
+    context (#156): on an empty table there is nothing to inherit, so the first rows must
+    name theirs, and `context=""` is refused.
     """
     timeline = wt_util.ensure_timeline(timeline, "update", columns__required=_SCHEMA)
 
@@ -426,7 +427,8 @@ def ramp(
     variable.
 
     `context` defaults to `wt_config.INFER`, and `None` means the same: an unstated row
-    inherits the latest context of `timeline`. `context=""` leaves it without one.
+    inherits the latest context of `timeline`. Every row has a context (#156), so
+    `context=""` is refused.
 
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `t2` will have supremacy.
     """
@@ -554,6 +556,7 @@ def ramp(
     )
     new1["function"] = function
     inherit.context(new1, timeline, context=context)
+    inherit.require(new1)
 
     new2 = wt_origin.update(df_2, new1, origin=origin2)
     new2["function"] = function
@@ -1079,6 +1082,7 @@ def expand(timeline=None, **function_args) -> wt_frame.CLASS | Callable:
             _dfs.append(
                 _populate_timeline(
                     [variable, func(*group[["time", "value"]].values)],
+                    context=group["context"].iloc[0],
                 ).assign(**group.iloc[0][_columns__keep].to_dict())
             )
 

@@ -10,7 +10,7 @@ from wignertime.internal import origin
 def df_simple():
     return wt_frame.new(
         [
-            [0.0, "AOM_imaging", 0.0, ""],
+            [0.0, "AOM_imaging", 0.0, "s"],
         ],
         columns=["time", "variable", "value", "context"],
     )
@@ -43,8 +43,8 @@ def df__mixed():
 @pytest.mark.parametrize(
     "input",
     [
-        tl._populate_timeline("AOM_imaging", 0.0, 0.0),
-        tl._populate_timeline("AOM_imaging", [[0.0, 0.0]]),
+        tl._populate_timeline("AOM_imaging", 0.0, 0.0, context="s"),
+        tl._populate_timeline("AOM_imaging", [[0.0, 0.0]], context="s"),
     ],
 )
 def test_createSimple(input, df_simple):
@@ -215,25 +215,51 @@ def test_update_context_none_and_infer_match_the_default(df__mixed, context):
     )
 
 
-def test_update_empty_context_turns_off_inheritance(df__mixed):
+def test_update_refuses_an_empty_context(df__mixed):
     """
-    `context=""` is no context: the new row does not inherit `df__mixed`'s trailing
-    "stuff".
+    #156. `context=""` used to switch inheritance off, leaving the row without a context.
+    Every row has one, stated or inherited, so there is nothing to switch off.
     """
-    return wt_frame.assert_equal(
-        tl.update(
-            timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=0.0, context=""
-        ),
-        wt_frame.new(
-            [
-                [0.0, "AOM_imaging", 0, "init"],
-                [2.0, "AOM_imaging__V", 2.0, "blah"],
-                [10.0, "AOM_repump", 1, "stuff"],
-                [2.2, "AOM_imaging__V", 3.0, ""],
-            ],
-            columns=["time", "variable", "value", "context"],
-        ),
-    )
+    with pytest.raises(ValueError, match="is not a context"):
+        tl.update(timeline=df__mixed, AOM_imaging__V=[2.2, 3.0], origin=0.0, context="")
+
+
+# --- #156: every row has a context ------------------------------------------
+
+
+def test_the_first_rows_of_a_timeline_must_name_a_context():
+    """
+    Nothing precedes them to inherit a context from. This is #145's option 2, which
+    now holds for every row rather than for `create` alone.
+    """
+    with pytest.raises(ValueError, match="Every row needs a context.*AOM_MOT"):
+        tl.create(AOM_MOT=1, t=0.0)
+
+
+def test_a_row_stating_its_own_context_needs_none_from_the_call():
+    frame = tl.create(AOM_MOT=[0.0, 1, "init"], shutter_MOT=[0.0, 0, "init"])
+    assert set(frame["context"]) == {"init"}
+
+
+def test_one_row_without_a_context_is_enough_to_refuse():
+    with pytest.raises(ValueError, match="none: shutter_MOT"):
+        tl.create(AOM_MOT=[0.0, 1, "init"], shutter_MOT=0)
+
+
+def test_onto_an_empty_table_the_refusal_is_about_the_context():
+    """
+    N4 (#145). `update` onto an empty table used to fail in the *origin* lookup, with the
+    advice to give `origin=0.0` -- which gave the same error again, because what was
+    missing was the context.
+    """
+    empty = wt_frame.new([], columns=tl._SCHEMA.keys()).astype(tl._SCHEMA)
+    for origin in (wt_config.INFER, 0.0):
+        with pytest.raises(ValueError, match="Every row needs a context") as e:
+            tl.update(timeline=empty, AOM_MOT=1, origin=origin)
+        assert "origin=0.0" not in str(e.value)
+
+    named = tl.update(timeline=empty, AOM_MOT=1, context="init", origin=0.0)
+    assert list(named["context"]) == ["init"]
 
 
 def test_update_real_context_is_taken_as_written(df__mixed):

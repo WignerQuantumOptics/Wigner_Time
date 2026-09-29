@@ -257,7 +257,7 @@ def test_ramp_default_origin2_survives_being_used():
     default = inspect.signature(tl.ramp).parameters["origin2"].default
     assert default == ["variable", 0.0]
 
-    base = tl.anchor(1.0, timeline=tl.create(coil__A=0.0))
+    base = tl.anchor(1.0, timeline=tl.create(coil__A=0.0, context="s"))
     for _ in range(3):
         base = tl.anchor(
             1.0, timeline=tl.ramp(coil__A=5.0, duration=1.0, timeline=base)

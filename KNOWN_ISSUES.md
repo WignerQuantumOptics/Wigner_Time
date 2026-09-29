@@ -365,7 +365,7 @@ What replaced it:
 
 - `wt_config.INFER` is an object that prints as `INFER`; `ORIGIN__INFER` and `CONTEXT__INFER` are its names in the signatures. Copying and pickling return the same object, since it is recognised with `is`.
 - `None` and `INFER` mean the same, as the whole argument and in either slot. `origin.auto` reads the marker as `None`, and `inherit.resolve` does the same for `context`. `auto_or_off` is gone.
-- Absolute placement is a number, as before the merge: `origin=0.0` for `update` and `anchor`, `origin=[0.0, 0.0]` for `ramp`. No inheritance is `context=""`.
+- Absolute placement is a number, as before the merge: `origin=0.0` for `update` and `anchor`, `origin=[0.0, 0.0]` for `ramp`. No inheritance is `context=""`. *(Withdrawn 2026-09-29: every row has a context, #156, and `context=""` is refused.)*
 - The switch is removed, and what it did by default is the fixed rule: a stated 2-D start has its unstated slots completed from `ORIGIN__DEFAULTS` (so its value is taken as written), an inferred start from `ORIGIN__DEFAULTS__RAMP`, and a value origin the caller *writes* applies to both. That last clause is the one behaviour that differs from 2026-09-18, when a written value slot was ignored for a stated start.
 - `demo.pull_coils` is back to `context=None`.
 
@@ -1019,7 +1019,7 @@ Options:
 
 Depends on #85 and, through it, on B10 (#136).
 
-**2026-09-29: option 2 became a rule for every row, not only for `create`** (maintainer, #156): a row's context is stated or inherited, never absent, and `context=""` is refused. It replaces #28's "the minimum context is the empty string". Nothing real is affected — the Lab2 fixture, the demo and the lab's `prepare_sample` at every stage have no row without a context — and it is done in P1 of C7.
+**2026-09-29: option 2 became a rule for every row, not only for `create`** (maintainer, #156): a row's context is stated or inherited, never absent, and `context=""` is refused. It replaces #28's "the minimum context is the empty string". Nothing real is affected — the Lab2 fixture, the demo and the lab's `prepare_sample` at every stage have no row without a context — and it is done in P1 of C7. **Done 2026-09-29 on `issue#85`.** Refused in three places: `inherit.resolve` refuses `context=""` where it is written; `inherit.require` refuses rows still without a context once inheritance has run, which on an empty table means the first rows, with a message about the context — N4's origin message is gone, since `inherit.context` no longer asks `origin.previous` about an empty table; and `util.ensure_timeline` refuses a table handed in with a null or empty context, where it used to fill in the empty string (#28). `expand` now gives the rows it builds their ramp's context directly. The references are unchanged. In the suite, 13 tests had built rows without a context and now name one, and the three that pinned the old contract — #28's filling-in, and `context=""` as "no inheritance" in `update` and in `ramp` — now pin the refusals. Covered by `test_timeline_create.py`. **Of #145, this leaves only its first half, the skip of a leading timeline**, which goes in P2, when a `stack` takes stages only.
 
 ### C7 — composition takes stages only, and `to_timeline` turns a stage into a table **[#85; settled 2026-09-25, 2026-09-27 and 2026-09-29; roadmap 2026-09-28, worked on the branch `issue#85`]**
 

@@ -52,7 +52,8 @@ passes it on -- the usual way of writing "no opinion of my own" -- then gets the
 library's default without having to know that this object exists, and a pair such as
 `[None, 0.0]` reads the same as `[INFER, 0.0]`. Absolute placement is a number:
 `origin=0.0` for `update` and `anchor`, `origin=[0.0, 0.0]` for `ramp`, whose value slot
-otherwise still defaults to the variable. No inheritance is `context=""`.
+otherwise still defaults to the variable. There is no way to switch context
+inheritance off: every row has a context, stated or inherited (#156).
 
 It is an object rather than a string so that it cannot be mistaken for a name:
 `context="INFER"` is an ordinary context.

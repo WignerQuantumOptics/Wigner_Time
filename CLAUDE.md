@@ -212,7 +212,9 @@ shows the default does something, and `context` defaults to it too. It is an obj
 `is`, and **`None` means exactly the same**, as the whole argument and in a slot. Keep it that way: a
 stage that takes `origin=None` or `context=None` and forwards it is the ordinary way to pass "no
 opinion" on, and giving `None` a meaning of its own would change what every such stage does (A8's
-amendment in `KNOWN_ISSUES.md`). Absolute placement is a number, and no inheritance is `context=""`.
+amendment in `KNOWN_ISSUES.md`). Absolute placement is a number. There is no "off" for context:
+**every row has a context**, stated or inherited (#156, 2026-09-29), so the first rows of a timeline
+must name theirs, `context=""` is refused, and so is a table handed in with a row lacking one.
 
 **Do not propose replacing `origin` with separate `t0`/`v0` keywords.** It is a reasonable idea and
 it was declined on 2026-09-19 (#74), on the merits rather than for inertia: the two slots really are
