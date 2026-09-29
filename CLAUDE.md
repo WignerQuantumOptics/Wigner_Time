@@ -61,7 +61,7 @@ text against the arXiv version's voice.
 submission (Clark, Sárközi, … Vukics) that states the design rationale, not just the API. Read it
 before any non-trivial design decision. Useful section map: `sec:definitions` (the three layers),
 `sec:origin` + appendix `sec:origin_full` (the complete `origin` specification and resolution order),
-`sec:functions` (`create`/`update`/`ramp`/`anchor` with input-format tables), `sec:context`,
+`sec:functions` (`update`/`ramp`/`anchor` and `to_timeline`, with input-format tables), `sec:context`,
 `sec:stacking` and `sec:interweaving`, `sec:adwin` (the whole real-time program, in ~15 lines),
 appendix `sec:adwin_operation` (how the sequencer and the manual console share the outputs, at a
 high level: the period check, the final state, the hand-over, the jump warning),

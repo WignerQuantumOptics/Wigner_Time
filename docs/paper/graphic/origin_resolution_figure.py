@@ -199,7 +199,7 @@ def build():
         zorder=2,
     )
     for line in (
-        "None → [None, None]          0.5 → [0.5, None]",
+        "INFER, None → [None, None]          0.5 → [0.5, None]",
         '"molasses" → ["molasses", None]          [a, b] → [a, b]',
     ):
         ax.text(
@@ -251,11 +251,11 @@ def build():
         "time slot",
         "every option names an instant",
         [
-            ("None", "the caller's chain:  anchor → last → 0.0 with a warning", hl),
+            ("None", "the caller's chain:  ANCHOR → LAST → 0.0", hl),
             ("a number", "that number", plain),
-            ('"anchor"', "the most recent anchor — an error if there is none", code),
-            ('"last"', "the highest time recorded so far", code),
-            ('"variable"', "per variable: its own most recent time", code),
+            ("tl.ANCHOR", "the most recent anchor — an error if there is none", code),
+            ("tl.LAST", "the highest time recorded so far, ±∞ excepted", code),
+            ("tl.VARIABLE", "per variable: its own most recent time", code),
             ("a variable name", "that variable's most recent time", plain),
             ("a context name", "its anchor, or its last row if it has none", hl__plain),
             ("anything else", "an error", plain),
@@ -269,12 +269,12 @@ def build():
         "value slot",
         "only a variable names a quantity",
         [
-            ("None", 'the caller\'s default: absolute — or "variable" for ramp', hl),
+            ("None", "the caller's default: absolute — VARIABLE for ramp", hl),
             ("a number", "that number", plain),
-            ('"variable"', "per variable: its own last value  †", code),
+            ("tl.VARIABLE", "per variable: its own last value  †", code),
             ("a variable name", "that variable's last value  †", plain),
             (
-                '"anchor", "last",\na context name',
+                "tl.ANCHOR, tl.LAST,\na context name",
                 "refused — each names an instant, not a quantity",
                 dict(refuse=True),
             ),
