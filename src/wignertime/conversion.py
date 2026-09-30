@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: 2024 Thomas W. Clark and András Vukics
 # SPDX-License-Identifier: GPL-3.0-or-later
-from copy import deepcopy
 
 import numpy as np
 import pandas as pd
@@ -27,24 +26,23 @@ def _add_linear(
     timeline,
     column__conversion="to_V",
     column__new: str = "value__digits",
-    is_inplace=False,
     specifications=SPECIFICATIONS__DEFAULT,
 ):
     """
     Performs a linear conversion, according to the associated conversion factor, adds the resulting values as another column, `value__digits`, and returns the result.
     """
-    mask = pd.to_numeric(timeline[column__conversion], errors="coerce").notna()
+    factors = wt_frame.column(timeline, column__conversion)
+    mask = ~wt_frame.not_numeric(factors)
     if mask.any():
-        if is_inplace:
-            dff = timeline
-        else:
-            dff = deepcopy(timeline)
-
-        dff.loc[mask, column__new] = to_digits(
-            dff.loc[mask, "value"] * dff.loc[mask, column__conversion], **specifications
+        values = wt_frame.column(timeline, "value")
+        return wt_frame.with_column(
+            timeline,
+            column__new,
+            to_digits(
+                np.asarray(values[mask] * factors[mask], dtype=float), **specifications
+            ),
+            where=mask,
         )
-
-        return dff
     else:
         return timeline
 
@@ -53,31 +51,26 @@ def _add_function(
     timeline,
     column__conversion="to_V",
     column__new: str = "value__digits",
-    is_inplace=False,
     specifications=SPECIFICATIONS__DEFAULT,
 ):
     """
     Performs a conversion, according to the associated function, adds the resulting values as another column, `value__digits`, and returns the result.
     """
-    mask = timeline[column__conversion].apply(callable)
+    functions = wt_frame.column(timeline, column__conversion)
+    mask = np.array([callable(f) for f in functions], dtype=bool)
     if mask.any():
-        if is_inplace:
-            dff = timeline
-        else:
-            dff = deepcopy(timeline)
-
-        s = dff.loc[mask].apply(
-            lambda row: row[column__conversion](row["value"]), axis=1
+        values = wt_frame.column(timeline, "value")
+        return wt_frame.with_column(
+            timeline,
+            column__new,
+            to_digits(
+                np.array(
+                    [f(v) for f, v in zip(functions[mask], values[mask])], dtype=float
+                ),
+                **specifications,
+            ),
+            where=mask,
         )
-
-        dff.loc[mask, column__new] = to_digits(
-            dff.loc[mask]
-            .apply(lambda row: row[column__conversion](row["value"]), axis=1)
-            .to_numpy(dtype=float),
-            **specifications,
-        )
-
-        return dff
     else:
         return timeline
 
@@ -91,7 +84,7 @@ def add(
     """
     Performs a conversion, according to the associated factor or function, adds the resulting values as another column, `value__digits`, and returns the result.
     """
-    if column__conversion in timeline.columns:
+    if wt_frame.has_columns(timeline, [column__conversion]):
         dff = _add_linear(
             timeline,
             column__conversion=column__conversion,
