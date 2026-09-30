@@ -446,10 +446,7 @@ class _Polars:
 
     def read_pickle(self, path):
         with open(path, "rb") as f:
-            o = pickle.load(f)
-        if isinstance(o, dict) and _PICKLE_MARKER in o:
-            return self.from_columns(o["columns"])
-        return o  # a frame pickled by another library; `own` converts it
+            return pickle.load(f)
 
     def _strings_for_text(self, df):
         """Python-object columns written as text, which neither CSV nor JSON can hold."""
@@ -996,7 +993,15 @@ def write_feather(df, path):
 
 
 def read_pickle(path):
-    return own(_adapter.read_pickle(path))
+    """
+    A pickled timeline, whichever library pickled it: a pandas frame, or the columns the
+    polars backend pickles (a polars frame cannot pickle a column of functions).
+    """
+    o = _adapter.read_pickle(path)
+    if isinstance(o, dict) and _PICKLE_MARKER in o:
+        # As lists, so that each column is typed as the library reads those values.
+        return _adapter.from_columns({n: list(v) for n, v in o["columns"].items()})
+    return own(o)
 
 
 def read_csv(path):
