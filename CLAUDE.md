@@ -5,11 +5,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-poetry install --with dev --all-extras   # what CI does
+poetry install --with dev --all-extras   # what CI does (pandas and polars both)
 poetry run pytest                        # whole suite, from the repo root
 poetry run pytest test/wignertime/test_drop_repeats.py                              # one file
 poetry run pytest test/wignertime/test_drop_repeats.py::test_channels_are_independent  # one test
 poetry run pytest -k ramp                # by name
+poetry run pytest --backend=polars          # the same suite on polars; CI also runs it without pandas
 poetry run pytest --backend=pandas-strict   # refuses any timeline operation that bypasses wt_frame
 WIGNERTIME_STRICT_LOG=leaks.txt poetry run pytest --backend=pandas-strict   # list them all instead
 
@@ -481,18 +482,23 @@ real, which is what #154 was about.
   deliberately not renamed; extending the units-only rule into the package is a separate decision.
   Trailing `__002` on filenames is `file.py`'s collision suffix. Stage parameters mirror the core
   functions: `time`, not `t`.
-- **Every operation on a timeline goes through `wt_frame`** (#167; D5 is
-  reopened, see `KNOWN_ISSUES.md`). `internal/dataframe/` (imported as `wt_frame`) picks its implementation from
-  `WIGNERTIME_BACKEND`; `wt_frame.INTERFACE` is the whole of what the package may do to a table, in
-  frames, column names, row *positions* and numpy arrays — never row labels, and never a pandas
-  Series handed out. Package code outside `wt_frame` does not index, slice, mutate or call methods
-  on a timeline; tests may, but build the frames they hand to the package with `wt_frame.new`.
-  `pytest --backend=pandas-strict` enforces this on every path the suite runs; a green default
-  suite does not. For a timeline, the user-facing type is still a `pandas.DataFrame` by default,
-  as the paper says. **Sort with `wt_frame.sort`, never `sort_values` bare**: pandas sorts one
-  column unstably by default, and order among tied rows is meaning (A18). The same goes for
+- **A timeline is held by pandas or by polars, and every operation on it goes through `wt_frame`**
+  (#167; D5 is reopened, see `KNOWN_ISSUES.md`). `internal/dataframe/` (imported as
+  `wt_frame`) takes the library from `WIGNERTIME_BACKEND` (`pandas`, `polars`, `pandas-strict`),
+  else pandas if installed, else polars; one of the two is required (the `pandas`/`polars` extras).
+  One implementation serves both, `_narwhals.py`: generic work through narwhals, the order rules
+  written out, and a small adapter per library for construction, casting, stacking, files and test
+  comparison. `wt_frame.INTERFACE` is the whole of what the package may do to a table, in frames,
+  column names, row *positions* and numpy arrays — never row labels, never a library's Series.
+  Package code outside `wt_frame` does not index, slice, mutate or call methods on a timeline, and
+  **neither do the tests**: they read results with `wt_frame.column`/`row`/`rows` and compare with
+  `wt_frame.assert_equal`, so the one suite runs on both libraries. `--backend=pandas-strict`
+  enforces the package half on every path the suite runs; `--backend=polars` is the real check. A
+  frame of the other library is converted where it enters (`wt_frame.own`; `util.ensure_timeline`).
+  **Sort with `wt_frame.sort`, never a library's sort**: neither library keeps the order of ties by
+  default, narwhals does not add it, and order among tied rows is meaning (A18). The same goes for
   `drop_duplicates` (keeps the last row written), `group_by` (groups in first-appearance order) and
-  `insert_dataframes` (by position). A new operation goes into `INTERFACE` and every backend.
+  `insert_dataframes` (by position). A new operation goes into `INTERFACE`, and must pass on both.
 - Optional dependencies are gated at import time with `importlib.util.find_spec` and a raised
   `ImportError` (`adwin/core.py` needs `ADwin`, `display.py` needs `matplotlib`). Keep new optional
   code importable-but-inert the same way.

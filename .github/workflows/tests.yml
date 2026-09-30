@@ -12,8 +12,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # `pandas-strict` refuses any operation on a timeline that bypasses `wt_frame`.
-        backend: [pandas, pandas-strict]
+        include:
+          # Both libraries installed, the suite run on each.
+          - backend: pandas
+            extras: --all-extras
+          - backend: polars
+            extras: --all-extras
+          # Refuses any operation on a timeline that bypasses `wt_frame`.
+          - backend: pandas-strict
+            extras: --all-extras
+          # polars without pandas: one of the two is enough.
+          - backend: polars
+            extras: --extras "polars adwin console display performance_and_export"
+
+    name: ${{ matrix.backend }} (${{ matrix.extras }})
 
     steps:
       - name: Check out code
@@ -30,7 +42,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
-        run: poetry install --with dev --all-extras 
+        run: poetry install --with dev ${{ matrix.extras }}
 
       - name: Run tests
         run: poetry run pytest --backend=${{ matrix.backend }}

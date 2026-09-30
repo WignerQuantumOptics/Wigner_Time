@@ -495,6 +495,10 @@ The timeline is internally consistent and would run. `test_two_ramps_of_one_vari
 
 Fix direction: a variable is in at most one ramp at a time — `ramp` refuses a ramp that begins or ends inside another of the same variable, naming the variable and both intervals. It is the loud form of #142's rule, since during another ramp "where the variable is" is not in the table, and it does not depend on the rest of #85, so it belongs in P1. An `update` of a variable inside one of its own ramps is probably overridden by the ramp's next point; not measured.
 
+### A19 — an inverted calibration from `function_from_file` is the identity function **[new, found 2026-09-30, in #167]** — **FIXED the same day**
+
+`conversion.function_from_file(..., indices__column=[1, 0])` is the docstring's way of inverting a calibration. After averaging the repeated `x` values with `groupby(..., as_index=False)`, the grouped column comes first, and both columns were then taken by *position*, so `[1, 0]` read the same column twice: measured on `aom_calibration.dat`, the "inverse" returned 0.5 for 0.5 and 0.25 for 0.25. A device configured with such a calibration was driven with its value unconverted, with no error. The columns are now taken by the indices given, and `test_function_from_file_inverts_when_the_columns_are_swapped` pins it. The forward case (`[0, 1]`) was unaffected and is bit-identical. **Check the lab code for `indices__column=[1, 0]`.** Found while giving the function a reader that does not need pandas.
+
 ### A18 — an `update` at the instant a ramp ends can lose to the ramp's end on the hardware **[new, found 2026-09-29, with #153]** — **FIXED the same day (#153), P4 of C7**
 
 Among a variable's rows at one instant, the one written last is in effect. `drop_duplicates` relies on this, since it keeps the last row of each (variable, cycle). Two steps of the conversion broke the written order among such rows, and neither raised:

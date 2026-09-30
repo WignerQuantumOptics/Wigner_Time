@@ -8,6 +8,7 @@ A preprint has been submitted to arXiv; the identifier will be added here once i
 
 
 ## Optional dependencies (package `extras`) 
+ - `pandas` or `polars`: the library that holds the timelines. One of the two is required.
  - `performance_and_export` (Recommended): Installs `pyarrow` for memory management, sharing between systems and export to `parquet`.
  - `display`: Installs `matplotlib` and `pyqt` for visualization.
 

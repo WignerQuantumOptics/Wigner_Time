@@ -66,7 +66,14 @@ Three items with an ID are open, all in section D: **D5** (#167), reopened as a 
 
 Found on the way, by the strict run: `adwin.internal.to_tuples` sorted by cycle with bare `sort_values` (A18's unstable sort; harmless there, since tied rows are on different channels, but now stable), and a `.loc` in `util.ensure_timeline`'s error path that its only test could not reach, because it built its frame with `pd.DataFrame`. The Lab2 checksums are unchanged throughout; nothing under `adwin/` has been checked on the rig.
 
-**What is left to decide.** (1) Whether a second backend is wanted at all – the cost of phase 1 is paid, so the question is now the value. (2) If so, whether it is polars by hand (`_polars.py`, which today raises `NotImplementedError` per operation) or one implementation over narwhals, which would serve pandas and polars frames natively. narwhals 2.26 does not keep the order rules by itself – its pandas `sort` is unstable on one column and its `group_by` ignores `maintain_order` – so `wt_frame` would stay as the place those rules are kept either way. (3) Callables in the `function` column, which polars can hold only as `Object`.
+**Phase 2, done in #167 (Thomas's decisions, 2026-09-30): polars as a second library, through one implementation over narwhals.** `internal/dataframe/_narwhals.py` replaces the pandas-only module. The generic operations go through narwhals; the order rules do not, because narwhals 2.26 does not keep them – its pandas `sort` is quicksort on one column, and its `group_by` ignores `maintain_order` – so `sort` breaks ties on the written position, `group_by` orders groups by first appearance, and `drop_duplicates` keeps the last row, all written out. A small adapter per library does construction (typed as pandas would read the same Python values), casting, stacking frames with different columns, the file formats and test comparison. The pandas adapter is the code that was there. Callables in `function` are polars `Object` columns; polars cannot pickle those, so its pickle holds the columns as lists.
+
+- **Dependencies.** pandas and polars are extras, one of which is needed; importing with neither raises, naming both. narwhals is a dependency.
+- **Which library.** `WIGNERTIME_BACKEND`, else pandas if installed, else polars. A frame of the other library is converted where it enters.
+- **Evidence.** One suite, backend-neutral (no assertion dropped, none marked `pandas_only`): pandas 530, pandas-strict 530, polars 524 passed, on pandas 2.3.3 / Python 3.10 and pandas 3.0.6 / Python 3.12, and 523 on polars with pandas not installed. The Lab2 checksums match on polars, so the conversion chain sends the hardware identical arrays from either library. Not checked on the rig.
+- **Paper.** Untouched, and now says less than the code does: where it says a user falls back to "the pandas ecosystem", "the current implementation, which uses pandas", and that the timeline is a `DataFrame`, "currently implemented as a `pandas.DataFrame`". All remain true of the default. Whether to mention polars is a question for the maintainers, per the rule that code and paper move together.
+
+**Still to decide.** Whether this is merged at all – that is the D5 question itself, between the maintainers.
 
 ### D16 — the anchor label cannot be printed on a legacy Windows code page **[new, found 2026-09-11]**
 
@@ -188,6 +195,7 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - A16 — an analogue variable on the digital module (#94) – `check_module_kinds` refuses either mismatch.
 - A17 — a ramp inside another ramp of its variable (#157) – overlaps raise, compared exactly.
 - A18 — an `update` at a ramp's end lost to it on the hardware (#153) – stable `wt_frame.sort`; `expand` keeps order.
+- A19 — an inverted calibration from `function_from_file` was the identity (#167) – the columns are taken by the indices given.
 
 **B. Correctness** ([record](docs/design-record.md#b-correctness))
 
