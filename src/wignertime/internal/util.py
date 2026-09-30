@@ -440,7 +440,9 @@ def ensure_timeline(
                     )
                 )
 
-        return timeline
+        # Where a timeline enters, it is put into the active library: a pandas frame
+        # given to a polars session, or the reverse, continues in the active one.
+        return wt_frame.own(timeline)
 
     if callable(timeline):
         # `to_timeline(stage, onto=timeline)` is the remedy for the `timeline` argument,

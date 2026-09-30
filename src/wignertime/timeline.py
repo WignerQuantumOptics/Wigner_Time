@@ -760,7 +760,7 @@ def _ensure_stackable(f):
     `stack(MOT)` for `stack(MOT(...))` -- which would bind the timeline to the stage's
     first parameter, silently.
     """
-    if isinstance(f, wt_frame.CLASS):
+    if wt_frame.is_frame(f):
         raise TypeError(
             "\n".join(
                 [
@@ -838,7 +838,7 @@ def to_timeline(stage: Callable, onto: wt_frame.CLASS | None = None) -> wt_frame
     placed in absolute time, and nothing to inherit a context from, so they must name
     theirs (#156).
     """
-    if isinstance(stage, wt_frame.CLASS):
+    if wt_frame.is_frame(stage):
         raise TypeError(
             "`to_timeline` was given a timeline, which is one already. To add a stage"
             " to it, pass it as `onto`: `to_timeline(stage, onto=timeline)`."
@@ -854,7 +854,7 @@ def to_timeline(stage: Callable, onto: wt_frame.CLASS | None = None) -> wt_frame
     )
 
     out = stage(onto)
-    if not isinstance(out, wt_frame.CLASS):
+    if not wt_frame.is_frame(out):
         raise TypeError(
             "A stage must return a timeline, and {} returned {}.".format(
                 getattr(stage, "__name__", repr(stage)), type(out).__name__
@@ -1080,7 +1080,7 @@ def _ensure_cascadable(f):
     from the dictionary comprehension that keys stages by name -- naming neither cascade,
     nor the timeline, nor what to write instead.
     """
-    if isinstance(f, wt_frame.CLASS):
+    if wt_frame.is_frame(f):
         raise TypeError(
             "\n".join(
                 [
