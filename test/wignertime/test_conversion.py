@@ -1,5 +1,4 @@
 import pytest
-import pandas as pd
 from munch import Munch
 import numpy as np
 
@@ -55,7 +54,7 @@ def test_add_linear_conversion(df_simple):
 
     df_added = conv._add_linear(df_devs)
 
-    return pd.testing.assert_frame_equal(
+    return wt_frame.assert_equal(
         df_added,
         wt_frame.new(
             {
@@ -166,7 +165,7 @@ def test_addRealistic(df_simple):
     df = device.add(df_simple, device.new("AOM__science__trans", func__AOM, 0.0, 1.0))
 
     actual = conv.add(df)[["value", "to_V", "value__digits"]]
-    expected = pd.DataFrame(
+    expected = wt_frame.new(
         [
             [0.0, np.nan, np.nan],
             [2.0, np.nan, np.nan],

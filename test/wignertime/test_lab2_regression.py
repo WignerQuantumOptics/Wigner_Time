@@ -31,12 +31,12 @@ import pathlib
 import re
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from wignertime import config, device, ramp_function
 from wignertime import timeline as tl
 from wignertime.adwin import core
+from wignertime.internal import dataframe as wt_frame
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "lab2"
 
@@ -84,7 +84,7 @@ def _ramp_function(sharpness):
 
 @pytest.fixture(scope="module")
 def timeline():
-    described = pd.read_parquet(FIXTURES / "timeline.parquet")
+    described = wt_frame.read_parquet(FIXTURES / "timeline.parquet")
     cache = {}
     functions = [
         (
@@ -103,12 +103,12 @@ def timeline():
 
 @pytest.fixture(scope="module")
 def connections():
-    return pd.read_parquet(FIXTURES / "connections.parquet")
+    return wt_frame.read_parquet(FIXTURES / "connections.parquet")
 
 
 @pytest.fixture(scope="module")
 def devices():
-    return pd.read_parquet(FIXTURES / "devices.parquet")[
+    return wt_frame.read_parquet(FIXTURES / "devices.parquet")[
         ["variable", "to_V", "value__min", "value__max"]
     ]
 
@@ -146,7 +146,7 @@ def test_the_fixture_is_the_experiment_it_claims_to_be(timeline):
 
     sharpnesses = sorted(
         set(
-            pd.read_parquet(FIXTURES / "timeline.parquet")[
+            wt_frame.read_parquet(FIXTURES / "timeline.parquet")[
                 "function__sharpness"
             ].dropna()
         )
@@ -159,7 +159,7 @@ def test_every_ramp_function_is_data_rather_than_code():
     The point of the fixture: the takeout's closures were reduced to a name and a number,
     and the reconstruction has to reproduce the curve exactly or the archive is worthless.
     """
-    described = pd.read_parquet(FIXTURES / "timeline.parquet")
+    described = wt_frame.read_parquet(FIXTURES / "timeline.parquet")
     named = set(described["function"].dropna())
     assert named == {"wignertime.ramp_function.tanh"}
 
