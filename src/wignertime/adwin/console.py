@@ -523,12 +523,12 @@ def create_UI(machine, table, continuous_update=True):
         try:
             for name, value in wt_frame.rows(held, ["variable", "value"]):
                 control = controls[name]
-                if np.isnan(value):
+                if wt_frame.isnull(value):
                     unknown.append(name)
                 else:
                     is_toggle = isinstance(control, widgets.ToggleButton)
                     control.value = bool(value) if is_toggle else value
-                mark(control, np.isnan(value))
+                mark(control, wt_frame.isnull(value))
         finally:
             quiet["on"] = False
         messages.append_stdout(

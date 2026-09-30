@@ -28,7 +28,7 @@ import sys
 
 import pandas as pd
 
-from . import _pandas
+from . import _narwhals as _pandas  # used with pandas, which `__init__` has selected
 
 _OWN = __name__.rsplit(".", 1)[0]  # wignertime.internal.dataframe
 _PACKAGE = _OWN.split(".", 1)[0]  # wignertime
