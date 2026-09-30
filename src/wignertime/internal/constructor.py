@@ -8,7 +8,6 @@ Utilities for supplying default arguments to new functions in a flexible way, i.
 from munch import Munch
 
 from wignertime import timeline as tl
-import pandas as pd
 
 
 def arguments(variables, variables_default: Munch | None = None):

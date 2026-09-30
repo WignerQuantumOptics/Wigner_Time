@@ -1,7 +1,6 @@
 import pathlib as pl
 import sys
 import pytest
-import pandas as pd
 
 import wignertime.adwin as wt_adwin
 
@@ -20,6 +19,7 @@ from wignertime import device
 from wignertime import timeline as tl
 from wignertime.internal import dataframe as frame
 from wignertime.demo import full_experiment as demo
+from wignertime.internal import dataframe as wt_frame
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
 # import experimentDemo as ex
@@ -29,7 +29,7 @@ print(str(pl.Path.cwd() / "doc"))
 
 @pytest.fixture
 def df_simple():
-    return pd.DataFrame(
+    return wt_frame.new(
         [
             [0.0, "AOM__imaging", 0.0, "init"],
             [0.0, "AOM__imaging__V", 2.0, "init"],
@@ -50,9 +50,9 @@ def connections_simple():
 
 
 def test_remove_unconnected_variables(df_simple, connections_simple):
-    return pd.testing.assert_frame_equal(
+    return wt_frame.assert_equal(
         adcon.remove_unconnected_variables(df_simple, connections_simple),
-        pd.DataFrame(
+        wt_frame.new(
             {
                 "time": [0.0] * 3,
                 "variable": ["AOM__imaging", "AOM__imaging__V", "AOM__repump"],
@@ -64,16 +64,16 @@ def test_remove_unconnected_variables(df_simple, connections_simple):
 
 
 def test_add_cycle():
-    df = pd.DataFrame({"time": range(10), "value": range(11, 21)})
+    df = wt_frame.new({"time": range(10), "value": range(11, 21)})
     df["context"] = (
         ["MOT"] * 4 + ["ADwin_LowInit"] * 3 + ["ADwin_Init"] * 2 + ["ADwin_Finish"]
     )
     tst = frame.cast(adi.add_cycle(df, 5e-6), wt_adwin.SCHEMA)
 
-    return pd.testing.assert_frame_equal(
+    return wt_frame.assert_equal(
         tst,
         frame.cast(
-            pd.DataFrame(
+            wt_frame.new(
                 {
                     "time": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                     "value": [11, 12, 13, 14, 15.0, 16, 17, 18, 19, 20],
@@ -198,9 +198,7 @@ def test_sanitize_raises(input_value):
 
 
 def test_sanitize_success():
-    return pd.testing.assert_frame_equal(
-        wt_validate.all(df_special3), df_special3__corrected
-    )
+    return wt_frame.assert_equal(wt_validate.all(df_special3), df_special3__corrected)
 
 
 def test_convert():

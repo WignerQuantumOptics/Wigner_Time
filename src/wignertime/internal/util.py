@@ -428,7 +428,14 @@ def ensure_timeline(
                         name__function,
                         int(missing.sum()),
                         ", ".join(
-                            sorted(set(map(str, timeline.loc[missing, "variable"])))
+                            sorted(
+                                set(
+                                    map(
+                                        str,
+                                        wt_frame.column(timeline, "variable")[missing],
+                                    )
+                                )
+                            )
                         ),
                     )
                 )
