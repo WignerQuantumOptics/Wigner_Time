@@ -56,7 +56,17 @@ Retired on 2026-10-02: `ux` and `consistency` (too broad to filter on), `interna
 
 ## Open items
 
-Two items with an ID are open, both in section D and in `1.x`: **D16** (#130) and **D23** (#144). Two open issues carry no ID and are recorded at the end of this section.
+Three items with an ID are open, all in section D: **D5** (#167), reopened as a decision between the maintainers, and in `1.x` **D16** (#130) and **D23** (#144). Two open issues carry no ID and are recorded at the end of this section.
+
+### D5 — `context_info` pandas coupling — **closed 2026-09-30 (András) and reopened the same day (Thomas), #167**
+
+**Reopened as an open decision between the maintainers**, not as a defect. Whether pandas is the only possible backend is not settled; the paper's statement that a timeline *is* a `pandas.DataFrame` remains true of the default and is not touched here. The entry as closed is in the design record.
+
+**What phase 1 establishes.** The count there, "some 180 pandas operations outside `wt_frame`", was measured rather than estimated: a *strict* backend (`--backend=pandas-strict`) makes every timeline a `DataFrame` subclass that raises when package code outside `wt_frame` touches it, and in a logging mode lists each site once. When D5 was closed the suite reached **173 source lines**. All of them now go through `wt_frame.INTERFACE`, and the strict suite passes. The interface is backend-neutral by construction: columns come out as numpy arrays, masks are numpy booleans aligned by position, rows are addressed by position, and no function mutates its argument. `expand`, the one real dependence on row labels, now carries each ramp's written position in a column.
+
+Found on the way, by the strict run: `adwin.internal.to_tuples` sorted by cycle with bare `sort_values` (A18's unstable sort; harmless there, since tied rows are on different channels, but now stable), and a `.loc` in `util.ensure_timeline`'s error path that its only test could not reach, because it built its frame with `pd.DataFrame`. The Lab2 checksums are unchanged throughout; nothing under `adwin/` has been checked on the rig.
+
+**What is left to decide.** (1) Whether a second backend is wanted at all – the cost of phase 1 is paid, so the question is now the value. (2) If so, whether it is polars by hand (`_polars.py`, which today raises `NotImplementedError` per operation) or one implementation over narwhals, which would serve pandas and polars frames natively. narwhals 2.26 does not keep the order rules by itself – its pandas `sort` is unstable on one column and its `group_by` ignores `maintain_order` – so `wt_frame` would stay as the place those rules are kept either way. (3) Callables in the `function` column, which polars can hold only as `Object`.
 
 ### D16 — the anchor label cannot be printed on a legacy Windows code page **[new, found 2026-09-11]**
 
@@ -209,7 +219,7 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - D2 — `timeline.previous` duplicated `origin.previous` (#116) – deleted.
 - D3 — mutable default in `ramp` (#117) – `ensure_pair` never returns its argument.
 - D4 — variadics annotated as lists – `*fs: Callable`, in code and paper.
-- D5 — `context_info`'s pandas coupling – closed: pandas is the interface.
+- D5 — `context_info`'s pandas coupling – closed 2026-09-30, and reopened the same day: under Open items.
 - D6 — `national_instruments/__init__.py` did not parse – fixed.
 - D7 — what `__` separates (#121) – `<device>__<UID>(__<unit>)`; `__` before a unit in user names.
 - D8 — `"variable"` resolved on one call path only – `find` says where it is handled.
