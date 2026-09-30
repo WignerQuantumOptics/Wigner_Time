@@ -95,18 +95,17 @@ def context_info(timeline):
 
     e.g. To get the start and end times of the 'MOT' context, call `context_info(timeline)['MOT']['times]`.
     """
-    if {"context", "time", "variable"}.issubset(timeline.columns):
-        tlg = timeline.groupby("context")
-        return {
-            k: {
-                "variables": tlg["variable"].agg(set).to_dict()[k],
-                "times": tlg["time"]
-                .agg(["first", "last"])
-                .apply(list, axis=1)
-                .to_dict()[k],
+    if wt_frame.has_columns(timeline, ["context", "time", "variable"]):
+        info = {}
+        for k, rows in sorted(
+            wt_frame.group_by(timeline, "context"), key=lambda pair: pair[0]
+        ):
+            times = wt_frame.column(rows, "time")
+            info[k] = {
+                "variables": set(wt_frame.column(rows, "variable")),
+                "times": [times[0], times[-1]],
             }
-            for k in tlg.groups.keys()
-        }
+        return info
 
     else:
         return None
@@ -148,20 +147,21 @@ def _populate_timeline(
     # there as `TypeError: float() argument must be a string or a real number, not
     # 'dict'` -- from inside pandas, naming neither the variable nor the call. One
     # vectorised check instead, before the cast (C5).
-    values__bad = wt_frame.not_numeric(df_rows["value"])
+    values = wt_frame.column(df_rows, "value")
+    values__bad = wt_frame.not_numeric(values)
     if values__bad.any():
         raise ValueError(
             "Not a numeric value for {}: {}. A variable's value must be a number.".format(
-                sorted(set(df_rows.loc[values__bad, "variable"])),
-                sorted(set(map(repr, df_rows.loc[values__bad, "value"]))),
+                sorted(set(wt_frame.column(df_rows, "variable")[values__bad])),
+                sorted(set(map(repr, values[values__bad]))),
             )
         )
 
-    df_rows = df_rows.astype(schema)
+    df_rows = wt_frame.cast(df_rows, schema)
     new = wt_origin.update(df_rows, timeline, origin=origin)
 
     if timeline is not None:
-        inherit.context(new, timeline, context=context)
+        new = inherit.context(new, timeline, context=context)
         return wt_frame.concat([timeline, inherit.require(new)])
 
     return inherit.require(new)
@@ -397,7 +397,9 @@ def anchor(
 def _anchor(timeline, time, context, origin):
     """`anchor`, applied."""
     timeline = _given(timeline, "anchor")
-    num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
+    num_anchors = len(
+        set(wt_frame.column(timeline, "variable")[wt_anchor.mask(timeline)])
+    )
 
     # `origin` and `context` are passed through unresolved: `_update` resolves both, with
     # the same defaults `anchor` would use.
@@ -545,45 +547,58 @@ def _ramp(
     if time2 is None and duration is not None:
         time2 = duration
 
-    df_2 = wt_frame.new(
-        wt_input.rows_from_arguments(*[], time=time2, context=context, **vtvc_dict),
-        columns=_SCHEMA.keys(),
-    ).astype(_SCHEMA)
+    df_2 = wt_frame.cast(
+        wt_frame.new(
+            wt_input.rows_from_arguments(*[], time=time2, context=context, **vtvc_dict),
+            columns=_SCHEMA.keys(),
+        ),
+        _SCHEMA,
+    )
 
-    # Copied, not sliced: these rows have their time and value overwritten to make start
-    # points out of them, and writing through would zero the very end values the ramp is
-    # aiming at (B4/#111; pandas 3 makes copy-on-write unconditional, #88).
-    df_1 = df_2.copy()
-    df_1.loc[:, "time"] = 0.0 if time is None else time
-    df_1.loc[:, "value"] = 0.0
+    # A new frame, not a view: these rows have their time and value overwritten to make
+    # start points out of them, and writing through would zero the very end values the
+    # ramp is aiming at (B4/#111). The cast keeps `time` a float when given an int.
+    df_1 = wt_frame.cast(
+        wt_frame.with_column(
+            wt_frame.with_column(df_2, "time", 0.0 if time is None else time),
+            "value",
+            0.0,
+        ),
+        _SCHEMA,
+    )
 
     origin = wt_origin.auto(
         timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS__RAMP
     )
-    new1 = wt_origin.update(df_1, timeline, origin=origin)
-    new1["function"] = function
-    inherit.context(new1, timeline, context=context)
+    new1 = wt_frame.with_column(
+        wt_origin.update(df_1, timeline, origin=origin), "function", function
+    )
+    new1 = inherit.context(new1, timeline, context=context)
     inherit.require(new1)
 
-    new2 = wt_origin.update(df_2, new1, origin=origin2)
-    new2["function"] = function
-    new2["context"] = new1["context"]
+    new2 = wt_frame.with_column(
+        wt_origin.update(df_2, new1, origin=origin2), "function", function
+    )
+    new2 = wt_frame.with_column(new2, "context", wt_frame.column(new1, "context"))
 
     # `new1` is a copy of `df_2`, so the two frames hold the same variables in the same
     # order. They used to be built from different dictionaries, one per input form, and
     # subtracting them positionally compared one variable's boundary against another's
     # whenever the forms were mixed in one call (B1/#108); with one form there is nothing
     # to mix, and the alignment below only states what holds by construction.
-    new2__aligned = wt_frame.align_to(new2, new1["variable"])
+    variables = wt_frame.column(new1, "variable")
+    times__start = wt_frame.column(new1, "time", dtype=float)
+    new2__aligned = wt_frame.align_to(new2, variables)
+    times__end = wt_frame.column(new2__aligned, "time", dtype=float)
 
     # A ramp runs between two instants, and ±∞ is before or after the run (#154). Unlike
     # the degeneracies below, which are about the interval, this is about the ends.
-    ends = np.concatenate([new1["time"].to_numpy(float), new2["time"].to_numpy(float)])
+    ends = np.concatenate([times__start, times__end])
     if not np.isfinite(ends).all():
         raise ValueError(
             "A ramp runs between two instants, and ±∞ is before or after the run, not an"
             " instant (#154). Check `time`, `time2` and `duration`: {}.".format(
-                ", ".join(sorted(set(new1["variable"])))
+                ", ".join(sorted(set(variables)))
             )
         )
 
@@ -609,7 +624,7 @@ def _ramp(
     #   row of each channel -- so the redundancy is paid for in the device-layer table
     #   only, and that table is the thing the user is meant to be able to read.
     TOL = 1e-15
-    duration__actual = new2__aligned["time"] - new1["time"]
+    duration__actual = times__end - times__start
     time__degenerate = np.abs(duration__actual) < TOL
     time__reversed = duration__actual < -TOL
 
@@ -620,10 +635,10 @@ def _ramp(
                     "A ramp must end after it begins.",
                     "",
                     "  zero duration : {}".format(
-                        sorted(set(new1.loc[time__degenerate, "variable"])) or "none"
+                        sorted(set(variables[time__degenerate])) or "none"
                     ),
                     "  ends earlier  : {}".format(
-                        sorted(set(new1.loc[time__reversed, "variable"])) or "none"
+                        sorted(set(variables[time__reversed])) or "none"
                     ),
                     "",
                     "Check `duration` (or `time2`) -- a duration computed as a difference"
@@ -649,9 +664,7 @@ def _ramp(
     # it says that which comes first is a matter of rounding.
     overlaps = [
         (variable, float(start), float(end), (float(before[0]), float(before[1])))
-        for variable, start, end in zip(
-            new1["variable"], new1["time"], new2__aligned["time"]
-        )
+        for variable, start, end in zip(variables, times__start, times__end)
         for before in _intervals__ramp(timeline, variable)
         if start < before[1] and before[0] < end
     ]
@@ -699,13 +712,19 @@ def _intervals__ramp(timeline, variable):
     `expand` pairs them, and valid for exactly as long as no two ramps of one variable
     overlap.
     """
-    if "function" not in timeline.columns:
+    if not wt_frame.has_columns(timeline, ["function"]):
         return []
 
-    rows = timeline[
-        (timeline["variable"] == variable) & timeline["function"].notna()
-    ].sort_values("time", kind="stable")
-    times, functions = rows["time"].tolist(), rows["function"].tolist()
+    rows = wt_frame.sort(
+        wt_frame.filter(
+            timeline,
+            (wt_frame.column(timeline, "variable") == variable)
+            & ~wt_frame.isnull(wt_frame.column(timeline, "function")),
+        ),
+        "time",
+    )
+    times = wt_frame.column(rows, "time").tolist()
+    functions = wt_frame.column(rows, "function").tolist()
 
     out, i = [], 0
     while i < len(times):
@@ -791,7 +810,7 @@ def _ensure_stackable(f):
 
 def _empty():
     """A timeline with no rows: what a stage is applied to when nothing precedes it."""
-    return wt_frame.new([], columns=_SCHEMA.keys()).astype(_SCHEMA)
+    return wt_frame.cast(wt_frame.new([], columns=_SCHEMA.keys()), _SCHEMA)
 
 
 def to_timeline(stage: Callable, onto: wt_frame.CLASS | None = None) -> wt_frame.CLASS:
@@ -1167,18 +1186,29 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
             " it with `ramp_function.with_points(n)` if you are writing one."
         )
 
-    if "function" not in timeline.columns:
+    if not wt_frame.has_columns(timeline, ["function"]):
         return timeline
 
-    # Labels are the written positions from here on, which is what each ramp's rows are
-    # put back at, and what makes the label-based `drop` below exact.
-    timeline = timeline.reset_index(drop=True)
-    _mask_fs = timeline["function"].notna()
-    _dff = timeline[_mask_fs].sort_values(by=["variable", "time"])
-    _indices_drop = _dff.index
+    # Each ramp row carries the position it was written at, which is where the ramp's
+    # rows are put back. A column, because a backend need not have row labels.
+    _POSITION = "__position__expand"
+    _mask_fs = ~wt_frame.isnull(wt_frame.column(timeline, "function"))
+    _dff = wt_frame.sort(
+        wt_frame.filter(
+            wt_frame.with_column(
+                timeline, _POSITION, np.arange(wt_frame.n_rows(timeline))
+            ),
+            _mask_fs,
+        ),
+        ["variable", "time"],
+    )
 
     # For adding back in the value of other columns, based on the first row, like `context` etc. Written this way to allow for more, unknown columns to continue.
-    _columns__keep = _dff.columns.drop(["time", "value", "variable", "function"])
+    _columns__keep = [
+        c
+        for c in wt_frame.columns(_dff)
+        if c not in ("time", "value", "variable", "function", _POSITION)
+    ]
 
     # Grouped per variable rather than by striding the whole frame. The old global stride
     # meant one variable with an odd number of rows silently misaligned the pairing of
@@ -1187,22 +1217,22 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
     # nothing (B6). Per variable, the arithmetic is local and the offender has a name.
     _inds__start = []
     _dfs = []
-    for variable, rows in _dff.groupby("variable", sort=False):
-        points__required = wt_ramp_function.points(rows["function"].iloc[0])
+    for variable, rows in wt_frame.group_by(_dff, "variable"):
+        functions = wt_frame.column(rows, "function")
+        times = wt_frame.column(rows, "time")
+        values = wt_frame.column(rows, "value")
+        positions = wt_frame.column(rows, _POSITION)
+        points__required = wt_ramp_function.points(functions[0])
 
-        if len(rows) % points__required:
+        if len(functions) % points__required:
             raise ValueError(
                 "\n".join(
                     [
                         "{} has {} ramp row(s), which is not a whole number of ramps:"
                         " {} makes each one out of {}.".format(
                             variable,
-                            len(rows),
-                            getattr(
-                                rows["function"].iloc[0],
-                                "__name__",
-                                repr(rows["function"].iloc[0]),
-                            ),
+                            len(functions),
+                            getattr(functions[0], "__name__", repr(functions[0])),
                             points__required,
                         ),
                         "",
@@ -1213,13 +1243,13 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
                 )
             )
 
-        for i in range(0, len(rows), points__required):
-            group = rows.iloc[i : i + points__required]
-            _inds__start.append(group.index[0])
+        for i in range(0, len(functions), points__required):
+            group = slice(i, i + points__required)
+            _inds__start.append(int(positions[i]))
 
             # A default, never an override: each keyword reaches only the functions that
             # leave it unstated, so a ramp keeps a resolution it binds (#65, C7 item 7).
-            function = group["function"].iloc[0]
+            function = functions[i]
             if "time_resolution" not in function_args and (
                 "time_resolution" in wt_util.parameters__unstated(function)
             ):
@@ -1228,18 +1258,20 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
                     " none. Give one, `expand(timeline, time_resolution=1e-4)`, or bind"
                     " one into the ramp: `function=functools.partial(tanh,"
                     " time_resolution=1e-4)`. `adwin.core.convert` gives the cycle"
-                    " period.".format(variable, group["time"].iloc[0])
+                    " period.".format(variable, times[i])
                 )
             func = wt_util.function__defaults(function, **function_args)
 
             # The internal constructor, because this is the one caller that assembles
             # rows rather than being handed them: `update` takes keywords only.
-            _dfs.append(
-                _populate_timeline(
-                    [variable, func(*group[["time", "value"]].values)],
-                    context=group["context"].iloc[0],
-                ).assign(**group.iloc[0][_columns__keep].to_dict())
+            first = wt_frame.row(rows, i)
+            expanded = _populate_timeline(
+                [variable, func(*np.column_stack([times[group], values[group]]))],
+                context=first["context"],
             )
+            for c in _columns__keep:
+                expanded = wt_frame.with_column(expanded, c, first[c])
+            _dfs.append(expanded)
 
     # Dropped into a new frame rather than in place. Every other function here returns a
     # new timeline and leaves its argument alone, and the "description is data" story
@@ -1248,7 +1280,8 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
     #
     # `adwin.core.convert` was unharmed only by accident of pipeline order:
     # `remove_unconnected_variables` runs first and hands `expand` a fresh frame.
-    timeline = timeline.drop(index=_indices_drop).drop(columns=["function"])
+    positions__kept = np.flatnonzero(~_mask_fs)
+    timeline = wt_frame.drop_columns(wt_frame.filter(timeline, ~_mask_fs), ["function"])
 
     # Each ramp's rows go back where the ramp was written: before the first row kept from
     # after its start, in the order the ramps were written. Among a variable's rows at
@@ -1258,6 +1291,6 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
     ramps = sorted(zip(_inds__start, _dfs), key=lambda ramp: ramp[0])
     return wt_frame.insert_dataframes(
         timeline,
-        list(timeline.index.searchsorted([start for start, _ in ramps])),
+        [int(p) for p in np.searchsorted(positions__kept, [s for s, _ in ramps])],
         [rows for _, rows in ramps],
     )
