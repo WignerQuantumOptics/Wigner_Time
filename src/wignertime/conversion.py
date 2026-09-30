@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: 2024 Thomas W. Clark and András Vukics
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import importlib.util
+
 import numpy as np
-import pandas as pd
 from scipy.interpolate import interp1d
 
 from wignertime.internal import dataframe as wt_frame
@@ -123,6 +124,15 @@ def function_from_file(
         `sep=r"\s+"`,
     ),
     """
+    # Read with pandas, whose `read_csv` arguments this takes, whichever library holds
+    # the timelines. The calibration table is not a timeline.
+    if importlib.util.find_spec("pandas") is None:
+        raise ImportError(
+            "`function_from_file` reads its file with `pandas.read_csv`, whose arguments"
+            " it takes, and pandas is not installed: `pip install wigner-time[pandas]`."
+        )
+    import pandas as pd
+
     # TODO: Include default 'sep' etc.
     df = pd.read_csv(path, **read_csv__args).dropna()
 

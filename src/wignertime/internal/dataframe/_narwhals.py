@@ -228,12 +228,17 @@ class _Pandas:
     def read_feather(self, path):
         return self.pd.read_feather(path)
 
-    def assert_equal(self, df1, df2, check_dtype=True, check_exact=None, rtol=None):
+    def assert_equal(
+        self, df1, df2, check_dtype=True, check_exact=None, rtol=None, atol=None
+    ):
         kwargs = {"check_dtype": check_dtype}
-        if check_exact is not None:
-            kwargs["check_exact"] = check_exact
-        if rtol is not None:
-            kwargs["rtol"] = rtol
+        for name, value in (
+            ("check_exact", check_exact),
+            ("rtol", rtol),
+            ("atol", atol),
+        ):
+            if value is not None:
+                kwargs[name] = value
         return self.pd.testing.assert_frame_equal(df1, df2, **kwargs)
 
 
@@ -485,9 +490,16 @@ class _Polars:
     def read_feather(self, path):
         return self.pl.read_ipc(path)
 
-    def assert_equal(self, df1, df2, check_dtype=True, check_exact=None, rtol=None):
+    def assert_equal(
+        self, df1, df2, check_dtype=True, check_exact=None, rtol=None, atol=None
+    ):
         _assert_equal__generic(
-            df1, df2, check_dtype=check_dtype, check_exact=check_exact, rtol=rtol
+            df1,
+            df2,
+            check_dtype=check_dtype,
+            check_exact=check_exact,
+            rtol=rtol,
+            atol=atol,
         )
 
 
@@ -1022,16 +1034,19 @@ def _same(a, b, rtol, atol):
     return bool(a == b)
 
 
-def _assert_equal__generic(df1, df2, check_dtype=True, check_exact=None, rtol=None):
+def _assert_equal__generic(
+    df1, df2, check_dtype=True, check_exact=None, rtol=None, atol=None
+):
     """
     As `pandas.testing.assert_frame_equal` compares: same columns in the same order, same
-    rows, nulls equal to nulls, and floats equal to within a relative 1e-5 (and 1e-8
-    absolute) unless `check_exact` or another `rtol` is given.
+    rows, nulls equal to nulls, and floats equal to within `rtol` (default 1e-5) relative
+    or `atol` (default 1e-8) absolute, unless `check_exact`.
     """
     if check_exact:
         rtol, atol = None, 0.0
     else:
-        rtol, atol = (1e-5 if rtol is None else rtol), (1e-8 if rtol is None else 0.0)
+        rtol = 1e-5 if rtol is None else rtol
+        atol = 1e-8 if atol is None else atol
     f1, f2 = _nw(df1), _nw(df2)
     assert list(f1.columns) == list(f2.columns), "columns differ: {} != {}".format(
         list(f1.columns), list(f2.columns)
@@ -1051,7 +1066,16 @@ def _assert_equal__generic(df1, df2, check_dtype=True, check_exact=None, rtol=No
         )
 
 
-def assert_equal(df1, df2, check_dtype=True, check_exact=None, rtol=None):
+def assert_equal(df1, df2, check_dtype=True, check_exact=None, rtol=None, atol=None):
+    """
+    Raises `AssertionError` unless the two frames are equal, as
+    `pandas.testing.assert_frame_equal` judges it, on either library.
+    """
     return _adapter.assert_equal(
-        own(df1), own(df2), check_dtype=check_dtype, check_exact=check_exact, rtol=rtol
+        own(df1),
+        own(df2),
+        check_dtype=check_dtype,
+        check_exact=check_exact,
+        rtol=rtol,
+        atol=atol,
     )
