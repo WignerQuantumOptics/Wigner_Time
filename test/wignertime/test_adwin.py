@@ -65,8 +65,10 @@ def test_remove_unconnected_variables(df_simple, connections_simple):
 
 def test_add_cycle():
     df = wt_frame.new({"time": range(10), "value": range(11, 21)})
-    df["context"] = (
-        ["MOT"] * 4 + ["ADwin_LowInit"] * 3 + ["ADwin_Init"] * 2 + ["ADwin_Finish"]
+    df = wt_frame.with_column(
+        df,
+        "context",
+        ["MOT"] * 4 + ["ADwin_LowInit"] * 3 + ["ADwin_Init"] * 2 + ["ADwin_Finish"],
     )
     tst = frame.cast(adi.add_cycle(df, 5e-6), wt_adwin.SCHEMA)
 
@@ -281,13 +283,15 @@ def test_to_tuples_separates_modules_despite_numpy_scalars():
         ],
         schema=wt_adwin.SCHEMA,
     )
-    assert timeline["module"].dtype == np.int64, "the premise of the bug"
+    assert np.issubdtype(
+        frame.column(timeline, "module").dtype, np.int64
+    ), "the premise of the bug"
 
     analogue, digitals = adi.to_tuples(timeline)
 
     assert [t[1] for t in digitals] == [1]
     assert sorted(int(t[1]) for t in analogue) == [3, 4]
-    assert len(analogue) + len(digitals) == len(timeline), "no row dropped"
+    assert len(analogue) + len(digitals) == frame.n_rows(timeline), "no row dropped"
 
 
 class _MachineRecording:

@@ -123,7 +123,7 @@ def test_check_safety_range001():
         ["coil__MOT_lower__A", 0.5, -2.5, 3],
         ["coil__MOT_upper__A", 0.5, -np.inf, np.inf],
     )
-    df["value"] = [5.0, -2.5, 0.0]
+    df = wt_frame.with_column(df, "value", [5.0, -2.5, 0.0])
 
     assert dev.check_within_range(df) == True
 
@@ -143,7 +143,7 @@ def test_check_safety_range002(input):
         ["coil__MOT_lower__A", 0.5, -2.5, 3],
         ["coil__MOT_upper__A", 0.5, -np.inf, np.inf],
     )
-    df["value"] = input
+    df = wt_frame.with_column(df, "value", input)
 
     with pytest.raises(ValueError):
         dev.check_within_range(df)
@@ -187,5 +187,5 @@ def test_a_digital_channel_needs_no_device():
 def test_an_empty_device_table_is_a_table():
     """A purely digital apparatus has no devices; that is a description, not a mistake."""
     devices = dev.new()
-    assert len(devices) == 0
-    assert list(devices.columns) == ["variable", "to_V", "value__min", "value__max"]
+    assert wt_frame.n_rows(devices) == 0
+    assert wt_frame.columns(devices) == ["variable", "to_V", "value__min", "value__max"]

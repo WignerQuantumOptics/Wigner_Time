@@ -77,13 +77,21 @@ def test_save_load__types_with_functions(fname, timeline_demo_function):
     file.save(timeline_demo_function, fname)
     actual = file.load(fname)
 
-    mask = actual["function"].notna()
+    functions = frame.column(actual, "function")
+    mask = ~frame.isnull(functions)
 
-    if bool(actual.loc[mask, "function"].map(lambda x: isinstance(x, str)).all()):
-        output = timeline_demo_function.copy(deep=True)
-        output.loc[mask, "function"] = "wignertime.ramp_function.tanh"
-        # A column of names is typed as one: `object` under pandas 2, `str` under 3.
-        output["function"] = output["function"].infer_objects()
+    if all(isinstance(x, str) for x in functions[mask]):
+        output = frame.with_column(
+            frame.copy(timeline_demo_function),
+            "function",
+            "wignertime.ramp_function.tanh",
+            where=mask,
+        )
+        # A column of names is typed as one, as the library reads it back: `object`
+        # under pandas 2, `str` under pandas 3, `String` under polars.
+        output = frame.with_column(
+            output, "function", list(frame.column(output, "function"))
+        )
     else:
         output = timeline_demo_function
 
@@ -121,8 +129,12 @@ def test_save_load__nulls_survive_the_round_trip(suffix, timeline_demo_function)
     def kinds(column):
         return {type(v) for v in column if not callable(v) and not isinstance(v, str)}
 
-    assert kinds(back["function"]) == kinds(timeline_demo_function["function"])
-    assert not any(v is None for v in back["function"])
+    functions__back = frame.column(back, "function")
+    functions__written = frame.column(timeline_demo_function, "function")
+    assert kinds(functions__back) == kinds(functions__written)
+    assert [v is None for v in functions__back] == [
+        v is None for v in functions__written
+    ]
 
 
 @pytest.mark.parametrize("suffix", [".json", ".csv", ".pickle", ".parquet"])
@@ -135,6 +147,8 @@ def test_the_state_before_and_after_the_run_survives_a_round_trip(suffix):
         pytest.importorskip("pyarrow")
     timeline = tl.to_timeline(tl.cascade(demo.init, demo.MOT, demo.finish))
     back = file.load(file.save(timeline, "t" + suffix))
-    assert {float("-inf"), float("inf")} <= set(timeline["time"])
+    assert {float("-inf"), float("inf")} <= set(frame.column(timeline, "time"))
     # JSON and CSV round the finite times in their last digits, which is not at issue.
-    assert list(back["time"]) == pytest.approx(list(timeline["time"]), rel=1e-12)
+    assert list(frame.column(back, "time")) == pytest.approx(
+        list(frame.column(timeline, "time")), rel=1e-12
+    )

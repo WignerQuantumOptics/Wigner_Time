@@ -31,7 +31,10 @@ def tline():
 
 
 def points(timeline):
-    return timeline[timeline["function"].notna()][["time", "value"]].values.tolist()
+    ramp_rows = wt_frame.filter(
+        timeline, ~wt_frame.isnull(wt_frame.column(timeline, "function"))
+    )
+    return [list(r) for r in wt_frame.rows(ramp_rows, ["time", "value"])]
 
 
 # --- A6: a partial origin is completed, not replaced --------------------------
@@ -83,12 +86,12 @@ def test_a_deferred_time_slot_takes_the_chain(tline):
 def test_update_values_stay_absolute(tline):
     """Completion must not give `update` a value origin it never had."""
     new = tl.to_timeline(tl.update(coil__A=1.0, time=0.0, origin="stage1"), onto=tline)
-    assert new.iloc[-1]["value"] == pytest.approx(1.0)
+    assert wt_frame.row(new, -1)["value"] == pytest.approx(1.0)
 
 
 def test_zero_still_means_absolute(tline):
     new = tl.to_timeline(tl.update(coil__A=1.0, time=2.0, origin=0.0), onto=tline)
-    assert new.iloc[-1]["time"] == pytest.approx(2.0)
+    assert wt_frame.row(new, -1)["time"] == pytest.approx(2.0)
 
 
 # --- A4: the chain is terminal ------------------------------------------------
@@ -163,8 +166,8 @@ def test_the_bound_does_not_move_as_the_loop_runs():
         ),
         onto=base,
     )
-    assert new.iloc[-1]["variable"] == "y__A"
-    assert new.iloc[-1]["value"] == pytest.approx(2.0)
+    assert wt_frame.row(new, -1)["variable"] == "y__A"
+    assert wt_frame.row(new, -1)["value"] == pytest.approx(2.0)
 
 
 def test_the_bound_is_the_instant_the_rows_will_occupy(tline):
@@ -196,14 +199,16 @@ def test_the_bound_admits_nothing_after_the_instant():
         tl.ramp(coil__A=5.0, time=0.0, duration=1e-3, origin=[0.0, tl.VARIABLE]),
         onto=base,
     )
-    assert ramped[ramped["time"] == 0.0]["value"].iloc[-1] == pytest.approx(1.0)
+    assert wt_frame.column(ramped, "value")[wt_frame.column(ramped, "time") == 0.0][
+        -1
+    ] == pytest.approx(1.0)
 
 
 # --- B8 and the diagnostics ---------------------------------------------------
 
 
 def test_an_empty_timeline_says_it_is_empty():
-    empty = wt_frame.new([], columns=tl._SCHEMA.keys()).astype(tl._SCHEMA)
+    empty = wt_frame.cast(wt_frame.new([], columns=list(tl._SCHEMA.keys())), tl._SCHEMA)
     with pytest.raises(ValueError, match="the timeline is empty"):
         tl.to_timeline(tl.update(coil__A=1.0, time=1.0, origin=tl.LAST), onto=empty)
 
@@ -369,7 +374,11 @@ def test_a_stage_forwarding_none_keeps_the_default(tline):
         )
 
     new = tl.to_timeline(trigger_camera(0.5, 0.1, "imaging"), onto=tline)
-    assert new[new["variable"] == "trigger__camera"]["time"].tolist() == [4.0, 4.1]
+    assert list(
+        wt_frame.column(new, "time")[
+            wt_frame.column(new, "variable") == "trigger__camera"
+        ]
+    ) == [4.0, 4.1]
 
 
 def test_absolute_placement_is_a_number(tline):
@@ -379,9 +388,10 @@ def test_absolute_placement_is_a_number(tline):
     at that instant -- 2.0 at t=0.5, not the 5.0 it reaches later. `[0.0, 0.0]`, which
     used to be the ramp's own spelling of "no shift" and started it from zero, is refused.
     """
-    assert tl.to_timeline(tl.update(x=[[0.5, 1]], origin=0.0), onto=tline).iloc[-1][
-        ["time", "value"]
-    ].tolist() == [0.5, 1.0]
+    last = wt_frame.row(
+        tl.to_timeline(tl.update(x=[[0.5, 1]], origin=0.0), onto=tline), -1
+    )
+    assert [last["time"], last["value"]] == [0.5, 1.0]
     assert points(
         tl.to_timeline(
             tl.ramp(coil__A=9.0, time=0.5, duration=0.5, origin=0.0), onto=tline

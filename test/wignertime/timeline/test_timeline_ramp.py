@@ -16,6 +16,14 @@ import sys
 from wignertime.demo import full_experiment as ex
 
 
+def _ramp_points(timeline):
+    """`[time, value]` of each row that marks a ramp, in order."""
+    ramp_rows = wt_frame.filter(
+        timeline, ~wt_frame.isnull(wt_frame.column(timeline, "function"))
+    )
+    return [list(r) for r in wt_frame.rows(ramp_rows, ["time", "value"])]
+
+
 @pytest.fixture
 def dfseq():
     return wt_frame.new(
@@ -80,10 +88,13 @@ def test_ramp0(args):
             ["lockbox__MOT__V", [[0.0, 0.0, "init"], [100e-3, 5, "init"]]],
         ],
     )
-    tl_check.loc[
-        (tl_check["variable"] == "lockbox__MOT__V") & (tl_check.index != 0),
+    tl_check = wt_frame.with_column(
+        tl_check,
         "function",
-    ] = ramp_function.tanh
+        ramp_function.tanh,
+        where=(wt_frame.column(tl_check, "variable") == "lockbox__MOT__V")
+        & (np.arange(wt_frame.n_rows(tl_check)) != 0),
+    )
 
     return wt_frame.assert_equal(tl_ramp, tl_check)
 
@@ -141,10 +152,13 @@ def test_ramp1(args):
         ],
         context="init",
     )
-    tl_check.loc[
-        (tl_check["variable"] == "lockbox__MOT__V") & (tl_check.index != 0),
+    tl_check = wt_frame.with_column(
+        tl_check,
         "function",
-    ] = ramp_function.tanh
+        ramp_function.tanh,
+        where=(wt_frame.column(tl_check, "variable") == "lockbox__MOT__V")
+        & (np.arange(wt_frame.n_rows(tl_check)) != 0),
+    )
 
     return wt_frame.assert_equal(tl_ramp, tl_check)
 
@@ -174,7 +188,7 @@ def test_a_written_start_is_refused_and_a_jump_is_an_update():
         context="init",
     )
     result = tl.to_timeline(jump_then_ramp, onto=timeline)
-    assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
+    assert _ramp_points(result) == [
         [0.05, 0.0],
         [0.10, 5.0],
     ]
@@ -186,7 +200,7 @@ def test_ramp_inherits_context_by_default(tl_anchor):
     context lands in `tl_anchor`'s "init".
     """
     result = tl.to_timeline(tl.ramp(lockbox__MOT__V=5, duration=100e-3), onto=tl_anchor)
-    assert sorted(set(result["context"])) == ["init"]
+    assert sorted(set(wt_frame.column(result, "context"))) == ["init"]
 
 
 def test_ramp_context_none_inherits_too(tl_anchor):
@@ -239,10 +253,13 @@ def test_ramp_combined():
             context="badger",
         )
     )
-    tl_check.loc[
-        (tl_check["variable"] == "lockbox__MOT__V") & (tl_check["time"] > 1.0),
+    tl_check = wt_frame.with_column(
+        tl_check,
         "function",
-    ] = ramp_function.tanh
+        ramp_function.tanh,
+        where=(wt_frame.column(tl_check, "variable") == "lockbox__MOT__V")
+        & (wt_frame.column(tl_check, "time") > 1.0),
+    )
 
     tl_ramp = tl.to_timeline(
         tl.stack(
@@ -272,7 +289,12 @@ def test_ramp_start(tl_anchor):
             ],
         ],
     )
-    tl_check["function"] = [np.nan, np.nan, ramp_function.tanh, ramp_function.tanh]
+    tl_check = wt_frame.with_column(
+        tl_check,
+        "function",
+        ramp_function.tanh,
+        where=np.array([False, False, True, True]),
+    )
     return wt_frame.assert_equal(tl_ramp, tl_check)
 
 
@@ -345,7 +367,7 @@ def test_random_ramp():
     )
 
     return wt_frame.assert_equal(
-        tl_ramp[["variable", "time", "value", "context"]],
+        wt_frame.select(tl_ramp, ["variable", "time", "value", "context"]),
         wt_frame.new(
             [
                 ["device_pump", 0.0, 0.0, "ADwin_Init"],
@@ -375,9 +397,10 @@ def test_rampReal():
             tl.ramp(time=0.5, duration=0.1, lockbox__MOT__MHz=-1),
         )
     )
-    timeline__simplified = timeline[timeline["time"] >= 0.0][
-        ["variable", "time", "value"]
-    ].reset_index(drop=True)
+    timeline__simplified = wt_frame.select(
+        wt_frame.filter(timeline, wt_frame.column(timeline, "time") >= 0.0),
+        ["variable", "time", "value"],
+    )
 
     expected = wt_frame.new(
         [
@@ -417,9 +440,10 @@ def test_rampReal2():
             tl.ramp(time=0.75, duration=0.1, lockbox__MOT__MHz=-5),
         )
     )
-    timeline__simplified = timeline[timeline["context"] == "MOT"][
-        ["variable", "time", "value", "context"]
-    ].reset_index(drop=True)
+    timeline__simplified = wt_frame.select(
+        wt_frame.filter(timeline, wt_frame.column(timeline, "context") == "MOT"),
+        ["variable", "time", "value", "context"],
+    )
 
     # print(
     #     timeline[timeline["context"] == "MOT"][["variable", "time", "value", "context"]]
@@ -497,7 +521,7 @@ def test_a_flat_ramp_is_kept(tl_anchor):
         tl.stack(tl.ramp(lockbox__MOT__V=0.0, duration=1.0)), onto=tl_anchor
     )
 
-    assert result[result["function"].notna()][["time", "value"]].values.tolist() == [
+    assert _ramp_points(result) == [
         [0.0, 0.0],
         [1.0, 0.0],
     ]
@@ -521,7 +545,7 @@ def test_ramp_leaves_the_timeline_it_was_given_alone():
         ),
         onto=tl.to_timeline(tl.update(c__A=2.0, d__A=3.0, time=0.0, context="s")),
     )
-    before = base.copy()
+    before = wt_frame.copy(base)
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -532,7 +556,15 @@ def test_ramp_leaves_the_timeline_it_was_given_alone():
     assert [w.category.__name__ for w in caught] == []
     wt_frame.assert_equal(base, before)
 
-    ends = result[result["function"].notna()].groupby("variable")["value"].last()
+    ends = {
+        variable: wt_frame.column(rows, "value")[-1]
+        for variable, rows in wt_frame.group_by(
+            wt_frame.filter(
+                result, ~wt_frame.isnull(wt_frame.column(result, "function"))
+            ),
+            "variable",
+        )
+    }
     assert ends["c__A"] == pytest.approx(9.0)
     assert ends["d__A"] == pytest.approx(7.0)
 
@@ -605,13 +637,23 @@ def test_expand_names_the_variable_whose_ramp_rows_do_not_pair(tl_anchor):
     timeline = tl.to_timeline(
         tl.ramp(lockbox__MOT__V=5.0, duration=1.0), onto=tl_anchor
     )
-    timeline.loc[len(timeline)] = [
-        2.0,
-        "lockbox__MOT__V",
-        3.0,
-        "init",
-        ramp_function.tanh,
-    ]
+    timeline = wt_frame.concat(
+        [
+            timeline,
+            wt_frame.new(
+                [
+                    [
+                        2.0,
+                        "lockbox__MOT__V",
+                        3.0,
+                        "init",
+                        ramp_function.tanh,
+                    ]
+                ],
+                columns=wt_frame.columns(timeline),
+            ),
+        ]
+    )
 
     with pytest.raises(ValueError, match="lockbox__MOT__V has 3 ramp row"):
         tl.expand(timeline, time_resolution=0.1)
@@ -627,7 +669,11 @@ def test_two_ramps_of_one_variable_still_expand(tl_anchor):
         onto=tl_anchor,
     )
     expanded = tl.expand(timeline, time_resolution=0.25)
-    values = expanded[expanded["variable"] == "lockbox__MOT__V"]["value"].tolist()
+    values = list(
+        wt_frame.column(expanded, "value")[
+            wt_frame.column(expanded, "variable") == "lockbox__MOT__V"
+        ]
+    )
 
     assert values[-1] == pytest.approx(0.0)
     assert max(values) == pytest.approx(5.0)
@@ -684,7 +730,12 @@ def test_a_ramp_may_start_as_another_ends(coil_at_zero):
         tl.ramp(coil__X__A=20.0, duration=1.0, time=1.0), onto=first
     )
     values = tl.expand(second, time_resolution=0.25)
-    assert values[values["variable"] == "coil__X__A"]["value"].iloc[-1] == 20.0
+    assert (
+        wt_frame.column(values, "value")[
+            wt_frame.column(values, "variable") == "coil__X__A"
+        ][-1]
+        == 20.0
+    )
 
 
 def test_meeting_by_rounding_is_refused_and_said_to_be_rounding():
@@ -701,7 +752,7 @@ def test_meeting_by_rounding_is_refused_and_said_to_be_rounding():
         onto=tl.to_timeline(tl.update(coil__X__A=0.0, time=0.0, context="s")),
     )
     first = tl.to_timeline(tl.ramp(coil__X__A=10.0, duration=0.2), onto=base)
-    assert first["time"].max() > 0.3
+    assert wt_frame.column(first, "time").max() > 0.3
     with pytest.raises(ValueError, match="within rounding"):
         tl.to_timeline(
             tl.ramp(coil__X__A=20.0, duration=0.2, time=0.3, origin=[0.0, None]),
@@ -718,8 +769,10 @@ def test_placed_from_the_others_end_the_same_ramp_is_kept():
     second = tl.to_timeline(
         tl.ramp(coil__X__A=20.0, duration=0.2, origin=tl.LAST), onto=first
     )
-    rows = second[second["variable"] == "coil__X__A"]
-    assert rows["value"].iloc[-2] == 10.0  # it starts where the first one ended
+    rows = wt_frame.filter(second, wt_frame.column(second, "variable") == "coil__X__A")
+    assert (
+        wt_frame.column(rows, "value")[-2] == 10.0
+    )  # it starts where the first one ended
 
 
 def test_ramps_of_different_variables_may_overlap():
@@ -731,7 +784,7 @@ def test_ramps_of_different_variables_may_overlap():
     )
     first = tl.to_timeline(tl.ramp(coil__X__A=10.0, duration=1.0), onto=base)
     both = tl.to_timeline(tl.ramp(coil__Y__A=10.0, duration=1.0, time=0.5), onto=first)
-    assert set(both["variable"]) >= {"coil__X__A", "coil__Y__A"}
+    assert set(wt_frame.column(both, "variable")) >= {"coil__X__A", "coil__Y__A"}
 
 
 # --- a ramp's resolution belongs to the ramp (#65, C7 item 7) -----------------
@@ -747,7 +800,11 @@ def _ramp_times(function, **expand):
         )
     )
     expanded = tl.expand(timeline, **expand)
-    return list(expanded.loc[expanded["variable"] == "x__A", "time"])[1:]
+    return list(
+        wt_frame.column(expanded, "time")[
+            wt_frame.column(expanded, "variable") == "x__A"
+        ]
+    )[1:]
 
 
 @pytest.mark.parametrize(
