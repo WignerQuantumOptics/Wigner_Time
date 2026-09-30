@@ -1145,6 +1145,26 @@ Depends on #85 and, through it, on B10 (#136).
 
 **Folded in:** the non-running opening listing of `sec:definitions` (see the paper items at the top), and D17's correction — under C7 a table is refused in any position of a `stack`, with a message naming the bridge.
 
+### C8 — the user API as a designed, versioned list **[#163; scaffolded 2026-09-30 on the branch `issue#163`, off `issue#85`; open]**
+
+**The proposal** (Thomas, #163): the public API becomes an explicitly designed compatibility layer instead of whatever happens to be public in the modules, since `internal/` alone does not scale — private helpers keep entering the key modules. A separate path holds exactly what a user wants day to day; the rest stays reachable, out of the way, with no guarantee. Versioning, opinionated defaults and `pyplot`-style conveniences follow almost for free.
+
+**The scaffold.** `wignertime/api/v1/` re-exports, adding no behaviour, so every name is the package's own object and nothing can diverge:
+
+- `wignertime.api.v1` — `update`, `ramp`, `anchor`, `stack`, `cascade`, `to_timeline`, `expand`; `INFER`, `ANCHOR`, `LAST`, `VARIABLE`; `tanh`, `linear`, `with_points`; `devices` (= `device.new`), `function_from_file`; `save`, `load`; `config` (the module itself, so that `wt.config.VARIABLE__REGEX = ...` is the setting the package reads).
+- `.adwin` — `connections` (= `adwin.connection.new`), `link_device`, `read_cycle_period`, `convert`, `upload`, `run`, `start`, `wait`, `running`, `Upload`, `Run`, `LostEvents`, `PeriodRefused`; `.adwin.console` and `.adwin.adc` below it.
+- `.display` — `quantities`.
+
+The optional namespaces load on first use, so the main import needs neither ADwin nor matplotlib (tested in a clean interpreter). Every name the paper, the README and the demo use is in v1 (tested). `docs/api.md` now leads with v1 and lists the rest under "Everything else". The package's modules are untouched: this adds a layer and changes nothing beneath it. Suite 510 → 547.
+
+**Open, for the maintainers — the scaffold took a provisional choice on each:**
+
+1. **Names.** `devices` and `connections` for the two table constructors, where the modules say `device.new` and `connection.new`, since one namespace cannot hold two `new`s. `function_from_file` kept its name; `calibration_from_file` would say what it is for.
+2. **What is in.** Left out as not clearly day-to-day: `context_info`, `variable.unit`/`units`/`is_valid`, `device.check_within_range` and `check_correspondence` (both run inside `convert`), `adwin.CONTEXTS__SPECIAL` (the reserved context names are written as strings), `ramp_function.points`, `display.display` (a thin wrapper of `quantities`). The `national_instruments` stub is not exposed.
+3. **One import or two.** Whether `import wignertime as wt` should itself be v1 (the top-level package re-exporting it) or `wignertime.api.v1` stays the only door; and whether an unversioned `wignertime.api` should point to the latest version.
+4. **The paper and the README.** They import from the modules (`from wignertime import timeline as tl`, and so on). Moving their listings to `import wignertime.api.v1 as wt` is the natural next step and a reader-facing change, so it waits for agreement; it would also make the listings run against the API that promises to keep working.
+5. **The lab.** `../quantum_optics_lab/` imports from the modules directly and was not touched; it would move to v1 in its own pass.
+
 ---
 
 ## D. Structural

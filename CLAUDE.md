@@ -464,6 +464,15 @@ real, which is what #154 was about.
 - Standard aliases: `tl` (timeline), `wt_frame`, `wt_origin`, `wt_util`, `wt_config`, `wt_adwin`.
 - Numpy-style docstrings (mkdocstrings is configured for them). Prose in docstrings tends to explain
   *why* a rule exists, not just what the function does — match that.
+- **What users import is `wignertime.api.v1`** (#163, branch `issue#163`): `import
+  wignertime.api.v1 as wt` for most work, with `wt.adwin` (and `.console`, `.adc`) and
+  `wt.display` for what needs an optional package, loaded on first use. It re-exports the
+  package's own objects and adds no behaviour. Its `__all__` lists are the API, pinned by
+  `test_api.py`: adding a name is a new promise, and removing or renaming one belongs in a new
+  version (`api/v2`), with v1 left importable. The rest of `wignertime` stays reachable but carries
+  no guarantee, so internal code may change freely as long as v1's names keep their meaning. Import
+  anything a v1 module needs for itself under a private name (`import importlib as _importlib`),
+  or it becomes reachable as `wt.importlib`.
 - `internal/` is explicitly unstable API. `internal/doc/` and `doc/` are org-mode notes and scratch
   notebooks, not built documentation; `docs/` is the mkdocs source (`docs/index.md` duplicates the
   README, so changes to the overview belong in both). The paper lives in its own self-contained
