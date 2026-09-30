@@ -105,6 +105,58 @@ def add(
         )
 
 
+def _read_calibration(path, read_csv__args):
+    """
+    The columns of a calibration file, as `(names, rows)`: a list of column names and a
+    2-D float array, rows with a missing entry dropped.
+
+    With pandas installed this is `pandas.read_csv(path, **read_csv__args)`, whose
+    arguments `function_from_file` takes. Without it, the file is read here, and only
+    `sep` (or `delimiter`), `names` and `header` are understood, in `read_csv`'s sense:
+    without `names` the first line is the header (and so is not data), with `names` it is
+    data. Any other argument is refused rather than ignored.
+    """
+    if importlib.util.find_spec("pandas") is not None:
+        import pandas as pd
+
+        df = pd.read_csv(path, **read_csv__args).dropna()
+        return list(df.columns), df.to_numpy(dtype=float)
+
+    unknown = set(read_csv__args) - {"sep", "delimiter", "names", "header"}
+    if unknown:
+        raise TypeError(
+            "Without pandas, `function_from_file` reads `sep`, `names` and `header` only,"
+            " and was given {}. Install pandas (`pip install wigner-time[pandas]`) for"
+            " the rest of `pandas.read_csv`'s arguments.".format(sorted(unknown))
+        )
+    sep = read_csv__args.get("sep", read_csv__args.get("delimiter", ","))
+    names = read_csv__args.get("names")
+    header = read_csv__args.get("header", None if names is not None else 0)
+
+    def split(line):
+        if sep is None or sep in (r"\s+", " "):
+            return line.split()
+        return [field.strip() for field in line.split(sep)]
+
+    with open(path) as f:
+        lines = [split(line) for line in f if line.strip()]
+    if header is not None:
+        names__read, lines = lines[header], lines[header + 1 :]
+        names = names if names is not None else names__read
+    if names is None:
+        names = list(range(len(lines[0]) if lines else 0))
+
+    def number(field):
+        try:
+            return float(field)
+        except ValueError:
+            return np.nan
+
+    rows = np.array([[number(x) for x in line] for line in lines], dtype=float)
+    rows = rows.reshape(-1, len(names))
+    return list(names), rows[~np.isnan(rows).any(axis=1)]
+
+
 def function_from_file(
     path,
     method="cubic",
@@ -115,7 +167,12 @@ def function_from_file(
     r"""
     An interpolation function drawn from *two columns* of a CSV-like calibration file.
 
-    NOTE: If you would like to invert the interpolation then just specify the columns backwards, e.g. indices__column=[1,0]
+    `indices__column` says which: `[x, y]`, the function taking the first to the second.
+    To invert the calibration, give them the other way round, `indices__column=[1, 0]`.
+    Where the `x` column repeats a value, the `y` values are averaged.
+
+    The keyword arguments are `pandas.read_csv`'s. Without pandas, only `sep`, `names`
+    and `header` are understood (see `_read_calibration`).
 
     e.g.
     function_from_file(
@@ -124,24 +181,14 @@ def function_from_file(
         `sep=r"\s+"`,
     ),
     """
-    # Read with pandas, whose `read_csv` arguments this takes, whichever library holds
-    # the timelines. The calibration table is not a timeline.
-    if importlib.util.find_spec("pandas") is None:
-        raise ImportError(
-            "`function_from_file` reads its file with `pandas.read_csv`, whose arguments"
-            " it takes, and pandas is not installed: `pip install wigner-time[pandas]`."
-        )
-    import pandas as pd
+    _, rows = _read_calibration(path, read_csv__args)
+    i__x, i__y = indices__column
 
-    df = pd.read_csv(path, **read_csv__args).dropna()
+    # Deal with possible x-duplicates: the mean `y` of each distinct `x`, in ascending `x`.
+    x, inverse = np.unique(rows[:, i__x], return_inverse=True)
+    y = np.bincount(inverse, weights=rows[:, i__y]) / np.bincount(inverse)
 
-    # Deal with possible x-duplicates
-    columns = df.columns
-    df_avg = df.groupby(columns[indices__column[0]], as_index=False).mean()
-
-    return interp1d(
-        df_avg.iloc[:, 0],
-        df_avg.iloc[:, indices__column[1]],
-        kind=method,
-        fill_value=fill_value,
-    )
+    # The columns are named by `indices__column` in the file's own order. They used to be
+    # taken by position from the averaged frame, in which the grouped column had moved to
+    # the front, so `[1, 0]` gave `x` twice and the "inverse" was the identity function.
+    return interp1d(x, y, kind=method, fill_value=fill_value)

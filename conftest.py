@@ -4,9 +4,10 @@
 """
 The suite runs against one dataframe backend at a time:
 
-    pytest                          # pandas
+    pytest                          # the package's default: pandas if installed, else polars
+    pytest --backend=pandas
+    pytest --backend=polars
     pytest --backend=pandas-strict  # pandas, refusing any operation that bypasses `wt_frame`
-    pytest --backend=polars         # not implemented yet; lists what is missing
 
 The backend is fixed when `wignertime` is first imported, so it is passed through the
 environment before collection. `WIGNERTIME_BACKEND` works as well as the option.
@@ -15,6 +16,7 @@ Tests of pandas' own behaviour, rather than the package's, carry `@pytest.mark.p
 and are skipped on other backends.
 """
 
+import importlib.util
 import os
 import sys
 
@@ -27,8 +29,9 @@ def pytest_addoption(parser):
     parser.addoption(
         "--backend",
         choices=BACKENDS,
-        default=os.environ.get("WIGNERTIME_BACKEND", "pandas"),
-        help="the dataframe backend wignertime runs on (default: pandas, or $WIGNERTIME_BACKEND)",
+        default=os.environ.get("WIGNERTIME_BACKEND")
+        or ("pandas" if importlib.util.find_spec("pandas") else "polars"),
+        help="the dataframe backend wignertime runs on (default: $WIGNERTIME_BACKEND, else pandas if installed, else polars)",
     )
 
 
@@ -36,7 +39,7 @@ def pytest_configure(config):
     backend = config.getoption("--backend")
     if (
         "wignertime" in sys.modules
-        and os.environ.get("WIGNERTIME_BACKEND", "pandas") != backend
+        and os.environ.get("WIGNERTIME_BACKEND", backend) != backend
     ):
         raise pytest.UsageError(
             "wignertime was imported before the backend could be set; "

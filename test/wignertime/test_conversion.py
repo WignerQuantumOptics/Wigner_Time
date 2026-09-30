@@ -179,3 +179,49 @@ def test_addRealistic(df_simple):
     )
 
     return wt_frame.assert_equal(actual, expected)
+
+
+_CALIBRATION = "resources/calibration/aom_calibration.dat"
+
+
+def test_function_from_file_inverts_when_the_columns_are_swapped():
+    """
+    `indices__column=[1, 0]` is how the docstring says to invert a calibration. After
+    averaging the duplicated `x` values, the grouped column had moved to the front, and
+    both columns were then taken by position -- so `[1, 0]` read the same column twice and
+    returned the identity function, silently.
+    """
+    kw = dict(names=["voltage", "transparency"], sep=r"\s+")
+    forward = conv.function_from_file(_CALIBRATION, **kw)
+    inverse = conv.function_from_file(_CALIBRATION, indices__column=[1, 0], **kw)
+    assert abs(inverse(0.5) - 0.5) > 1e-3  # not the identity
+    assert forward(inverse(0.5)) == pytest.approx(0.5, abs=5e-3)
+
+
+@pytest.mark.parametrize(
+    "kw", [dict(sep=r"\s+"), dict(names=["voltage", "transparency"], sep=r"\s+")]
+)
+def test_function_from_file_reads_the_same_without_pandas(kw, monkeypatch):
+    """
+    Without pandas the file is read by `conversion` itself, keeping `read_csv`'s rule that
+    the first line is a header unless `names` is given. The two agree to rounding: pandas'
+    float parser is not exactly Python's.
+    """
+    import importlib.util
+
+    grid = np.linspace(0.0, 0.3, 301)
+    with_pandas = None
+    if importlib.util.find_spec("pandas") is not None:
+        with_pandas = conv.function_from_file(_CALIBRATION, **kw)(grid)
+
+    find_spec = importlib.util.find_spec
+    monkeypatch.setattr(
+        importlib.util,
+        "find_spec",
+        lambda name, *a: None if name == "pandas" else find_spec(name, *a),
+    )
+    without = conv.function_from_file(_CALIBRATION, **kw)(grid)
+    if with_pandas is not None:
+        assert np.max(np.abs(without - with_pandas)) < 1e-12
+    with pytest.raises(TypeError, match="reads `sep`, `names` and `header` only"):
+        conv.function_from_file(_CALIBRATION, skiprows=1, **kw)
