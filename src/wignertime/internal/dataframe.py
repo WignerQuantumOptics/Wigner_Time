@@ -2,14 +2,20 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """
-This namespace is for abstracting out the implementation of dataframe manipulation.
+Dataframe operations whose behaviour carries one of the package's rules.
 
-Particularly relevant for the pandas to polars upgrade.
+A timeline is a `pandas.DataFrame`, and pandas is used directly wherever it fits. What
+lives here is what plain pandas would get subtly wrong: `sort` is stable, because among
+rows that share an instant the one written last is in effect (A18); `drop_duplicates`
+keeps that last row; `insert_dataframes` inserts by position; `mask__changed`,
+`normalise_nulls` and `row_from_max_column` each settle a question pandas leaves open.
+
+The module was first meant as a seam for swapping pandas for polars, which is where the
+thin wrappers (`new`, `concat`, `isnull`, the readers, `assert_equal`) and `CLASS` come
+from. That swap is not planned (2026-09-30); they stay because their callers do.
 """
 
 from collections.abc import Callable
-
-# In the medium term, this should have a polars counterpart namespace so that we can switch between the two easily.
 from copy import deepcopy
 
 import pandas as pd
@@ -88,15 +94,6 @@ def normalise_nulls(df: CLASS) -> CLASS:
     for column in dff.columns:
         if dff[column].dtype == object:
             dff[column] = dff[column].where(dff[column].notna(), nan)
-    return dff
-
-
-def fill_null(df, column: str, value):
-    """
-    Replace nulls in `column` with `value`, returning a new frame.
-    """
-    dff = df.copy()
-    dff[column] = dff[column].fillna(value)
     return dff
 
 
@@ -253,20 +250,6 @@ def replace_column__filtered(
     return dff
 
 
-def for_input(df):
-    """
-    For printing frames in a format that can be pasted as an input.
-    """
-    rows = df.values.tolist()
-    col_names = df.columns.tolist()
-
-    source = "pd.DataFrame([\n"
-    for row in rows:
-        source += f"    {row},\n"
-    source += "], columns={})".format(col_names)
-    return source
-
-
 def read_pickle(path):
     return pd.read_pickle(path)
 
@@ -290,13 +273,6 @@ def read_feather(path):
 # ============================================================
 # PREDICATES
 # ============================================================
-def is_column_string(col):
-    """
-    Does the selected column only contain strings?
-    """
-    return col.dtype == "string" or bool(col.map(lambda x: isinstance(x, str)).all())
-
-
 def is_column_float(col):
     return pd.api.types.is_float_dtype(col)
 

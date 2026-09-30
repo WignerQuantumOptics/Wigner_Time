@@ -448,10 +448,16 @@ real, which is what #154 was about.
   deliberately not renamed; extending the units-only rule into the package is a separate decision.
   Trailing `__002` on filenames is `file.py`'s collision suffix. Stage parameters mirror the core
   functions: `time`, not `t`.
-- **Route dataframe operations through `internal/dataframe.py`** (imported as `wt_frame`), not through
-  pandas directly. That module exists so a polars backend can be dropped in later; `wt_frame.CLASS` is
-  the dataframe type. Several older modules (`conversion.py`, `device.py`, `adwin/connection.py`,
-  `internal/timeline/inherit.py`) still import pandas and carry TODOs about it — don't add more.
+- **pandas is the interface, not a detail to hide** (decided 2026-09-30): the paper says a
+  timeline *is* a `pandas.DataFrame`, and no change of backend is planned. So use pandas directly
+  where it fits. `internal/dataframe.py` (imported as `wt_frame`) was meant as a seam for a polars
+  backend; it is now the home of the helpers whose behaviour carries one of the package's rules, and
+  new helpers belong there only if they do too. **Sort with `wt_frame.sort`, never `sort_values`
+  bare**: pandas sorts one column unstably by default, and order among tied rows is meaning (A18).
+  The same goes for `drop_duplicates` (keeps the last row written) and `insert_dataframes` (by
+  position). Its thin wrappers over pandas (`new`, `concat`, `isnull`, `read_*`, `assert_equal`) and
+  `wt_frame.CLASS` stay, as there is nothing to gain from rewriting their callers, but need not be
+  used in new code.
 - Optional dependencies are gated at import time with `importlib.util.find_spec` and a raised
   `ImportError` (`adwin/core.py` needs `ADwin`, `display.py` needs `matplotlib`). Keep new optional
   code importable-but-inert the same way.

@@ -95,8 +95,6 @@ def context_info(timeline):
 
     e.g. To get the start and end times of the 'MOT' context, call `context_info(timeline)['MOT']['times]`.
     """
-    # TODO: Remove dependence on pandas
-
     if {"context", "time", "variable"}.issubset(timeline.columns):
         tlg = timeline.groupby("context")
         return {

@@ -1222,9 +1222,11 @@ One thing deliberately left: a commented-out predecessor of `stack` sits just ab
 
 `stack(timeline_or_f, *fs: list[Callable], ...)` and `cascade(*fs: list[Callable], ...)` annotate each individual argument as a *list* of callables. Should be `*fs: Callable`.
 
-### D5 — `context_info` pandas coupling
+### D5 — `context_info` pandas coupling — **SETTLED AND CLOSED 2026-09-30**
 
-Carries a TODO to remove the pandas dependence. Relevant to the polars-backed path; not urgent.
+**Not a defect: pandas is the interface.** The paper says a timeline is a `pandas.DataFrame` and that a user may fall back to pandas; no change of backend is planned. So the TODO went, and so did the idea behind it, that `internal/dataframe.py` is a seam through which polars would one day replace pandas. It was never one in practice: some 180 pandas operations sat outside it, which is what a swap would first have had to pull in. The module stays, as the home of the operations plain pandas gets subtly wrong (above all the stable `sort`, A18). Its three uncalled helpers (`fill_null`, `for_input`, `is_column_string`) are deleted, and so is the unused `parallel_processing` extra, which pinned a polars from before 1.0.
+
+Carried a TODO to remove the pandas dependence. Relevant to the polars-backed path; not urgent.
 
 ### D6 — `national_instruments/__init__.py` does not parse — **RESOLVED AND FIXED 2026-09-20 (maintainer)**
 

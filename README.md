@@ -35,7 +35,6 @@ Commercial licences, for use without the obligations of the GPL, are available f
 ## Optional dependencies (package `extras`) 
  - `performance_and_export` (Recommended): Installs `pyarrow` for memory management, sharing between systems and export to `parquet`.
  - `display`: Installs `matplotlib` and `pyqt` for visualization.
- - `parallel_processing`: Installs `polars` for parallel dataframe manipulation. (WARNING: This is currently not used, but will be in the future)
 
 While installing from the repository, extras are selected with
 `poetry install --extras "adwin performance_and_export"`, or with
