@@ -544,6 +544,10 @@ The timeline is internally consistent and would run. `test_two_ramps_of_one_vari
 
 Fix direction: a variable is in at most one ramp at a time — `ramp` refuses a ramp that begins or ends inside another of the same variable, naming the variable and both intervals. It is the loud form of #142's rule, since during another ramp "where the variable is" is not in the table, and it does not depend on the rest of #85, so it belongs in P1. An `update` of a variable inside one of its own ramps is probably overridden by the ramp's next point; not measured.
 
+### A19 — an inverted calibration from `function_from_file` is the identity function **[new, found 2026-09-30 on `dataframe-backend`]** — **FIXED the same day**
+
+`conversion.function_from_file(..., indices__column=[1, 0])` is the docstring's way of inverting a calibration. After averaging the repeated `x` values with `groupby(..., as_index=False)`, the grouped column comes first, and both columns were then taken by *position*, so `[1, 0]` read the same column twice: measured on `aom_calibration.dat`, the "inverse" returned 0.5 for 0.5 and 0.25 for 0.25. A device configured with such a calibration was driven with its value unconverted, with no error. The columns are now taken by the indices given, and `test_function_from_file_inverts_when_the_columns_are_swapped` pins it. The forward case (`[0, 1]`) was unaffected and is bit-identical. **Check the lab code for `indices__column=[1, 0]`.** Found while giving the function a reader that does not need pandas.
+
 ### A18 — an `update` at the instant a ramp ends can lose to the ramp's end on the hardware **[new, found 2026-09-29, with #153]** — **FIXED the same day on `issue#85`, P4 of C7**
 
 Among a variable's rows at one instant, the one written last is in effect. `drop_duplicates` relies on this, since it keeps the last row of each (variable, cycle). Two steps of the conversion broke the written order among such rows, and neither raised:
@@ -1230,7 +1234,14 @@ One thing deliberately left: a commented-out predecessor of `stack` sits just ab
 
 Found on the way, by the strict run: `adwin.internal.to_tuples` sorted by cycle with bare `sort_values` (A18's unstable sort; harmless there, since tied rows are on different channels, but now stable), and a `.loc` in `util.ensure_timeline`'s error path that its only test could not reach, because it built its frame with `pd.DataFrame`. The Lab2 checksums are unchanged throughout; nothing under `adwin/` has been checked on the rig.
 
-**What is left to decide.** (1) Whether a second backend is wanted at all — the cost of phase 1 is paid, so the question is now the value. (2) If so, whether it is polars by hand (`_polars.py`, which today raises `NotImplementedError` per operation) or one implementation over narwhals, which would serve pandas and polars frames natively. narwhals 2.26 does not keep the order rules by itself — its pandas `sort` is unstable on one column and its `group_by` ignores `maintain_order` — so `wt_frame` would stay as the place those rules are kept either way. (3) Callables in the `function` column, which polars can hold only as `Object`.
+**Phase 2, done on the same branch (Thomas's decisions, 2026-09-30): polars as a second library, through one implementation over narwhals.** `internal/dataframe/_narwhals.py` replaces the pandas-only module. The generic operations go through narwhals; the order rules do not, because narwhals 2.26 does not keep them — its pandas `sort` is quicksort on one column, and its `group_by` ignores `maintain_order` — so `sort` breaks ties on the written position, `group_by` orders groups by first appearance, and `drop_duplicates` keeps the last row, all written out. A small adapter per library does construction (typed as pandas would read the same Python values), casting, stacking frames with different columns, the file formats and test comparison. The pandas adapter is the code that was there. Callables in `function` are polars `Object` columns; polars cannot pickle those, so its pickle holds the columns as lists.
+
+- **Dependencies.** pandas and polars are extras, one of which is needed; importing with neither raises, naming both. narwhals is a dependency.
+- **Which library.** `WIGNERTIME_BACKEND`, else pandas if installed, else polars. A frame of the other library is converted where it enters.
+- **Evidence.** One suite, backend-neutral (no assertion dropped, none marked `pandas_only`): pandas 530, pandas-strict 530, polars 524 passed, on pandas 2.3.3 / Python 3.10 and pandas 3.0.6 / Python 3.12, and 523 on polars with pandas not installed. The Lab2 checksums match on polars, so the conversion chain sends the hardware identical arrays from either library. Not checked on the rig.
+- **Paper.** Untouched, and now says less than the code does: `main.tex:334–351` (fall back to "the pandas ecosystem"), `:390` ("the current implementation, which uses pandas"), `:512` and `:516` (the timeline is a `DataFrame`, "currently implemented as a `pandas.DataFrame`"). All remain true of the default. Whether to mention polars is a question for the maintainers, per the rule that code and paper move together.
+
+**Still to decide.** Whether this is merged at all — that is the D5 question itself, between the maintainers.
 
 **The entry as closed that morning:**
 

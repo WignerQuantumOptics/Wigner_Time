@@ -19,20 +19,25 @@ install from the repository:
 ```bash
 git clone https://github.com/WignerQuantumOptics/Wigner_Time.git
 cd Wigner_Time
-poetry install
+poetry install --extras pandas
 ```
 
 Or, to install it into an existing environment without cloning:
 
 ```bash
-pip install git+https://github.com/WignerQuantumOptics/Wigner_Time.git
+pip install "wigner-time[pandas] @ git+https://github.com/WignerQuantumOptics/Wigner_Time.git"
 ```
+
+A timeline is a table held by pandas or by polars, and one of the two is needed: choose the
+`pandas` or the `polars` extra. With both installed, pandas is used unless the environment
+variable `WIGNERTIME_BACKEND` is set to `polars`.
 
 Distributed under the GNU General Public License, version 3 — see [LICENSE](LICENSE).
 
 Commercial licences, for use without the obligations of the GPL, are available from the copyright holders on request.
 
 ## Optional dependencies (package `extras`) 
+ - `pandas` or `polars`: the library that holds the timelines. One of the two is required.
  - `performance_and_export` (Recommended): Installs `pyarrow` for memory management, sharing between systems and export to `parquet`.
  - `display`: Installs `matplotlib` and `pyqt` for visualization.
 
