@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from pathlib import Path
 
@@ -152,3 +154,40 @@ def test_the_state_before_and_after_the_run_survives_a_round_trip(suffix):
     assert list(frame.column(back, "time")) == pytest.approx(
         list(frame.column(timeline, "time")), rel=1e-12
     )
+
+
+@pytest.mark.parametrize("writer", ["pandas", "polars"])
+def test_a_pickle_written_with_either_library_loads_with_this_one(
+    writer, tmp_path, timeline_demo_function
+):
+    """
+    A timeline holds its ramp functions, and a pickle keeps them. polars cannot pickle a
+    column of functions, so its backend pickles the columns instead; a timeline pickled
+    with either library loads with either, functions and column types intact.
+
+    Only a function pickle can find again by name is kept, as always with pickle: a
+    lambda or a function defined inside another cannot be saved by either library.
+    """
+    import importlib.util
+    import subprocess
+    import sys
+
+    if importlib.util.find_spec(writer) is None:
+        pytest.skip(f"{writer} is not installed")
+    path = tmp_path / "t.pkl"
+    code = (
+        "from wignertime import timeline as tl, file\n"
+        "from wignertime.demo import full_experiment as demo\n"
+        "t = tl.to_timeline(tl.cascade(demo.init, demo.MOT, demo.MOT_detuned_growth))\n"
+        f"file.save(t, {str(path)!r})\n"
+    )
+    env = dict(os.environ, WIGNERTIME_BACKEND=writer)
+    env.pop("WIGNERTIME_STRICT_LOG", None)
+    # From the repository, where the demo finds its calibration file.
+    root = Path(__file__).resolve().parents[2]
+    subprocess.run([sys.executable, "-c", code], env=env, check=True, cwd=root)
+
+    back = file.load(path)
+    frame.assert_equal(back, timeline_demo_function)
+    functions = frame.column(back, "function")
+    assert any(callable(f) for f in functions)
