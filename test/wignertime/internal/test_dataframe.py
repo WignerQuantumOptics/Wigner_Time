@@ -185,8 +185,9 @@ def test_sort_keeps_tied_rows_in_written_order_and_leaves_its_argument():
         [[float(t), "x", n] for n, t in enumerate([i // 2 for i in range(400)][::-1])],
         columns=["time", "variable", "written"],
     )
-    before = df.copy()
+    before = frame.copy(df)
     ordered = frame.sort(df, "time")
-    for _, tied in ordered.groupby("time"):
-        assert list(tied["written"]) == sorted(tied["written"])
+    for _, tied in frame.group_by(ordered, "time"):
+        written = list(frame.column(tied, "written"))
+        assert written == sorted(written)
     frame.assert_equal(df, before)

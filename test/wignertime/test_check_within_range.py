@@ -50,15 +50,19 @@ def test_digital_variables_without_a_device_entry_do_not_raise():
 
 def test_alphabetically_first_variable_being_digital_is_harmless():
     """`groupby` visits AOM__MOT first; NaN bounds must not be read as 'column absent'."""
-    assert device.check_within_range(MIXED.sort_values("variable")) is True
+    assert device.check_within_range(wt_frame.sort(MIXED, "variable")) is True
 
 
 # --- the bug behind it ----------------------------------------------------
 
 
 def test_every_variable_is_checked_not_just_the_first():
-    tl = MIXED.copy()
-    tl.loc[tl["variable"] == "coil__MOT_lower__A", "value"] = 99.0
+    tl = wt_frame.with_column(
+        MIXED,
+        "value",
+        99.0,
+        where=wt_frame.column(MIXED, "variable") == "coil__MOT_lower__A",
+    )
     with pytest.raises(ValueError, match="coil__MOT_lower__A"):
         device.check_within_range(tl)
 
@@ -131,7 +135,7 @@ def test_one_sided_bound_is_still_checked():
 
 
 def test_missing_bound_columns_raise_accurately():
-    tl = MIXED.drop(columns=["value__max"])
+    tl = wt_frame.drop_columns(MIXED, ["value__max"])
     with pytest.raises(ValueError, match="value__max"):
         device.check_within_range(tl)
 
@@ -139,23 +143,25 @@ def test_missing_bound_columns_raise_accurately():
 def test_the_message_no_longer_lies():
     """The old message named a column that was present. Confirm it fires only when absent."""
     with pytest.raises(ValueError) as excinfo:
-        device.check_within_range(MIXED.drop(columns=["value__min", "value__max"]))
+        device.check_within_range(
+            wt_frame.drop_columns(MIXED, ["value__min", "value__max"])
+        )
     assert "absent" in str(excinfo.value)
 
 
 def test_non_float_values_raise():
-    tl = MIXED.copy()
-    tl["value"] = tl["value"].astype(str)
+    as_text = np.array([str(v) for v in wt_frame.column(MIXED, "value")], dtype=object)
+    tl = wt_frame.with_column(MIXED, "value", as_text)
     with pytest.raises(ValueError, match="floats"):
         device.check_within_range(tl)
 
 
 def test_empty_timeline_passes():
-    empty = MIXED.iloc[0:0]
+    empty = wt_frame.take(MIXED, [])
     assert device.check_within_range(empty) is True
 
 
 def test_input_is_not_mutated():
-    before = MIXED.copy()
+    before = wt_frame.copy(MIXED)
     device.check_within_range(MIXED)
     wt_frame.assert_equal(MIXED, before)

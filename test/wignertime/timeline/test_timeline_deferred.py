@@ -95,8 +95,15 @@ def test_expand_takes_a_timeline_and_is_not_a_stage():
 
     assert isinstance(timeline, wt_frame.CLASS)
     # Expansion is one-way: the marker column is consumed.
-    assert "function" not in timeline.columns
-    assert len(timeline[timeline["variable"] == "coil__A"]) > 2
+    assert "function" not in wt_frame.columns(timeline)
+    assert (
+        wt_frame.n_rows(
+            wt_frame.filter(
+                timeline, wt_frame.column(timeline, "variable") == "coil__A"
+            )
+        )
+        > 2
+    )
 
 
 def test_stack_still_accepts_a_leading_callable():

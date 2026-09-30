@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from munch import Munch
 
@@ -38,15 +40,13 @@ def test_connectionMany():
 
 
 def test_connectionName():
-    assert (
-        adcon.new(
-            ["shutter__MOT", 1, 11],
-            ["shutter__repump", 1, 12],
-            ["shutter__imaging", 1, 13],
-        )
-        .variable.str.match(wt_config.VARIABLE__REGEX)
-        .all()
+    connections = adcon.new(
+        ["shutter__MOT", 1, 11],
+        ["shutter__repump", 1, 12],
+        ["shutter__imaging", 1, 13],
     )
+    names = wt_frame.column(connections, "variable")
+    assert all(re.match(wt_config.VARIABLE__REGEX, name) for name in names)
 
 
 def test_connectionName002():

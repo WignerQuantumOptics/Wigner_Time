@@ -56,23 +56,24 @@ def test_add_linear_conversion(df_simple):
 
     return wt_frame.assert_equal(
         df_added,
-        wt_frame.new(
-            {
-                "time": [0.0, 0.0, 0.0, 0.0],
-                "variable": [
-                    "AOM__imaging",
-                    "AOM__imaging__V",
-                    "AOM__repump",
-                    "AOM__science__trans",
-                ],
-                "value": [0.0, 2.0, 1.0, 1.0],
-                "context": ["init", "init", "init", "MOT"],
-                "to_V": [None, 1.0, None, None],
-                "value__min": [None, -3, None, None],
-                "value__max": [None, 3, None, None],
-                "value__digits": [None, 39321, None, None],
-            }
-        ).astype(
+        wt_frame.cast(
+            wt_frame.new(
+                {
+                    "time": [0.0, 0.0, 0.0, 0.0],
+                    "variable": [
+                        "AOM__imaging",
+                        "AOM__imaging__V",
+                        "AOM__repump",
+                        "AOM__science__trans",
+                    ],
+                    "value": [0.0, 2.0, 1.0, 1.0],
+                    "context": ["init", "init", "init", "MOT"],
+                    "to_V": [None, 1.0, None, None],
+                    "value__min": [None, -3, None, None],
+                    "value__max": [None, 3, None, None],
+                    "value__digits": [None, 39321, None, None],
+                }
+            ),
             {
                 "time": float,
                 "variable": str,
@@ -82,7 +83,7 @@ def test_add_linear_conversion(df_simple):
                 "value__min": float,
                 "value__max": float,
                 "value__digits": float,
-            }
+            },
         ),
     )
 
@@ -116,7 +117,9 @@ def df_devs():
 
 def test_add_function(df_devs):
     wt_frame.assert_equal(
-        conv._add_function(df_devs)[["value", "to_V", "value__digits"]],
+        wt_frame.select(
+            conv._add_function(df_devs), ["value", "to_V", "value__digits"]
+        ),
         wt_frame.new(
             [
                 [
@@ -134,7 +137,7 @@ def test_add_function(df_devs):
 
 
 def test_add(df_devs):
-    calc = conv.add(df_devs)[["value", "to_V", "value__digits"]]
+    calc = wt_frame.select(conv.add(df_devs), ["value", "to_V", "value__digits"])
     guess = wt_frame.new(
         [
             [
@@ -150,7 +153,7 @@ def test_add(df_devs):
     )
     # print(guess)
 
-    return wt_frame.assert_equal(calc.astype({"value__digits": float}), guess)
+    return wt_frame.assert_equal(wt_frame.cast(calc, {"value__digits": float}), guess)
 
 
 def test_addRealistic(df_simple):
@@ -164,7 +167,7 @@ def test_addRealistic(df_simple):
     )
     df = device.add(df_simple, device.new("AOM__science__trans", func__AOM, 0.0, 1.0))
 
-    actual = conv.add(df)[["value", "to_V", "value__digits"]]
+    actual = wt_frame.select(conv.add(df), ["value", "to_V", "value__digits"])
     expected = wt_frame.new(
         [
             [0.0, np.nan, np.nan],

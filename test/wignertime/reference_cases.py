@@ -15,9 +15,9 @@ import json
 import pathlib
 
 import numpy as np
-import pandas as pd
 
 from wignertime import timeline as tl
+from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import util as wt_util
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "reference"
@@ -62,18 +62,26 @@ def describe(timeline):
     The base columns, with each ramp function reduced to its name and its curve. The name
     is kept for whoever reads the file; the comparison uses the curve.
     """
-    out = timeline[COLUMNS].reset_index(drop=True).copy()
+    out = wt_frame.select(timeline, COLUMNS)
     functions = (
-        timeline["function"].tolist()
-        if "function" in timeline.columns
-        else [None] * len(timeline)
+        wt_frame.column(timeline, "function").tolist()
+        if wt_frame.has_columns(timeline, ["function"])
+        else [None] * wt_frame.n_rows(timeline)
     )
     cache = {}
-    out["function"] = [_function__name(f) if callable(f) else None for f in functions]
-    out["function__points"] = [
-        cache.setdefault(id(f), _function__points(f)) if callable(f) else None
-        for f in functions
-    ]
+    out = wt_frame.with_column(
+        out,
+        "function",
+        [_function__name(f) if callable(f) else None for f in functions],
+    )
+    out = wt_frame.with_column(
+        out,
+        "function__points",
+        [
+            cache.setdefault(id(f), _function__points(f)) if callable(f) else None
+            for f in functions
+        ],
+    )
     return out
 
 
@@ -173,10 +181,15 @@ def lab_cases(ex, di):
 
 
 def _freeze(cases):
-    return pd.concat(
-        [describe(build()).assign(case=name) for name, build in cases.items()],
-        ignore_index=True,
-    )[["case", *COLUMNS, "function", "function__points"]]
+    return wt_frame.select(
+        wt_frame.concat(
+            [
+                wt_frame.with_column(describe(build()), "case", name)
+                for name, build in cases.items()
+            ]
+        ),
+        ["case", *COLUMNS, "function", "function__points"],
+    )
 
 
 if __name__ == "__main__":
@@ -187,8 +200,8 @@ if __name__ == "__main__":
     ex_demo, cases__demo = demo_cases()
     cases__lab = lab_cases(ex_lab, di)
 
-    _freeze(cases__demo).to_parquet(FIXTURES / "demo.parquet", index=False)
-    _freeze(cases__lab).to_parquet(FIXTURES / "quantum_optics_lab.parquet", index=False)
+    wt_frame.write_parquet(_freeze(cases__demo), FIXTURES / "demo.parquet")
+    wt_frame.write_parquet(_freeze(cases__lab), FIXTURES / "quantum_optics_lab.parquet")
     frozen = {
         "timeline_demo": {
             key(p): arrays(

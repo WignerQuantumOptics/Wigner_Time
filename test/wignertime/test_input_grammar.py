@@ -33,7 +33,7 @@ CONTEXT = "call"
 
 def _one(frame):
     assert len(frame) == 1
-    row = frame.iloc[0]
+    row = wt_frame.row(frame, 0)
     return dict(time=row["time"], value=row["value"], context=row["context"])
 
 
@@ -70,8 +70,8 @@ def test_several_instants_for_one_variable():
     frame = tl.to_timeline(
         tl.update(**{VARIABLE: [[0.0, 1.0], [2.0, 0.0]]}, context=CONTEXT)
     )
-    assert list(frame["time"]) == [0.0, 2.0]
-    assert list(frame["value"]) == [1.0, 0.0]
+    assert list(wt_frame.column(frame, "time")) == [0.0, 2.0]
+    assert list(wt_frame.column(frame, "value")) == [1.0, 0.0]
 
 
 def test_rows_may_be_batched():
@@ -85,10 +85,10 @@ def test_rows_may_be_batched():
 def test_t_and_context_are_defaults_not_overrides(follows, expected):
     frame = tl.to_timeline(tl.update(**{VARIABLE: follows}, time=99.0, context="kw"))
 
-    assert frame.iloc[0]["time"] == (
+    assert wt_frame.row(frame, 0)["time"] == (
         99.0 if not isinstance(follows, list) else expected["time"]
     )
-    assert frame.iloc[0]["context"] == (
+    assert wt_frame.row(frame, 0)["context"] == (
         "kw" if expected["context"] is None else expected["context"]
     )
 
@@ -157,6 +157,6 @@ def test_no_shape_lands_in_between():
             frame = build(follows)
         except ValueError:
             continue
-        assert list(frame.columns) == ["time", "variable", "value", "context"]
+        assert wt_frame.columns(frame) == ["time", "variable", "value", "context"]
         assert len(frame) >= 1
-        assert set(frame["variable"]) == {VARIABLE}
+        assert set(wt_frame.column(frame, "variable")) == {VARIABLE}

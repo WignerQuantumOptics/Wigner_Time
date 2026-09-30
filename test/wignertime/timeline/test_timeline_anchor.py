@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from munch import Munch
 
@@ -38,11 +39,14 @@ def test_anchor__basic():
         origin=[0.0, 0.0],
     )
 
-    tl_check.loc[
-        (tl_check["variable"] == "lockbox__MOT__MHz") & (tl_check["time"] > 1.0),
+    tl_check = wt_frame.with_column(
+        tl_check,
         "function",
-    ] = ramp_function.tanh
-    tl_check.sort_values(["time", "context"], inplace=True, ignore_index=True)
+        ramp_function.tanh,
+        where=(wt_frame.column(tl_check, "variable") == "lockbox__MOT__MHz")
+        & (wt_frame.column(tl_check, "time") > 1.0),
+    )
+    tl_check = wt_frame.sort(tl_check, ["time", "context"])
 
     return wt_frame.assert_equal(tl_check, tl_anchor)
 
@@ -110,8 +114,13 @@ def test_anchor_chains_on_the_previous_anchor_not_the_last_row():
     )
 
     def anchor_time(frame):
-        marks = frame[frame["variable"].str.startswith(wt_config.LABEL__ANCHOR)]
-        return marks["time"].max()
+        is_mark = np.array(
+            [
+                isinstance(v, str) and v.startswith(wt_config.LABEL__ANCHOR)
+                for v in wt_frame.column(frame, "variable")
+            ]
+        )
+        return wt_frame.column(frame, "time")[is_mark].max()
 
     assert anchor_time(tl.to_timeline(tl.anchor(0.0), onto=timeline)) == 3.0
     assert (

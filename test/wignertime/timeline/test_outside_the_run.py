@@ -10,6 +10,7 @@ import math
 import pytest
 
 from wignertime import timeline as tl
+from wignertime.internal import dataframe as wt_frame
 
 
 def before(**values):
@@ -29,7 +30,7 @@ def test_the_first_timed_stage_is_placed_at_absolute_zero_without_a_word(caplog)
                 tl.stack(tl.update(y=1), tl.anchor(2.0), context="MOT"),
             )
         )
-    assert list(timeline["time"])[2:] == [0.0, 2.0]
+    assert list(wt_frame.column(timeline, "time"))[2:] == [0.0, 2.0]
     assert not caplog.records
 
 
@@ -50,8 +51,8 @@ def test_a_row_added_to_a_finished_timeline_inherits_from_the_run():
         )
     )
     added = tl.to_timeline(tl.update(y=1, time=0.5), onto=finished)
-    assert added.iloc[-1]["context"] == "run"
-    assert added.iloc[-1]["time"] == pytest.approx(1.5)
+    assert wt_frame.row(added, -1)["context"] == "run"
+    assert wt_frame.row(added, -1)["time"] == pytest.approx(1.5)
 
 
 def test_a_value_lookup_sees_the_state_before_the_run_and_never_after_it():
@@ -63,8 +64,10 @@ def test_a_value_lookup_sees_the_state_before_the_run_and_never_after_it():
         )
     )
     ramped = tl.to_timeline(tl.ramp(x__A=2.0, duration=1.0), onto=timeline)
-    starts = ramped[ramped["function"].notna()]
-    assert list(starts["value"]) == [1.0, 2.0]
+    starts = wt_frame.filter(
+        ramped, ~wt_frame.isnull(wt_frame.column(ramped, "function"))
+    )
+    assert list(wt_frame.column(starts, "value")) == [1.0, 2.0]
 
 
 @pytest.mark.parametrize(
