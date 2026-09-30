@@ -33,6 +33,8 @@ import pandas as pd
 import pytest
 import reference_cases as ref
 
+from wignertime.internal import dataframe as wt_frame
+
 
 def _frozen(name):
     return pd.read_parquet(ref.FIXTURES / "{}.parquet".format(name))
@@ -47,9 +49,12 @@ def _arrays(case):
 
 
 def _assert_same(built, frozen):
+    # A case with no ramps holds `None` in `function`, which the parquet brings back as
+    # `nan` once pandas reads strings as `str` (pandas 3). Both say "no ramp", as in
+    # `file.load`.
     pd.testing.assert_frame_equal(
-        ref.describe(built),
-        frozen.drop(columns="case").reset_index(drop=True),
+        wt_frame.normalise_nulls(ref.describe(built)),
+        wt_frame.normalise_nulls(frozen.drop(columns="case").reset_index(drop=True)),
         check_dtype=False,
         check_exact=False,
         rtol=0,
