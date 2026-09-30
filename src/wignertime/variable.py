@@ -62,7 +62,7 @@ def units(timeline: wt_frame.CLASS, do_digital: bool = True):
     """
     Returns a set of different timeline units (strs).
     """
-    us = set(map(unit, timeline["variable"].unique()))
+    us = set(map(unit, wt_frame.unique(timeline, "variable")))
     if do_digital:
         return us
     else:
