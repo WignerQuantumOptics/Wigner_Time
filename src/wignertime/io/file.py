@@ -246,11 +246,28 @@ would otherwise no longer load.
 """
 
 
+PACKAGES__MOVED = {
+    "wignertime.adwin": "wignertime.backend.adwin",
+    "wignertime.national_instruments": "wignertime.backend.national_instruments",
+}
+"""Packages that moved whole (#163): every module in them moved with them."""
+
+
 class _Unpickler(pickle.Unpickler):
     """Reads a pickle, finding what it names where it is now (`MODULES__MOVED`)."""
 
     def find_class(self, module, name):
-        return super().find_class(MODULES__MOVED.get(module, module), name)
+        return super().find_class(_moved(module), name)
+
+
+def _moved(module):
+    """Where `module` is now: by name in `MODULES__MOVED`, else by its package in `PACKAGES__MOVED`."""
+    if module in MODULES__MOVED:
+        return MODULES__MOVED[module]
+    for old, new in PACKAGES__MOVED.items():
+        if module == old or module.startswith(old + "."):
+            return new + module[len(old) :]
+    return module
 
 
 def load(path: str | Path) -> wt_frame.CLASS:

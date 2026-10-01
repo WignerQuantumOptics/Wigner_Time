@@ -6,7 +6,7 @@ Building a timeline: the stages a user writes (`update`, `anchor`, `ramp`), thei
 composition (`stack`, `cascade`), and the one way from a stage to a table
 (`to_timeline`), which `expand` then samples.
 
-Users reach these through the user API, `import wignertime.api.v09 as wt`. What these
+Users reach these through the user API, `import wignertime.api.v0_9 as wt`. What these
 functions need and share lives in `timeline.internal`.
 """
 

@@ -8,7 +8,7 @@ import pickle
 import sys
 import types
 
-import wignertime.api.v09 as wt
+import wignertime.api.v0_9 as wt
 from wignertime.io import file
 from wignertime.timeline import ramp_function
 
@@ -34,3 +34,10 @@ def test_a_timeline_pickled_before_the_move_still_loads(tmp_path, monkeypatch):
     loaded = file.load(path)
     assert set(loaded["function"].dropna()) == {ramp_function.tanh}
     assert loaded.drop(columns="function").equals(timeline.drop(columns="function"))
+
+
+def test_a_module_of_a_moved_package_is_found_where_it_is_now():
+    assert file._moved("wignertime.adwin.core") == "wignertime.backend.adwin.core"
+    assert file._moved("wignertime.adwin") == "wignertime.backend.adwin"
+    assert file._moved("wignertime.adwin.display") == "wignertime.io.internal.drawing"
+    assert file._moved("wignertime.adwinx") == "wignertime.adwinx"

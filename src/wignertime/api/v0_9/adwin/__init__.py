@@ -9,7 +9,7 @@ Reaching a machine does: `link_device` needs the ADwin driver (the `adwin` extra
 says so when it is missing, and everything that plays a timeline is given the machine it
 returns.
 
-    import wignertime.api.v09 as wt
+    import wignertime.api.v0_9 as wt
 
     connections = wt.adwin.connections(["shutter__MOT", 1, 11], ["coil__A", 3, 1])
     machine = wt.adwin.link_device()
@@ -26,8 +26,8 @@ The manual console is `wt.adwin.console`, and recording with the ADC `wt.adwin.a
 
 import importlib as _importlib
 
-from wignertime.adwin.connection import new as connections
-from wignertime.adwin.core import (
+from wignertime.backend.adwin.connection import new as connections
+from wignertime.backend.adwin.core import (
     LostEvents,
     PeriodRefused,
     Run,

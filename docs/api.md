@@ -2,10 +2,10 @@
 
 ## User API, version 0.9
 
-`import wignertime.api.v09 as wt` is the one import for most work. What is listed here
+`import wignertime.api.v0_9 as wt` is the one import for most work. What is listed here
 keeps its name and meaning for as long as version 0.9 exists.
 
-::: wignertime.api.v09
+::: wignertime.api.v0_9
     options:
       show_submodules: false
 
@@ -15,15 +15,15 @@ keeps its name and meaning for as long as version 0.9 exists.
 
 ### `wt.adwin` — running on ADwin
 
-::: wignertime.api.v09.adwin
+::: wignertime.api.v0_9.adwin
 
 ### `wt.adwin.console` — the manual console
 
-::: wignertime.api.v09.adwin.console
+::: wignertime.api.v0_9.adwin.console
 
 ### `wt.adwin.adc` — recording with the ADC
 
-::: wignertime.api.v09.adwin.adc
+::: wignertime.api.v0_9.adwin.adc
 
 ### `wt.display` — plotting
 

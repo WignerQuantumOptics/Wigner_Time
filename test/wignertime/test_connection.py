@@ -6,7 +6,7 @@ from wignertime.timeline import build as tl
 from wignertime.timeline.internal import stages as wt_stages
 from wignertime.timeline import variable
 from wignertime import config as wt_config
-from wignertime.adwin import connection as adcon
+from wignertime.backend.adwin import connection as adcon
 
 
 @pytest.mark.parametrize(

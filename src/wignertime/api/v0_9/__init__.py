@@ -4,7 +4,7 @@
 """
 Wigner Time, version 0.9 of the user API: one import for most work.
 
-    import wignertime.api.v09 as wt
+    import wignertime.api.v0_9 as wt
 
     initial = wt.update(shutter__MOT=0, coil__MOT__A=0.0, time=0.0, context="init")
     MOT = wt.stack(

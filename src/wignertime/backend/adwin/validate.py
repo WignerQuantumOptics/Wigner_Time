@@ -4,7 +4,7 @@
 import funcy
 import numpy as np
 
-import wignertime.adwin as wt_adwin
+import wignertime.backend.adwin as wt_adwin
 from wignertime.internal import dataframe as wt_frame
 
 

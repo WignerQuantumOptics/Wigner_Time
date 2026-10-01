@@ -3,18 +3,18 @@ import sys
 import pytest
 import pandas as pd
 
-import wignertime.adwin as wt_adwin
+import wignertime.backend.adwin as wt_adwin
 
 # `adwin.core` needs the optional `adwin` extra. Skip rather than error, so that
 # the suite is green for the right reasons in an environment without it.
 pytest.importorskip("ADwin", reason="the `adwin` extra is not installed")
 
-from wignertime.adwin import core as adwin
-from wignertime.adwin import adc
-from wignertime.adwin import console
-from wignertime.adwin import connection as adcon
-from wignertime.adwin import validate as wt_validate
-from wignertime.adwin import internal as adi
+from wignertime.backend.adwin import core as adwin
+from wignertime.backend.adwin import adc
+from wignertime.backend.adwin import console
+from wignertime.backend.adwin import connection as adcon
+from wignertime.backend.adwin import validate as wt_validate
+from wignertime.backend.adwin import internal as adi
 from wignertime.hardware import conversion
 from wignertime.hardware import device
 from wignertime.timeline import build as tl

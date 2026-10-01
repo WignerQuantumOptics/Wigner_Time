@@ -40,7 +40,7 @@ anything it covers. Read it before touching `timeline/build.py` or `timeline/int
 - **Section C items are open API decisions — flag and ask, never settle unilaterally.** (A3, the
   degenerate-row filtering, was such a case and was settled on 2026-09-18: a zero duration raises, a
   zero value change is a hold and is kept.)
-- **A green suite does not clear the ADwin backend.** Changes under `wignertime/adwin/` can only be
+- **A green suite does not clear the ADwin backend.** Changes under `wignertime/backend/adwin/` can only be
   checked for internal consistency; correctness must be verified on the rig. Say so explicitly rather
   than reporting such a change as done.
 - **The paper and the code are developed together.** If a change makes a claim in `docs/paper/main.tex`
@@ -86,7 +86,7 @@ manuscript since then are `git log 5776331..HEAD -- docs/paper/`.
 `../quantum_optics_lab/` (sibling of this repo). `timeline/experiment.py` and
 `timeline/diagnostics.py` are the real counterparts of the demo and of the paper's `sec:forwarding`;
 `control/time_of_flight.py` is `sec:parameter_scan`; `console.py` re-exports the manual console of
-D22, which moved into this package on 2026-09-27 (`wignertime.adwin.console`); and
+D22, which moved into this package on 2026-09-27 (now `wignertime.backend.adwin.console`); and
 `../notebooks/` holds the notebooks the experiments are run from (`diagnosticsStageByStage.ipynb`
 interweaves imaging into each preparation stage). It has its own `KNOWN_ISSUES.md` (items `L*`).
 `../Lab2TimelineTakeout_VargaDani_20260921/` is the source of the Lab2 regression fixture. Check
@@ -121,7 +121,7 @@ Three named layers, with movement in both directions as an explicit goal:
   part of the package*; `demo/full_experiment.py` is an example of it, not an API.
 - **device** — the vtvc timeline in real physical units (MHz, A). The core abstraction, `timeline/` (`build`, `query`, `internal`).
 - **connection** — hardware-ready arrays ("send 5 V to connection 2"), produced solely by
-  `adwin/core.py::convert`. Porting to other hardware means writing a new conversion here plus a
+  `backend/adwin/core.py::convert`. Porting to other hardware means writing a new conversion here plus a
   consumer program on the controller; nothing above this layer should need to change.
 
 `device` and `connection` are two separate tables on purpose: recalibrating a device and rewiring
@@ -313,7 +313,7 @@ side of the run, and the JSON writer keeps them as the strings `"-inf"`/`"inf"`.
 `config.VARIABLE__REGEX` — **`<device>__<UID>(__<unit>)`**, e.g. `coil__MOT_lower__A`,
 `shutter__MOT`; `<device>` and `<unit>` contain no `_`, the UID may contain single ones (D7, #121,
 settled 2026-09-29). **No `__<unit>` suffix means the line is digital.** `connection.new` rejects
-names that don't match, `conversion`/`device` key off the unit, and `adwin/display.py` groups plots
+names that don't match, `conversion`/`device` key off the unit, and `io/internal/drawing.py` groups plots
 by it. Keeping `_` out of `<device>` is what made the migration from the old
 `<device>_<UID>(__<unit>)` safe: every old name has a `_` before its first `__`, so it is refused
 rather than read as digital with its unit taken for the UID. The Lab2 fixture keeps its real, old
@@ -333,13 +333,13 @@ each ramp's rows where the ramp was written** (A18); see the filtering note belo
 
 ### ADwin export pipeline
 
-`adwin/core.py::convert(timeline, connections, devices, cycle_period, ...)` composes, in order:
+`backend/adwin/core.py::convert(timeline, connections, devices, cycle_period, ...)` composes, in order:
 
 1. `connection.remove_unconnected_variables` — anything without a physical port disappears (anchors).
 2. `timeline.expand` — ramps become rows at the machine's cycle period (or at `time_resolution`).
-3. `adwin/internal.py::add` — join `connections` + `devices`, `conversion.add` → `value__digits`,
+3. `backend/adwin/internal.py::add` — join `connections` + `devices`, `conversion.add` → `value__digits`,
    `device.check_within_range` (raises, listing every offending variable), `add_cycle`.
-4. `adwin/validate.py::all` — `cycles` → `types` → `special_contexts` → `drop_duplicates` →
+4. `backend/adwin/validate.py::all` — `cycles` → `types` → `special_contexts` → `drop_duplicates` →
    `drop_repeats`. `cycles` must precede `types`, which narrows the column to 32 bits.
 5. `internal.to_tuples` — `[[(cycle, module, channel, digits), ...analogue], [...digital]]`.
 6. `validate.ascending` — each array in cycle order, since the backend's index never rewinds.
@@ -350,7 +350,7 @@ and the machine specifications may not carry one. Both labs run **T12** processo
 committed), Lab2 at 2 µs. `adwin.PROCESSDELAY__RATE` is the one hardware constant the package
 keeps, and it knows only the T12; any other processor is refused by name.
 
-`adwin/core.py::upload(timeline, connections, devices, machine, process)` is the only way to the
+`backend/adwin/core.py::upload(timeline, connections, devices, machine, process)` is the only way to the
 machine. It reads the period off the machine on every call, as `Get_Processdelay(process)` over the
 processor's rate, and never sets it, because an ADbasic program can overwrite its own
 `Processdelay`. It converts at that period, pushes the result into `Par_1..3` and
@@ -428,7 +428,7 @@ at the instant a ramp ended lost to the ramp's end); `drop_repeats` removes *val
 by variable, and always keeping the first and last row of each channel — `core.upload` derives the
 run length from the highest non-special cycle, and tanh ramp tails are flat.
 
-`adwin/__init__.py::CONTEXTS__SPECIAL` (`ADwin_LowInit`, `ADwin_Init`, `ADwin_Finish`) map to sentinel
+`backend/adwin/__init__.py::CONTEXTS__SPECIAL` (`ADwin_LowInit`, `ADwin_Init`, `ADwin_Finish`) map to sentinel
 cycle numbers. Rows in these contexts have **no meaningful time**, and are written at −∞ (the two
 before the run) or +∞ (after it). They are validated separately, and exempted from both drop
 functions. A variable may have at most one row **before the run, across `ADwin_LowInit` and
@@ -467,7 +467,7 @@ real, which is what #154 was about.
   *why* a rule exists, not just what the function does — match that.
 - **Layout of the package** (#163, 2026-10-01): `api/` (the user API), `config.py`, `timeline/`,
   `hardware/` (`device`, `conversion`: the device layer every backend shares), `io/` (`file`,
-  `display`, with the matplotlib drawing in `io/internal/drawing.py`), `adwin/`, `internal/`
+  `display`, with the matplotlib drawing in `io/internal/drawing.py`), `backend/` (`adwin/`, `national_instruments/`), `internal/`
   (`dataframe`, `util`, `tags`). A package `__getattr__` names where a moved module went, and
   `io.file.load` finds pickled functions under their old modules (`MODULES__MOVED`).
   `wignertime.timeline` is a package that holds
@@ -477,15 +477,15 @@ real, which is what #154 was about.
   naming convention) sit beside them; `timeline.internal` holds everything they share
   (`stages`, `checks`, `compose`, `origin`, `inherit`, `input`, `anchor`, `validate`), with no
   leading underscores since the module is private. Nothing is re-exported between them: user-facing
-  code (README, docs, demo) goes through `wignertime.api.v09`, and tests may import the modules.
-- **What users import is `wignertime.api.v09`** (#163, branch `issue#163`): `import
-  wignertime.api.v09 as wt` for most work, with `wt.adwin` (and `.console`, `.adc`) and
+  code (README, docs, demo) goes through `wignertime.api.v0_9`, and tests may import the modules.
+- **What users import is `wignertime.api.v0_9`** (#163, branch `issue#163`): `import
+  wignertime.api.v0_9 as wt` for most work, with `wt.adwin` (and `.console`, `.adc`) and
   `wt.display` for what needs an optional package, loaded on first use. It re-exports the
   package's own objects and adds no behaviour. Its `__all__` lists are the API, pinned by
   `test_api.py`: adding a name is a new promise, and removing or renaming one belongs in a new
-  version (`api/v10` for 1.0, following the package version), with v09 left importable. The rest of `wignertime` stays reachable but carries
-  no guarantee, so internal code may change freely as long as v09's names keep their meaning. Import
-  anything a v09 module needs for itself under a private name (`import importlib as _importlib`),
+  version (`api/v1_0` for 1.0, following the package version), with v0_9 left importable. The rest of `wignertime` stays reachable but carries
+  no guarantee, so internal code may change freely as long as v0_9's names keep their meaning. Import
+  anything a v0_9 module needs for itself under a private name (`import importlib as _importlib`),
   or it becomes reachable as `wt.importlib`.
 - `internal/` is explicitly unstable API. `internal/doc/` and `doc/` are org-mode notes and scratch
   notebooks, not built documentation; `docs/` is the mkdocs source (`docs/index.md` duplicates the

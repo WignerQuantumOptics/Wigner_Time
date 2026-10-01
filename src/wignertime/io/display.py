@@ -5,7 +5,7 @@
 Plotting a timeline. Needs the `display` extra (matplotlib).
 
 Importing this module needs nothing optional: matplotlib is looked for when a timeline is
-drawn, so `import wignertime.api.v09 as wt` works without it and `wt.display(timeline)`
+drawn, so `import wignertime.api.v0_9 as wt` works without it and `wt.display(timeline)`
 says what to install.
 """
 

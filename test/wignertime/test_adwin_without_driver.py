@@ -32,7 +32,7 @@ def test_connections_and_conversion_need_no_driver():
     result = _run(
         """
 import sys
-import wignertime.api.v09 as wt
+import wignertime.api.v0_9 as wt
 from wignertime.demo import full_experiment as ex
 arrays = wt.adwin.convert(ex.timeline_demo, ex.connections, ex.devices, cycle_period=5e-6)
 print("ADwin" in sys.modules, len(arrays) > 0)
@@ -45,7 +45,7 @@ print("ADwin" in sys.modules, len(arrays) > 0)
 def test_reaching_a_machine_says_what_to_install():
     result = _run(
         """
-import wignertime.api.v09 as wt
+import wignertime.api.v0_9 as wt
 try:
     wt.adwin.link_device()
 except ModuleNotFoundError as e:

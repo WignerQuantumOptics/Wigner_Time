@@ -30,12 +30,12 @@ INSTALL__ADWIN = "\n".join(
 
 from wignertime.timeline import build as tl
 from wignertime.internal.tags import wtlog as wtl
-import wignertime.adwin as wt_adwin
+import wignertime.backend.adwin as wt_adwin
 from wignertime.timeline import variable as wt_variable
-from wignertime.adwin import connection
-from wignertime.adwin import console as wt_console
-from wignertime.adwin import internal as ad
-from wignertime.adwin import validate as wt_validate
+from wignertime.backend.adwin import connection
+from wignertime.backend.adwin import console as wt_console
+from wignertime.backend.adwin import internal as ad
+from wignertime.backend.adwin import validate as wt_validate
 
 
 class Upload(NamedTuple):

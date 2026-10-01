@@ -7,7 +7,7 @@ import inspect
 
 import pytest
 
-import wignertime.api.v09 as wt
+import wignertime.api.v0_9 as wt
 from wignertime.io import display as wt_display
 
 

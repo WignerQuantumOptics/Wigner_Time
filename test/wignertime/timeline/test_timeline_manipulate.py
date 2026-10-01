@@ -261,7 +261,7 @@ def test_convert_leaves_the_timeline_it_was_given_alone():
     pipeline order -- `remove_unconnected_variables` runs first and hands `expand` a fresh
     frame -- so it is worth pinning rather than assuming.
     """
-    from wignertime.adwin import core
+    from wignertime.backend.adwin import core
 
     before = ex.timeline_demo.copy()
     core.convert(ex.timeline_demo, ex.connections, ex.devices, 5e-6)

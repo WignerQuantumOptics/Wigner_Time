@@ -8,7 +8,7 @@ from wignertime.timeline import build as tl
 from wignertime.timeline.internal import stages as wt_stages
 
 # NOTE: the commented-out `display` call below needs
-# `from wignertime.adwin import display`, and with it the optional `display`
+# `from wignertime.backend.adwin import display`, and with it the optional `display`
 # extra. It is not imported at module scope so that these tests remain runnable
 # without that extra.
 from wignertime.internal import dataframe as wt_frame

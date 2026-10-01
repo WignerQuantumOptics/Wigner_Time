@@ -127,7 +127,7 @@ You want to control an optical shutter, an AOM and a laser lock.
 For each channel, simply *name* the ADwin port using standard Python lists. These keep track of the physical connections. A name is `<device>__<UID>`, followed by `__<unit>` for an analog channel.
 
 ``` python
-    import wignertime.api.v09 as wt
+    import wignertime.api.v0_9 as wt
     
     connections = wt.adwin.connections(
         ["shutter__MOT", 1, 11],

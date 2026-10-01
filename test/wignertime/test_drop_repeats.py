@@ -1,5 +1,5 @@
 """
-Regression tests for `wignertime.adwin.validate.drop_repeats`.
+Regression tests for `wignertime.backend.adwin.validate.drop_repeats`.
 
 Run with `pytest test_drop_repeats.py` from this directory.
 """
@@ -14,8 +14,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import wignertime.adwin as wt_adwin
-from wignertime.adwin import validate
+import wignertime.backend.adwin as wt_adwin
+from wignertime.backend.adwin import validate
 from wignertime.internal import dataframe as wt_frame
 
 

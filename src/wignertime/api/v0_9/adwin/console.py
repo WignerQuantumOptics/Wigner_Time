@@ -12,7 +12,7 @@ or, without widgets, `configure` the console with the panel and `set_value` and
 on the machine; `OutputsOwned` is raised when a run holds the outputs.
 """
 
-from wignertime.adwin.console import (
+from wignertime.backend.adwin.console import (
     Console,
     Health,
     Jump,

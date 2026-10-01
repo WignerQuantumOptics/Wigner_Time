@@ -10,7 +10,7 @@ import sys
 
 import pytest
 
-import wignertime.api.v09 as wt
+import wignertime.api.v0_9 as wt
 from wignertime import config
 from wignertime.timeline import variable
 from wignertime.internal import tags
@@ -138,7 +138,7 @@ def _run(code):
 
 def test_importing_configures_no_logging():
     out = _run(
-        "import logging, wignertime.api.v09\n"
+        "import logging, wignertime.api.v0_9\n"
         "root = logging.getLogger()\n"
         "print(len(root.handlers), root.level)\n"
     ).stdout.split()

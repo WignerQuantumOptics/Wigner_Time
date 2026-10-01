@@ -9,6 +9,6 @@ Recording with the ADC during a run, version 0.9 of the user API. Needs the `adw
 or `arm` a `Window` before a run and `read` its `Samples` after it.
 """
 
-from wignertime.adwin.adc import Samples, Window, arm, read, run
+from wignertime.backend.adwin.adc import Samples, Window, arm, read, run
 
 __all__ = ["run", "arm", "read", "Window", "Samples"]

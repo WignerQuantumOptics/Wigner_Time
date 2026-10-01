@@ -89,7 +89,7 @@ def convert(timeline, connections, devices, period):
     specifications; since `issue#94` it is an argument of its own, and the ramps are
     sampled at it unless a resolution is given.
     """
-    from wignertime.adwin import core
+    from wignertime.backend.adwin import core
 
     return core.convert(timeline, connections, devices, period)
 

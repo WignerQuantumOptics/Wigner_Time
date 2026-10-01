@@ -8,7 +8,7 @@ import re
 
 import pytest
 
-import wignertime.api.v09 as wt
+import wignertime.api.v0_9 as wt
 from wignertime.timeline import query
 import wignertime.timeline as tl
 from wignertime.timeline import variable

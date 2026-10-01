@@ -35,7 +35,7 @@ from typing import NamedTuple
 
 import numpy as np
 
-from wignertime.adwin import core
+from wignertime.backend.adwin import core
 
 PROCESS = 4
 """The process number in the header of `WignerTimeADwinADC.bas`."""

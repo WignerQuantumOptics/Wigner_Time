@@ -54,11 +54,11 @@ from typing import NamedTuple
 
 import numpy as np
 
-import wignertime.adwin as wt_adwin
+import wignertime.backend.adwin as wt_adwin
 from wignertime.hardware import conversion
 from wignertime.hardware import device
 from wignertime.timeline import variable as wt_variable
-from wignertime.adwin import internal as wt_internal
+from wignertime.backend.adwin import internal as wt_internal
 from wignertime.internal import dataframe as wt_frame
 
 PROCESS = 10

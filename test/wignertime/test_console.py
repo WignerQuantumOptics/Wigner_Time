@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
 
-import wignertime.adwin as wt_adwin
+import wignertime.backend.adwin as wt_adwin
 from wignertime.hardware import conversion
 from wignertime.hardware import device
 from wignertime.timeline import build as tl
-from wignertime.adwin import connection as adcon
-from wignertime.adwin import console
+from wignertime.backend.adwin import connection as adcon
+from wignertime.backend.adwin import console
 
 OWNER = wt_adwin.PAR__SEQUENCE__OWNER
 FINISHED = wt_adwin.PAR__SEQUENCES__FINISHED
