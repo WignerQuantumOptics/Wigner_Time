@@ -1,6 +1,9 @@
 import pytest
 
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
+
+from wignertime.internal import tags as wt_tags
+from wignertime.timeline.internal import stages as wt_stages
 from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import util
 
@@ -33,7 +36,7 @@ def test_ensure_2d_multi(input):
 # @pytest.mark.parametrize(
 #     "input",
 #     [
-#         tl._populate_timeline("AOM__imaging", [[0.0, 0.0]]),
+#         wt_stages.populate_timeline("AOM__imaging", [[0.0, 0.0]]),
 #     ],
 # )
 
@@ -46,7 +49,7 @@ def test_function__deferred():
             tl.ramp(AOM__imaging__V=[1.0, 1.0]),
             tl.update(AOM__imaging__V=[1.0, 0.0]),
         ),
-        onto=tl._populate_timeline("AOM__imaging__V", 0.0, 0.0, context="s"),
+        onto=wt_stages.populate_timeline("AOM__imaging__V", 0.0, 0.0, context="s"),
     )
 
     return wt_frame.assert_equal(
@@ -73,7 +76,7 @@ def test_ensure_pair_never_returns_its_argument(input):
     """
     The package's single normalisation point for origins must hand back a new list.
 
-    A signature default like `ramp`'s `origin2=[tl.VARIABLE, 0.0]` is one object shared
+    A signature default like `ramp`'s `origin2=[wt_tags.VARIABLE, 0.0]` is one object shared
     by every call in the process. That is safe only while nothing downstream can write
     through it, and `ensure_pair` is the one place everything downstream comes from.
     Until 2026-09-22 the two-element case returned the argument itself while the

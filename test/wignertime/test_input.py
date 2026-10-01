@@ -1,8 +1,8 @@
 import pytest
 import pandas as pd
 
-from wignertime import timeline as tl
-from wignertime.internal.timeline import input
+from wignertime.timeline import build as tl
+from wignertime.timeline.internal import input
 
 
 def test_ensure_time_context():

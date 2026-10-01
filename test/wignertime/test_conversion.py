@@ -4,9 +4,9 @@ from munch import Munch
 import numpy as np
 
 from wignertime.internal import dataframe as wt_frame
-from wignertime import timeline as tl
-from wignertime import device
-from wignertime import conversion as conv
+from wignertime.timeline import build as tl
+from wignertime.hardware import device
+from wignertime.hardware import conversion as conv
 
 
 @pytest.fixture

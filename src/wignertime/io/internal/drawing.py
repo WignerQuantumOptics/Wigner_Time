@@ -8,7 +8,9 @@ import importlib.util
 from wignertime import adwin
 
 if not importlib.util.find_spec("matplotlib"):
-    raise ImportError("The `display` module requires `matplotlib` to be installed.")
+    from wignertime.io.display import INSTALL__DISPLAY
+
+    raise ModuleNotFoundError(INSTALL__DISPLAY, name="matplotlib")
 
 # ============================================================
 # Normal imports
@@ -18,11 +20,11 @@ from copy import deepcopy
 import matplotlib.axes as mpa
 import matplotlib.pyplot as plt
 import numpy as np
-import wignertime.variable as wt_variable
-from wignertime import timeline as tl
-from wignertime.internal.timeline import anchor
+import wignertime.timeline.variable as wt_variable
+from wignertime.timeline import query as wt_query
+from wignertime.timeline.internal import anchor
 from wignertime.internal import util as wt_util
-from wignertime.config import LABEL__ANCHOR
+from wignertime.internal.tags import LABEL__ANCHOR
 from wignertime.internal import dataframe as wt_frame
 
 # ============================================================
@@ -122,7 +124,7 @@ def quantities(
     # To make the special contexts (where there is no time) visible, each spans its
     # margin: before the run for those whose sentinel is negative, after it otherwise.
     if do_context:
-        info__context = tl.context_info(tline)
+        info__context = wt_query.context_information(tline)
         for label, sentinel in adwin.CONTEXTS__SPECIAL.items():
             if label in info__context.keys():
                 d = deepcopy(info__context[label]["times"])
@@ -138,7 +140,7 @@ def quantities(
     if variables is None:
         return None
 
-    units = wt_variable.units(tline)
+    units = wt_query.units(tline)
     unit_variables__analog = {
         u: [v for v in variables if wt_variable.unit(v) == u]
         for u in units

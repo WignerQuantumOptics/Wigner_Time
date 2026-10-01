@@ -7,10 +7,10 @@ Utility functions related to setting, finding and querying anchors in a timeline
 
 from typing import Callable
 
-from wignertime import config as wt_config
+from wignertime.internal import tags as wt_tags
 from wignertime.internal import dataframe as wt_frame
 
-LABEL__ANCHOR = wt_config.LABEL__ANCHOR
+LABEL__ANCHOR = wt_tags.LABEL__ANCHOR
 
 
 def mask(timeline, context=None):

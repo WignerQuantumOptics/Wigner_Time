@@ -3,7 +3,8 @@ import pathlib as pl
 import sys
 import pytest
 
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
+from wignertime.timeline.internal import stages as wt_stages
 from wignertime.internal import dataframe as frame
 from wignertime.internal import dataframe as wt_frame
 
@@ -54,7 +55,7 @@ def test_stack(dfseq):
             tl.ramp(time=5.0, lockbox__MOT__V=[0.8, 1.0]),
             lambda tline: tl.expand(tline, time_resolution=0.2),
         ),
-        onto=tl._populate_timeline(
+        onto=wt_stages.populate_timeline(
             "lockbox__MOT__V", [[0.0, 0.0], [5.0, 0.0]], context="init"
         ),
     )
@@ -62,7 +63,7 @@ def test_stack(dfseq):
 
 
 def test_stack__kws(dfseq):
-    tline = tl._populate_timeline(
+    tline = wt_stages.populate_timeline(
         "lockbox__MOT__V", [[0.0, 0.0], [5.0, 0.0]], context="init"
     )
     tst = tl.expand(

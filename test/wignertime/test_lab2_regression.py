@@ -34,8 +34,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from wignertime import config, device, ramp_function
-from wignertime import timeline as tl
+from wignertime import config
+from wignertime.hardware import device
+from wignertime.timeline import ramp_function
+from wignertime.timeline import build as tl
 from wignertime.adwin import core
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "lab2"

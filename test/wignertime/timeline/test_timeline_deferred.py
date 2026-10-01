@@ -8,7 +8,7 @@ attribute, far from its cause.
 
 import pytest
 
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
 from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import util as wt_util
 from wignertime.demo import full_experiment as demo

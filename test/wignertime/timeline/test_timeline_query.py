@@ -1,7 +1,7 @@
 import pytest
 
 from wignertime.internal import dataframe as frame
-from wignertime.internal import origin
+from wignertime.timeline import query as origin
 
 
 df_previous1 = frame.new(

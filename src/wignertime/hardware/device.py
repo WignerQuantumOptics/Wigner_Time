@@ -10,7 +10,7 @@ The unit range is used for conversion and the saftey range is for sanity checkin
 import numpy as np
 import pandas as pd
 
-from wignertime import variable as wt_variable
+from wignertime.timeline import variable as wt_variable
 from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import util as wt_util
 

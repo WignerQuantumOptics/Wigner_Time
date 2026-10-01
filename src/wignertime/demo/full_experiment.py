@@ -11,12 +11,7 @@ import math
 
 from munch import Munch
 
-from wignertime.adwin import connection as adcon
-from wignertime import file as wtfile
-from wignertime import timeline as tl
-from wignertime import device
-from wignertime import conversion as conv
-from wignertime import ramp_function
+import wignertime.api.v09 as wt
 
 ###########################################################################
 #                       Constants and Helpers                             #
@@ -27,7 +22,7 @@ from wignertime import ramp_function
 """
 'connections' allows us to label physical links (inputs and outputs) between devices and the timing system. By using labels that follow a particular regex, configurable as `config.VARIABLE__REGEX`, we can separate out the design and the implementation of our experiment.
 """
-connections = adcon.new(
+connections = wt.adwin.connections(
     ["shutter__MOT", 1, 11],
     ["shutter__repump", 1, 12],
     ["shutter__OP1", 1, 14],
@@ -56,7 +51,7 @@ connections = adcon.new(
 
 These specifications are deliberately separated from `connection`s because they represent physical properties and conversions that are independent of the particular DAC wiring.
 """
-devices = device.new(
+devices = wt.devices(
     ["coil__compensation_X__A", 10 / 3.0, -3, 3],
     ["coil__compensation_Y__A", 10 / 3.0, -3, 3],
     ["coil__MOT_lower__A", 10 / 5.0, -5, 5],
@@ -67,7 +62,7 @@ devices = device.new(
     ["trigger__TC__V", 1.0, -10, 10],
     [
         "AOM__science__trans",
-        conv.function_from_file(
+        wt.function_from_file(
             "resources/calibration/aom_calibration.dat",
             sep=r"\s+",
         ),
@@ -114,8 +109,8 @@ def default_state(MOT_ON=True, **kwargs):
     The same stage at both ends of the experiment: `init` and `finish` differ only in the
     time, the context and `MOT_ON`.
     """
-    return tl.stack(
-        tl.update(
+    return wt.stack(
+        wt.update(
             lockbox__MOT__MHz=0.0,
             coil__compensation_X__A=constants.Compensation.X__A,
             coil__compensation_Y__A=constants.Compensation.Y__A,
@@ -157,9 +152,9 @@ def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwarg
     The ADwin_Finish environment means that the “default state” will be actuated even when the process is interrupted.
     """
     duration = 1e-2
-    return tl.stack(
-        tl.anchor(wait, context="finalRamps"),
-        tl.ramp(
+    return wt.stack(
+        wt.anchor(wait, context="finalRamps"),
+        wt.ramp(
             lockbox__MOT__MHz=0.0,
             coil__MOT_lower__A=lower_current,
             coil__MOT_upper__A=upper_current,
@@ -183,33 +178,33 @@ def MOT(duration=15, lower_current=-1.0, upper_current=-0.98):
     """
     Creates a Magneto-Optical Trap.
     """
-    return tl.stack(
-        tl.update(
+    return wt.stack(
+        wt.update(
             shutter__MOT=1,
             shutter__repump=1,
             coil__MOT_lower__A=lower_current,
             coil__MOT_upper__A=upper_current,
         ),
-        tl.anchor(duration),
+        wt.anchor(duration),
         context="MOT",
     )
 
 
 def MOT_off():
-    return tl.update(shutter__MOT=0, AOM__MOT=0, shutter__repump=0, AOM__repump=0)
+    return wt.update(shutter__MOT=0, AOM__MOT=0, shutter__repump=0, AOM__repump=0)
 
 
 def MOT_detuned_growth(duration=100e-3, duration_ramp=10e-3, detuning__MHz=-5):  # pt=3,
     """
     Final stage of MOT collection with detuned MOT beams for increased capture range.
     """
-    return tl.stack(
-        tl.ramp(
+    return wt.stack(
+        wt.ramp(
             lockbox__MOT__MHz=detuning__MHz,
             duration=duration_ramp,
             #            fargs={"ti": pt},
         ),
-        tl.anchor(duration),
+        wt.anchor(duration),
         context="MOT",
     )
 
@@ -225,23 +220,23 @@ def molasses(
     For slowing down the atoms by creating an optical density.
     """
 
-    return tl.stack(
-        tl.ramp(
+    return wt.stack(
+        wt.ramp(
             coil__MOT_lower__A=0,
             coil__MOT_upper__A=0,
             duration=duration_coil_ramp,
             #            fargs={"ti": coil_pt},
         ),
-        tl.ramp(
+        wt.ramp(
             lockbox__MOT__MHz=to__MHz,
             duration=duration_lockbox_ramp,
             #            fargs={"ti": lockbox_pt},
         ),
-        tl.update(
+        wt.update(
             shutter__MOT=[duration - constants.lag_MOT_shutter + delay, 0],
             AOM__MOT=[duration, 0],
         ),
-        tl.anchor(duration),
+        wt.anchor(duration),
         context="molasses",
     )
 
@@ -266,32 +261,32 @@ def optical_pumping(
     """
 
     duration_full = duration_exposition + duration_coil_ramp
-    return tl.stack(
-        tl.ramp(
+    return wt.stack(
+        wt.ramp(
             coil__MOT_lower__A=i,
             coil__MOT_upper__A=-i,
             duration=duration_coil_ramp,
             #            fargs={"ti": pt},
         ),
-        tl.update(AOM__OP=[[-0.1, 0], [duration_coil_ramp, 1], [duration_full, 0]]),
-        tl.update(
+        wt.update(AOM__OP=[[-0.1, 0], [duration_coil_ramp, 1], [duration_full, 0]]),
+        wt.update(
             shutter__OP1=[
                 [duration_coil_ramp - constants.OP.lag_shutter_on + delay1, 1],
                 [delay_shutter_reinitialization, 0],
             ]
         ),
-        tl.update(
+        wt.update(
             shutter__OP2=[
                 [duration_full - constants.OP.lag_shutter_off + delay2, 0],
                 [delay_shutter_reinitialization, 1],
             ]
         ),
-        tl.update(
+        wt.update(
             shutter__repump=0,
             time=duration_full - constants.lag_repump_shutter + delay_repump,
         ),
-        tl.update(AOM__repump=0, time=duration_full),
-        tl.anchor(duration_full),
+        wt.update(AOM__repump=0, time=duration_full),
+        wt.anchor(duration_full),
         context="optical_pumping",
     )
 
@@ -309,12 +304,12 @@ def pull_coils(
     """
     Controls the concentric coil pairs responsible for 'pulling' the atoms.
     """
-    return tl.ramp(
+    return wt.ramp(
         coil__MOT_lower__A=lower_current,
         coil__MOT_upper__A=upper_current,
         coil__MOT_lower_plus__A=lower_plus_current - constants.Compensation.Z__A,
         coil__MOT_upper_plus__A=upper_plus_current + constants.Compensation.Z__A,
-        function=lambda origin, terminus, time_resolution: ramp_function.tanh(
+        function=lambda origin, terminus, time_resolution: wt.tanh(
             origin, terminus, time_resolution, pt
         ),
         duration=duration,
@@ -334,7 +329,7 @@ def magnetic_trapping(
     """
     Does what it says on the tin.
     """
-    return tl.stack(
+    return wt.stack(
         pull_coils(
             duration_initial,
             lower_current_initial,
@@ -347,7 +342,7 @@ def magnetic_trapping(
             upper_current_strengthen,
             time=duration_initial,
         ),
-        tl.anchor(duration_initial + duration_strengthen),
+        wt.anchor(duration_initial + duration_strengthen),
         context="magnetic_trapping",
     )
 
@@ -366,7 +361,7 @@ def trigger_camera(time, exposure, context, origin=None):
 
     The camera is not part of the default state, so the timeline it is placed into should set it initially and finally, e.g. `init(trigger__camera=0)` and `finish(trigger__camera=0)`.
     """
-    return tl.update(
+    return wt.update(
         trigger__camera=[[time, 1], [time + exposure, 0]],
         context=context,
         origin=origin,
@@ -377,8 +372,8 @@ def trigger_camera(time, exposure, context, origin=None):
 #                   Stage composition                                     #
 ###########################################################################
 
-timeline_demo = tl.to_timeline(
-    tl.cascade(
+timeline_demo = wt.to_timeline(
+    wt.cascade(
         init,
         MOT,
         MOT_detuned_growth,
@@ -426,17 +421,13 @@ timeline_demo = tl.to_timeline(
 #                   Running the experiment
 ###########################################################################
 
-# from wignertime.adwin import core as adwin
-#
-# wtfile.save(timeline_demo)
-# machine = adwin.link_device()
-# adwin.upload(timeline_demo, connections, devices, machine, process=1)
-# machine.Start_Process(1)
+# wt.save(timeline_demo)
+# machine = wt.adwin.link_device()
+# upload = wt.adwin.upload(timeline_demo, connections, devices, machine, process=1)
+# wt.adwin.run(upload)
 
 # NOTE:
 # ^^^ The above lines are commented out for the sake of automated testing.
 #
-# `adwin.core` is imported here rather than at the top of the module because it
-# requires the optional `ADwin` extra. Importing it at module scope would make
-# this demo – and every test that builds a timeline from it – unimportable for
-# anyone who installed the package without that extra.
+# Only reaching the machine (`link_device`) needs the optional `adwin` extra, so
+# the demo – and every test that builds a timeline from it – imports without it.

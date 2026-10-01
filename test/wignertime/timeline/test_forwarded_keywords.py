@@ -8,7 +8,7 @@ made strict in 2026-09-16 (C1); `stack` follows here (A5/#103).
 
 import pytest
 
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
 from wignertime.internal import util as wt_util
 
 

@@ -1,12 +1,12 @@
 import pytest
 
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
 from wignertime.internal import dataframe as frame
 
 # `adwin.display` needs the optional `display` extra.
 pytest.importorskip("matplotlib", reason="the `display` extra is not installed")
 
-from wignertime.adwin import display as adwin_display
+from wignertime.io.internal import drawing as adwin_display
 
 import sys
 import pathlib as pl

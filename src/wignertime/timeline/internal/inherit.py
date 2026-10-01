@@ -3,13 +3,14 @@
 
 from copy import deepcopy
 
-from wignertime import config as wt_config
-from wignertime.internal import origin as wt_origin
+from wignertime.internal import tags as wt_tags
+from wignertime.timeline import query as wt_query
+from wignertime.timeline.internal import origin as wt_origin
 
 
 def resolve(context):
     """
-    Reads `wt_config.INFER`, the signature default of `context` in the public functions,
+    Reads `wt_tags.INFER`, the signature default of `context` in the public functions,
     as the `None` that `context` below has always taken to mean "inherit" (#142). It has
     to happen before the rows are built, or the marker itself would land in the
     `context` column.
@@ -33,7 +34,7 @@ def resolve(context):
                 ]
             )
         )
-    return None if context is wt_config.CONTEXT__INFER else context
+    return None if context is wt_tags.CONTEXT__INFER else context
 
 
 def require(rows):
@@ -110,11 +111,11 @@ def context(
             ]
         if timeline__previous.empty:
             # Nothing to inherit from. `require` says so, naming the context -- asking
-            # `origin.previous` instead raised a message about the *origin*, whose advice
+            # `query.previous` instead raised a message about the *origin*, whose advice
             # (`origin=0.0`) gave the same error again (#145).
             return df
 
-        df.loc[_mask__no_context(timeline), "context"] = wt_origin.previous(
+        df.loc[_mask__no_context(timeline), "context"] = wt_query.previous(
             timeline__previous
         )["context"]
         return df
