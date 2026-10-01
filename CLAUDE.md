@@ -73,18 +73,22 @@ The manuscript is now committed and self-contained under `docs/paper/`, imported
 `graphic/origin_resolution_figure.py`, so a change to the origin mechanism should be carried into the
 manuscript by rerunning it. It checks its own text for overflow and refuses to write a figure that
 does not fit. The others are still static images. Every `\includegraphics` target and the `\bibliography{WignerTime.bib}` call
-resolve. No LaTeX toolchain is installed here, so a build has not been demonstrated — and note that
-`minted` requires `pygmentize` and `-shell-escape`. Build from inside `docs/paper/`; the figure paths
+resolve. No LaTeX toolchain is installed here, so a build has not been demonstrated here; Overleaf builds
+it. `minted` requires `pygmentize` and `-shell-escape`, which `docs/paper/.latexmkrc` sets. Build from inside `docs/paper/`; the figure paths
 are relative to it.
 
-**The committed manuscript is canonical.** The arXiv version was imported at `fdd2e0d` (2026-09-15);
-the changes made here after that were carried to Overleaf by the maintainer on 2026-09-23, so the
-two agreed again as of `5776331`. Carrying stops being complete there: of the paper commits after
-it, only the Vukics ORCID (`2beb7de`) and the `sec:adwin_operation` appendix (`e9c4f32`) reached
-Overleaf, while `2072c37`, `8abf602`, `6ee43d2`, `6791331` and P6 (`a31757e`) did not (compared
-2026-10-01). The one edit made on Overleaf alone, Clark's ORCID, was brought here then, so the
-repo is a strict superset and Overleaf can be replaced by it wholesale. Line numbers quoted in these
-notes refer to the repo's copy.
+**The committed manuscript is canonical, and Overleaf is kept in step with it from here.** The
+arXiv version was imported at `fdd2e0d` (2026-09-15). Since 2026-10-01 the Overleaf project is
+cloned next door, in `../Wigner_Time_Overleaf/` (branch `master`, the only one Overleaf has), and
+syncing it is ours to do, push included (maintainer, 2026-10-01). A sync goes both ways, Overleaf
+first: pull the clone, and bring any edit made on Overleaf into `docs/paper/` as an ordinary commit
+on the working branch; then copy `docs/paper/` over the clone, commit there naming the repository
+commit it carries (`Sync with docs/paper/ of Wigner_Time at <hash>`), and push. When both sides
+changed the same passage, stop and show the maintainer both, rather than choosing. So the last
+synced point is the newest such message in the clone's `git log`. The clone carries what the build
+needs and nothing else: not `graphic/origin_resolution_figure.py` and its unused PNG preview, nor
+`desktop.ini`. `.latexmkrc`, which sets `-shell-escape` for `minted`, came from Overleaf and lives
+in both. Line numbers quoted in these notes refer to the repository's copy.
 
 **The lab code that uses the package is next door, and can be read at any time**:
 `../quantum_optics_lab/` (sibling of this repo). `timeline/experiment.py` and
