@@ -166,7 +166,7 @@ def range__inclusive(start, stop, step):
 
 def sample(lst: list, N: int):
     """
-    Retrive `N`, equally and maximally spaced, elements from the `list`.
+    Retrieve `N`, equally and maximally spaced, elements from the `list`.
     """
     indices = np.linspace(0, len(lst) - 1, N, dtype=int)
     return [lst[i] for i in indices]
