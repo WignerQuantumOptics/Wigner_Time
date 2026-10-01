@@ -11,7 +11,7 @@ import math
 
 from munch import Munch
 
-import wignertime.api.v09 as wt
+import wignertime.api.v0_9 as wt
 
 ###########################################################################
 #                       Constants and Helpers                             #

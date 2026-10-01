@@ -8,7 +8,7 @@ import types
 
 import pytest
 
-import wignertime.api.v09 as wt
+import wignertime.api.v0_9 as wt
 import wignertime.timeline as timeline
 from wignertime.timeline import build, query
 
@@ -85,6 +85,8 @@ def test_the_api_names_are_the_modules_own():
         ("conversion", "wignertime.hardware.conversion"),
         ("file", "wignertime.io.file"),
         ("display", "wignertime.io.display"),
+        ("adwin", "wignertime.backend.adwin"),
+        ("national_instruments", "wignertime.backend.national_instruments"),
     ],
 )
 def test_a_moved_module_says_where_it_went(name, now):

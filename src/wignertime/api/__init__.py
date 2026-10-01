@@ -4,7 +4,7 @@
 """
 The user API of Wigner Time, by version (#163).
 
-    import wignertime.api.v09 as wt
+    import wignertime.api.v0_9 as wt
 
 A version is a designed, managed list of what a user works with day to day. What it
 lists keeps its name and meaning for as long as that version exists; a change that
@@ -12,5 +12,5 @@ would break it goes into the next version instead, and the old one stays importa
 Everything else in `wignertime` remains reachable, for whoever needs it, but carries no
 such promise and may change between releases.
 
-Versions: `v09` (named after the package version, 0.9).
+Versions: `v0_9` (named after the package version, 0.9).
 """

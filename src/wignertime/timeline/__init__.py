@@ -5,7 +5,7 @@
 Timelines: building them (`timeline.build`), reading them back (`timeline.query`), and
 what those share (`timeline.internal`, private).
 
-Users reach all of it through the user API, `import wignertime.api.v09 as wt`; this
+Users reach all of it through the user API, `import wignertime.api.v0_9 as wt`; this
 package re-exports nothing, so there is one name for each function.
 """
 

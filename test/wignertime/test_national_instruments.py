@@ -17,7 +17,7 @@ def test_the_placeholder_warns_rather_than_failing_to_parse():
     # reported against the suite. The reload is the part under test.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        module = importlib.import_module("wignertime.national_instruments")
+        module = importlib.import_module("wignertime.backend.national_instruments")
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")

@@ -5,7 +5,7 @@
 # Block module based on dependency
 import importlib.util
 
-from wignertime import adwin
+from wignertime.backend import adwin
 
 if not importlib.util.find_spec("matplotlib"):
     from wignertime.io.display import INSTALL__DISPLAY

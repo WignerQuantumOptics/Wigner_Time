@@ -16,9 +16,9 @@ from wignertime.hardware import conversion as conv
 from wignertime.hardware import device
 from wignertime.timeline import variable as wt_variable
 from wignertime.internal import dataframe as wt_frame
-import wignertime.adwin as wt_adwin
-from wignertime.adwin import connection
-from wignertime.adwin import validate as wt_validate
+import wignertime.backend.adwin as wt_adwin
+from wignertime.backend.adwin import connection
+from wignertime.backend.adwin import validate as wt_validate
 
 """
 Represents the key ADwin settings for the given machine.

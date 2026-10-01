@@ -1,5 +1,5 @@
 """
-#163: `wignertime.api.v09` is the user API, a designed list rather than whatever happens to
+#163: `wignertime.api.v0_9` is the user API, a designed list rather than whatever happens to
 be public in the package. These tests pin that list, so that changing it is a decision
 someone makes on purpose, in this file, and not a side effect of work elsewhere.
 """
@@ -11,12 +11,12 @@ import sys
 
 import pytest
 
-import wignertime.api.v09 as wt
+import wignertime.api.v0_9 as wt
 
 # The API of version 0.9. Adding a name is a new promise; removing or renaming one breaks
-# every user of v09 and belongs in a new version instead.
-V09 = {
-    "wignertime.api.v09": {
+# every user of v0_9 and belongs in a new version instead.
+V0_9 = {
+    "wignertime.api.v0_9": {
         "update", "ramp", "anchor", "stack", "cascade", "to_timeline", "expand",
         "previous", "context_information", "display",
         "INFER", "ANCHOR", "LAST", "VARIABLE",
@@ -25,19 +25,19 @@ V09 = {
         "save", "load",
         "config",
     },
-    "wignertime.api.v09.adwin": {
+    "wignertime.api.v0_9.adwin": {
         "connections", "link_device", "read_cycle_period", "convert", "upload",
         "run", "start", "wait", "running", "Upload", "Run", "LostEvents", "PeriodRefused",
     },
-    "wignertime.api.v09.adwin.console": {
+    "wignertime.api.v0_9.adwin.console": {
         "panel", "configure", "create_UI", "set_value", "readback", "final_state",
         "jumps", "health", "Console", "Jump", "Health", "OutputsOwned",
     },
-    "wignertime.api.v09.adwin.adc": {"run", "arm", "read", "Window", "Samples"},
+    "wignertime.api.v0_9.adwin.adc": {"run", "arm", "read", "Window", "Samples"},
 }  # fmt: skip
 
 _NEEDS = {
-    "wignertime.api.v09.adwin.console": "ipywidgets",
+    "wignertime.api.v0_9.adwin.console": "ipywidgets",
 }
 
 
@@ -47,12 +47,12 @@ def _module(name):
     return importlib.import_module(name)
 
 
-@pytest.mark.parametrize("name", sorted(V09))
+@pytest.mark.parametrize("name", sorted(V0_9))
 def test_the_api_is_exactly_the_list(name):
-    assert set(_module(name).__all__) == V09[name]
+    assert set(_module(name).__all__) == V0_9[name]
 
 
-@pytest.mark.parametrize("name", sorted(V09))
+@pytest.mark.parametrize("name", sorted(V0_9))
 def test_nothing_else_is_in_view(name):
     """
     Nothing the module imported for itself is reachable under a public name: the module's
@@ -62,15 +62,15 @@ def test_nothing_else_is_in_view(name):
     module = _module(name)
     optional = set(getattr(module, "_OPTIONAL", ()))
     public = {n for n in vars(module) if not n.startswith("_")}
-    assert V09[name] <= public <= V09[name] | optional
-    assert {n for n in dir(module) if not n.startswith("_")} == V09[name] | optional
+    assert V0_9[name] <= public <= V0_9[name] | optional
+    assert {n for n in dir(module) if not n.startswith("_")} == V0_9[name] | optional
 
 
-@pytest.mark.parametrize("name", sorted(V09))
+@pytest.mark.parametrize("name", sorted(V0_9))
 def test_every_name_is_the_packages_own(name):
     """The API adds no behaviour: `wt.update` is `wignertime.timeline.build.update`."""
     module = _module(name)
-    for attribute in V09[name]:
+    for attribute in V0_9[name]:
         value = getattr(module, attribute)
         home = getattr(value, "__module__", None)
         if home is not None and not isinstance(value, type(sys)):
@@ -81,7 +81,7 @@ def test_every_name_is_the_packages_own(name):
 
 def test_the_main_import_needs_no_optional_package():
     code = (
-        "import sys, wignertime.api.v09 as wt\n"
+        "import sys, wignertime.api.v0_9 as wt\n"
         "print(sorted(m for m in ('ADwin', 'matplotlib', 'ipywidgets') if m in sys.modules))\n"
     )
     env = dict(os.environ)
@@ -107,29 +107,29 @@ def test_config_is_the_module_the_package_reads(monkeypatch):
     assert not variable.is_valid("coil__MOT__A")
 
 
-# What the paper, the README and the demo use, where it lives, and where v09 has it.
+# What the paper, the README and the demo use, where it lives, and where v0_9 has it.
 _PAPER = [
-    ("wignertime.timeline.build", "update", "wignertime.api.v09", "update"),
-    ("wignertime.timeline.build", "ramp", "wignertime.api.v09", "ramp"),
-    ("wignertime.timeline.build", "stack", "wignertime.api.v09", "stack"),
-    ("wignertime.timeline.build", "anchor", "wignertime.api.v09", "anchor"),
-    ("wignertime.timeline.build", "to_timeline", "wignertime.api.v09", "to_timeline"),
-    ("wignertime.timeline.build", "cascade", "wignertime.api.v09", "cascade"),
-    ("wignertime.internal.tags", "ANCHOR", "wignertime.api.v09", "ANCHOR"),
-    ("wignertime.internal.tags", "LAST", "wignertime.api.v09", "LAST"),
-    ("wignertime.internal.tags", "VARIABLE", "wignertime.api.v09", "VARIABLE"),
-    ("wignertime.hardware.device", "new", "wignertime.api.v09", "devices"),
-    ("wignertime.hardware.conversion", "function_from_file", "wignertime.api.v09", "function_from_file"),
-    ("wignertime.timeline.ramp_function", "tanh", "wignertime.api.v09", "tanh"),
-    ("wignertime.io.file", "save", "wignertime.api.v09", "save"),
-    ("wignertime.adwin.connection", "new", "wignertime.api.v09.adwin", "connections"),
-    ("wignertime.adwin.core", "link_device", "wignertime.api.v09.adwin", "link_device"),
-    ("wignertime.adwin.core", "convert", "wignertime.api.v09.adwin", "convert"),
-    ("wignertime.adwin.core", "upload", "wignertime.api.v09.adwin", "upload"),
-    ("wignertime.adwin.core", "run", "wignertime.api.v09.adwin", "run"),
-    ("wignertime.io.display", "quantities", "wignertime.api.v09", "display"),
-    ("wignertime.timeline.query", "previous", "wignertime.api.v09", "previous"),
-    ("wignertime.timeline.query", "context_information", "wignertime.api.v09", "context_information"),
+    ("wignertime.timeline.build", "update", "wignertime.api.v0_9", "update"),
+    ("wignertime.timeline.build", "ramp", "wignertime.api.v0_9", "ramp"),
+    ("wignertime.timeline.build", "stack", "wignertime.api.v0_9", "stack"),
+    ("wignertime.timeline.build", "anchor", "wignertime.api.v0_9", "anchor"),
+    ("wignertime.timeline.build", "to_timeline", "wignertime.api.v0_9", "to_timeline"),
+    ("wignertime.timeline.build", "cascade", "wignertime.api.v0_9", "cascade"),
+    ("wignertime.internal.tags", "ANCHOR", "wignertime.api.v0_9", "ANCHOR"),
+    ("wignertime.internal.tags", "LAST", "wignertime.api.v0_9", "LAST"),
+    ("wignertime.internal.tags", "VARIABLE", "wignertime.api.v0_9", "VARIABLE"),
+    ("wignertime.hardware.device", "new", "wignertime.api.v0_9", "devices"),
+    ("wignertime.hardware.conversion", "function_from_file", "wignertime.api.v0_9", "function_from_file"),
+    ("wignertime.timeline.ramp_function", "tanh", "wignertime.api.v0_9", "tanh"),
+    ("wignertime.io.file", "save", "wignertime.api.v0_9", "save"),
+    ("wignertime.backend.adwin.connection", "new", "wignertime.api.v0_9.adwin", "connections"),
+    ("wignertime.backend.adwin.core", "link_device", "wignertime.api.v0_9.adwin", "link_device"),
+    ("wignertime.backend.adwin.core", "convert", "wignertime.api.v0_9.adwin", "convert"),
+    ("wignertime.backend.adwin.core", "upload", "wignertime.api.v0_9.adwin", "upload"),
+    ("wignertime.backend.adwin.core", "run", "wignertime.api.v0_9.adwin", "run"),
+    ("wignertime.io.display", "quantities", "wignertime.api.v0_9", "display"),
+    ("wignertime.timeline.query", "previous", "wignertime.api.v0_9", "previous"),
+    ("wignertime.timeline.query", "context_information", "wignertime.api.v0_9", "context_information"),
 ]  # fmt: skip
 
 
