@@ -72,10 +72,10 @@ The manuscript is now committed and self-contained under `docs/paper/`, imported
 `docs/paper/graphic/`. One of those figures is **generated, not drawn**: `fig:origin` comes from
 `graphic/origin_resolution_figure.py`, so a change to the origin mechanism should be carried into the
 manuscript by rerunning it. It checks its own text for overflow and refuses to write a figure that
-does not fit. The others are still static images. Every `\includegraphics` target and the `\bibliography{WignerTime.bib}` call
-resolve. No LaTeX toolchain is installed here, so a build has not been demonstrated here; Overleaf builds
-it. `minted` requires `pygmentize` and `-shell-escape`, which `docs/paper/.latexmkrc` sets. Build from inside `docs/paper/`; the figure paths
-are relative to it.
+does not fit. The others are still static images. Every `\includegraphics` target and the
+`\bibliography{WignerTime.bib}` call resolve. No LaTeX toolchain is installed here, so the build is
+Overleaf's. `minted` requires `pygmentize` and `-shell-escape`, which `docs/paper/.latexmkrc` sets.
+Build from inside `docs/paper/`; the figure paths are relative to it.
 
 **The committed manuscript is canonical, and Overleaf is kept in step with it from here.** The
 arXiv version was imported at `fdd2e0d` (2026-09-15). Since 2026-10-01 the Overleaf project is
@@ -84,8 +84,8 @@ syncing it is ours to do, push included (maintainer, 2026-10-01). A sync goes bo
 first: pull the clone, and bring any edit made on Overleaf into `docs/paper/` as an ordinary commit
 on the working branch; then copy `docs/paper/` over the clone, commit there naming the repository
 commit it carries (`Sync with docs/paper/ of Wigner_Time at <hash>`), and push. When both sides
-changed the same passage, stop and show the maintainer both, rather than choosing. So the last
-synced point is the newest such message in the clone's `git log`. The clone carries what the build
+changed the same passage, stop and show the maintainer both, rather than choosing. The last
+synced point is therefore the newest such message in the clone's `git log`. The clone carries what the build
 needs and nothing else: not `graphic/origin_resolution_figure.py` and its unused PNG preview, nor
 `desktop.ini`. `.latexmkrc`, which sets `-shell-escape` for `minted`, came from Overleaf and lives
 in both. Line numbers quoted in these notes refer to the repository's copy.
