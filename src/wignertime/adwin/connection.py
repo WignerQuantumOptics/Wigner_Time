@@ -13,7 +13,7 @@ import numpy as np
 
 from wignertime.internal import dataframe as wt_frame
 from wignertime import config as wt_config
-import wignertime.variable as variable
+import wignertime.timeline.variable as variable
 
 # ======================================================================
 _SCHEMA = {"variable": str, "module": int, "channel": int}

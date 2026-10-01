@@ -5,7 +5,7 @@ stage to a timeline (C7 in `KNOWN_ISSUES.md`).
 
 import pytest
 
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
 from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import util as wt_util
 

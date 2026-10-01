@@ -5,6 +5,7 @@
 For PC-level loading and saving of stored timelines. 
 """
 
+import pickle
 from pathlib import Path
 from typing import Callable
 from typing import Any
@@ -228,6 +229,30 @@ def save(df: wt_frame.CLASS, path: str | Path | None = None) -> Path:
     return path
 
 
+MODULES__MOVED = {
+    "wignertime.ramp_function": "wignertime.timeline.ramp_function",
+    "wignertime.variable": "wignertime.timeline.variable",
+    "wignertime.device": "wignertime.hardware.device",
+    "wignertime.conversion": "wignertime.hardware.conversion",
+    "wignertime.file": "wignertime.io.file",
+    "wignertime.display": "wignertime.io.display",
+    "wignertime.adwin.display": "wignertime.io.internal.drawing",
+    "wignertime.internal.origin": "wignertime.timeline.internal.origin",
+}
+"""
+Where a module of the package went (#163), for timelines pickled before it moved. A pickle
+names each function it holds by its module, so a timeline archived with a ramp function
+would otherwise no longer load.
+"""
+
+
+class _Unpickler(pickle.Unpickler):
+    """Reads a pickle, finding what it names where it is now (`MODULES__MOVED`)."""
+
+    def find_class(self, module, name):
+        return super().find_class(MODULES__MOVED.get(module, module), name)
+
+
 def load(path: str | Path) -> wt_frame.CLASS:
     """
     Reads the given file into memory.
@@ -241,7 +266,8 @@ def load(path: str | Path) -> wt_frame.CLASS:
 
     match suffix:
         case ".pkl" | ".pickle":
-            df = wt_frame.read_pickle(path)
+            with open(path, "rb") as f:
+                df = _Unpickler(f).load()
 
         case ".csv":
             df = wt_frame.read_csv(path)

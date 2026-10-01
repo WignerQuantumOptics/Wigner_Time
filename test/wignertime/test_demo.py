@@ -4,8 +4,8 @@ from copy import deepcopy
 import pytest
 import pandas as pd
 
-from wignertime import timeline as tl
-from wignertime.internal.timeline import anchor as anchor
+from wignertime.timeline import build as tl
+from wignertime.timeline.internal import anchor as anchor
 from wignertime.internal import dataframe as frame
 
 from wignertime.demo import full_experiment as ex

@@ -7,8 +7,8 @@ Outlines the conventions for variables  and provides some convenience functions 
 
 import re
 from munch import Munch
-from wignertime.internal import dataframe as wt_frame
 from wignertime import config as wt_config
+from wignertime.internal import tags as wt_tags
 
 
 def parse(variable: str) -> dict:
@@ -28,8 +28,8 @@ def parse(variable: str) -> dict:
         d, uid, u = match.groups()
         if u:
             unit = u
-        elif wt_config.LABEL__ANCHOR in d:
-            unit = wt_config.LABEL__ANCHOR
+        elif wt_tags.LABEL__ANCHOR in d:
+            unit = wt_tags.LABEL__ANCHOR
         else:
             unit = "digital"
 
@@ -58,13 +58,11 @@ def without_unit(variable):
     return "{}__{}".format(p.device, p.uid)
 
 
-def units(timeline: wt_frame.CLASS, do_digital: bool = True):
-    """
-    Returns a set of different timeline units (strs).
-    """
-    us = set(map(unit, timeline["variable"].unique()))
-    if do_digital:
-        return us
-    else:
-        us.discard("digital")
-        return us
+def __getattr__(name):
+    """Say where a name that moved went."""
+    if name == "units":
+        raise AttributeError(
+            "`variable.units` is now `timeline.query.units`: reading a timeline back is in"
+            " `wignertime.timeline.query`."
+        )
+    raise AttributeError("module {!r} has no attribute {!r}".format(__name__, name))

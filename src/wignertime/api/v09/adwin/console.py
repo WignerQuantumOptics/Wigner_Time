@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """
-The manual console, version 1 of the user API. Needs the `console` extra.
+The manual console, version 0.9 of the user API. Needs the `console` extra.
 
     table = wt.adwin.console.panel(connections, devices, timeline__defaults)
     widgets = wt.adwin.console.create_UI(machine, table)

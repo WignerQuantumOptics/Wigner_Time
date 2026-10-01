@@ -10,8 +10,10 @@ which answers in the wrong units. Settled by the maintainer on 2026-09-18, again
 
 import pytest
 
-from wignertime import timeline as tl
-from wignertime.internal import origin as wt_origin
+from wignertime.timeline import build as tl
+
+from wignertime.internal import tags as wt_tags
+from wignertime.timeline.internal import origin as wt_origin
 
 
 @pytest.fixture
@@ -34,7 +36,7 @@ def tline():
 # --- the value slot is narrow ------------------------------------------------
 
 
-@pytest.mark.parametrize("label", [tl.ANCHOR, tl.LAST])
+@pytest.mark.parametrize("label", [wt_tags.ANCHOR, wt_tags.LAST])
 def test_reserved_time_words_are_refused_as_values(tline, label):
     with pytest.raises(ValueError, match="cannot serve as a VALUE origin"):
         tl.to_timeline(
@@ -65,7 +67,8 @@ def test_the_refusal_offers_the_pair_form(tline):
 def test_one_label_for_both_slots_must_satisfy_the_value_slot(tline):
     with pytest.raises(ValueError, match="cannot serve as a VALUE origin"):
         tl.to_timeline(
-            tl.update(coil__A=1.0, time=1.0, origin=[tl.LAST, tl.LAST]), onto=tline
+            tl.update(coil__A=1.0, time=1.0, origin=[wt_tags.LAST, wt_tags.LAST]),
+            onto=tline,
         )
 
 
@@ -82,7 +85,8 @@ def test_a_variable_name_remains_a_value_origin(tline):
 
 def test_variable_remains_a_value_origin(tline):
     new = tl.to_timeline(
-        tl.update(coil__A=1.0, time=0.0, origin=["stage1", tl.VARIABLE]), onto=tline
+        tl.update(coil__A=1.0, time=0.0, origin=["stage1", wt_tags.VARIABLE]),
+        onto=tline,
     )
     assert new.iloc[-1]["value"] == pytest.approx(3.0)
 
@@ -99,7 +103,7 @@ def test_a_number_remains_a_value_origin(tline):
 
 @pytest.mark.parametrize(
     "label,time__expected",
-    [(tl.ANCHOR, 3.5), (tl.LAST, 3.5), ("stage1", 1.0), ("coil__A", 1.5)],
+    [(wt_tags.ANCHOR, 3.5), (wt_tags.LAST, 3.5), ("stage1", 1.0), ("coil__A", 1.5)],
 )
 def test_the_time_slot_still_admits_everything(tline, label, time__expected):
     new = tl.to_timeline(
@@ -160,7 +164,7 @@ def test_the_tags_are_not_strings_and_stay_themselves():
     import copy
     import pickle
 
-    for tag in (tl.ANCHOR, tl.LAST, tl.VARIABLE):
+    for tag in (wt_tags.ANCHOR, wt_tags.LAST, wt_tags.VARIABLE):
         assert not isinstance(tag, str)
         assert repr(tag) == tag.name
         assert copy.deepcopy(tag) is tag

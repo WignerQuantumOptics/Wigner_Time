@@ -2,9 +2,9 @@ import numpy as np
 import pytest
 
 import wignertime.adwin as wt_adwin
-from wignertime import conversion
-from wignertime import device
-from wignertime import timeline as tl
+from wignertime.hardware import conversion
+from wignertime.hardware import device
+from wignertime.timeline import build as tl
 from wignertime.adwin import connection as adcon
 from wignertime.adwin import console
 

@@ -7,17 +7,31 @@ import contextlib
 import dataclasses
 import importlib.util
 import time
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
-if not importlib.util.find_spec("ADwin"):
-    raise ImportError("Wigner Time's adwin modules require `ADwin` to be installed.")
+if TYPE_CHECKING:  # for the annotations only; the driver is imported in `link_device`
+    import ADwin
 
-import ADwin
+# The `ADwin` driver is needed only to reach a machine, which `link_device` does; every
+# other function here either works on data alone (`convert`) or is handed the machine that
+# `link_device` returned. So it is imported there, and this module, the connections and
+# the conversion need no hardware and no `adwin` extra.
+INSTALL__ADWIN = "\n".join(
+    [
+        "Reaching an ADwin machine needs its driver, the `ADwin` package, which is not"
+        " installed. It comes with the `adwin` extra:",
+        "",
+        '    pip install "wigner-time[adwin] @ git+https://github.com/WignerQuantumOptics/Wigner_Time.git"',
+        "",
+        "or, in a clone of the repository, `poetry install --extras adwin`. Building"
+        " connections and converting a timeline need neither the driver nor a machine.",
+    ]
+)
 
-from wignertime import timeline as tl
-from wignertime.config import wtlog as wtl
+from wignertime.timeline import build as tl
+from wignertime.internal.tags import wtlog as wtl
 import wignertime.adwin as wt_adwin
-from wignertime import variable as wt_variable
+from wignertime.timeline import variable as wt_variable
 from wignertime.adwin import connection
 from wignertime.adwin import console as wt_console
 from wignertime.adwin import internal as ad
@@ -40,7 +54,7 @@ class Upload(NamedTuple):
     applies however the run ends.
     """
 
-    machine: ADwin.ADwin
+    machine: "ADwin.ADwin"
     process: int
     processor: str
     processdelay: int
@@ -158,7 +172,14 @@ def read_cycle_period(machine, process):
 def link_device(DeviceNo=1, raiseExceptions=1, useNumpyArrays=0):
     """
     A Wrapper around ADwin.ADwin. Returns a new (stateful) ADwin machine object that is digitally connected to a physical ADwin machine.
+
+    The one function here that needs the `ADwin` driver (the `adwin` extra), and the one
+    that says so when it is missing: the others are given the machine this returns.
     """
+    if importlib.util.find_spec("ADwin") is None:
+        raise ModuleNotFoundError(INSTALL__ADWIN, name="ADwin")
+    import ADwin
+
     return ADwin.ADwin(
         DeviceNo=DeviceNo,
         raiseExceptions=raiseExceptions,
@@ -226,7 +247,7 @@ def upload(
     timeline,
     connections,
     devices,
-    machine: ADwin.ADwin,
+    machine: "ADwin.ADwin",
     process: int,
     machine_specifications=None,
     time_resolution=None,

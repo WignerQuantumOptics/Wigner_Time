@@ -10,11 +10,11 @@ In general, the user shouldn't need to use these functions and there is no guara
 
 import numpy as np
 
-from wignertime.config import wtlog as wtl
-from wignertime import timeline as tl
-from wignertime import conversion as conv
-from wignertime import device
-from wignertime import variable as wt_variable
+from wignertime.internal.tags import wtlog as wtl
+from wignertime.timeline import build as tl
+from wignertime.hardware import conversion as conv
+from wignertime.hardware import device
+from wignertime.timeline import variable as wt_variable
 from wignertime.internal import dataframe as wt_frame
 import wignertime.adwin as wt_adwin
 from wignertime.adwin import connection

@@ -2,8 +2,10 @@ import pytest
 from munch import Munch
 
 from wignertime import config as wt_config
-from wignertime import ramp_function
-from wignertime import timeline as tl
+from wignertime.timeline import ramp_function
+from wignertime.timeline import build as tl
+from wignertime.internal import tags as wt_tags
+from wignertime.timeline.internal import stages as wt_stages
 from wignertime.internal import dataframe as wt_frame
 
 
@@ -31,7 +33,7 @@ def test_anchor__basic():
         )
     )
 
-    tl_check = tl._populate_timeline(
+    tl_check = wt_stages.populate_timeline(
         ["⚓__001", [10.0, 0.0, "InitialAnchor"]],
         timeline=tl_check,
         context="InitialAnchor",
@@ -63,7 +65,7 @@ def df_context1():
 
 def test_anchorContext(df_context1):
     return wt_frame.assert_equal(
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             lockbox__MOT__MHz=[1.0, 10.0],
             timeline=df_context1,
             context="ramp",
@@ -115,6 +117,6 @@ def test_anchor_chains_on_the_previous_anchor_not_the_last_row():
 
     assert anchor_time(tl.to_timeline(tl.anchor(0.0), onto=timeline)) == 3.0
     assert (
-        anchor_time(tl.to_timeline(tl.anchor(0.0, origin=tl.LAST), onto=timeline))
+        anchor_time(tl.to_timeline(tl.anchor(0.0, origin=wt_tags.LAST), onto=timeline))
         == 5.0
     )

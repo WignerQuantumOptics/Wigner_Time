@@ -30,7 +30,7 @@ the root, which also made two of its own assertions vacuous — see the fixture'
 ## Working rules
 
 `KNOWN_ISSUES.md` is the standing checklist for code work and is **authoritative over this file** on
-anything it covers. Read it before touching `timeline.py` or `internal/origin.py`. Its rules:
+anything it covers. Read it before touching `timeline/build.py` or `timeline/internal/origin.py`. Its rules:
 
 - **Do not "fix" by adding try/except or defensive branching.** Failures should be loud and early, at
   the point where the user's intent was ambiguous — not absorbed downstream. The value proposition is
@@ -119,7 +119,7 @@ Three named layers, with movement in both directions as an explicit goal:
 
 - **operation** — experiment stages ("take a fluorescence image"). *Client code, deliberately not
   part of the package*; `demo/full_experiment.py` is an example of it, not an API.
-- **device** — the vtvc timeline in real physical units (MHz, A). The core abstraction, `timeline.py`.
+- **device** — the vtvc timeline in real physical units (MHz, A). The core abstraction, `timeline/` (`build`, `query`, `internal`).
 - **connection** — hardware-ready arrays ("send 5 V to connection 2"), produced solely by
   `adwin/core.py::convert`. Porting to other hardware means writing a new conversion here plus a
   consumer program on the controller; nothing above this layer should need to change.
@@ -145,7 +145,7 @@ places each variation onto it; `to_timeline(b, onto=to_timeline(a))` equals `to_
 `stack` and `cascade` **compose stages only, and always return one**: a table is refused in any
 position, with a message naming `to_timeline`. **`create` is gone** (2026-09-29): the first rows of a
 timeline are an `update` like any other, applied to the empty timeline, where the origin is absolute
-zero and the rows must name their context (#156). A module `__getattr__` in `timeline.py` says so to
+zero and the rows must name their context (#156). A module `__getattr__` in `timeline/build.py` says so to
 anyone still writing `tl.create`. **The core functions take no timeline** (2026-09-29, P2 step 3):
 `update`, `ramp` and `anchor` are keyword-only (`anchor` keeps `time` positional) and always return a
 stage, and a `timeline=` given to one is refused with a message naming `to_timeline`. Each is a thin
@@ -193,7 +193,7 @@ default to `None`, meaning unbound, and a ramp binding none, expanded with none 
 
 ### Origins — why chaining is causal by default
 
-`internal/origin.py` is the heart of the package. An `origin` is a `[time, value]` pair.
+`timeline/internal/origin.py` is the heart of the package. An `origin` is a `[time, value]` pair.
 `origin.update` shifts a newly built fragment's `time`/`value` per variable relative to the preceding
 timeline, which is what makes `stack(timeline, update(...), ramp(...))` join end-to-end without
 explicit times.
@@ -286,7 +286,7 @@ what then turns every `time` into a Δt from the end of the preceding stage.
 ### Context does three jobs
 
 `context` carries no timing information and is never sent to the hardware, but it is not decoration:
-it is documentation that survives into the archived data (and drives `timeline.context_info` and the
+it is documentation that survives into the archived data (and drives `query.context_information` and the
 display grouping); it is addressable as an `origin`, which makes a stage a *named region* and is the
 basis of interweaving; and a backend may reserve particular names (`ADwin_LowInit`, `ADwin_Finish`).
 
@@ -458,20 +458,34 @@ real, which is what #154 was about.
   position). Its thin wrappers over pandas (`new`, `concat`, `isnull`, `read_*`, `assert_equal`) and
   `wt_frame.CLASS` stay, as there is nothing to gain from rewriting their callers, but need not be
   used in new code.
-- Optional dependencies are gated at import time with `importlib.util.find_spec` and a raised
-  `ImportError` (`adwin/core.py` needs `ADwin`, `display.py` needs `matplotlib`). Keep new optional
-  code importable-but-inert the same way.
+- Optional dependencies are looked for where they are used, not at import: `adwin.core.link_device`
+  needs `ADwin` and `io.display` needs `matplotlib`, and each raises `ModuleNotFoundError` naming its
+  extra. Importing the package, `wt.adwin` included, needs neither. Keep new optional code the same
+  way: importable, and loud only where the dependency is actually needed.
 - Standard aliases: `tl` (timeline), `wt_frame`, `wt_origin`, `wt_util`, `wt_config`, `wt_adwin`.
 - Numpy-style docstrings (mkdocstrings is configured for them). Prose in docstrings tends to explain
   *why* a rule exists, not just what the function does — match that.
-- **What users import is `wignertime.api.v1`** (#163, branch `issue#163`): `import
-  wignertime.api.v1 as wt` for most work, with `wt.adwin` (and `.console`, `.adc`) and
+- **Layout of the package** (#163, 2026-10-01): `api/` (the user API), `config.py`, `timeline/`,
+  `hardware/` (`device`, `conversion`: the device layer every backend shares), `io/` (`file`,
+  `display`, with the matplotlib drawing in `io/internal/drawing.py`), `adwin/`, `internal/`
+  (`dataframe`, `util`, `tags`). A package `__getattr__` names where a moved module went, and
+  `io.file.load` finds pickled functions under their old modules (`MODULES__MOVED`).
+  `wignertime.timeline` is a package that holds
+  nothing itself. `timeline.build` has the public functions (`update`, `ramp`, `anchor`, `stack`,
+  `cascade`, `to_timeline`, `expand`, `noop`, `as_deferred`); `timeline.query` reads a timeline back
+  (`previous`, `context_information`, `units`); `timeline.ramp_function` and `timeline.variable` (the
+  naming convention) sit beside them; `timeline.internal` holds everything they share
+  (`stages`, `checks`, `compose`, `origin`, `inherit`, `input`, `anchor`, `validate`), with no
+  leading underscores since the module is private. Nothing is re-exported between them: user-facing
+  code (README, docs, demo) goes through `wignertime.api.v09`, and tests may import the modules.
+- **What users import is `wignertime.api.v09`** (#163, branch `issue#163`): `import
+  wignertime.api.v09 as wt` for most work, with `wt.adwin` (and `.console`, `.adc`) and
   `wt.display` for what needs an optional package, loaded on first use. It re-exports the
   package's own objects and adds no behaviour. Its `__all__` lists are the API, pinned by
   `test_api.py`: adding a name is a new promise, and removing or renaming one belongs in a new
-  version (`api/v2`), with v1 left importable. The rest of `wignertime` stays reachable but carries
-  no guarantee, so internal code may change freely as long as v1's names keep their meaning. Import
-  anything a v1 module needs for itself under a private name (`import importlib as _importlib`),
+  version (`api/v10` for 1.0, following the package version), with v09 left importable. The rest of `wignertime` stays reachable but carries
+  no guarantee, so internal code may change freely as long as v09's names keep their meaning. Import
+  anything a v09 module needs for itself under a private name (`import importlib as _importlib`),
   or it becomes reachable as `wt.importlib`.
 - `internal/` is explicitly unstable API. `internal/doc/` and `doc/` are org-mode notes and scratch
   notebooks, not built documentation; `docs/` is the mkdocs source (`docs/index.md` duplicates the
@@ -502,14 +516,14 @@ in the 2-D form, which #142's rule removed — every ramp now starts from wherev
 
 Not covered by `KNOWN_ISSUES.md`:
 
-- `internal/constructor.py` calls `tl.previous_time`, which no longer exists. Nothing in the package
-  or the suite imports it; its only importers are `internal/doc/demonstration.py` and
-  `internal/experimental/demonstration.py`, which are scratch notes. Dead code, but with references.
-- `internal/timeline/validate.py` is documented as out of date with respect to the current schema
-  (it references `unit_range`/`safety_range` columns that `device.py` no longer produces).
-- `black` passes on everything except `src/wignertime/internal/doc/diagnosticsDemo.py`, which is a
-  scratch notebook rather than package code (checked 2026-09-22: 1 file would be reformatted, 57 left
-  alone). Format files you touch; a repo-wide `black` run would bury your diff.
+- `_to_delete/` (2026-10-01) holds the dead modules taken out of `internal/` for the maintainers to
+  review: `constructor.py` (called `tl.previous_time`), `scratch.py`, and the scratch notes
+  `doc/demonstration.py`, `doc/diagnosticsDemo.py` and `experimental/demonstration.py`.
+- `timeline/internal/validate.py` is documented as out of date with respect to the current schema
+  (it references `unit_range`/`safety_range` columns that `hardware/device.py` no longer produces).
+- `black` passes on everything under `src/wignertime` (checked 2026-10-01; the one exception,
+  `internal/doc/diagnosticsDemo.py`, is now in `_to_delete/`), except the untracked
+  `demo/magnetic_cavity.py`. Format files you touch; a repo-wide `black` run would bury your diff.
 - **The paper's demo listing (`sec:demonstration`) is a cleaned-up variant of
   `src/wignertime/demo/full_experiment.py`, not a copy of it**: a smaller apparatus (the rule is
   spelling, not extent). The spellings were reconciled on 2026-09-29 (D7): the demo now uses the

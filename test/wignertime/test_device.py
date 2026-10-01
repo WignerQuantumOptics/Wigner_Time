@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from wignertime.internal import dataframe as wt_frame
-from wignertime import device as dev
+from wignertime.hardware import device as dev
 from wignertime.adwin import connection as adcon
 
 

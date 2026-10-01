@@ -17,7 +17,7 @@ import pathlib
 import numpy as np
 import pandas as pd
 
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
 from wignertime.internal import util as wt_util
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "reference"

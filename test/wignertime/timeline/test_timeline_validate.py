@@ -1,6 +1,6 @@
 import pytest
 
-from wignertime.internal.timeline import validate
+from wignertime.timeline.internal import validate
 from wignertime.internal import dataframe as frame
 
 # TODO:

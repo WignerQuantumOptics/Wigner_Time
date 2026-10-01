@@ -2,9 +2,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """
-Running a timeline on ADwin, version 1 of the user API. Needs the `adwin` extra.
+Running a timeline on ADwin, version 0.9 of the user API.
 
-    import wignertime.api.v1 as wt
+Building `connections` and `convert`ing a timeline need no hardware and nothing optional.
+Reaching a machine does: `link_device` needs the ADwin driver (the `adwin` extra) and
+says so when it is missing, and everything that plays a timeline is given the machine it
+returns.
+
+    import wignertime.api.v09 as wt
 
     connections = wt.adwin.connections(["shutter__MOT", 1, 11], ["coil__A", 3, 1])
     machine = wt.adwin.link_device()

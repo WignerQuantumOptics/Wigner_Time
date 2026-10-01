@@ -12,16 +12,17 @@ from copy import deepcopy
 
 import numpy as np
 
-from wignertime import config as wt_config
+from wignertime.timeline import query as wt_query
+from wignertime.internal import tags as wt_tags
 from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import util as wt_util
-from wignertime.internal.timeline import anchor as wt_anchor
+from wignertime.timeline.internal import anchor as wt_anchor
 
 ###############################################################################
 #                                  CONSTANTS                                   #
 ###############################################################################
 
-ANCHOR, LAST, VARIABLE = wt_config.ANCHOR, wt_config.LAST, wt_config.VARIABLE
+ANCHOR, LAST, VARIABLE = wt_tags.ANCHOR, wt_tags.LAST, wt_tags.VARIABLE
 
 _ORIGINS__TIME = [ANCHOR, LAST, VARIABLE]
 """
@@ -94,53 +95,6 @@ def error__slot__value(label, reason):
 #############################################################################
 
 
-def previous(
-    timeline: wt_frame.CLASS,
-    variable=None,
-    column="variable",
-    time__max=None,
-):
-    """
-    Returns the latest row of the timeline, optionally restricted to rows whose `column` equals `variable` and to times no later than `time__max`. Among rows sharing the latest time, the one written last (highest index) is returned.
-
-    This is the one lookup the origin machinery needs. It used to take `sort_by` and `index` as well, for "the n-th row in some ordering", but nothing used them, and on shared times the sorted path returned an arbitrary row rather than the last one written (D2, #116). A general query belongs in pandas.
-
-    Anchors are a special case, where an exact match on the symbol is not required.
-
-    Raises ValueError if the specified variable, or timeline, doesn't exist.
-    """
-    if timeline is None or timeline.empty:
-        raise ValueError(
-            "\n".join(
-                [
-                    "Nothing to resolve {}against: the timeline is empty.".format(
-                        "`{}` ".format(variable) if variable is not None else ""
-                    ),
-                    "",
-                    "An origin is a reference to something already written. On an empty"
-                    " timeline there is nothing to refer to, so give a number instead"
-                    " -- `origin=0.0` places the rows in absolute time.",
-                ]
-            )
-        )
-
-    if time__max is not None:
-        tline = timeline[timeline["time"] <= time__max]
-    else:
-        tline = timeline
-
-    if variable is not None:
-        tl__filtered = tline[tline[column] == variable]
-        if tl__filtered.empty and (variable == wt_config.LABEL__ANCHOR):
-            tl__filtered = tline[tline[column].str.startswith(variable)]
-        if tl__filtered.empty:
-            raise ValueError("Previous {} not found".format(variable))
-    else:
-        tl__filtered = tline
-
-    return wt_frame.row_from_max_column(tl__filtered)
-
-
 def instants(timeline):
     """
     The rows of `timeline` that sit at an instant: those at a finite time.
@@ -171,7 +125,7 @@ def _refuse__no_instant(timeline, at_instants, column, name, label):
     if (
         column == "variable"
         and name is not None
-        and name.startswith(wt_config.LABEL__ANCHOR)
+        and name.startswith(wt_tags.LABEL__ANCHOR)
     ):
         return
     if present(timeline) and not present(at_instants):
@@ -247,16 +201,16 @@ def auto(timeline, origin, origin__defaults):
 
     Pass `None` to complete nothing and take the origin as given.
 
-    `wt_config.INFER`, the signature default of the public functions, is read as `None`
+    `wt_tags.INFER`, the signature default of the public functions, is read as `None`
     wherever it appears -- as the whole origin or in one slot -- so that the marker is a
     visible name for the default and not a second meaning beside it (#142).
 
     NOTE: Assumes that origin__defaults is a list of pairs.
     """
-    if origin is wt_config.INFER:
+    if origin is wt_tags.INFER:
         origin = None
     o = [
-        None if slot is wt_config.INFER else slot
+        None if slot is wt_tags.INFER else slot
         for slot in wt_util.ensure_pair(wt_util.ensure_iterable_with_None(origin))
     ]
 
@@ -267,7 +221,7 @@ def auto(timeline, origin, origin__defaults):
     for od in origin__defaults:
         candidate = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(od))
         if isinstance(
-            candidate[0], (str, wt_config.Origin)
+            candidate[0], (str, wt_tags.Origin)
         ) and not _is_satisfiable__time(timeline, candidate[0]):
             continue
         entry = candidate
@@ -292,7 +246,7 @@ def sanitize_origin(timeline, orig):
     o = wt_util.ensure_pair(wt_util.ensure_iterable_with_None(orig))
     if len(o) != 2:
         raise error__unsupported_option(orig)
-    if any(isinstance(e, (str, wt_config.Origin)) for e in o) and timeline is None:
+    if any(isinstance(e, (str, wt_tags.Origin)) for e in o) and timeline is None:
         raise error__timeline(orig)
     return o
 
@@ -300,7 +254,7 @@ def sanitize_origin(timeline, orig):
 def find(
     timeline=None,
     origin=None,
-    label__anchor=wt_config.LABEL__ANCHOR,
+    label__anchor=wt_tags.LABEL__ANCHOR,
     time__max__relative=None,
 ):
     """
@@ -380,11 +334,11 @@ def find(
         """
         match get:
             case "time" | "value":
-                return previous(
+                return wt_query.previous(
                     timeline, column=col__fil, variable=var, time__max=time__max
                 ).at[get]
             case "both":
-                return previous(
+                return wt_query.previous(
                     timeline, column=col__fil, variable=var, time__max=time__max
                 )[["time", "value"]].values
 
@@ -399,7 +353,7 @@ def find(
         happens to hold the row at that instant, so they answer in the wrong units
         without saying so.
         """
-        if isinstance(label, wt_config.Origin) and label not in _ORIGINS__BY_SLOT[slot]:
+        if isinstance(label, wt_tags.Origin) and label not in _ORIGINS__BY_SLOT[slot]:
             raise error__slot__value(label, "it names an instant, not a quantity")
 
         if label is VARIABLE:
@@ -503,7 +457,7 @@ def find(
             raise error__unsupported_option(o)
         case float() | int():
             t = o[0]
-        case wt_config.Origin() | str():
+        case wt_tags.Origin() | str():
             # The time slot asks *when*, and only a row at an instant answers: one at
             # ±∞ is before or after the run (#154).
             column, name = _to_col_var(timeline, o[0], "time")
@@ -520,7 +474,7 @@ def find(
             raise error__unsupported_option(o)
         case float() | int():
             v = o[1]
-        case wt_config.Origin() | str():
+        case wt_tags.Origin() | str():
             # The bound is inclusive (`previous` compares with `<=`), so a row sitting
             # exactly at the origin instant is already in effect there. It used to be
             # widened by `config.TIME_RESOLUTION`, which admitted rows up to 1 us

@@ -162,11 +162,9 @@ You want to control an optical shutter, an AOM and a laser lock.
 For each channel, simply *name* the ADwin port using standard Python lists. These keep track of the physical connections. A name is `<device>__<UID>`, followed by `__<unit>` for an analog channel.
 
 ``` python
-    from wignertime.adwin import connection as adcon
-    from wignertime import device
-    from wignertime import conversion as conv
+    import wignertime.api.v09 as wt
     
-    connections = adcon.new(
+    connections = wt.adwin.connections(
         ["shutter__MOT", 1, 11],
         ["AOM__MOT", 1, 1],
         ["AOM__MOT__transmission", 3, 1],
@@ -176,11 +174,11 @@ For each channel, simply *name* the ADwin port using standard Python lists. Thes
 For analog connections, also specify a linear factor, conversion function or calibration file, and the permitted range.
 
 ``` python
-    devices = device.new(
+    devices = wt.devices(
         ["lockbox__MOT__MHz", 0.05, -200, 200],
         [
             "AOM__MOT__transmission",
-            conv.function_from_file(
+            wt.function_from_file(
                 "resources/calibration/aom_calibration.dat",
                 sep=r"\s+",
             ),
@@ -193,9 +191,8 @@ Specify how you want your experiment to begin and end, using readable options an
 
 ``` python
     import math
-    from wignertime import timeline as tl
     
-    initial = tl.update(
+    initial = wt.update(
         time=-math.inf,
         context="ADwin_LowInit",
         shutter__MOT=1,
@@ -203,7 +200,7 @@ Specify how you want your experiment to begin and end, using readable options an
         AOM__MOT__transmission=1.0,
         lockbox__MOT__MHz=0.0,
     )
-    final = tl.update(
+    final = wt.update(
         time=math.inf,
         context="ADwin_Finish",
         shutter__MOT=1,
@@ -216,12 +213,12 @@ Specify how you want your experiment to begin and end, using readable options an
 And any key processes…
 
 ``` python
-MOT = tl.update(
+MOT = wt.update(
             shutter__MOT=0,
             AOM__MOT=1,
             context="MOT",
         )
-detuned_growth = tl.ramp(
+detuned_growth = wt.ramp(
                     lockbox__MOT__MHz=-5,
                     duration=10e-3,
         )
@@ -231,8 +228,8 @@ None of these is a timeline yet: each is a *stage*, written relative to its own 
 Due to the sensible defaults, each component, e.g. `ramp`, will automatically join onto the end of the previous operation in a causal chain.
 
 ``` python
-tline = tl.to_timeline(
-    tl.stack(
+tline = wt.to_timeline(
+    wt.stack(
         initial,
         MOT,
         detuned_growth,
@@ -246,9 +243,7 @@ The timeline is a *pandas.DataFrame*, so it can be edited and inspected directly
 It can then be converted to an ADwin-compatible format. The cycle period has to be stated, in seconds, because it belongs to the program running on the ADwin rather than to the experiment.
 
 ``` python
-    from wignertime.adwin import core as adwin
-    
-    adwin.convert(tline, connections, devices, cycle_period=5e-6)
+    wt.adwin.convert(tline, connections, devices, cycle_period=5e-6)
 ```
 
 <a id="orge0a7f00"></a>

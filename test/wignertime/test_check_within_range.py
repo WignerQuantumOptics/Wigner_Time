@@ -1,5 +1,5 @@
 """
-Regression tests for `wignertime.device.check_within_range`.
+Regression tests for `wignertime.hardware.device.check_within_range`.
 
 Run with `pytest test_check_within_range.py` from this directory.
 """
@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from wignertime import device
+from wignertime.hardware import device
 
 
 def frame(rows):

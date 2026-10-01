@@ -12,8 +12,8 @@ from typing import Callable
 
 import numpy as np
 
-from wignertime import config as wt_config
-from wignertime.config import wtlog
+from wignertime.internal import tags as wt_tags
+from wignertime.internal.tags import wtlog
 from wignertime.internal import dataframe as wt_frame
 
 
@@ -201,7 +201,7 @@ def parameters__unstated(f: Callable) -> set[str]:
         name
         for name, p in inspect.signature(f).parameters.items()
         if p.kind in (p.KEYWORD_ONLY, p.POSITIONAL_OR_KEYWORD)
-        and (p.default is p.empty or p.default is None or p.default is wt_config.INFER)
+        and (p.default is p.empty or p.default is None or p.default is wt_tags.INFER)
     }
 
 
@@ -515,7 +515,7 @@ def _unstated(f, arguments):
         if parameter.default is parameter.empty or name not in arguments:
             continue
         value, default = arguments[name], parameter.default
-        if value is default or (default is wt_config.INFER and value is None):
+        if value is default or (default is wt_tags.INFER and value is None):
             out.add(name)
         elif (
             not callable(default)
