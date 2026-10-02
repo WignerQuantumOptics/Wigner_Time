@@ -1,5 +1,5 @@
+import os
 import pytest
-import pandas as pd
 from munch import Munch
 import numpy as np
 
@@ -55,25 +55,26 @@ def test_add_linear_conversion(df_simple):
 
     df_added = conv._add_linear(df_devs)
 
-    return pd.testing.assert_frame_equal(
+    return wt_frame.assert_equal(
         df_added,
-        wt_frame.new(
-            {
-                "time": [0.0, 0.0, 0.0, 0.0],
-                "variable": [
-                    "AOM__imaging",
-                    "AOM__imaging__V",
-                    "AOM__repump",
-                    "AOM__science__trans",
-                ],
-                "value": [0.0, 2.0, 1.0, 1.0],
-                "context": ["init", "init", "init", "MOT"],
-                "to_V": [None, 1.0, None, None],
-                "value__min": [None, -3, None, None],
-                "value__max": [None, 3, None, None],
-                "value__digits": [None, 39321, None, None],
-            }
-        ).astype(
+        wt_frame.cast(
+            wt_frame.new(
+                {
+                    "time": [0.0, 0.0, 0.0, 0.0],
+                    "variable": [
+                        "AOM__imaging",
+                        "AOM__imaging__V",
+                        "AOM__repump",
+                        "AOM__science__trans",
+                    ],
+                    "value": [0.0, 2.0, 1.0, 1.0],
+                    "context": ["init", "init", "init", "MOT"],
+                    "to_V": [None, 1.0, None, None],
+                    "value__min": [None, -3, None, None],
+                    "value__max": [None, 3, None, None],
+                    "value__digits": [None, 39321, None, None],
+                }
+            ),
             {
                 "time": float,
                 "variable": str,
@@ -83,7 +84,7 @@ def test_add_linear_conversion(df_simple):
                 "value__min": float,
                 "value__max": float,
                 "value__digits": float,
-            }
+            },
         ),
     )
 
@@ -117,7 +118,9 @@ def df_devs():
 
 def test_add_function(df_devs):
     wt_frame.assert_equal(
-        conv._add_function(df_devs)[["value", "to_V", "value__digits"]],
+        wt_frame.select(
+            conv._add_function(df_devs), ["value", "to_V", "value__digits"]
+        ),
         wt_frame.new(
             [
                 [
@@ -135,7 +138,7 @@ def test_add_function(df_devs):
 
 
 def test_add(df_devs):
-    calc = conv.add(df_devs)[["value", "to_V", "value__digits"]]
+    calc = wt_frame.select(conv.add(df_devs), ["value", "to_V", "value__digits"])
     guess = wt_frame.new(
         [
             [
@@ -151,7 +154,7 @@ def test_add(df_devs):
     )
     # print(guess)
 
-    return wt_frame.assert_equal(calc.astype({"value__digits": float}), guess)
+    return wt_frame.assert_equal(wt_frame.cast(calc, {"value__digits": float}), guess)
 
 
 def test_addRealistic(df_simple):
@@ -165,8 +168,8 @@ def test_addRealistic(df_simple):
     )
     df = device.add(df_simple, device.new("AOM__science__trans", func__AOM, 0.0, 1.0))
 
-    actual = conv.add(df)[["value", "to_V", "value__digits"]]
-    expected = pd.DataFrame(
+    actual = wt_frame.select(conv.add(df), ["value", "to_V", "value__digits"])
+    expected = wt_frame.new(
         [
             [0.0, np.nan, np.nan],
             [2.0, np.nan, np.nan],
@@ -177,3 +180,69 @@ def test_addRealistic(df_simple):
     )
 
     return wt_frame.assert_equal(actual, expected)
+
+
+_CALIBRATION = "resources/calibration/aom_calibration.dat"
+
+
+def test_function_from_file_inverts_when_the_columns_are_swapped():
+    """
+    `indices__column=[1, 0]` is how the docstring says to invert a calibration. After
+    averaging the duplicated `x` values, the grouped column had moved to the front, and
+    both columns were then taken by position -- so `[1, 0]` read the same column twice and
+    returned the identity function, silently.
+    """
+    kw = dict(names=["voltage", "transparency"], sep=r"\s+")
+    forward = conv.function_from_file(_CALIBRATION, **kw)
+    inverse = conv.function_from_file(_CALIBRATION, indices__column=[1, 0], **kw)
+    assert abs(inverse(0.5) - 0.5) > 1e-3  # not the identity
+    assert forward(inverse(0.5)) == pytest.approx(0.5, abs=5e-3)
+
+
+@pytest.mark.parametrize(
+    "kw", [dict(sep=r"\s+"), dict(names=["voltage", "transparency"], sep=r"\s+")]
+)
+def test_function_from_file_reads_the_same_on_either_backend(kw, monkeypatch):
+    """
+    Off the pandas backend the file is read by `conversion` itself, keeping `read_csv`'s
+    rule that the first line is a header unless `names` is given. The two agree to
+    rounding: pandas' float parser is not exactly Python's.
+    """
+    import importlib.util
+
+    grid = np.linspace(0.0, 0.3, 301)
+    with_pandas = None
+    if importlib.util.find_spec("pandas") is not None:
+        monkeypatch.setattr(wt_frame, "LIBRARY", "pandas")
+        with_pandas = conv.function_from_file(_CALIBRATION, **kw)(grid)
+
+    monkeypatch.setattr(wt_frame, "LIBRARY", "polars")
+    without = conv.function_from_file(_CALIBRATION, **kw)(grid)
+    if with_pandas is not None:
+        assert np.max(np.abs(without - with_pandas)) < 1e-12
+    with pytest.raises(TypeError, match="reads `sep`, `names` and `header` only"):
+        conv.function_from_file(_CALIBRATION, skiprows=1, **kw)
+
+
+def test_a_polars_session_reads_a_calibration_without_importing_pandas():
+    """
+    The reader follows the backend. It used to be `pandas.read_csv` whenever pandas was
+    installed, so a polars session loaded pandas – some 60 MB – for one small file.
+    """
+    import subprocess
+    import sys
+
+    pytest.importorskip("polars")
+    code = (
+        "import sys\n"
+        "from wignertime import conversion\n"
+        "f = conversion.function_from_file({!r}, sep=r'\\s+')\n"
+        "print(float(f(0.1)) == float(f(0.1)), 'pandas' in sys.modules)\n"
+    ).format(_CALIBRATION)
+    env = dict(os.environ, WIGNERTIME_BACKEND="polars")
+    env.pop("WIGNERTIME_STRICT_LOG", None)
+    result = subprocess.run(
+        [sys.executable, "-c", code], env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.split() == ["True", "False"]

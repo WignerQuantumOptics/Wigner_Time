@@ -5,11 +5,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-poetry install --with dev --all-extras   # what CI does
+poetry install --with dev --all-extras   # what CI does (pandas and polars both)
 poetry run pytest                        # whole suite, from the repo root
 poetry run pytest test/wignertime/test_drop_repeats.py                              # one file
 poetry run pytest test/wignertime/test_drop_repeats.py::test_channels_are_independent  # one test
 poetry run pytest -k ramp                # by name
+poetry run pytest --backend=polars          # the same suite on polars; CI also runs it without pandas
+poetry run pytest --backend=pandas-strict   # refuses any timeline operation that bypasses wt_frame
+WIGNERTIME_STRICT_LOG=leaks.txt poetry run pytest --backend=pandas-strict   # list them all instead
 
 poetry run black src test                # formatter used throughout
 poetry run isort src test
@@ -18,8 +21,9 @@ poetry run pyflakes src
 poetry run mkdocs serve                  # docs from docs/, API page is generated from docstrings
 ```
 
-There is no pytest configuration and no `conftest.py`; the suite relies on the project being installed
-(`poetry install`) and on being run from the repo root.
+There is no pytest configuration file. `conftest.py` at the repo root adds `--backend` (see the
+`wt_frame` rule below) and the `pandas_only` marker, and nothing else; the suite relies on the
+project being installed (`poetry install`) and on being run from the repo root.
 
 `test_file.py` writes through `file.save`, which resolves relative paths against the cwd and
 auto-increments rather than overwriting. It therefore runs each of its tests in a fresh `tmp_path`
@@ -462,16 +466,24 @@ real, which is what #154 was about.
   deliberately not renamed; extending the units-only rule into the package is a separate decision.
   Trailing `__002` on filenames is `file.py`'s collision suffix. Stage parameters mirror the core
   functions: `time`, not `t`.
-- **pandas is the interface, not a detail to hide** (decided 2026-09-30): the paper says a
-  timeline *is* a `pandas.DataFrame`, and no change of backend is planned. So use pandas directly
-  where it fits. `internal/dataframe.py` (imported as `wt_frame`) was meant as a seam for a polars
-  backend; it is now the home of the helpers whose behaviour carries one of the package's rules, and
-  new helpers belong there only if they do too. **Sort with `wt_frame.sort`, never `sort_values`
-  bare**: pandas sorts one column unstably by default, and order among tied rows is meaning (A18).
-  The same goes for `drop_duplicates` (keeps the last row written) and `insert_dataframes` (by
-  position). Its thin wrappers over pandas (`new`, `concat`, `isnull`, `read_*`, `assert_equal`) and
-  `wt_frame.CLASS` stay, as there is nothing to gain from rewriting their callers, but need not be
-  used in new code.
+- **A timeline is held by pandas or by polars, and every operation on it goes through `wt_frame`**
+  (branch `dataframe-backend`; D5 is reopened, see there). `internal/dataframe/` (imported as
+  `wt_frame`) takes the library from `WIGNERTIME_BACKEND` (`pandas`, `polars`, `pandas-strict`),
+  else polars if installed, else pandas (polars the default since 2026-10-02); one of the two is
+  required (the `polars`/`pandas` extras).
+  One implementation serves both, `_narwhals.py`: generic work through narwhals, the order rules
+  written out, and a small adapter per library for construction, casting, stacking, files and test
+  comparison. `wt_frame.INTERFACE` is the whole of what the package may do to a table, in frames,
+  column names, row *positions* and numpy arrays — never row labels, never a library's Series.
+  Package code outside `wt_frame` does not index, slice, mutate or call methods on a timeline, and
+  **neither do the tests**: they read results with `wt_frame.column`/`row`/`rows` and compare with
+  `wt_frame.assert_equal`, so the one suite runs on both libraries. `--backend=pandas-strict`
+  enforces the package half on every path the suite runs; `--backend=polars` is the real check. A
+  frame of the other library is converted where it enters (`wt_frame.own`; `util.ensure_timeline`).
+  **Sort with `wt_frame.sort`, never a library's sort**: neither library keeps the order of ties by
+  default, narwhals does not add it, and order among tied rows is meaning (A18). The same goes for
+  `drop_duplicates` (keeps the last row written), `group_by` (groups in first-appearance order) and
+  `insert_dataframes` (by position). A new operation goes into `INTERFACE`, and must pass on both.
 - Optional dependencies are gated at import time with `importlib.util.find_spec` and a raised
   `ImportError` (`adwin/core.py` needs `ADwin`, `display.py` needs `matplotlib`). Keep new optional
   code importable-but-inert the same way.

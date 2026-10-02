@@ -1,11 +1,13 @@
+import re
+
 import pytest
-import pandas as pd
 from munch import Munch
 
 from wignertime import timeline as tl
 from wignertime import variable
 from wignertime import config as wt_config
 from wignertime.adwin import connection as adcon
+from wignertime.internal import dataframe as wt_frame
 
 
 @pytest.mark.parametrize(
@@ -16,8 +18,8 @@ from wignertime.adwin import connection as adcon
     ],
 )
 def test_connectionSingle(input):
-    return pd.testing.assert_frame_equal(
-        input, pd.DataFrame([Munch(variable="AOM__MOT__V", module=1, channel=1)])
+    return wt_frame.assert_equal(
+        input, wt_frame.new([Munch(variable="AOM__MOT__V", module=1, channel=1)])
     )
 
 
@@ -25,9 +27,9 @@ def test_connectionMany():
     tst = adcon.new(
         ["shutter__MOT", 1, 11], ["shutter__repump", 1, 12], ["shutter__imaging", 1, 13]
     )
-    return pd.testing.assert_frame_equal(
+    return wt_frame.assert_equal(
         tst,
-        pd.DataFrame(
+        wt_frame.new(
             [
                 Munch(variable="shutter__MOT", module=1, channel=11),
                 Munch(variable="shutter__repump", module=1, channel=12),
@@ -38,15 +40,13 @@ def test_connectionMany():
 
 
 def test_connectionName():
-    assert (
-        adcon.new(
-            ["shutter__MOT", 1, 11],
-            ["shutter__repump", 1, 12],
-            ["shutter__imaging", 1, 13],
-        )
-        .variable.str.match(wt_config.VARIABLE__REGEX)
-        .all()
+    connections = adcon.new(
+        ["shutter__MOT", 1, 11],
+        ["shutter__repump", 1, 12],
+        ["shutter__imaging", 1, 13],
     )
+    names = wt_frame.column(connections, "variable")
+    assert all(re.match(wt_config.VARIABLE__REGEX, name) for name in names)
 
 
 def test_connectionName002():

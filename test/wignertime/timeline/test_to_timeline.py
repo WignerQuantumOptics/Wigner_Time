@@ -20,15 +20,15 @@ def initial():
 
 def test_a_stage_applied_to_nothing_starts_from_an_empty_timeline(initial):
     timeline = tl.to_timeline(tl.stack(initial, tl.anchor(1.0)))
-    assert list(timeline["variable"])[:2] == ["AOM__MOT", "coil__A"]
-    assert list(timeline["time"])[:2] == [0.0, 0.0]
+    assert list(wt_frame.column(timeline, "variable"))[:2] == ["AOM__MOT", "coil__A"]
+    assert list(wt_frame.column(timeline, "time"))[:2] == [0.0, 0.0]
 
 
 def test_onto_places_a_stage_onto_an_existing_timeline(initial):
     base = tl.to_timeline(tl.stack(initial, tl.anchor(1.0)))
     placed = tl.to_timeline(tl.update(AOM__MOT=0, time=0.5), onto=base)
     assert len(placed) == len(base) + 1
-    assert placed.iloc[-1]["time"] == pytest.approx(1.5)
+    assert wt_frame.row(placed, -1)["time"] == pytest.approx(1.5)
     assert len(base) == 3, "the timeline placed onto is left alone"
 
 
@@ -101,4 +101,4 @@ def test_a_context_given_to_stack_reaches_the_first_rows():
             context="ADwin_LowInit",
         )
     )
-    assert set(timeline["context"]) == {"ADwin_LowInit"}
+    assert set(wt_frame.column(timeline, "context")) == {"ADwin_LowInit"}

@@ -29,7 +29,6 @@ in effect. The cases, and how to regenerate them, are in `reference_cases.py`.
 
 import json
 
-import pandas as pd
 import pytest
 import reference_cases as ref
 
@@ -37,11 +36,11 @@ from wignertime.internal import dataframe as wt_frame
 
 
 def _frozen(name):
-    return pd.read_parquet(ref.FIXTURES / "{}.parquet".format(name))
+    return wt_frame.read_parquet(ref.FIXTURES / "{}.parquet".format(name))
 
 
 def _cases(name):
-    return list(dict.fromkeys(_frozen(name)["case"]))
+    return wt_frame.unique(_frozen(name), "case")
 
 
 def _arrays(case):
@@ -52,9 +51,9 @@ def _assert_same(built, frozen):
     # A case with no ramps holds `None` in `function`, which the parquet brings back as
     # `nan` once pandas reads strings as `str` (pandas 3). Both say "no ramp", as in
     # `file.load`.
-    pd.testing.assert_frame_equal(
+    wt_frame.assert_equal(
         wt_frame.normalise_nulls(ref.describe(built)),
-        wt_frame.normalise_nulls(frozen.drop(columns="case").reset_index(drop=True)),
+        wt_frame.normalise_nulls(wt_frame.drop_columns(frozen, ["case"])),
         check_dtype=False,
         check_exact=False,
         rtol=0,
@@ -75,7 +74,9 @@ def _lab():
 def test_demo_is_unchanged(case):
     _, cases = ref.demo_cases()
     frozen = _frozen("demo")
-    _assert_same(cases[case](), frozen[frozen["case"] == case])
+    _assert_same(
+        cases[case](), wt_frame.filter(frozen, wt_frame.column(frozen, "case") == case)
+    )
 
 
 @pytest.mark.parametrize("period", ref.PERIODS, ids=ref.key)
@@ -90,7 +91,10 @@ def test_demo_arrays_are_unchanged(period):
 def test_lab_is_unchanged(case):
     ex, di = _lab()
     frozen = _frozen("quantum_optics_lab")
-    _assert_same(ref.lab_cases(ex, di)[case](), frozen[frozen["case"] == case])
+    _assert_same(
+        ref.lab_cases(ex, di)[case](),
+        wt_frame.filter(frozen, wt_frame.column(frozen, "case") == case),
+    )
 
 
 @pytest.mark.parametrize("period", ref.PERIODS, ids=ref.key)

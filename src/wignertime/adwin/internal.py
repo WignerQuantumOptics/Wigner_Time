@@ -125,7 +125,7 @@ def check_module_kinds(connections, modules__digital):
             kinds[wt_variable.unit(name) == "digital"],
             kinds[module in modules__digital],
         )
-        for name, module in zip(connections["variable"], connections["module"])
+        for name, module in wt_frame.rows(connections, ["variable", "module"])
         if (wt_variable.unit(name) == "digital") != (module in modules__digital)
     ]
     if wrong:
@@ -192,9 +192,9 @@ def add_cycle(timeline, cycle_period, special_contexts=None):
     if special_contexts is None:
         special_contexts = wt_adwin.CONTEXTS__SPECIAL
 
-    if "time" not in timeline.columns:
+    if not wt_frame.has_columns(timeline, ["time"]):
         raise ValueError(
-            f"`time` column not found. Columns present: {list(timeline.columns)}"
+            f"`time` column not found. Columns present: {wt_frame.columns(timeline)}"
         )
 
     if not cycle_period > 0:
@@ -207,23 +207,26 @@ def add_cycle(timeline, cycle_period, special_contexts=None):
     # Rows before the run are at −∞ and rows after it at +∞ (#154), in the special
     # contexts, whose cycles are the sentinels below. Anywhere else a time that is not
     # finite has no cycle, and casting it gave an arbitrary integer with a numpy warning.
-    times = timeline["time"].to_numpy(dtype=float)
+    times = wt_frame.column(timeline, "time", dtype=float)
     mask__finite = np.isfinite(times)
-    mask__special = timeline["context"].isin(list(special_contexts)).to_numpy()
+    mask__special = np.isin(
+        wt_frame.column(timeline, "context"), list(special_contexts)
+    )
     if (~mask__finite & ~mask__special).any():
         raise ValueError(
             "Rows outside the special contexts {} must be at an instant of the run; ±∞"
             " is before or after it (#154). Offending rows:\n{}".format(
                 list(special_contexts),
-                timeline.loc[
-                    ~mask__finite & ~mask__special, ["variable", "time", "context"]
-                ],
+                wt_frame.select(
+                    wt_frame.filter(timeline, ~mask__finite & ~mask__special),
+                    ["variable", "time", "context"],
+                ),
             )
         )
 
     cycles = np.zeros(len(times), dtype=np.int64)
     cycles[mask__finite] = np.round(times[mask__finite] / cycle_period)
-    timeline["cycle"] = cycles
+    timeline = wt_frame.with_column(timeline, "cycle", cycles)
 
     # Apply special context cycles
     timeline = wt_frame.replace_column__filtered(
@@ -265,9 +268,17 @@ def add(timeline, connections, devices, cycle_period, machine_specifications=Non
     dff = conv.add(dff)
     # TODO: ^ This 'feels' inefficient/wrong?
 
-    mask__digital = dff["module"].isin(modules__digital(machine_specifications))
+    mask__digital = np.isin(
+        wt_frame.column(dff, "module"), modules__digital(machine_specifications)
+    )
 
-    dff.loc[mask__digital, "value__digits"] = round(dff["value"])
+    # Half to even, as `round` on the column did.
+    dff = wt_frame.with_column(
+        dff,
+        "value__digits",
+        np.round(wt_frame.column(dff, "value")[mask__digital]),
+        where=mask__digital,
+    )
     # TODO: Shouldn't all of value__digits be rounded?
 
     device.check_within_range(dff)
@@ -282,7 +293,7 @@ def to_tuples__raw(timeline, cols=["cycle", "module", "channel", "value__digits"
 
     NOTE: No validation is done here.
     """
-    return [tuple([np.int32(i) for i in x]) for x in timeline[cols].values]
+    return [tuple([np.int32(i) for i in x]) for x in wt_frame.rows(timeline, cols)]
 
 
 def to_tuples(timeline, machine_specifications=None):
@@ -295,16 +306,21 @@ def to_tuples(timeline, machine_specifications=None):
     wtl.debug("Got to `output`")
     machine_specifications = specifications(machine_specifications)
 
-    if not timeline["cycle"].is_monotonic_increasing:
-        timeline = timeline.sort_values(by=["cycle"], ignore_index=True)
+    # Stably, as every sort here is (A18). This one used pandas' default quicksort, which
+    # could reorder rows sharing a cycle; they are on different channels by now, so no
+    # value depended on it, but the order sent to the machine did.
+    if (np.diff(wt_frame.column(timeline, "cycle")) < 0).any():
+        timeline = wt_frame.sort(timeline, "cycle")
 
-    if not ("module" in timeline.columns):
+    if not wt_frame.has_columns(timeline, ["module"]):
         raise ValueError(
             "No `module` listed in timeline. Remember to add ADwin specifications before ADwin export."
         )
 
     mods_digital = modules__digital(machine_specifications)
-    mods_analogue = [x for x in timeline["module"].unique() if x not in mods_digital]
+    mods_analogue = [
+        x for x in wt_frame.unique(timeline, "module") if x not in mods_digital
+    ]
 
     # NOTE: filtered by value rather than by a formatted query string. `module` is an
     # int64 column, so `unique()` yields numpy scalars, and building a query out of them

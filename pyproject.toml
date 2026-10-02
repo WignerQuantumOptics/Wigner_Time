@@ -43,12 +43,19 @@ classifiers = [
 python = ">=3.10"
 munch = "^3.0.0"
 funcy = "^2.0"
-# pandas 3 needs Python 3.11, and the package still supports 3.10 on pandas 2.
-pandas = [
-    { version = ">=2.2,<3", python = "<3.11" },
-    { version = ">=2.2,<4", python = ">=3.11" },
-]
+# One implementation serves pandas and polars (`internal/dataframe/`).
+narwhals = "^2.26"
 scipy = "^1.14"
+
+# A timeline is held in pandas or in polars, and one of the two must be installed: the
+# `pandas` or the `polars` extra. The package refuses to import with neither, naming them.
+# pandas 3 needs Python 3.11, and the package still supports 3.10 on pandas 2. One
+# constraint is enough: pandas 3 itself requires 3.11, so Poetry locks 2.x for 3.10 and
+# 3.x above it. Split per Python version *and* optional, the constraint made Poetry 2.5
+# lock numpy 2.2.6 for every Python below 3.14, overlapping 2.4.6 on 3.11, and install
+# both into one environment, which broke numpy (CI on PR #171, 2026-10-02).
+pandas = {version = ">=2.2,<4", optional = true}
+polars = {version = ">=1.30", optional = true}
 
 ADwin = {version="^0.20", optional=true}
 pyarrow = {version="^22", optional=true}
@@ -57,6 +64,8 @@ pyqt6 = {version="^6.5.0", optional=true}
 ipywidgets = {version="^8.1", optional=true}
 
 [tool.poetry.extras]
+pandas = ["pandas"]
+polars = ["polars"]
 adwin = ["ADwin"]
 console = ["ADwin", "ipywidgets"]
 performance_and_export = ["pyarrow"]

@@ -11,7 +11,7 @@ May or may not be temporary, but removed to keep the main API as clean as possib
 
 
 import funcy
-from copy import deepcopy
+import numpy as np
 
 from wignertime.internal import dataframe as wt_frame
 
@@ -31,15 +31,16 @@ def sanitize_values(timeline):
     """
     # TODO: Check for efficiency
     #
-    if ("unit_range" in timeline.columns) or ("safety_range" in timeline.columns):
-        df = deepcopy(timeline)
+    names = wt_frame.columns(timeline)
+    if ("unit_range" in names) or ("safety_range" in names):
 
         # List to store rows with values outside the range
         rows__out_of_unit_range = []
         rows__out_of_safety_range = []
 
-        # Iterate through each row
-        for index, row in df.iterrows():
+        # Iterate through each row, by position
+        for index, values in enumerate(wt_frame.rows(timeline)):
+            row = dict(zip(names, values))
             if not is_value_within_range(row["value"], row["unit_range"]):
                 print(
                     f"Value {row['value']} is outside device unit range {row['unit_range']} for {row['variable']} at time {row['time']} at dataframe index {index}."
@@ -75,9 +76,11 @@ def sanitize__round_value(timeline, num_decimal_places=6):
     """
     Rounds the 'value' column to the given number of decimal places and returns the updated timeline.
     """
-    df = deepcopy(timeline)
-    df["value"] = df["value"].round(num_decimal_places)
-    return df
+    return wt_frame.with_column(
+        timeline,
+        "value",
+        np.round(wt_frame.column(timeline, "value"), num_decimal_places),
+    )
 
 
 def sanitize(timeline):
