@@ -28,7 +28,17 @@ These should be loaded by the ADwin system during initialization. The settings s
 The specifications have the form of a list of 'ADwin device' dictionaries, with the modules represented as a list of dictionaries.
 """
 SPECIFICATIONS__DEFAULT = {
-    "cycle_period__normal__us": 5e-6,
+    # The cycle period is deliberately *not* here. It belongs to the program loaded on
+    # the machine, not to the package -- the two laboratories this was written for run
+    # at 5 us and 2 us -- so it is an argument of `core.convert`, and `specifications`
+    # refuses an entry for it rather than letting a second source of it stand (#94).
+    #
+    # NOTE: it was `cycle_period__normal`, where `normal` contrasted with a
+    # `cycle_period__burst` of 250 ns that has since been dropped. If ADC burst mode
+    # (`P2_Burst_Init` in `WignerTimeADwinADC.bas`) is ever described here, it wants a
+    # name of its own -- `sampling_period__ADC` or similar. It is a sampling period for
+    # reading, on a different clock and for a different purpose, and calling the two
+    # things flavours of one "cycle period" is what made the qualifier necessary.
     "modules": [
         {
             "bits": 1,
@@ -56,56 +66,164 @@ SPECIFICATIONS__DEFAULT = {
 
 def modules__digital(machine_specifications):
     """
-    The list of modules that govern digital connections.
+    The module numbers carrying digital connections, derived from the specifications.
 
-    Currently, this just returns a static list, based on a specific lab setup.
+    A digital line is one bit wide, so a module of one-bit channels is a digital module.
+    This is a *derivation* rather than a declaration, deliberately: a `kind` field beside
+    `bits` would be a second source of truth, and a module declared
+    `{"kind": "digital", "bits": 16}` would have no right answer. The same reasoning
+    keeps module and channel numbers out of the device conversions.
+
+    Until 2026-09-22 the test read `m.get("bits", False) == True`, which picks out the
+    digital module only because `1 == True` in Python (D12/#126). Note what that did and
+    did not cost: `x == True` and `x == 1` agree for every number, so the answer was
+    never wrong -- what was wrong was that "is one bit wide" was written as a comparison
+    against a boolean, leaving the intent unrecoverable from the code.
+
+    A module that declares no `bits` at all now raises rather than being taken for
+    analogue, which is the one behaviour that changed. Silently reading an
+    under-specified module as analogue is a guess about hardware, and it would put a
+    16-bit conversion on a digital line.
 
     NOTE: Modules are numbered from 1 (unlike Python lists).
+
+    NOTE: Nothing here restricts how many modules may be digital, and the real-time
+    program cannot honour more than one -- both `p2_digprog` and `p2_digout` name module
+    1 as a literal. See D18/#133, which is an open decision rather than an oversight.
     """
+    modules = machine_specifications["modules"]
 
-    return [
-        i + 1
-        for i, m in enumerate(machine_specifications["modules"])
-        if m.get("bits", False) == True
+    modules__unspecified = [i + 1 for i, m in enumerate(modules) if "bits" not in m]
+    if modules__unspecified:
+        raise ValueError(
+            "Module(s) {} declare no `bits`, so whether they are digital cannot be"
+            " determined. Every entry of `machine_specifications['modules']` needs its"
+            " width: 1 for a digital module, 16 for the usual analogue one.".format(
+                modules__unspecified
+            )
+        )
+
+    return [i + 1 for i, m in enumerate(modules) if m["bits"] == 1]
+
+
+def check_module_kinds(connections, modules__digital):
+    """
+    Checks that each connected variable is of the kind of the module it is connected to.
+
+    A variable's kind is stated twice: by its name, since a variable without a `__unit`
+    suffix is a digital line, and by its module, whose width says what the port is. Nothing
+    checked that the two agree (A16). An analogue variable on the digital module was rounded
+    to an integer and switched as a digital line: 1.5 A on a coil became a 2 written to a
+    digital output, without a word. A digital line on an analogue module did fail, but later,
+    in a cast, with a message that named neither the variable nor the cause.
+    """
+    kinds = {True: "digital", False: "analogue"}
+    wrong = [
+        "  {} on module {}: {} by its name, but the module is {}".format(
+            name,
+            module,
+            kinds[wt_variable.unit(name) == "digital"],
+            kinds[module in modules__digital],
+        )
+        for name, module in zip(connections["variable"], connections["module"])
+        if (wt_variable.unit(name) == "digital") != (module in modules__digital)
     ]
+    if wrong:
+        raise ValueError(
+            "\n".join(
+                [
+                    "A variable and the module it is connected to disagree on whether it"
+                    " is digital:",
+                    "",
+                    *wrong,
+                    "",
+                    "Connect it to a module of its kind, or rename it: a digital line has no"
+                    " `__unit` suffix.",
+                ]
+            )
+        )
 
 
-def add_cycle(
-    timeline,
-    machine_specifications=SPECIFICATIONS__DEFAULT,
-    special_contexts=wt_adwin.CONTEXTS__SPECIAL,
-):
+def specifications(machine_specifications=None):
+    """
+    The machine specifications to convert against: those given, or else
+    `SPECIFICATIONS__DEFAULT` as it stands when this is called.
+
+    Read here rather than bound as a default argument, so that rebinding the global
+    reaches every function that uses it (D23).
+
+    An entry for `cycle_period` is refused rather than ignored. The period used to live
+    here, and a specification written then would otherwise be accepted with its period
+    silently unused -- the failure D15 describes, in a new place.
+    """
+    if machine_specifications is None:
+        machine_specifications = SPECIFICATIONS__DEFAULT
+
+    if "cycle_period" in machine_specifications:
+        raise ValueError(
+            "The machine specifications carry a `cycle_period`, which is no longer read"
+            " from them: it belongs to the program loaded on the machine, not to a"
+            " description of its modules. Pass it to `adwin.core.convert` as"
+            " `cycle_period` instead, and remove it from the specifications."
+        )
+
+    return machine_specifications
+
+
+def add_cycle(timeline, cycle_period, special_contexts=None):
     """
     Inserts a new `cycle` column into the timeline as a conversion of the `time` column into 'number of cycles'.
 
     Parameters:
     - timeline: DataFrame containing the experimental data.
-    - specifications: Dictionary with device-specific configuration, must contain cycle period.
-    - special_contexts: Dictionary with context-specific overrides for cycle values.
-    - device: Device name to use for cycle period in specifications.
+    - cycle_period: The period of the controller's event loop, in seconds.
+    - special_contexts: Dictionary with context-specific overrides for cycle values;
+      `wt_adwin.CONTEXTS__SPECIAL` when not given.
+
+    The column is 64-bit here, although the machine's counter is 32-bit: a row too late
+    for the counter has to survive long enough for `validate.cycles` to refuse it, and
+    casting first would wrap it into an ordinary-looking number instead. `validate.types`
+    narrows it once that check has run.
 
     Raises:
-    - ValueError if required columns are missing or if cycle period is not found for specified device.
+    - ValueError if the `time` column is missing, or the cycle period is not a positive
+      number of seconds.
     """
-    # Check if `time` column is present
+    if special_contexts is None:
+        special_contexts = wt_adwin.CONTEXTS__SPECIAL
 
     if "time" not in timeline.columns:
         raise ValueError(
             f"`time` column not found. Columns present: {list(timeline.columns)}"
         )
 
-    # Ensure device-specific cycle period is available
-    try:
-        cycle_period = machine_specifications["cycle_period__normal__us"]
-    except KeyError:
+    if not cycle_period > 0:
         raise ValueError(
-            f"`cycle_period__normal` not found in specifications for {device}."
+            "`cycle_period` must be a positive number of seconds, not {!r}.".format(
+                cycle_period
+            )
         )
 
-    # Calculate cycles and handle special contexts
-    timeline["cycle"] = np.round(timeline["time"].values / cycle_period).astype(
-        np.int32
-    )
+    # Rows before the run are at −∞ and rows after it at +∞ (#154), in the special
+    # contexts, whose cycles are the sentinels below. Anywhere else a time that is not
+    # finite has no cycle, and casting it gave an arbitrary integer with a numpy warning.
+    times = timeline["time"].to_numpy(dtype=float)
+    mask__finite = np.isfinite(times)
+    mask__special = timeline["context"].isin(list(special_contexts)).to_numpy()
+    if (~mask__finite & ~mask__special).any():
+        raise ValueError(
+            "Rows outside the special contexts {} must be at an instant of the run; ±∞"
+            " is before or after it (#154). Offending rows:\n{}".format(
+                list(special_contexts),
+                timeline.loc[
+                    ~mask__finite & ~mask__special, ["variable", "time", "context"]
+                ],
+            )
+        )
+
+    cycles = np.zeros(len(times), dtype=np.int64)
+    cycles[mask__finite] = np.round(times[mask__finite] / cycle_period)
+    timeline["cycle"] = cycles
 
     # Apply special context cycles
     timeline = wt_frame.replace_column__filtered(
@@ -117,19 +235,32 @@ def add_cycle(
     return timeline
 
 
-def add(timeline, connections, devices, machine_specifications=SPECIFICATIONS__DEFAULT):
+def add(timeline, connections, devices, cycle_period, machine_specifications=None):
     """
     Takes an 'operational' layer timeline and inserts ADwin-specific columns, e.g. cycles and numbers for the module and channel etc.
 
     Digital: module 1
     Analogue otherwise
+
+    `cycle_period` is the period of the controller's event loop, in seconds; see
+    `core.convert`.
     """
 
     wtl.debug("Got to `adwin.core.add`")
+    machine_specifications = specifications(machine_specifications)
+
+    # Here because this is where the two tables meet, and because conversion is the one
+    # point at which hardware enters. Neither `connection.new` nor `device.new` can do it
+    # alone: each sees only its own vocabulary (A14).
+    device.check_correspondence(connections, devices)
+    check_module_kinds(connections, modules__digital(machine_specifications))
 
     dff = wt_frame.join(timeline, connections)
     dff = wt_frame.join(dff, devices)
-    dff = dff.sort_values(by=["time"], ignore_index=True)
+    # Stably (A18): among a variable's rows at one instant the last written is in effect,
+    # and `drop_duplicates` keeps the last of each cycle. The quicksort this used could
+    # put a ramp's end after the `update` superseding it, and send the ramp's end.
+    dff = wt_frame.sort(dff, "time")
 
     dff = conv.add(dff)
     # TODO: ^ This 'feels' inefficient/wrong?
@@ -140,7 +271,7 @@ def add(timeline, connections, devices, machine_specifications=SPECIFICATIONS__D
     # TODO: Shouldn't all of value__digits be rounded?
 
     device.check_within_range(dff)
-    dcycle = add_cycle(dff, machine_specifications)
+    dcycle = add_cycle(dff, cycle_period)
 
     return wt_validate.all(dcycle)
 
@@ -154,7 +285,7 @@ def to_tuples__raw(timeline, cols=["cycle", "module", "channel", "value__digits"
     return [tuple([np.int32(i) for i in x]) for x in timeline[cols].values]
 
 
-def to_tuples(timeline, machine_specifications=SPECIFICATIONS__DEFAULT):
+def to_tuples(timeline, machine_specifications=None):
     """
     Takes a full, ADwin-compatible, dataframe of the experimental run and converts the result to an output format that can be processed by ADwin (tuples), separating analogue and digital values.
 
@@ -162,6 +293,7 @@ def to_tuples(timeline, machine_specifications=SPECIFICATIONS__DEFAULT):
     [(cycle, module, channel, value), ...]]
     """
     wtl.debug("Got to `output`")
+    machine_specifications = specifications(machine_specifications)
 
     if not timeline["cycle"].is_monotonic_increasing:
         timeline = timeline.sort_values(by=["cycle"], ignore_index=True)
@@ -172,13 +304,16 @@ def to_tuples(timeline, machine_specifications=SPECIFICATIONS__DEFAULT):
         )
 
     mods_digital = modules__digital(machine_specifications)
-    mods_analogue = [
-        int(x) for x in timeline["module"].unique() if x not in mods_digital
-    ]
+    mods_analogue = [x for x in timeline["module"].unique() if x not in mods_digital]
 
+    # NOTE: filtered by value rather than by a formatted query string. `module` is an
+    # int64 column, so `unique()` yields numpy scalars, and building a query out of them
+    # produced `module in [np.int64(3), np.int64(4)]` -- which pandas parses and then
+    # rejects with `UndefinedVariableError: name 'np' is not defined`, an error that
+    # looks like it comes from inside pandas and says nothing about modules (#41). A
+    # bare `int()` on each element used to hold that off; comparing values removes the
+    # failure mode instead of guarding it.
     return [
-        to_tuples__raw(timeline.query("module in {}".format(mods_analogue))),
-        to_tuples__raw(
-            timeline.query("module in {}".format(mods_digital)),
-        ),
+        to_tuples__raw(wt_frame.subframe(timeline, "module", mods_analogue)),
+        to_tuples__raw(wt_frame.subframe(timeline, "module", mods_digital)),
     ]

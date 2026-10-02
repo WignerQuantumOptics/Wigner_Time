@@ -11,9 +11,33 @@ from typing import Any
 
 import inspect
 import importlib.util
+import math
 import re
 
 from wignertime.internal import dataframe as wt_frame
+
+
+def _times__to_json(df: wt_frame.CLASS) -> wt_frame.CLASS:
+    """
+    JSON has no infinity, and pandas writes one as `null`, which reads back as `nan`. So
+    the state before the run, at −∞, and the state after it, at +∞ (#154), would come
+    back at no time at all, on neither side. They are written as the strings `"-inf"`
+    and `"inf"` instead, which is still standard JSON, and `load` reads them back.
+    """
+    if "time" not in df.columns or not any(
+        isinstance(t, float) and math.isinf(t) for t in df["time"]
+    ):
+        return df
+    return df.assign(
+        time=[
+            (
+                ("inf" if t > 0 else "-inf")
+                if isinstance(t, float) and math.isinf(t)
+                else t
+            )
+            for t in df["time"]
+        ]
+    )
 
 
 def _available_writers() -> dict[str, Callable[[wt_frame.CLASS, Path], None]]:
@@ -21,7 +45,7 @@ def _available_writers() -> dict[str, Callable[[wt_frame.CLASS, Path], None]]:
         ".pkl": lambda df, p: df.to_pickle(p),
         ".pickle": lambda df, p: df.to_pickle(p),
         ".csv": lambda df, p: df.to_csv(p, index=False),
-        ".json": lambda df, p: df.to_json(p, orient="records"),
+        ".json": lambda df, p: _times__to_json(df).to_json(p, orient="records"),
     }
 
     if _has_module("pyarrow") or _has_module("fastparquet"):
@@ -217,25 +241,32 @@ def load(path: str | Path) -> wt_frame.CLASS:
 
     match suffix:
         case ".pkl" | ".pickle":
-            return wt_frame.read_pickle(path)
+            df = wt_frame.read_pickle(path)
 
         case ".csv":
-            return wt_frame.read_csv(path)
+            df = wt_frame.read_csv(path)
 
         case ".json":
-            return wt_frame.read_json(path)
+            df = wt_frame.read_json(path)
+            if "time" in df.columns and df["time"].dtype == object:
+                df["time"] = df["time"].astype(float)  # "-inf" and "inf" (#154)
 
         case ".parquet":
             if not (_has_module("pyarrow") or _has_module("fastparquet")):
                 raise ImportError(
                     "Reading parquet requires 'pyarrow' or 'fastparquet'."
                 )
-            return wt_frame.read_parquet(path)
+            df = wt_frame.read_parquet(path)
 
         case ".feather":
             if not _has_module("pyarrow"):
                 raise ImportError("Reading feather requires 'pyarrow'.")
-            return wt_frame.read_feather(path)
+            df = wt_frame.read_feather(path)
 
         case _:
             raise ValueError(f"Unsupported file suffix: {suffix}")
+
+    # Parquet, JSON and feather return a missing value as `None` where the in-memory
+    # timeline holds `nan`; CSV and pickle keep `nan`. Settle on one, so that a
+    # round-trip is faithful whichever format was chosen.
+    return wt_frame.normalise_nulls(df)

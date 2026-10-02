@@ -10,7 +10,6 @@ A preprint has been submitted to arXiv; the identifier will be added here once i
 ## Optional dependencies (package `extras`) 
  - `performance_and_export` (Recommended): Installs `pyarrow` for memory management, sharing between systems and export to `parquet`.
  - `display`: Installs `matplotlib` and `pyqt` for visualization.
- - `parallel_processing`: Installs `polars` for parallel dataframe manipulation. (WARNING: This is currently not used, but will be in the future)
 
 ## Developer Notes
 Tests can be run from the root folder with
@@ -123,9 +122,9 @@ By boiling the design down to a &rsquo;table&rsquo; as the foundation, then we c
 
 # Example (For ADwin systems)
 
-You want to digitally control an optical shutter and AOM.
+You want to control an optical shutter, an AOM and a laser lock.
 
-For digital channels, simply *name* the ADwin ports using standard Python lists. These keep track of the physical connections.
+For each channel, simply *name* the ADwin port using standard Python lists. These keep track of the physical connections. A name is `<device>__<UID>`, followed by `__<unit>` for an analog channel.
 
 ``` python
     from wignertime.adwin import connection as adcon
@@ -133,16 +132,19 @@ For digital channels, simply *name* the ADwin ports using standard Python lists.
     from wignertime import conversion as conv
     
     connections = adcon.new(
-        ["shutter_MOT", 1, 11],
-        ["AOM_MOT", 1, 1])
+        ["shutter__MOT", 1, 11],
+        ["AOM__MOT", 1, 1],
+        ["AOM__MOT__transmission", 3, 1],
+        ["lockbox__MOT__MHz", 3, 8],
+    )
 ```
-For analogue connections, do the same, but specify a linear factor, conversion function or calibration file.
+For analog connections, also specify a linear factor, conversion function or calibration file, and the permitted range.
 
 ``` python
     devices = device.new(
-        ["lockbox_MOT__MHz", 0.05, -200, 200],
+        ["lockbox__MOT__MHz", 0.05, -200, 200],
         [
-            "AOM_MOT__transmission",
+            "AOM__MOT__transmission",
             conv.function_from_file(
                 "resources/calibration/aom_calibration.dat",
                 sep=r"\s+",
@@ -152,58 +154,66 @@ For analogue connections, do the same, but specify a linear factor, conversion f
         ],
     )
 ```
-Specify how you want your experiment to begin and end, using readable options and user-specific keywords.
-
-N.B. The use of *pandas.DataFrame* for convenient edits.
+Specify how you want your experiment to begin and end, using readable options and user-specific keywords. The initial and final states belong to no instant of the run, so they are placed before and after it, at −∞ and +∞.
 
 ``` python
-    import timeline as tl
+    import math
+    from wignertime import timeline as tl
     
-    initial = tl.create(
-        t=1e-6,
+    initial = tl.update(
+        time=-math.inf,
         context="ADwin_LowInit",
-    
-        shutter_MOT= 1
-        AOM_MOT=0,
+        shutter__MOT=1,
+        AOM__MOT=0,
+        AOM__MOT__transmission=1.0,
+        lockbox__MOT__MHz=0.0,
     )
-    final = init
-    final['context']="ADwin_Finish"
+    final = tl.update(
+        time=math.inf,
+        context="ADwin_Finish",
+        shutter__MOT=1,
+        AOM__MOT=0,
+        AOM__MOT__transmission=1.0,
+        lockbox__MOT__MHz=0.0,
+    )
 ``` 
 
-And any key processes&#x2026;
+And any key processes…
 
 ``` python
 MOT = tl.update(
-            shutter_MOT= 0
-            AOM_MOT=1,
+            shutter__MOT=0,
+            AOM__MOT=1,
             context="MOT",
         )
 detuned_growth = tl.ramp(
-                    lockbox_MOT__MHz=-5,
+                    lockbox__MOT__MHz=-5,
                     duration=10e-3,
-        ),
+        )
 ```
-Then combine it all together in readable and modular fashion.
+None of these is a timeline yet: each is a *stage*, written relative to its own beginning. Combine them in readable and modular fashion, and make a timeline of the result with `to_timeline`.
 
-Due to the (hopefully) sensible defaults, each component, e.g. \`ramp\`, will automatically join onto the end of the previous operation in a causal chain.
+Due to the sensible defaults, each component, e.g. `ramp`, will automatically join onto the end of the previous operation in a causal chain.
 
 ``` python
-tline = tl.stack(
-    initial,
-    MOT,
-    detuned_growth,
-    final
+tline = tl.to_timeline(
+    tl.stack(
+        initial,
+        MOT,
+        detuned_growth,
+        final,
+    )
 )
-
 ```
 
+The timeline is a *pandas.DataFrame*, so it can be edited and inspected directly: `tline[tline["context"] == "MOT"]` selects the rows of the MOT stage.
 
-The timeline can then be exported to an ADwin-compatible format.
+It can then be converted to an ADwin-compatible format. The cycle period has to be stated, in seconds, because it belongs to the program running on the ADwin rather than to the experiment.
 
 ``` python
     from wignertime.adwin import core as adwin
     
-    adwin.to_data(tline)
+    adwin.convert(tline, connections, devices, cycle_period=5e-6)
 ```
 
 <a id="orge0a7f00"></a>

@@ -3,18 +3,80 @@
 
 import numpy as np
 
-from wignertime import config as wt_config
 from wignertime.internal import util as wt_util
 
 
+ATTRIBUTE__POINTS = "__wigner_time_points__"
+"""
+How many time-value pairs a ramp function interpolates between.
+
+This belongs to the function, not to the caller expanding it: `tanh` is defined by two
+points, and an interpolation wanting interior control points would be defined by more.
+`expand` used to take the number as an argument instead (`num__bounds`), which meant it
+could be given a value the data did not match, and could not be told apart from the
+caller's other keywords. See KNOWN_ISSUES B6.
+
+The name it replaces was wrong as well as misplaced: for two points "bounds" is exact,
+since start and end *are* the boundaries -- but that is the one case where the number
+need not be stated at all. A third point is an interior control point, not a bound.
+"""
+
+POINTS__DEFAULT = 2
+"""Assumed of a ramp function that does not say, which is every hand-written one."""
+
+
+def with_points(number):
+    """
+    Declare how many time-value pairs a ramp function interpolates between.
+
+    Decorating is optional: an undeclared function is taken to want `POINTS__DEFAULT`,
+    which keeps a user's `lambda origin, terminus, time_resolution: ...` working without
+    ceremony.
+    """
+
+    def decorate(f):
+        setattr(f, ATTRIBUTE__POINTS, number)
+        return f
+
+    return decorate
+
+
+def points(f) -> int:
+    """
+    How many time-value pairs `f` interpolates between. See `ATTRIBUTE__POINTS`.
+    """
+    return getattr(f, ATTRIBUTE__POINTS, POINTS__DEFAULT)
+
+
+def _require_resolution(name, time_resolution):
+    """
+    `time_resolution` defaults to `None`, which means the ramp binds none: it is sampled
+    at the one whoever expands it supplies, and `adwin.core.convert` supplies the cycle
+    period (#65, C7 item 7). The default used to be `config.TIME_RESOLUTION`, 1 us, read
+    once at import (#144), and it was never what a ramp reached the hardware at.
+    """
+    if time_resolution is None:
+        raise ValueError(
+            "`{}` was given no `time_resolution`. A ramp is sampled at the one it binds,"
+            " `functools.partial({}, time_resolution=1e-4)`, or else at the one `expand`"
+            " is given, `expand(timeline, time_resolution=1e-4)`; `adwin.core.convert`"
+            " gives the cycle period.".format(name, name)
+        )
+
+
+@with_points(2)
 def linear(
     origin: list[float],
     terminus: list[float],
-    time_resolution: float = wt_config.TIME_RESOLUTION,
+    time_resolution: float | None = None,
 ):
     """
     A series of [time, value] pairs according to the line defined by two points and the time resolution.
+
+    `time_resolution` left `None` is filled by whoever expands the ramp; see
+    `_require_resolution`.
     """
+    _require_resolution("linear", time_resolution)
     t1, v1 = origin
     t2, v2 = terminus
     m = (v2 - v1) / (t2 - t1)
@@ -37,19 +99,25 @@ def _tanh__scaled(x: np.ndarray, sharpness=3):
     )
 
 
+@with_points(2)
 def tanh(
     origin: list[float],
     terminus: list[float],
-    time_resolution: float = wt_config.TIME_RESOLUTION,
+    time_resolution: float | None = None,
     sharpness: float = 3,
 ):
     """
     Hyperbolic tan, with a call signature adapted for practical timeline population.
 
     origin/terminus are time-value pairs
+    `time_resolution` left `None` is filled by whoever expands the ramp: bind one with
+    `functools.partial(tanh, time_resolution=...)` for a ramp of its own resolution (#65).
+    See `_require_resolution`.
+
     `sharpness` is a measure of how linear the 'slope' of the function is around the halfway point and in practice is used for easing transitions between the end-points. For example, sharpness ~0 (!=0) gives a linear ramp between `origin` and `terminus`, whereas large values approximate a step-function at the half-way point. In-between these values, the ramps returned will start and end gradually, with a linear movement in the middle.
     """
 
+    _require_resolution("tanh", time_resolution)
     t1, v1 = origin
     t2, v2 = terminus
     times = wt_util.range__inclusive(t1, t2, time_resolution)

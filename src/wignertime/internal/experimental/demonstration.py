@@ -235,7 +235,7 @@ def MOT(
     )
 
     return tl.stack(
-        tl.create(
+        tl._populate_timeline(
             shutter_MOT=_variables.shutter_MOT,
             shutter_repump=_variables.shutter_repump,
             coil_MOTlower__A=_variables.coil_MOTlower__A,
@@ -272,7 +272,7 @@ def molasses(
         raise ValueError("duration_ramp should be smaller than duration_cooling!")
 
     return tl.stack(
-        tl.create(
+        tl._populate_timeline(
             AOM_MOT=[_time_start + duration_cooling, 0],
             shutter_MOT=[_time_start + duration_cooling - constants.lag_MOTshutter, 0],
             timeline=timeline,

@@ -5,14 +5,16 @@
 The inevitable `util` module for miscellaneous functions that haven't been organized yet.
 """
 
-from collections.abc import Iterable, Sequence
-from typing import Callable, OrderedDict
 import inspect
+import math
+from collections.abc import Iterable, Sequence
+from typing import Callable
 
 import numpy as np
-import math
 
+from wignertime import config as wt_config
 from wignertime.config import wtlog
+from wignertime.internal import dataframe as wt_frame
 
 
 def is_sequence(x, is_string=False):
@@ -74,20 +76,37 @@ def ensure_pair(l: list):
     [x,y]     -> [x,y]
     [x]       -> [x,None]
     []        -> [None,None]
+
+    Always a **new** list, never the argument. This is the package's single
+    normalisation point for origins, so returning the caller's own object here was
+    what made a mutable default argument dangerous anywhere else (D3/#117): a
+    signature default such as `ramp`'s `origin2=[VARIABLE, 0.0]` is one object
+    shared by every call, and handing it onwards unwrapped meant any later in-place
+    write would have rewritten the default for the life of the process. Nothing wrote
+    to it, so nothing had gone wrong -- but the asymmetry was real, since the
+    one-element and empty cases below already built a fresh list and only the
+    two-element case did not.
+
+    A tuple is normalised to a list with everything else, so an immutable default is
+    a legitimate way of writing one and does not produce a differently-typed origin.
     """
     match l:
         case [*x] if len(l) == 2:
-            return l
+            return [l[0], l[1]]
         case [x]:
             return [x, None]
         case []:
             return [None, None]
         case [*x] if len(l) > 2:
             raise ValueError(
-                f"Two many arguments to `ensure_pair`, {l} should be a pair."
+                "Too many elements in an origin: {!r}. An origin is a"
+                " `[time, value]` pair, so at most two.".format(l)
             )
         case _:
-            raise ValueError(f"Unexpected argument to `ensure_pair`.")
+            raise ValueError(
+                "Not something an origin can be made from: {!r}. An origin is a number,"
+                " a string, or a `[time, value]` pair of them.".format(l)
+            )
 
 
 def ensure_2d(input_data):
@@ -121,9 +140,27 @@ def range__inclusive(start, stop, step):
     Numpy's `arange`, but including the final value.
 
     Adapting arange, by adding the step size, leads to awkward corner cases, so we use a modified `linspace` instead.
+
+    The interval count is rounded before the ceiling is taken, because `stop - start` is
+    a difference of absolute times and so carries floating-point noise whose sign
+    depends on where the interval sits on the axis. Bare `ceil` turned that noise into a
+    different number of points: a nominally 0.8 s ramp at a resolution of 0.2 s gave 5
+    points (step 0.2) at t=5.0 and 6 points (step 0.16) at t=10.0. The endpoints and the
+    shape were right either way, but the sampling -- and hence the row count reaching
+    the hardware -- depended on when the ramp happened to be scheduled. See
+    KNOWN_ISSUES B9.
     """
     # Uses `math` because it returns an integer rather than a float.
-    num = np.abs(math.ceil((stop - start) / step) + 1)
+    intervals = (stop - start) / step
+    intervals__whole = round(intervals)
+    num = np.abs(
+        (
+            intervals__whole
+            if math.isclose(intervals, intervals__whole, rel_tol=1e-9)
+            else math.ceil(intervals)
+        )
+        + 1
+    )
     return np.linspace(start, stop, num=num)
 
 
@@ -154,81 +191,337 @@ def function__filtered_kws(f: Callable, **kws) -> Callable:
         return lambda *args: f(*args, **filtered_kwargs)
 
 
-def flatten_keys(d: OrderedDict, ks: str) -> OrderedDict:
+def parameters__unstated(f: Callable) -> set[str]:
     """
-    Recursively flattens the dictionary until the given key doesn't exist anymore.
+    The keyword parameters `f` leaves unstated: those with no default, or a default of
+    `None` or `INFER`. A parameter with any other default is *stated*, and that includes a
+    value bound by `functools.partial`, which the signature reports as the default.
     """
-    d = OrderedDict(d)  # make a shallow copy to avoid mutating input
+    return {
+        name
+        for name, p in inspect.signature(f).parameters.items()
+        if p.kind in (p.KEYWORD_ONLY, p.POSITIONAL_OR_KEYWORD)
+        and (p.default is p.empty or p.default is None or p.default is wt_config.INFER)
+    }
 
-    while True:
-        found = False
-        for key in ks:
-            if key in d:
-                nested = d.pop(key)
-                if not isinstance(nested, dict):
-                    raise TypeError(
-                        f"{key} must be a dictionary, got {type(nested).__name__}"
+
+def function__defaults(f: Callable, **kws) -> Callable:
+    """
+    `f`, given each of `kws` it leaves unstated (`parameters__unstated`): a default, never
+    an override. A function collecting `**kwargs` states nothing it does not declare, so it
+    is given the rest as well.
+
+    This is how `expand`'s `time_resolution` reaches a ramp function: `tanh` (unbound) and
+    `lambda origin, terminus, time_resolution: ...` are given it, and
+    `functools.partial(tanh, time_resolution=1e-4)` keeps its own (#65, C7 item 7). Every
+    function declaring the keyword used to be handed `expand`'s value, silently undoing
+    the one a `partial` bound. It is the rule a keyword forwarded by `stack` follows (#145).
+    """
+    parameters = inspect.signature(f).parameters.values()
+    unstated = parameters__unstated(f)
+    declared = {p.name for p in parameters}
+    collects = any(p.kind == p.VAR_KEYWORD for p in parameters)
+    given = {
+        k: v
+        for k, v in kws.items()
+        if k in unstated or (collects and k not in declared)
+    }
+    return lambda *args: f(*args, **given)
+
+
+def accepts_keyword(f, name: str) -> bool:
+    """
+    Whether `f` would accept `name` as a keyword argument.
+
+    True if `f` declares the parameter, or if it collects `**kwargs` -- which is what
+    keeps `default_state` and the functions wrapping it open to the variable injection
+    described in the manuscript's `sec:forwarding`, while an ordinary stage, having
+    declared what it forwards, is closed.
+
+    Permissive when the signature cannot be read at all (some builtins and C callables),
+    since refusing there would reject a legitimate target on the strength of not being
+    able to inspect it.
+    """
+    try:
+        parameters = inspect.signature(f).parameters
+    except (TypeError, ValueError):
+        return True
+
+    return name in parameters or any(
+        p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values()
+    )
+
+
+ATTRIBUTE__DEFERRED = "__wigner_time_deferred__"
+"""
+Marks an object as a *deferred timeline function*: something that takes a timeline and
+returns a timeline. Set by `stage` and by `timeline.stack`, and by nothing
+else.
+
+This exists because the distinction cannot be recovered any other way. A deferred call,
+a composed `stack` and an uncalled user stage are all plain `function` objects, and
+their signatures do not separate them -- a stage is free to take `(x, **kwargs)` too.
+The tag is therefore the only thing that can tell `stack` a constituent is the kind of
+callable it knows how to apply.
+"""
+
+
+ATTRIBUTE__KEYWORDS = "__wigner_time_keywords__"
+"""
+Records which keywords a deferred timeline function's chain can actually consume.
+
+`stack` forwards every keyword it is given to every constituent, and the core functions
+read an unrecognised keyword as a *variable name* -- so a misspelt one does not go
+unused, it becomes a row (KNOWN_ISSUES A5). To refuse that, `stack` has to know what its
+constituents would do with a keyword, and it cannot: a constituent is an opaque closure
+by the time it arrives. So the information is recorded when the closure is built, by
+`stage` from the public function's signature and by `stack` as the union over
+its own constituents, which is what makes a nested stage answer for the stages inside it.
+
+Absence means *neutral*, not *permissive*: `noop` and a hand-written
+`lambda tline: ...` neither vouch for a keyword nor object to it.
+"""
+
+
+def mark_keywords(f, names):
+    """
+    Record the keywords `f`'s chain can consume, and return it. See
+    `ATTRIBUTE__KEYWORDS`.
+    """
+    setattr(f, ATTRIBUTE__KEYWORDS, frozenset(names))
+    return f
+
+
+def keywords_declared(f):
+    """
+    The keywords `f`'s chain can consume, or `None` where it does not say.
+    """
+    return getattr(f, ATTRIBUTE__KEYWORDS, None)
+
+
+def keywords__named(f) -> frozenset | None:
+    """
+    The parameters `f` declares by name.
+
+    Deliberately excludes `**kwargs`: a core function collects unrecognised keywords into
+    `**vtvc_dict`, where they become variables, so "would be accepted" and "means
+    something here" are different questions and this asks the second. Contrast
+    `accepts_keyword`, which asks the first.
+
+    `None` where the signature cannot be read, so the caller can tell "declares nothing"
+    from "cannot say".
+    """
+    try:
+        parameters = inspect.signature(f).parameters.values()
+    except (TypeError, ValueError):
+        return None
+
+    return frozenset(
+        p.name
+        for p in parameters
+        if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
+    )
+
+
+def mark_deferred(f):
+    """
+    Tag `f` as a deferred timeline function and return it. See `ATTRIBUTE__DEFERRED`.
+    """
+    setattr(f, ATTRIBUTE__DEFERRED, True)
+    return f
+
+
+def is_deferred(f) -> bool:
+    """
+    Whether `f` was produced by the deferral machinery, rather than merely being callable.
+    """
+    return getattr(f, ATTRIBUTE__DEFERRED, False) is True
+
+
+def takes_one_timeline(f) -> bool:
+    """
+    Whether `f` looks like a timeline transformer: something callable with exactly one
+    required positional argument.
+
+    A fallback for `is_deferred`, so that an ordinary hand-written
+    `lambda tline: expand(tline, ...)` can be a `stack` constituent without being tagged.
+
+    It discriminates the case that matters. A stage written to the convention of the
+    manuscript defaults everything and takes `timeline=None`, so it has *no* required
+    positional argument; a stage with required parameters, like `pull_coils`, has several.
+    Only a transformer has exactly one. Permissive when the signature cannot be read.
+    """
+    try:
+        parameters = inspect.signature(f).parameters.values()
+    except (TypeError, ValueError):
+        return True
+
+    return (
+        len(
+            [
+                p
+                for p in parameters
+                if p.default is p.empty
+                and p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+            ]
+        )
+        == 1
+    )
+
+
+def ensure_timeline(
+    timeline,
+    name__function: str,
+    name__argument: str = "timeline",
+    columns__required=None,
+    column__context: str = "context",
+):
+    """
+    Check the `timeline` argument against its contract, naming the mistake where it is
+    made rather than letting it surface downstream.
+
+    Three outcomes, and the third is the point of the function:
+
+    - a dataframe -- returned, after checking it carries `columns__required` and that
+      every row has a context (#156)
+    - `None`      -- returned; the caller decides what nothing means to it
+    - anything else -- `TypeError`
+
+    Returns the timeline, so callers must use the result.
+
+    A **callable** is the mistake a stage invites. `expand(ramp(...))` reads like
+    ordinary composition but is not: `ramp(...)` is a stage, a function of a timeline,
+    so it arrives here as the `timeline` argument. Stages compose as siblings of a
+    `stack`, never by nesting, and `to_timeline` is what makes a timeline of one.
+
+    **Anything else** -- a list, a string, an int, a dict -- used to fail much later and
+    cryptically, on whatever dataframe attribute was touched first, naming neither the
+    function nor the argument. It is rejected here instead, with both.
+    """
+    if timeline is None:
+        return timeline
+
+    if isinstance(timeline, wt_frame.CLASS):
+        if columns__required is not None:
+            missing = [c for c in columns__required if c not in timeline.columns]
+            if missing:
+                raise TypeError(
+                    "`{}` was given a frame missing the column(s) {}. A timeline has "
+                    "{}, and every row has a context (#28, #156).".format(
+                        name__function, missing, list(columns__required)
                     )
-                d.update(nested)
-                found = True
-        if not found:
-            break
+                )
 
-    return d
+        # Every row has a context (#156). A hand-built frame can carry a null or an empty
+        # string here, which used to be normalised to the empty string as the documented
+        # minimum (#28) and then inherited by every row appended after it. Refused
+        # instead, where the table enters, since from here on nothing records that
+        # anything was missing.
+        if column__context in timeline.columns:
+            missing = wt_frame.isnull(timeline[column__context]) | (
+                timeline[column__context] == ""
+            )
+            if missing.any():
+                raise ValueError(
+                    "`{}` was given a timeline in which {} row(s) have no context: {}."
+                    " Every row has one (#156).".format(
+                        name__function,
+                        int(missing.sum()),
+                        ", ".join(
+                            sorted(set(map(str, timeline.loc[missing, "variable"])))
+                        ),
+                    )
+                )
 
+        return timeline
 
-def args_in_function(f: Callable, kwargs, exclude=(), call_frame=None) -> OrderedDict:
-    """
-    Gets the local variable values relevant to the function call.
+    if callable(timeline):
+        # `to_timeline(stage, onto=timeline)` is the remedy for the `timeline` argument,
+        # and nonsense for another: `onto` wants the stage made a table first.
+        remedy = (
+            "{}(to_timeline(stage, onto=timeline))".format(name__function)
+            if name__argument == "timeline"
+            else "{}(..., {}=to_timeline(stage))".format(name__function, name__argument)
+        )
+        raise TypeError(
+            "\n".join(
+                [
+                    "`{}` was given a stage as `{}`, where a timeline was expected.".format(
+                        name__function, name__argument
+                    ),
+                    "",
+                    "A stage is what `update`, `ramp`, `anchor`, `stack` and `cascade`"
+                    " return -- a function of a timeline, not one. `to_timeline` makes a"
+                    " timeline of it:",
+                    "",
+                    "    " + remedy,
+                ]
+            )
+        )
 
-    NOTE: strongly dependent on the environment in which it is called.
-    """
-    # TODO: populate kwargs automatically?
-    if call_frame is None:
-        frame = inspect.currentframe().f_back
-    else:
-        frame = call_frame
-
-    sig = inspect.signature(f)
-    bound_args = sig.bind_partial(**frame.f_locals)
-    bound_args.apply_defaults()
-
-    args = flatten_keys(
-        OrderedDict(
-            {k: v for k, v in bound_args.arguments.items() if k not in exclude}
-        ),
-        kwargs,
+    raise TypeError(
+        "`{}` was given {} as `{}`, where a timeline was expected. A timeline is a"
+        " dataframe.".format(name__function, type(timeline).__name__, name__argument)
     )
 
-    return args
 
-
-def function__lambda(lambda_key="timeline", kwargs=["vtvc_dict"]):
+def stage(body, signature, arguments):
     """
-    Returns a function lamba based on the given function, and current local values, where the existing kwargs can be overwritten.
+    The stage a call of the public function `signature` with `arguments` stands for:
+    `body(timeline, **arguments)`, once it is given a timeline (#85).
 
-    The `lambda_key` determines which variable becomes the primary argument in the lambda.
+    It replaces `function__lambda`, which recovered the arguments by reading the caller's
+    frame, and so worked only when called directly from the public function's body. Here
+    the public function passes them itself.
 
-    NOTE: strongly dependent on the environment in which it is called.
+    A keyword forwarded later, by a `stack`, is a *default* for this call, not an
+    override: it fills a parameter the call left unstated and leaves one it stated alone.
+    It used to be merged last, so `stack(update(x=1, context="ADwin_Finish"),
+    context="finalRamps")` moved the row out of its reserved context, silently (#145).
     """
+    unstated = _unstated(signature, arguments)
 
-    frame = inspect.currentframe().f_back
-    name__f = frame.f_code.co_name
-    f = frame.f_globals[name__f]
+    def applied(timeline, **forwarded):
+        return body(
+            timeline,
+            **{
+                **arguments,
+                **{
+                    name: value
+                    for name, value in forwarded.items()
+                    if name not in arguments or name in unstated
+                },
+            },
+        )
 
-    kwargs = args_in_function(f, kwargs=kwargs, call_frame=frame)
+    applied.__name__ = signature.__name__
+    applied.__qualname__ = "{}(...)".format(signature.__qualname__)
+    # What the closure hides, recorded before it closes: `stack` needs to know which
+    # keywords this stage can consume, and once wrapped there is no way to ask.
+    return mark_keywords(mark_deferred(applied), keywords__named(signature) or ())
 
-    lambda_pair = [lambda_key, kwargs.pop(lambda_key)]
 
-    if lambda_pair is not None:
-        k, v = lambda_pair
-    else:
-        raise ValueError("Function `f` needs to have arguments in `function__lambda`.")
+def _unstated(f, arguments):
+    """
+    The parameters of `f` that `arguments` leaves at their defaults.
 
-    return lambda x, **kwargs__new: f(
-        **{
-            k: x,
-            **kwargs,
-            **kwargs__new,
-        }
-    )
+    A default and a value written equal to it are not told apart. That is exact for the
+    parameters that default to `INFER` -- `origin` and `context` -- where writing `None`
+    or `INFER` *means* "use the default", and those are the ones forwarding exists for
+    (`sec:context`). Elsewhere a value written equal to the default counts as unstated.
+    """
+    out = set()
+    for name, parameter in inspect.signature(f).parameters.items():
+        if parameter.default is parameter.empty or name not in arguments:
+            continue
+        value, default = arguments[name], parameter.default
+        if value is default or (default is wt_config.INFER and value is None):
+            out.add(name)
+        elif (
+            not callable(default)
+            and type(value) is type(default)
+            and isinstance(default, (int, float, str, list, tuple))
+            and value == default
+        ):
+            out.add(name)
+    return out
