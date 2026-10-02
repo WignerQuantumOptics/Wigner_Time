@@ -7,14 +7,14 @@ Every operation the package performs on a timeline, behind one interface.
 A timeline is a table. Which library holds it is chosen by the environment variable
 `WIGNERTIME_BACKEND`, read once, when the package is first imported:
 
-- `pandas`: a timeline is a `pandas.DataFrame`.
 - `polars`: a timeline is a `polars.DataFrame`.
+- `pandas`: a timeline is a `pandas.DataFrame`.
 - `pandas-strict`: pandas, except that package code outside this namespace may not touch
   a timeline directly. Any attempt raises `BackendLeak`, naming the line. This is how the
   test suite proves that `INTERFACE` is the whole of what the package needs.
 
-Unset, it is pandas if pandas is installed and polars otherwise. At least one of the two
-must be: `pip install wigner-time[pandas]` or `wigner-time[polars]`.
+Unset, it is polars if polars is installed and pandas otherwise. At least one of the two
+must be: `pip install wigner-time[polars]` or `wigner-time[pandas]`.
 
 One implementation serves both libraries (`_narwhals`). A frame of the other library is
 converted to the active one where it enters (`own`), so a pandas table given to a polars
@@ -103,7 +103,7 @@ def _installed(name):
 
 
 BACKEND = os.environ.get("WIGNERTIME_BACKEND") or (
-    "pandas" if _installed("pandas") else "polars"
+    "polars" if _installed("polars") else "pandas"
 )
 if BACKEND not in BACKENDS:
     raise ValueError(
@@ -112,9 +112,9 @@ if BACKEND not in BACKENDS:
 LIBRARY, _module = BACKENDS[BACKEND]
 if not _installed(LIBRARY):
     raise ImportError(
-        "Wigner Time keeps its timelines in pandas or polars, and {} is not installed."
-        " Install one of them: `pip install wigner-time[pandas]` or"
-        " `pip install wigner-time[polars]`{}.".format(
+        "Wigner Time keeps its timelines in polars or pandas, and {} is not installed."
+        " Install one of them: `pip install wigner-time[polars]` or"
+        " `pip install wigner-time[pandas]`{}.".format(
             LIBRARY,
             (
                 ""
