@@ -1,9 +1,11 @@
 import pytest
 
 from wignertime import config as wt_config
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
+from wignertime.internal import tags as wt_tags
+from wignertime.timeline.internal import stages as wt_stages
 from wignertime.internal import dataframe as wt_frame
-from wignertime.internal import origin
+from wignertime.timeline.internal import origin
 
 
 @pytest.fixture
@@ -43,8 +45,8 @@ def df__mixed():
 @pytest.mark.parametrize(
     "input",
     [
-        tl._populate_timeline("AOM__imaging", 0.0, 0.0, context="s"),
-        tl._populate_timeline("AOM__imaging", [[0.0, 0.0]], context="s"),
+        wt_stages.populate_timeline("AOM__imaging", 0.0, 0.0, context="s"),
+        wt_stages.populate_timeline("AOM__imaging", [[0.0, 0.0]], context="s"),
     ],
 )
 def test_createSimple(input, df_simple):
@@ -54,7 +56,7 @@ def test_createSimple(input, df_simple):
 @pytest.mark.parametrize(
     "input",
     [
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             [
                 ["AOM__imaging", [[0.0, 0.0]]],
                 ["AOM__imaging__V", [[0.0, 2]]],
@@ -62,7 +64,7 @@ def test_createSimple(input, df_simple):
             ],
             context="init",
         ),
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             [
                 ["AOM__imaging", 0.0],
                 ["AOM__imaging__V", 2],
@@ -71,7 +73,7 @@ def test_createSimple(input, df_simple):
             context="init",
             time=0.0,
         ),
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             ["AOM__imaging", 0.0],
             ["AOM__imaging__V", 2],
             ["AOM__repump", 1.0],
@@ -106,14 +108,14 @@ df_previous = wt_frame.new(
 @pytest.mark.parametrize(
     "input",
     [
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             AOM__repump=[10.0, 0.0, "important"], timeline=df_previous
         ),
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             "AOM__repump", 10.0, 0.0, "important", timeline=df_previous
         ),
-        # tl._populate_timeline(["AOM__repump", 10.0, 0.0, "important"], timeline=df_previous),
-        tl._populate_timeline(
+        # wt_stages.populate_timeline(["AOM__repump", 10.0, 0.0, "important"], timeline=df_previous),
+        wt_stages.populate_timeline(
             ["AOM__repump", [10.0, 0.0, "important"]], timeline=df_previous
         ),
     ],
@@ -142,19 +144,19 @@ def test_createPrevious(input, df):
                 AOM__repump=[0.0, 1, "init"],
             )
         ),
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             ["AOM__imaging", [0.0, 0, "init"]],
             ["AOM__imaging__V", [0.0, 2.0, "init"]],
             ["AOM__repump", [0.0, 1, "init"]],
         ),
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             ["AOM__imaging__V", [0.0, 2.0]],
             ["AOM__repump", [0.0, 1]],
-            timeline=tl._populate_timeline(
+            timeline=wt_stages.populate_timeline(
                 ["AOM__imaging", [0.0, 0, "init"]],
             ),
         ),
-        # tl._populate_timeline(
+        # wt_stages.populate_timeline(
         #     ["AOM__imaging", 0.0, 0, "init"],
         #     ["AOM__imaging__V", 0.0, 2.0, "init"],
         #     ["AOM__repump", 0.0, 1, "init"],
@@ -167,7 +169,7 @@ def test_createContext(input, df):
 
 def test_createInheritContext(df__mixed):
     return wt_frame.assert_equal(
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             ["AOM__imaging__V", [2.2, 3.0]],
             ["EOM_imaging__V", [2.3, 5.0]],
             timeline=df__mixed,
@@ -266,7 +268,7 @@ def test_onto_an_empty_table_the_refusal_is_about_the_context():
     advice to give `origin=0.0` -- which gave the same error again, because what was
     missing was the context.
     """
-    empty = wt_frame.new([], columns=tl._SCHEMA.keys()).astype(tl._SCHEMA)
+    empty = wt_frame.new([], columns=wt_stages.SCHEMA.keys()).astype(wt_stages.SCHEMA)
     for origin in (wt_config.INFER, 0.0):
         with pytest.raises(ValueError, match="Every row needs a context") as e:
             tl.to_timeline(tl.update(AOM__MOT=1, origin=origin), onto=empty)
@@ -313,7 +315,7 @@ def test_a_context_named_INFER_is_an_ordinary_context(df__mixed):
 ###############################################################################
 
 
-tline = tl._populate_timeline(
+tline = wt_stages.populate_timeline(
     [
         ["AOM__imaging", [[0.0, 0.0]]],
         ["other_thing", [[0.0, 0.0]]],
@@ -327,7 +329,7 @@ tline = tl._populate_timeline(
 @pytest.mark.parametrize(
     "input",
     [
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             [
                 ["AOM__imaging", [[0.0, 0.0]]],
                 ["other_thing", [[0.0, 0.0]]],
@@ -339,27 +341,27 @@ tline = tl._populate_timeline(
             # `origin=[0.0, 0.0]` was a no-op here (no timeline to be relative to);
             # `create` no longer takes the argument at all.
         ),
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             AOM__imaging__V=[1.0, 10.0],
             timeline=tline,
             origin=[0.0],
         ),
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             AOM__imaging__V=[1.0, 10.0],
             timeline=tline,
             origin=0.0,
         ),
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             AOM__imaging__V=[1.0, 10.0],
             timeline=tline,
             origin="AOM__imaging",
         ),
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             AOM__imaging__V=[1.0, 10.0],
             timeline=tline,
             origin=["AOM__imaging", "AOM__imaging"],
         ),
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             AOM__imaging__V=[1.0, 10.0],
             timeline=tline,
             origin=["AOM__imaging", "other_thing"],
@@ -369,7 +371,7 @@ tline = tl._populate_timeline(
 def test_createOrigin0(input):
     return wt_frame.assert_equal(
         input,
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             [
                 ["AOM__imaging", [[0.0, 0.0]]],
                 ["other_thing", [[0.0, 0.0]]],
@@ -382,7 +384,7 @@ def test_createOrigin0(input):
     )
 
 
-tline2 = tl._populate_timeline(
+tline2 = wt_stages.populate_timeline(
     [
         ["AOM__imaging", [[1.0, 1.0]]],
         ["AOM__imaging__V", [[0.0, 2]]],
@@ -390,7 +392,7 @@ tline2 = tl._populate_timeline(
     context="init",
 )
 
-expected = tl._populate_timeline(
+expected = wt_stages.populate_timeline(
     [
         ["AOM__imaging", [[1.0, 1]]],
         ["AOM__imaging__V", [[0.0, 2]]],
@@ -399,7 +401,7 @@ expected = tl._populate_timeline(
     ],
     context="init",
 )
-expected2 = tl._populate_timeline(
+expected2 = wt_stages.populate_timeline(
     [
         ["AOM__imaging", [[1.0, 1]]],
         ["AOM__imaging__V", [[0.0, 2]]],
@@ -414,18 +416,18 @@ expected2 = tl._populate_timeline(
     "input",
     [
         [
-            tl.VARIABLE,
+            wt_tags.VARIABLE,
             expected,
         ],
         [
-            [tl.VARIABLE],
+            [wt_tags.VARIABLE],
             expected,
         ],
     ],
 )
 def test_createOriginVariable(input):
     return wt_frame.assert_equal(
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             AOM__imaging=[1.0, 10.0],
             AOM__imaging__V=[1.4, 5.0],
             timeline=tline2,
@@ -439,14 +441,14 @@ def test_createOriginVariable(input):
     "input",
     [
         [
-            [tl.VARIABLE, tl.VARIABLE],
+            [wt_tags.VARIABLE, wt_tags.VARIABLE],
             expected2,
         ],
     ],
 )
 def test_createOriginVariableVariable(input):
     return wt_frame.assert_equal(
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             AOM__imaging=[1.0, 10.0],
             AOM__imaging__V=[1.4, 5.0],
             timeline=tline2,
@@ -462,7 +464,7 @@ if __name__ == "__main__":
     lib.reload(tl)
     lib.reload(origin)
 
-    tline = tl._populate_timeline(
+    tline = wt_stages.populate_timeline(
         [
             ["AOM__imaging", [[0.0, 0.0]]],
             ["AOM__imaging__V", [[0.0, 2]]],
@@ -471,7 +473,7 @@ if __name__ == "__main__":
         context="init",
     )
     print(
-        tl._populate_timeline(
+        wt_stages.populate_timeline(
             AOM__imaging__V=[1.0, 10.0],
             timeline=tline,
             origin="AOM__imaging",
@@ -495,5 +497,5 @@ def test_the_first_rows_are_placed_in_absolute_time():
     """
     return wt_frame.assert_equal(
         tl.to_timeline(tl.update(AOM__repump=0, time=10.0, context="init")),
-        tl._populate_timeline(AOM__repump=0, time=10.0, context="init"),
+        wt_stages.populate_timeline(AOM__repump=0, time=10.0, context="init"),
     )

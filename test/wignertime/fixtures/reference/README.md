@@ -18,6 +18,12 @@ default. `arrays.json` did not change: the arrays are identical at 5, 2 and 1 µ
 regenerating: every case of both tables is identical once the old names are mapped to
 the new, and the digests in `arrays.json` are unchanged (only its key moved).
 
+**And a third time, on 2026-10-01, for #163:** `ramp_function` moved into `timeline`, so the
+stored function names `wignertime.ramp_function.tanh` became
+`wignertime.timeline.ramp_function.tanh` (52 rows in `demo.parquet`, 422 in
+`quantum_optics_lab.parquet`). Only that column was rewritten, in place; every other column
+was checked to be identical, and `arrays.json` did not change.
+
 | file | what it is |
 | --- | --- |
 | `demo.parquet` | `timeline_demo` (99 rows), and the same with the camera trigger of `sec:interweaving` placed at molasses |

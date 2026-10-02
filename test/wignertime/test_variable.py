@@ -1,7 +1,9 @@
 import pytest
 
-from wignertime import timeline as tl
-from wignertime import variable
+from wignertime.timeline import query
+from wignertime.timeline import build as tl
+from wignertime.timeline.internal import stages as wt_stages
+from wignertime.timeline import variable
 
 
 def test_variable():
@@ -92,8 +94,8 @@ def test_unit003():
 
 
 def test_units():
-    assert variable.units(
-        tl._populate_timeline(
+    assert query.units(
+        wt_stages.populate_timeline(
             ["AOM__imaging__V", [[0.0, 2]]],
             ["AOM__repump", [[1.0, 1.0]]],
             ["coil__MOT__A", [[1.0, 10.0]]],
@@ -104,8 +106,8 @@ def test_units():
 
 
 def test_units_nodigital():
-    assert variable.units(
-        tl._populate_timeline(
+    assert query.units(
+        wt_stages.populate_timeline(
             ["AOM__imaging__V", [[0.0, 2]]],
             ["AOM__repump", [[1.0, 1.0]]],
             ["coil__MOT__A", [[1.0, 10.0]]],

@@ -2,7 +2,7 @@ import pytest
 import pandas as pd
 
 from wignertime.internal import dataframe as frame
-from wignertime.internal import origin
+from wignertime.timeline.internal import origin
 
 
 @pytest.fixture

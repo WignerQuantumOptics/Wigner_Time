@@ -2,10 +2,11 @@ import pytest
 import pandas as pd
 from munch import Munch
 
-from wignertime import timeline as tl
-from wignertime import variable
+from wignertime.timeline import build as tl
+from wignertime.timeline.internal import stages as wt_stages
+from wignertime.timeline import variable
 from wignertime import config as wt_config
-from wignertime.adwin import connection as adcon
+from wignertime.backend.adwin import connection as adcon
 
 
 @pytest.mark.parametrize(
@@ -62,7 +63,7 @@ def test_connectionName002():
 def test_connectionName003():
     assert (
         adcon.is_valid_name(
-            tl._populate_timeline(
+            wt_stages.populate_timeline(
                 ["shutter__MOT", 1, 11],
                 ["shutter_repump", 1, 12],  # the old grammar, refused by the new one
                 ["shutter__imaging", 1, 13],

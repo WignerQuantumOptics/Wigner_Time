@@ -7,7 +7,7 @@ Utilities for supplying default arguments to new functions in a flexible way, i.
 
 from munch import Munch
 
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
 import pandas as pd
 
 

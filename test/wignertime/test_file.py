@@ -1,8 +1,8 @@
 import pytest
 from pathlib import Path
 
-from wignertime import file
-from wignertime import timeline as tl
+from wignertime.io import file
+from wignertime.timeline import build as tl
 from wignertime.internal import dataframe as frame
 
 
@@ -81,7 +81,7 @@ def test_save_load__types_with_functions(fname, timeline_demo_function):
 
     if bool(actual.loc[mask, "function"].map(lambda x: isinstance(x, str)).all()):
         output = timeline_demo_function.copy(deep=True)
-        output.loc[mask, "function"] = "wignertime.ramp_function.tanh"
+        output.loc[mask, "function"] = "wignertime.timeline.ramp_function.tanh"
         # A column of names is typed as one: `object` under pandas 2, `str` under 3.
         output["function"] = output["function"].infer_objects()
     else:
