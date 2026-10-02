@@ -56,7 +56,67 @@ Retired on 2026-10-02: `ux` and `consistency` (too broad to filter on), `interna
 
 ## Open items
 
-Two items with an ID are open, both in section D and in `1.x`: **D16** (#130) and **D23** (#144). Two open issues carry no ID and are recorded at the end of this section.
+Four items with an ID are open. Two are decisions between the maintainers: **C8** (#163), the user API, and **D5** (#167), reopened. **D16** (#130) and **D23** (#144) are in `1.x`. Two open issues carry no ID and are recorded at the end of this section.
+
+### D5 — `context_info` pandas coupling — **closed 2026-09-30 (András) and reopened the same day (Thomas), #167**
+
+**Reopened as an open decision between the maintainers**, not as a defect. Whether pandas is the only possible backend is not settled; the paper's statement that a timeline *is* a `pandas.DataFrame` remains true of the default and is not touched here. The entry as closed is in the design record.
+
+**What phase 1 establishes.** The count there, "some 180 pandas operations outside `wt_frame`", was measured rather than estimated: a *strict* backend (`--backend=pandas-strict`) makes every timeline a `DataFrame` subclass that raises when package code outside `wt_frame` touches it, and in a logging mode lists each site once. When D5 was closed the suite reached **173 source lines**. All of them now go through `wt_frame.INTERFACE`, and the strict suite passes. The interface is backend-neutral by construction: columns come out as numpy arrays, masks are numpy booleans aligned by position, rows are addressed by position, and no function mutates its argument. `expand`, the one real dependence on row labels, now carries each ramp's written position in a column.
+
+Found on the way, by the strict run: `adwin.internal.to_tuples` sorted by cycle with bare `sort_values` (A18's unstable sort; harmless there, since tied rows are on different channels, but now stable), and a `.loc` in `util.ensure_timeline`'s error path that its only test could not reach, because it built its frame with `pd.DataFrame`. The Lab2 checksums are unchanged throughout; nothing under `adwin/` has been checked on the rig.
+
+**What is left to decide.** (1) Whether a second backend is wanted at all – the cost of phase 1 is paid, so the question is now the value. (2) If so, whether it is polars by hand (`_polars.py`, which today raises `NotImplementedError` per operation) or one implementation over narwhals, which would serve pandas and polars frames natively. narwhals 2.26 does not keep the order rules by itself – its pandas `sort` is unstable on one column and its `group_by` ignores `maintain_order` – so `wt_frame` would stay as the place those rules are kept either way. (3) Callables in the `function` column, which polars can hold only as `Object`.
+
+### C8 — the user API as a designed, versioned list **[#163; scaffolded 2026-09-30; open]**
+
+**The proposal** (Thomas, #163): the public API becomes an explicitly designed compatibility layer instead of whatever happens to be public in the modules, since `internal/` alone does not scale — private helpers keep entering the key modules. A separate path holds exactly what a user wants day to day; the rest stays reachable, out of the way, with no guarantee. Versioning, opinionated defaults and `pyplot`-style conveniences follow almost for free.
+
+**The scaffold.** `wignertime/api/v0_9/` re-exports, adding no behaviour, so every name is the package's own object and nothing can diverge:
+
+- `wignertime.api.v0_9` — `update`, `ramp`, `anchor`, `stack`, `cascade`, `to_timeline`, `expand`; `INFER`, `ANCHOR`, `LAST`, `VARIABLE`; `tanh`, `linear`, `with_points`; `devices` (= `device.new`), `function_from_file`; `save`, `load`; `config` (the module itself, so that `wt.config.VARIABLE__REGEX = ...` is the setting the package reads).
+- `.adwin` — `connections` (= `adwin.connection.new`), `link_device`, `read_cycle_period`, `convert`, `upload`, `run`, `start`, `wait`, `running`, `Upload`, `Run`, `LostEvents`, `PeriodRefused`; `.adwin.console` and `.adwin.adc` below it.
+- `.display` — `quantities`.
+
+The optional namespaces load on first use, so the main import needs neither ADwin nor matplotlib (tested in a clean interpreter). Every name the paper, the README and the demo use is in v1 (tested). `docs/api.md` now leads with v1 and lists the rest under "Everything else". The package's modules are untouched: this adds a layer and changes nothing beneath it. Suite 510 → 547.
+
+**Open, for the maintainers — the scaffold took a provisional choice on each:**
+
+1. **Names.** `devices` and `connections` for the two table constructors, where the modules say `device.new` and `connection.new`, since one namespace cannot hold two `new`s. `function_from_file` kept its name; `calibration_from_file` would say what it is for.
+2. **What is in.** Left out as not clearly day-to-day: `context_info` (now in, as `context_information`; see below), `variable.unit`/`units`/`is_valid`, `device.check_within_range` and `check_correspondence` (both run inside `convert`), `adwin.CONTEXTS__SPECIAL` (the reserved context names are written as strings), `ramp_function.points`, `display.display` (a thin wrapper of `quantities`). The `national_instruments` stub is not exposed.
+3. **One import or two.** Whether `import wignertime as wt` should itself be the user API (the top-level package re-exporting it) or `wignertime.api.v0_9` stays the only door; and whether an unversioned `wignertime.api` should point to the latest version.
+4. **The paper and the README.** They import from the modules (`from wignertime import timeline as tl`, and so on). Moving their listings to `import wignertime.api.v0_9 as wt` is the natural next step and a reader-facing change, so it waits for agreement; it would also make the listings run against the API that promises to keep working.
+5. **The lab.** `../quantum_optics_lab/` imports from the modules directly and was not touched; it would move to the user API in its own pass.
+
+**2026-10-01 (Thomas): `previous` and `display` added to the user API**.
+
+- `wt.previous`: first added as a wrapper in `timeline`; moved the same day to `query.previous` without a copy (see the note below). `test_query.py`.
+- `wt.display` is a function, `wignertime.display.quantities`, not a namespace. `wignertime.display` no longer needs matplotlib to import. It looks for matplotlib on call and raises `ModuleNotFoundError(name="matplotlib")` naming the `display` extra and how to install it. It passes on only the options `adwin.display.quantities` takes (`OPTIONS__QUANTITIES`, kept matched by a test) and refuses others before drawing. `api/v0_9/display.py` is gone. `test_display_api.py`.
+- Suite 547 → 558 passed (31 skipped: the lab reference cases).
+- **`config` holds only settings** (same day, Thomas's call). `dir(wt.config)` showed 15 names, of which three were settings. It also ran `logging.basicConfig(INFO)` on import, which set up the user's root logger. And rebinding `LABEL__ANCHOR` was half honoured: `internal/timeline/anchor.py` and `adwin/display.py` bound it at import, so two anchors were both numbered `A__001`, silently. Now:
+  - The settings are `VARIABLE__REGEX`, `ORIGIN__DEFAULTS` and `ORIGIN__DEFAULTS__RAMP`, with `show()`, `reset(*names)` and `override(**settings)` (a context manager that checks every value before changing any). The module's `repr` is the table of settings, marking those that differ from their defaults.
+  - Assignment is checked, by swapping the module's class. A regex is compiled, and must have three groups. An origin chain becomes a tuple of pairs: no `VARIABLE` as a time, and every value slot `VARIABLE` for ramps. So an in-place `.append` fails. A name that isn't a setting is refused, with the closest match.
+  - `INFER`, the origin tags, `LABEL__ANCHOR` and the logger moved to `internal/tags.py`, and the package reads them from there. `config` still resolves those names, so old code and pickles (`wignertime.config.INFER`) work, but it doesn't list them and refuses to rebind them. `LABEL__ANCHOR` is now fixed.
+  - Logging: the logger is `wignertime` (was `wtlog`), and importing configures nothing. With no logging set up, Python's last-resort handler still prints warnings to stderr (tested).
+  - **For the paper (not edited):** `sec:origin_full` says the anchor symbol has "the configured equivalent in `wignertime.config`". That is no longer true. Its `wignertime.config.ORIGIN__DEFAULTS` still holds, though the default is now a tuple.
+  - `test_config.py`. Suite 558 → 579.
+- Seen meanwhile: the paper (`sec:context`) recommends `timeline.context_info` (now `query.context_information`, and in the user API), and `test_what_the_paper_uses_is_in_v1` does not list it.
+
+**2026-10-01 (Thomas): renamed `api.v1` → `api.v0_9`**, after the package version in `pyproject.toml` (0.9.0); the next would be `api.v1_0` for 1.0. **Query functions moved to `wignertime.query`**: `previous` (was `internal/origin.previous`, which the origin machinery now calls there), `context_information` (was `timeline.context_info`) and `units` (was `variable.units`). Each is one function, not a copy: the `timeline.previous` wrapper of the morning is gone, and `wt.previous` is `query.previous`, returning the row as the backend gives it (a `Series` on pandas; with #167's phase 1, `origin.previous` returns a dict — settled by the merge below, which returns a `Munch`). Its messages were made user-facing: an empty timeline, and "no row with `column` `variable` at or before `time__max`", also when no variable is given, where it used to fail inside `idxmax`. The old names raise `AttributeError` saying where they went, as `create` does. **For the paper:** `sec:context` names `timeline.context_info`, which is now `query.context_information`.
+
+**2026-10-01 (Thomas): `context_info` is `context_information`, and in the user API** (`wt.context_information`). Renamed in the code, tests, docs and `CLAUDE.md`; `timeline.context_info` raises naming the new name. Left as written: the paper (`sec:context`, for the maintainers) and the history in D5.
+
+**2026-10-01 (Thomas): `timeline` split into a package** — `timeline.build` (the public functions only), `timeline.query` (was `wignertime.query`), `timeline.internal` (the `_` helpers of `timeline.py`, now `stages`, `checks` and `compose` without underscores, plus `origin.py` from `internal/` and `anchor`, `inherit`, `input`, `validate` from `internal/timeline/`). `wignertime.internal` keeps what the whole package uses (`dataframe`, `util`, `tags`). Nothing is re-exported: `wignertime.timeline.update` raises, naming `wt.update` and `timeline.build.update`; the origin tags are no longer in `build` (`wt.ANCHOR`, or `internal.tags`). The README, `docs/index.md` and the demo now use `import wignertime.api.v0_9 as wt` (the README's listings were run end to end). The demo still takes `connections` from `adwin.connection`, because `wt.adwin` needs `ADwin` to import even though building connections does not — an open question. **For the paper:** every listing that does `from wignertime import timeline as tl` no longer runs (with `sec:context` and `sec:origin_full` already noted); not edited.
+
+**2026-10-01 (Thomas): `wt.adwin` imports without the ADwin driver.** `adwin/core.py` imported `ADwin` at module level and refused to load without it, though the driver is used in one place: `link_device`, the only way to a machine. It now imports it there and raises `ModuleNotFoundError(name="ADwin")` naming the `adwin` extra. Every function that plays a timeline is handed the machine `link_device` returns, so none can reach hardware without the driver, and none needed a check of its own (the test fakes are machines too). `connections` and `convert` work without the extra; the demo uses `wt.adwin.connections`. `test_adwin_without_driver.py` runs in an interpreter where the driver cannot be found. **Not checked on the rig** — only the import moved, but it is under `adwin/`.
+
+**2026-10-01 (Thomas): the rest of the root namespace.** `ramp_function` and `variable` → `timeline/`; `device` and `conversion` → `hardware/` (the device layer, shared by every backend); `file` and `display` → `io/`, with the drawing moved out of `adwin/display.py` into `io/internal/drawing.py` (it was never ADwin-specific beyond reading `adwin.CONTEXTS__SPECIAL`). The root now holds `api`, `config`, `timeline`, `hardware`, `io`, `adwin`, `internal`, `demo` and the `national_instruments` stub; `from wignertime import device` and the like raise naming the new home. **Archives:** a pickle names each function by its module, so `io.file.load` maps the old module paths (`MODULES__MOVED`; tested with a pickle made under the old name). Parquet, CSV and JSON store a function's name only for the reader and were never resolved. The reference tables' `function` names were rewritten in place (README there); the Lab2 fixture keeps the old name, being an archive. Dead modules from `internal/` (`constructor`, `scratch`, and three scratch notes that no longer import) were set aside for review, and were deleted on 2026-10-07 (#138). Suite 602 → 611. **For the paper:** its listings' module imports (`from wignertime import device`, `conversion`, `ramp_function`, …) no longer run.
+
+**2026-10-01 (Thomas): backends under `backend/`.** `adwin/` → `backend/adwin/` and `national_instruments/` → `backend/national_instruments/`, so the root holds what every backend shares and each backend is a package beside the others. The user API keeps `wt.adwin`. `from wignertime import adwin` raises naming the new home; `io.file.load` maps any module of a moved package (`PACKAGES__MOVED`) when reading pickles. `internal/experimental/parameters.py`, unused, was set aside too, and deleted with them (#138). Suite 611 → 614. **For the paper:** `sec:definitions` and `sec:adwin` name `wignertime.adwin.core.upload`. Not checked on the rig — only module paths changed under `backend/adwin/`.
+
+**2026-10-01 (Thomas): `api.v09` → `api.v0_9`**, so that the version reads unambiguously (0.9, not 9 or 0.09); the next would be `api.v1_0`. Renamed throughout, this entry's earlier notes included.
+
+**2026-10-02 (Thomas): phase 1 of the dataframe backend (#167) merged into #163** (narwhals and polars, phase 2, are not). Every operation on a timeline goes through `wt_frame`, on #163's layout too: #167's changes to `timeline.py` were carried into `timeline/build.py` and `timeline/internal/{stages,checks,compose}.py` by a three-way merge of the old and new splits. #163's own code was brought under the rule: `timeline.query` (`previous`, `context_information`, `units`), `io.file.load` (the moved-module unpickler now goes through `wt_frame.read_pickle(path, unpickler=...)`), and `hardware.conversion.function_from_file` (through `wt_frame.read_csv(path, **options)`, with #167's A19 fix: the inverse is no longer the identity). `wt.previous` returns a `Munch` (`row.time` and `row["time"]`), since `wt_frame` gives rows as dicts. `pytest --backend=pandas-strict` passes with no leak logged; the tests added on #163 use `wt_frame` too. Merging #167 later brings phase 2 only.
 
 ### D16 — the anchor label cannot be printed on a legacy Windows code page **[new, found 2026-09-11]**
 
@@ -122,7 +182,7 @@ Tracked as [#144](https://github.com/WignerQuantumOptics/Wigner_Time/issues/144)
 
 ## C. API decisions – the rules in force
 
-C1–C7 are all settled (index below). An open API or design decision is flagged and asked, never settled unilaterally; D23 is such, and so is #142.
+C1–C7 are all settled (index below); C8 is open, under Open items. An open API or design decision is flagged and asked, never settled unilaterally; D23 is such, and so is #142.
 
 **Keyword forwarding is a feature, not an accident** (maintainer, 2026-09-02). `default_state` is written once, and a keyword no intermediate stage consumes falls through to it and becomes a variable. Of the three layers, only the last stays permissive: `cascade` routes by stage-name prefix, strictly (C1); `stack` forwards a keyword only as a default, and only one some constituent declares (A5, C6); the core functions' `**vtvc_dict` is an open namespace. *Why:* strictness there would destroy the feature, and in the first two it costs the idiom nothing. Full text, with the known limits: design record, "Design intent — keyword forwarding is a feature".
 
@@ -209,7 +269,7 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - D2 — `timeline.previous` duplicated `origin.previous` (#116) – deleted.
 - D3 — mutable default in `ramp` (#117) – `ensure_pair` never returns its argument.
 - D4 — variadics annotated as lists – `*fs: Callable`, in code and paper.
-- D5 — `context_info`'s pandas coupling – closed: pandas is the interface.
+- D5 — `context_info`'s pandas coupling – closed 2026-09-30, and reopened the same day: under Open items.
 - D6 — `national_instruments/__init__.py` did not parse – fixed.
 - D7 — what `__` separates (#121) – `<device>__<UID>(__<unit>)`; `__` before a unit in user names.
 - D8 — `"variable"` resolved on one call path only – `find` says where it is handled.

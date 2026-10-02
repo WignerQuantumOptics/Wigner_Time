@@ -107,7 +107,9 @@ def instants(timeline):
     """
     if timeline is None:
         return None
-    return timeline[np.isfinite(timeline["time"].to_numpy(dtype=float))]
+    return wt_frame.filter(
+        timeline, np.isfinite(wt_frame.column(timeline, "time", dtype=float))
+    )
 
 
 def _refuse__no_instant(timeline, at_instants, column, name, label):
@@ -119,8 +121,8 @@ def _refuse__no_instant(timeline, at_instants, column, name, label):
 
     def present(tline):
         if name is None:
-            return not tline.empty
-        return (tline[column] == name).any()
+            return not wt_frame.is_empty(tline)
+        return bool((wt_frame.column(tline, column) == name).any())
 
     if (
         column == "variable"
@@ -156,7 +158,7 @@ def _is_satisfiable__time(timeline, label):
     if label is ANCHOR:
         return wt_anchor.is_available(timeline)
     if label is LAST:
-        return (timeline is not None) and (not instants(timeline).empty)
+        return (timeline is not None) and (not wt_frame.is_empty(instants(timeline)))
     return True
 
 
@@ -311,14 +313,14 @@ def find(
 
     def _is_available__variable(var):
         return (
-            (timeline["variable"] == var).any()
+            bool((wt_frame.column(timeline, "variable") == var).any())
             if (timeline is not None) and (var is not None)
             else None
         )
 
     def _is_available__context(var):
         return (
-            (timeline["context"] == var).any()
+            bool((wt_frame.column(timeline, "context") == var).any())
             if (timeline is not None) and (var is not None)
             else None
         )
@@ -333,11 +335,12 @@ def find(
             case "time" | "value":
                 return wt_query.previous(
                     timeline, column=col__fil, variable=var, time__max=time__max
-                ).at[get]
+                )[get]
             case "both":
-                return wt_query.previous(
+                row = wt_query.previous(
                     timeline, column=col__fil, variable=var, time__max=time__max
-                )[["time", "value"]].values
+                )
+                return np.array([row["time"], row["value"]])
 
     def _to_col_var(timeline, label, slot="time"):
         """
@@ -506,16 +509,20 @@ def update(
     def _update_future(tlfuture, t0, v0, variable=None):
         if variable is not None:
             if t0 is not None:
-                wt_frame.increment_selected_rows(tlfuture, **{variable: t0})
+                tlfuture = wt_frame.increment_selected_rows(tlfuture, **{variable: t0})
             if v0 is not None:
-                wt_frame.increment_selected_rows(
+                tlfuture = wt_frame.increment_selected_rows(
                     tlfuture, column__increment="value", **{variable: v0}
                 )
         else:
             if t0 is not None:
-                tlfuture["time"] += t0
+                tlfuture = wt_frame.with_column(
+                    tlfuture, "time", wt_frame.column(tlfuture, "time") + t0
+                )
             if v0 is not None:
-                tlfuture["value"] += v0
+                tlfuture = wt_frame.with_column(
+                    tlfuture, "value", wt_frame.column(tlfuture, "value") + v0
+                )
         return tlfuture
 
     def find_every_origin(timeline__past, timeline__future, input):
@@ -529,9 +536,9 @@ def update(
         # this is measured from, so recomputing it per variable made the answer depend
         # on what else was being resolved, and in what order: adding an unrelated
         # variable to a `ramp` call moved another variable's start value (B2/#109).
-        time__max__relative = timeline__future["time"].min()
+        time__max__relative = wt_frame.column(timeline__future, "time").min()
 
-        for var in timeline__future["variable"].unique():
+        for var in wt_frame.unique(timeline__future, "variable"):
 
             _t0, _v0 = find(
                 timeline__past,
@@ -544,13 +551,14 @@ def update(
                 _v0,
                 variable=var,
             )
+        return timeline__future
 
     if timeline__past is not None:
-        find_every_origin(timeline__past, timeline__future, o)
+        timeline__future = find_every_origin(timeline__past, timeline__future, o)
 
     else:
         _t0, _v0 = find(origin=origin)
 
-        _update_future(timeline__future, _t0, _v0, variable=None)
+        timeline__future = _update_future(timeline__future, _t0, _v0, variable=None)
 
     return timeline__future

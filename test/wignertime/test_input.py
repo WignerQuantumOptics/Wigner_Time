@@ -1,5 +1,4 @@
 import pytest
-import pandas as pd
 
 from wignertime.timeline import build as tl
 from wignertime.timeline.internal import input

@@ -25,7 +25,7 @@ df_simple2 = frame.new(
 @pytest.mark.parametrize("input_value", [df_simple1, df_simple2])
 def test_row_from_max_column(input_value):
     row = ["thing2", 7.0, 5.0, "init"]
-    assert list(frame.row_from_max_column(input_value)) == row
+    assert list(frame.row_from_max_column(input_value).values()) == row
 
 
 df_duplicate1 = frame.new(
@@ -76,9 +76,8 @@ def test_drop_duplicatesSubset(input_value):
 
 @pytest.mark.parametrize("input", [df_duplicate1])
 def test_increment_selected_rows(input):
-    # Not in place: `df_duplicate1` is shared with the tests above.
     return frame.assert_equal(
-        frame.increment_selected_rows(input, in_place=False, thing=1.0),
+        frame.increment_selected_rows(input, thing=1.0),
         frame.new(
             [
                 ["thing2", 7.0, 5, "init"],

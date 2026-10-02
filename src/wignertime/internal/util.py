@@ -401,9 +401,10 @@ def ensure_timeline(
     if timeline is None:
         return timeline
 
-    if isinstance(timeline, wt_frame.CLASS):
+    if wt_frame.is_frame(timeline):
+        columns__present = wt_frame.columns(timeline)
         if columns__required is not None:
-            missing = [c for c in columns__required if c not in timeline.columns]
+            missing = [c for c in columns__required if c not in columns__present]
             if missing:
                 raise TypeError(
                     "`{}` was given a frame missing the column(s) {}. A timeline has "
@@ -417,10 +418,9 @@ def ensure_timeline(
         # minimum (#28) and then inherited by every row appended after it. Refused
         # instead, where the table enters, since from here on nothing records that
         # anything was missing.
-        if column__context in timeline.columns:
-            missing = wt_frame.isnull(timeline[column__context]) | (
-                timeline[column__context] == ""
-            )
+        if column__context in columns__present:
+            contexts = wt_frame.column(timeline, column__context)
+            missing = wt_frame.isnull(contexts) | (contexts == "")
             if missing.any():
                 raise ValueError(
                     "`{}` was given a timeline in which {} row(s) have no context: {}."
@@ -428,7 +428,14 @@ def ensure_timeline(
                         name__function,
                         int(missing.sum()),
                         ", ".join(
-                            sorted(set(map(str, timeline.loc[missing, "variable"])))
+                            sorted(
+                                set(
+                                    map(
+                                        str,
+                                        wt_frame.column(timeline, "variable")[missing],
+                                    )
+                                )
+                            )
                         ),
                     )
                 )

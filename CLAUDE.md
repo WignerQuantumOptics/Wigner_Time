@@ -10,6 +10,8 @@ poetry run pytest                        # whole suite, from the repo root
 poetry run pytest test/wignertime/test_drop_repeats.py                              # one file
 poetry run pytest test/wignertime/test_drop_repeats.py::test_channels_are_independent  # one test
 poetry run pytest -k ramp                # by name
+poetry run pytest --backend=pandas-strict   # refuses any timeline operation that bypasses wt_frame
+WIGNERTIME_STRICT_LOG=leaks.txt poetry run pytest --backend=pandas-strict   # list them all instead
 
 poetry run black src test                # formatter used throughout
 poetry run isort src test
@@ -18,8 +20,9 @@ poetry run pyflakes src
 poetry run mkdocs serve                  # docs from docs/, API page is generated from docstrings
 ```
 
-There is no pytest configuration and no `conftest.py`; the suite relies on the project being installed
-(`poetry install`) and on being run from the repo root.
+There is no pytest configuration file. `conftest.py` at the repo root adds `--backend` (see the
+`wt_frame` rule below) and the `pandas_only` marker, and nothing else; the suite relies on the
+project being installed (`poetry install`) and on being run from the repo root.
 
 `test_file.py` writes through `file.save`, which resolves relative paths against the cwd and
 auto-increments rather than overwriting. It therefore runs each of its tests in a fresh `tmp_path`
@@ -31,7 +34,7 @@ the root, which also made two of its own assertions vacuous — see the fixture'
 
 `KNOWN_ISSUES.md` is the standing checklist for code work and is **authoritative over this file** on
 anything it covers; the full accounts of resolved items, with their measurements, are in
-`docs/design-record.md`. Read both before touching `timeline.py` or `internal/origin.py`. Its rules:
+`docs/design-record.md`. Read both before touching `timeline/build.py` or `timeline/internal/origin.py`. Its rules:
 
 - **Do not "fix" by adding try/except or defensive branching.** Failures should be loud and early, at
   the point where the user's intent was ambiguous — not absorbed downstream. The value proposition is
@@ -41,7 +44,7 @@ anything it covers; the full accounts of resolved items, with their measurements
 - **Section C items are open API decisions — flag and ask, never settle unilaterally.** (A3, the
   degenerate-row filtering, was such a case and was settled on 2026-09-18: a zero duration raises, a
   zero value change is a hold and is kept.)
-- **A green suite does not clear the ADwin backend.** Changes under `wignertime/adwin/` can only be
+- **A green suite does not clear the ADwin backend.** Changes under `wignertime/backend/adwin/` can only be
   checked for internal consistency; correctness must be verified on the rig. Say so explicitly rather
   than reporting such a change as done.
 - **The paper and the code are developed together.** If a change makes a claim in `docs/paper/main.tex`
@@ -106,7 +109,7 @@ about any change is whether it breaks it, which is what the milestones `1.x` and
 `../quantum_optics_lab/` (sibling of this repo). `timeline/experiment.py` and
 `timeline/diagnostics.py` are the real counterparts of the demo and of the paper's `sec:forwarding`;
 `control/time_of_flight.py` is `sec:parameter_scan`; `console.py` re-exports the manual console of
-D22, which moved into this package on 2026-09-27 (`wignertime.adwin.console`); and
+D22, which moved into this package on 2026-09-27 (now `wignertime.backend.adwin.console`); and
 `../notebooks/` holds the notebooks the experiments are run from (`diagnosticsStageByStage.ipynb`
 interweaves imaging into each preparation stage). It has its own `KNOWN_ISSUES.md` (items `L*`).
 `../Lab2TimelineTakeout_VargaDani_20260921/` is the source of the Lab2 regression fixture. Check
@@ -139,9 +142,9 @@ Three named layers, with movement in both directions as an explicit goal:
 
 - **operation** — experiment stages ("take a fluorescence image"). *Client code, deliberately not
   part of the package*; `demo/full_experiment.py` is an example of it, not an API.
-- **device** — the vtvc timeline in real physical units (MHz, A). The core abstraction, `timeline.py`.
+- **device** — the vtvc timeline in real physical units (MHz, A). The core abstraction, `timeline/` (`build`, `query`, `internal`).
 - **connection** — hardware-ready arrays ("send 5 V to connection 2"), produced solely by
-  `adwin/core.py::convert`. Porting to other hardware means writing a new conversion here plus a
+  `backend/adwin/core.py::convert`. Porting to other hardware means writing a new conversion here plus a
   consumer program on the controller; nothing above this layer should need to change.
 
 `device` and `connection` are two separate tables on purpose: recalibrating a device and rewiring
@@ -165,7 +168,7 @@ places each variation onto it; `to_timeline(b, onto=to_timeline(a))` equals `to_
 `stack` and `cascade` **compose stages only, and always return one**: a table is refused in any
 position, with a message naming `to_timeline`. **`create` is gone** (2026-09-29): the first rows of a
 timeline are an `update` like any other, applied to the empty timeline, where the origin is absolute
-zero and the rows must name their context (#156). A module `__getattr__` in `timeline.py` says so to
+zero and the rows must name their context (#156). A module `__getattr__` in `timeline/build.py` says so to
 anyone still writing `tl.create`. **The core functions take no timeline** (2026-09-29, P2 step 3):
 `update`, `ramp` and `anchor` are keyword-only (`anchor` keeps `time` positional) and always return a
 stage, and a `timeline=` given to one is refused with a message naming `to_timeline`. Each is a thin
@@ -213,7 +216,7 @@ default to `None`, meaning unbound, and a ramp binding none, expanded with none 
 
 ### Origins — why chaining is causal by default
 
-`internal/origin.py` is the heart of the package. An `origin` is a `[time, value]` pair.
+`timeline/internal/origin.py` is the heart of the package. An `origin` is a `[time, value]` pair.
 `origin.update` shifts a newly built fragment's `time`/`value` per variable relative to the preceding
 timeline, which is what makes `stack(timeline, update(...), ramp(...))` join end-to-end without
 explicit times.
@@ -306,7 +309,7 @@ what then turns every `time` into a Δt from the end of the preceding stage.
 ### Context does three jobs
 
 `context` carries no timing information and is never sent to the hardware, but it is not decoration:
-it is documentation that survives into the archived data (and drives `timeline.context_info` and the
+it is documentation that survives into the archived data (and drives `query.context_information` and the
 display grouping); it is addressable as an `origin`, which makes a stage a *named region* and is the
 basis of interweaving; and a backend may reserve particular names (`ADwin_LowInit`, `ADwin_Finish`).
 
@@ -333,7 +336,7 @@ side of the run, and the JSON writer keeps them as the strings `"-inf"`/`"inf"`.
 `config.VARIABLE__REGEX` — **`<device>__<UID>(__<unit>)`**, e.g. `coil__MOT_lower__A`,
 `shutter__MOT`; `<device>` and `<unit>` contain no `_`, the UID may contain single ones (D7, #121,
 settled 2026-09-29). **No `__<unit>` suffix means the line is digital.** `connection.new` rejects
-names that don't match, `conversion`/`device` key off the unit, and `adwin/display.py` groups plots
+names that don't match, `conversion`/`device` key off the unit, and `io/internal/drawing.py` groups plots
 by it. Keeping `_` out of `<device>` is what made the migration from the old
 `<device>_<UID>(__<unit>)` safe: every old name has a `_` before its first `__`, so it is refused
 rather than read as digital with its unit taken for the UID. The Lab2 fixture keeps its real, old
@@ -353,13 +356,13 @@ each ramp's rows where the ramp was written** (A18); see the filtering note belo
 
 ### ADwin export pipeline
 
-`adwin/core.py::convert(timeline, connections, devices, cycle_period, ...)` composes, in order:
+`backend/adwin/core.py::convert(timeline, connections, devices, cycle_period, ...)` composes, in order:
 
 1. `connection.remove_unconnected_variables` — anything without a physical port disappears (anchors).
 2. `timeline.expand` — ramps become rows at the machine's cycle period (or at `time_resolution`).
-3. `adwin/internal.py::add` — join `connections` + `devices`, `conversion.add` → `value__digits`,
+3. `backend/adwin/internal.py::add` — join `connections` + `devices`, `conversion.add` → `value__digits`,
    `device.check_within_range` (raises, listing every offending variable), `add_cycle`.
-4. `adwin/validate.py::all` — `cycles` → `types` → `special_contexts` → `drop_duplicates` →
+4. `backend/adwin/validate.py::all` — `cycles` → `types` → `special_contexts` → `drop_duplicates` →
    `drop_repeats`. `cycles` must precede `types`, which narrows the column to 32 bits.
 5. `internal.to_tuples` — `[[(cycle, module, channel, digits), ...analogue], [...digital]]`.
 6. `validate.ascending` — each array in cycle order, since the backend's index never rewinds.
@@ -370,7 +373,7 @@ and the machine specifications may not carry one. Both labs run **T12** processo
 committed), Lab2 at 2 µs. `adwin.PROCESSDELAY__RATE` is the one hardware constant the package
 keeps, and it knows only the T12; any other processor is refused by name.
 
-`adwin/core.py::upload(timeline, connections, devices, machine, process)` is the only way to the
+`backend/adwin/core.py::upload(timeline, connections, devices, machine, process)` is the only way to the
 machine. It reads the period off the machine on every call, as `Get_Processdelay(process)` over the
 processor's rate, and never sets it, because an ADbasic program can overwrite its own
 `Processdelay`. It converts at that period, pushes the result into `Par_1..3` and
@@ -458,7 +461,7 @@ at the instant a ramp ended lost to the ramp's end); `drop_repeats` removes *val
 by variable, and always keeping the first and last row of each channel — `core.upload` derives the
 run length from the highest non-special cycle, and tanh ramp tails are flat.
 
-`adwin/__init__.py::CONTEXTS__SPECIAL` (`ADwin_LowInit`, `ADwin_Init`, `ADwin_Finish`) map to sentinel
+`backend/adwin/__init__.py::CONTEXTS__SPECIAL` (`ADwin_LowInit`, `ADwin_Init`, `ADwin_Finish`) map to sentinel
 cycle numbers. Rows in these contexts have **no meaningful time**, and are written at −∞ (the two
 before the run) or +∞ (after it). They are validated separately, and exempted from both drop
 functions. A variable may have at most one row **before the run, across `ADwin_LowInit` and
@@ -478,22 +481,47 @@ real, which is what #154 was about.
   deliberately not renamed; extending the units-only rule into the package is a separate decision.
   Trailing `__002` on filenames is `file.py`'s collision suffix. Stage parameters mirror the core
   functions: `time`, not `t`.
-- **pandas is the interface, not a detail to hide** (decided 2026-09-30): the paper says a
-  timeline *is* a `pandas.DataFrame`, and no change of backend is planned. So use pandas directly
-  where it fits. `internal/dataframe.py` (imported as `wt_frame`) was meant as a seam for a polars
-  backend; it is now the home of the helpers whose behaviour carries one of the package's rules, and
-  new helpers belong there only if they do too. **Sort with `wt_frame.sort`, never `sort_values`
-  bare**: pandas sorts one column unstably by default, and order among tied rows is meaning (A18).
-  The same goes for `drop_duplicates` (keeps the last row written) and `insert_dataframes` (by
-  position). Its thin wrappers over pandas (`new`, `concat`, `isnull`, `read_*`, `assert_equal`) and
-  `wt_frame.CLASS` stay, as there is nothing to gain from rewriting their callers, but need not be
-  used in new code.
-- Optional dependencies are gated at import time with `importlib.util.find_spec` and a raised
-  `ImportError` (`adwin/core.py` needs `ADwin`, `display.py` needs `matplotlib`). Keep new optional
-  code importable-but-inert the same way.
+- **Every operation on a timeline goes through `wt_frame`** (#167; D5 is
+  reopened, see `KNOWN_ISSUES.md`). `internal/dataframe/` (imported as `wt_frame`) picks its implementation from
+  `WIGNERTIME_BACKEND`; `wt_frame.INTERFACE` is the whole of what the package may do to a table, in
+  frames, column names, row *positions* and numpy arrays — never row labels, and never a pandas
+  Series handed out. Package code outside `wt_frame` does not index, slice, mutate or call methods
+  on a timeline; tests may, but build the frames they hand to the package with `wt_frame.new`.
+  `pytest --backend=pandas-strict` enforces this on every path the suite runs; a green default
+  suite does not. For a timeline, the user-facing type is still a `pandas.DataFrame` by default,
+  as the paper says. **Sort with `wt_frame.sort`, never `sort_values` bare**: pandas sorts one
+  column unstably by default, and order among tied rows is meaning (A18). The same goes for
+  `drop_duplicates` (keeps the last row written), `group_by` (groups in first-appearance order) and
+  `insert_dataframes` (by position). A new operation goes into `INTERFACE` and every backend.
+- Optional dependencies are looked for where they are used, not at import: `adwin.core.link_device`
+  needs `ADwin` and `io.display` needs `matplotlib`, and each raises `ModuleNotFoundError` naming its
+  extra. Importing the package, `wt.adwin` included, needs neither. Keep new optional code the same
+  way: importable, and loud only where the dependency is actually needed.
 - Standard aliases: `tl` (timeline), `wt_frame`, `wt_origin`, `wt_util`, `wt_config`, `wt_adwin`.
 - Numpy-style docstrings (mkdocstrings is configured for them). Prose in docstrings tends to explain
   *why* a rule exists, not just what the function does — match that.
+- **Layout of the package** (#163, 2026-10-01): `api/` (the user API), `config.py`, `timeline/`,
+  `hardware/` (`device`, `conversion`: the device layer every backend shares), `io/` (`file`,
+  `display`, with the matplotlib drawing in `io/internal/drawing.py`), `backend/` (`adwin/`,
+  `national_instruments/`), `internal/` (`dataframe`, `util`, `tags`). A package `__getattr__` names
+  where a moved module went, and `io.file.load` finds pickled functions under their old modules
+  (`MODULES__MOVED`). `wignertime.timeline` is a package that holds nothing itself.
+  `timeline.build` has the public functions (`update`, `ramp`, `anchor`, `stack`, `cascade`,
+  `to_timeline`, `expand`, `noop`, `as_deferred`); `timeline.query` reads a timeline back
+  (`previous`, `context_information`, `units`); `timeline.ramp_function` and `timeline.variable` (the
+  naming convention) sit beside them; `timeline.internal` holds everything they share (`stages`,
+  `checks`, `compose`, `origin`, `inherit`, `input`, `anchor`), with no leading underscores since the
+  module is private. Nothing is re-exported between them: user-facing code (README, docs, demo) goes
+  through `wignertime.api.v0_9`, and tests may import the modules.
+- **What users import is `wignertime.api.v0_9`** (#163): `import wignertime.api.v0_9 as wt` for most
+  work, with `wt.adwin` (and `.console`, `.adc`) and `wt.display` for what needs an optional
+  package, loaded on first use. It re-exports the package's own objects and adds no behaviour. Its
+  `__all__` lists are the API, pinned by `test_api.py`: adding a name is a new promise, and removing
+  or renaming one belongs in a new version (`api/v1_0` for 1.0, following the package version), with
+  v0_9 left importable. The rest of `wignertime` stays reachable but carries no guarantee, so
+  internal code may change freely as long as v0_9's names keep their meaning. Import anything a v0_9
+  module needs for itself under a private name (`import importlib as _importlib`), or it becomes
+  reachable as `wt.importlib`.
 - `internal/` is explicitly unstable API. `internal/doc/` and `doc/` are org-mode notes, not built
   documentation; `docs/` is the mkdocs source (`docs/index.md` duplicates the
   README, so changes to the overview belong in both). The paper lives in its own self-contained
@@ -527,8 +555,8 @@ Not covered by `KNOWN_ISSUES.md`:
   test, `internal/experimental/`, and the scripts and notebook in `internal/doc/` and `doc/`, all
   importing names that no longer exist. So did every `TODO` in the package, each fixed, deleted as
   stale, or already tracked by an issue.
-- `black` passes on everything (57 files, 2026-10-07). `isort --check-only` does not, on 28 files
-  whose imports that sweep left as it found them. Sort the imports of files you touch; a repo-wide
+- `black` passes on everything (2026-10-07). `isort --check-only` does not, on files whose imports
+  that sweep left as they were. Sort the imports of files you touch; a repo-wide
   run would bury your diff.
 - **The paper's demo listing (`sec:demonstration`) is a cleaned-up variant of
   `src/wignertime/demo/full_experiment.py`, not a copy of it**: a smaller apparatus (the rule is

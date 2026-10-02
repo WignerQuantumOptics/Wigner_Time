@@ -52,6 +52,7 @@ comes with the first stage that sets them.
 
 import importlib.util
 import random
+from types import SimpleNamespace
 from typing import NamedTuple
 
 import numpy as np
@@ -134,12 +135,11 @@ def panel(connections, devices, timeline__defaults, machine_specifications=None)
     device.check_correspondence(connections, devices)
     table = _conversions(wt_frame.join(connections, devices), machine_specifications)
 
-    analogue = table["to_V"].notna()
-    unbounded = table.loc[
-        analogue
-        & ~(np.isfinite(table["value__min"]) & np.isfinite(table["value__max"])),
-        "variable",
-    ]
+    analogue = ~wt_frame.isnull(wt_frame.column(table, "to_V"))
+    bounded = np.isfinite(
+        wt_frame.column(table, "value__min", dtype=float)
+    ) & np.isfinite(wt_frame.column(table, "value__max", dtype=float))
+    unbounded = wt_frame.column(table, "variable")[analogue & ~bounded]
     if len(unbounded):
         raise ValueError(
             "The console bounds each analogue slider by its device's `value__min` and"
@@ -148,16 +148,26 @@ def panel(connections, devices, timeline__defaults, machine_specifications=None)
             )
         )
 
-    defaults = (
-        wt_frame.sort(timeline__defaults, "time")  # stably, so the last written wins
-        .groupby("variable")["value"]
-        .last()
-        .rename("default_value")
-        .reset_index()
+    # Sorted stably, so the last written wins; a null value is passed over, as pandas'
+    # `last` did.
+    last = {}
+    for name, value in wt_frame.rows(
+        wt_frame.sort(timeline__defaults, "time"), ["variable", "value"]
+    ):
+        if not wt_frame.isnull(value):
+            last[name] = value
+        else:
+            last.setdefault(name, value)
+    defaults = wt_frame.new(
+        {"variable": sorted(last), "default_value": [last[n] for n in sorted(last)]}
     )
     table = wt_frame.join(table, defaults)
 
-    missing = sorted(table.loc[table["default_value"].isna(), "variable"])
+    missing = sorted(
+        wt_frame.column(table, "variable")[
+            wt_frame.isnull(wt_frame.column(table, "default_value"))
+        ]
+    )
     if missing:
         print(
             "console: the defaults give no value for {}; the console leaves them as they are"
@@ -183,18 +193,23 @@ def _conversions(table, machine_specifications=None):
     digital = wt_internal.modules__digital(specifications)
     wt_internal.check_module_kinds(table, digital)
 
-    table = table.copy()
-    table["digital"] = table["module"].isin(digital)
-    table["voltage__min"] = np.nan
-    table["voltage__max"] = np.nan
-    table["bits"] = np.nan
-    for module in sorted(set(table.loc[~table["digital"], "module"])):
+    modules = wt_frame.column(table, "module")
+    is_digital = np.isin(modules, digital)
+    voltage__min, voltage__max, bits = (np.full(len(modules), np.nan) for _ in range(3))
+    for module in sorted(set(modules[~is_digital])):
         spec = wt_internal.conversion__module(specifications, int(module))
-        mask = table["module"] == module
+        mask = modules == module
         v_min, v_max = np.asarray(spec["voltage_range"], dtype=float) / spec["gain"]
-        table.loc[mask, "voltage__min"] = v_min
-        table.loc[mask, "voltage__max"] = v_max
-        table.loc[mask, "bits"] = spec["num_bits"]
+        voltage__min[mask] = v_min
+        voltage__max[mask] = v_max
+        bits[mask] = spec["num_bits"]
+    for name, values in (
+        ("digital", is_digital),
+        ("voltage__min", voltage__min),
+        ("voltage__max", voltage__max),
+        ("bits", bits),
+    ):
+        table = wt_frame.with_column(table, name, values)
     return table
 
 
@@ -233,12 +248,19 @@ def from_digits(row, digits):
     return float(np.interp(voltage, voltages[order], grid[order]))
 
 
+def _records(table):
+    """Each row of the panel, with its columns as attributes."""
+    names = wt_frame.columns(table)
+    return [SimpleNamespace(**dict(zip(names, row))) for row in wt_frame.rows(table)]
+
+
 def _index(table, name):
-    positions = np.flatnonzero(table["variable"].to_numpy() == name)
+    variables = wt_frame.column(table, "variable")
+    positions = np.flatnonzero(variables == name)
     if not len(positions):
         raise ValueError(
             "The panel has no variable {!r}. It has: {}.".format(
-                name, sorted(table["variable"])
+                name, sorted(variables)
             )
         )
     return int(positions[0])
@@ -251,7 +273,7 @@ def _digits(table, name, value):
     `device.check_within_range` as a timeline's values are.
     """
     index = _index(table, name)
-    row = table.iloc[index]
+    row = wt_frame.row(table, index)
     if wt_frame.isnull(row["to_V"]):
         if value not in (0, 1):
             raise ValueError(
@@ -271,7 +293,8 @@ def _digits(table, name, value):
             }
         )
     )
-    return index, to_digits(row, value)
+    # `to_digits` reads the row's columns as attributes, as `_records` gives them.
+    return index, to_digits(SimpleNamespace(**row), value)
 
 
 def configure(machine, table):
@@ -296,17 +319,17 @@ def configure(machine, table):
 
     wanted = [
         DIGITS__UNKNOWN if wt_frame.isnull(value) else _digits(table, name, value)[1]
-        for name, value in zip(table["variable"], table["default_value"])
+        for name, value in wt_frame.rows(table, ["variable", "default_value"])
     ]
     count = len(table)
     machine.Set_Par(PAR__ENTRIES, 0)
     for number, values in (
-        (DATA__MODULE, [int(m) for m in table["module"]]),
-        (DATA__CHANNEL, [int(c) for c in table["channel"]]),
+        (DATA__MODULE, [int(m) for m in wt_frame.column(table, "module")]),
+        (DATA__CHANNEL, [int(c) for c in wt_frame.column(table, "channel")]),
         (DATA__WANTED, wanted),
         (DATA__WRITTEN, [DIGITS__REASSERT] * count),
         (DATA__TOUCHED, [0] * count),
-        (DATA__DIGITAL, [int(d) for d in table["digital"]]),
+        (DATA__DIGITAL, [int(d) for d in wt_frame.column(table, "digital")]),
     ):
         machine.SetData_Long(values, number, 1, count)
     machine.Set_Par(
@@ -361,7 +384,7 @@ def readback(console):
     written = np.asarray(machine.GetData_Long(DATA__WRITTEN, 1, count))
 
     values = []
-    for row, digits in zip(table.itertuples(), wanted):
+    for row, digits in zip(_records(table), wanted):
         if digits == DIGITS__UNKNOWN:
             values.append(np.nan)
         elif wt_frame.isnull(row.to_V):
@@ -371,7 +394,7 @@ def readback(console):
 
     return wt_frame.new(
         {
-            "variable": list(table["variable"]),
+            "variable": list(wt_frame.column(table, "variable")),
             "value": values,
             "pending": list((wanted >= 0) & (wanted != written)),
         }
@@ -383,7 +406,7 @@ def final_state(machine, table):
     The final state of the last upload, as `{variable: value}` for the variables of the
     `panel` it sets, read from the arrays `upload` writes for the sequencer's `finish:`.
     """
-    by_port = {(row.module, row.channel): row for row in table.itertuples()}
+    by_port = {(row.module, row.channel): row for row in _records(table)}
     state = {}
 
     count = machine.Get_Par(wt_adwin.PAR__FINISH__ANALOGUE)
@@ -446,7 +469,7 @@ def jumps(machine, analogue, connections, devices, machine_specifications=None):
             first.setdefault((int(module), int(channel)), (int(cycle), int(digits)))
 
     table = _conversions(wt_frame.join(connections, devices), machine_specifications)
-    by_port = {(int(r.module), int(r.channel)): r for r in table.itertuples()}
+    by_port = {(int(r.module), int(r.channel)): r for r in _records(table)}
     modules, channels, written, touched = (
         np.asarray(machine.GetData_Long(number, 1, count))
         for number in (DATA__MODULE, DATA__CHANNEL, DATA__WRITTEN, DATA__TOUCHED)
@@ -538,7 +561,7 @@ def create_UI(machine, table, continuous_update=True):
         unknown = []
         quiet["on"] = True
         try:
-            for name, value in zip(held["variable"], held["value"]):
+            for name, value in wt_frame.rows(held, ["variable", "value"]):
                 control = controls[name]
                 if np.isnan(value):
                     unknown.append(name)
@@ -575,7 +598,7 @@ def create_UI(machine, table, continuous_update=True):
         control.observe(on_change, names="value")
 
     sliders, toggles = [], [[], [], []]
-    for row in table.itertuples():
+    for row in _records(table):
         unknown = wt_frame.isnull(row.default_value)
         if wt_frame.isnull(row.to_V):
             control = widgets.ToggleButton(

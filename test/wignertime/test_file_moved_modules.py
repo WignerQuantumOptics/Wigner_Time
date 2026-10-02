@@ -9,6 +9,7 @@ import sys
 import types
 
 import wignertime.api.v0_9 as wt
+from wignertime.internal import dataframe as wt_frame
 from wignertime.io import file
 from wignertime.timeline import ramp_function
 
@@ -32,8 +33,12 @@ def test_a_timeline_pickled_before_the_move_still_loads(tmp_path, monkeypatch):
     assert "wignertime.ramp_function" not in sys.modules
 
     loaded = file.load(path)
-    assert set(loaded["function"].dropna()) == {ramp_function.tanh}
-    assert loaded.drop(columns="function").equals(timeline.drop(columns="function"))
+    functions = wt_frame.column(loaded, "function")
+    assert {f for f in functions if not wt_frame.isnull(f)} == {ramp_function.tanh}
+    wt_frame.assert_equal(
+        wt_frame.drop_columns(loaded, ["function"]),
+        wt_frame.drop_columns(timeline, ["function"]),
+    )
 
 
 def test_a_module_of_a_moved_package_is_found_where_it_is_now():

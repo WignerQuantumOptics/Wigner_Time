@@ -11,6 +11,7 @@ import sys
 import pytest
 
 import wignertime.api.v0_9 as wt
+from wignertime.internal import dataframe as wt_frame
 from wignertime import config
 from wignertime.timeline import variable
 from wignertime.internal import tags
@@ -91,9 +92,9 @@ def test_a_changed_default_is_the_one_used():
         wt.update(x__y=1, time=5.0, origin=0.0),
         wt.update(x__y=2, time=0.5),
     )
-    assert wt.to_timeline(stage)["time"].iloc[-1] == 1.5
+    assert wt_frame.column(wt.to_timeline(stage), "time")[-1] == 1.5
     with wt.config.override(ORIGIN__DEFAULTS=[[wt.LAST, None]]):
-        assert wt.to_timeline(stage)["time"].iloc[-1] == 5.5
+        assert wt_frame.column(wt.to_timeline(stage), "time")[-1] == 5.5
 
 
 def test_override_restores_also_when_the_block_raises():

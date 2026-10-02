@@ -25,35 +25,38 @@ def _times__to_json(df: wt_frame.CLASS) -> wt_frame.CLASS:
     back at no time at all, on neither side. They are written as the strings `"-inf"`
     and `"inf"` instead, which is still standard JSON, and `load` reads them back.
     """
-    if "time" not in df.columns or not any(
-        isinstance(t, float) and math.isinf(t) for t in df["time"]
-    ):
+    if not wt_frame.has_columns(df, ["time"]):
         return df
-    return df.assign(
-        time=[
+    times = wt_frame.column(df, "time").tolist()
+    if not any(isinstance(t, float) and math.isinf(t) for t in times):
+        return df
+    return wt_frame.with_column(
+        df,
+        "time",
+        [
             (
                 ("inf" if t > 0 else "-inf")
                 if isinstance(t, float) and math.isinf(t)
                 else t
             )
-            for t in df["time"]
-        ]
+            for t in times
+        ],
     )
 
 
 def _available_writers() -> dict[str, Callable[[wt_frame.CLASS, Path], None]]:
     writers: dict[str, Callable[[wt_frame.CLASS, Path], None]] = {
-        ".pkl": lambda df, p: df.to_pickle(p),
-        ".pickle": lambda df, p: df.to_pickle(p),
-        ".csv": lambda df, p: df.to_csv(p, index=False),
-        ".json": lambda df, p: _times__to_json(df).to_json(p, orient="records"),
+        ".pkl": wt_frame.write_pickle,
+        ".pickle": wt_frame.write_pickle,
+        ".csv": wt_frame.write_csv,
+        ".json": lambda df, p: wt_frame.write_json(_times__to_json(df), p),
     }
 
     if _has_module("pyarrow") or _has_module("fastparquet"):
-        writers[".parquet"] = lambda df, p: df.to_parquet(p, index=False)
+        writers[".parquet"] = wt_frame.write_parquet
 
     if _has_module("pyarrow"):
-        writers[".feather"] = lambda df, p: df.to_feather(p)
+        writers[".feather"] = wt_frame.write_feather
 
     return writers
 
@@ -138,14 +141,16 @@ def _stringify_callables_for_export(df: wt_frame.CLASS, suffix: str) -> wt_frame
                 return repr(value)
         return value
 
-    # Work on a copy so the original dataframe is not mutated.
-    out = df.copy()
+    # `with_column` returns a new frame, so the original is not mutated.
+    out = df
 
     # Only touch columns that actually contain callables.
-    for col in out.columns:
-        series = out[col]
-        if series.map(callable).any():
-            out[col] = series.map(_stringify_if_callable)
+    for col in wt_frame.columns(df):
+        values = wt_frame.column(df, col).tolist()
+        if any(map(callable, values)):
+            out = wt_frame.with_column(
+                out, col, [_stringify_if_callable(v) for v in values]
+            )
 
     return out
 
@@ -283,16 +288,17 @@ def load(path: str | Path) -> wt_frame.CLASS:
 
     match suffix:
         case ".pkl" | ".pickle":
-            with open(path, "rb") as f:
-                df = _Unpickler(f).load()
+            df = wt_frame.read_pickle(path, unpickler=_Unpickler)
 
         case ".csv":
             df = wt_frame.read_csv(path)
 
         case ".json":
             df = wt_frame.read_json(path)
-            if "time" in df.columns and df["time"].dtype == object:
-                df["time"] = df["time"].astype(float)  # "-inf" and "inf" (#154)
+            if wt_frame.has_columns(df, ["time"]):
+                times = wt_frame.column(df, "time")
+                if times.dtype == object:  # "-inf" and "inf" (#154)
+                    df = wt_frame.with_column(df, "time", times.astype(float))
 
         case ".parquet":
             if not (_has_module("pyarrow") or _has_module("fastparquet")):

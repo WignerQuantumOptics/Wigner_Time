@@ -9,6 +9,7 @@ import re
 import pytest
 
 import wignertime.api.v0_9 as wt
+from wignertime.internal import dataframe as wt_frame
 from wignertime.timeline import query
 import wignertime.timeline as tl
 from wignertime.timeline import variable
@@ -52,8 +53,9 @@ def test_it_is_where_a_ramp_would_start():
     timeline = _timeline()
     start = wt.previous(timeline, "coil__MOT__A").value
     after = wt.to_timeline(wt.ramp(coil__MOT__A=0.5, duration=1e-3), onto=timeline)
-    added = after.iloc[len(timeline) :]
-    assert added[added["variable"] == "coil__MOT__A"]["value"].iloc[0] == start
+    variables = wt_frame.column(after, "variable")[wt_frame.n_rows(timeline) :]
+    values = wt_frame.column(after, "value")[wt_frame.n_rows(timeline) :]
+    assert values[list(variables).index("coil__MOT__A")] == start
 
 
 def test_the_final_state_counts_unless_bounded():
@@ -90,7 +92,8 @@ def test_says_what_is_missing(variable, time__max, message):
 
 def test_refuses_an_empty_timeline():
     with pytest.raises(ValueError, match="the timeline is empty"):
-        wt.previous(_timeline().iloc[:0])
+        timeline = _timeline()
+        wt.previous(wt_frame.filter(timeline, [False] * wt_frame.n_rows(timeline)))
 
 
 def test_context_information_and_units():
