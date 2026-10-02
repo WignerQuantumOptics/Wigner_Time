@@ -6,7 +6,7 @@ Standing checklist for code work. Written for an agent picking up the repository
 
 **Priority order.** Silent failures rank above visible ones. A wrong answer that raises is a nuisance; a wrong answer that returns quietly can sit in an experiment for months.
 
-Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 — so verification has *not* renumbered them, and sections A and B are consequently no longer in strict severity order. **Section A is closed** (A15, found 2026-09-23, was fixed the next day, and A16 on the day it was found, 2026-09-28). **Section B is closed apart from B10**, which raises rather than misleading, and **B11**, which is new on 2026-09-22 and is the only item here whose failure mode is physical rather than numerical. The rest of the open work is in sections C and D, and the D items cluster: D11, D14, D15, D18, D19, D20, D21 are all the ADwin backend, and are being done in one pass. The roadmap is at #94, and the work is on the branch `issue#94`, where D15 and D20 are fixed and D19 is guarded on the Python side (2026-09-23). Resolved entries are kept, with an account of what replaced each, because the measurements are the argument for the design that replaced it.
+Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 — so verification has *not* renumbered them, and sections A and B are consequently no longer in strict severity order. **Sections A and B are closed** (B10 and B11 were fixed on `issue#85` and `issue#94`; B11, like D14 and D21, stays "open until verified on the rig", which is a note for the lab, not an issue of the package). **Section C is closed**: C6 and C7 were settled and done in #85. The open work is in section D: D11 (#125) and D18 (#133), both ADwin and both in `1.0 — paper`, and D16 (#130) and D23 (#144) in `1.x`. Resolved entries are kept, with an account of what replaced each, because the measurements are the argument for the design that replaced it.
 
 **Origins have their own reference.** `docs/origin-resolution.md` maps every branch of the origin mechanism as implemented, in four layers, with the defect in each. Read it before touching `internal/origin.py` — the items below give the defects, that document gives the shape.
 
@@ -14,19 +14,32 @@ Item IDs are stable — they are cross-referenced from `CLAUDE.md` and from C1 �
 
 ## How work is tracked
 
-Every item here has a GitHub issue, and the two carry different things. **This file holds the diagnosis, the measurement and the reasoning; the issue holds the state.** Annotate both — an issue with neither milestone nor label is invisible to every view that matters.
+Every item here has a GitHub issue, and the two carry different things. **This file holds the diagnosis, the measurement and the reasoning; the issue holds the state.**
 
-**An issue is closed when it is resolved on the main development branch**, not when that branch reaches `main`. The branch is currently `issue#94`, which will eventually be merged into `claude_code` (maintainer, 2026-09-23). Closing as work lands is also what makes a parent issue's sub-issue count show progress. The roadmap at #94 is tracked that way.
+The scheme below was agreed by both maintainers on 2026-10-02. **Each question is answered in exactly one place**, and every open issue has a type and a milestone; labels are set where they apply.
 
-**Milestones say _when_.** Their descriptions on GitHub are authoritative; reproduced here because they are otherwise recorded nowhere in the repository.
+| question | answered by | rule |
+| --- | --- | --- |
+| what kind of work? | issue **type** | every open issue has one |
+| when, and does it break anything? | **milestone** | every open issue has one; pull requests carry none |
+| what can go wrong, and where? | **labels** | the fixed set below |
+| which topic? | **parent issue** | topics are parent issues, never milestones or labels |
+| who? | **assignee** | only whoever is working on it now |
+
+**An issue is closed when it is resolved on the main development branch**, not when that branch reaches `main`. The branch is currently `issue#85` (PR #161 into `main`). Closing as work lands is also what makes a parent issue's sub-issue count show progress. A branch names its issue (`issue#<n>`), and is opened as a draft pull request once it is pushed, so that it is visible and CI runs on it.
+
+**Milestones.** The paper describes version **1.0.0** (maintainer, 2026-10-01), which freezes the API it prints; after it, what matters about an issue is whether it breaks that API. The descriptions on GitHub are authoritative and reproduced here.
 
 | milestone | what belongs in it |
 | --- | --- |
-| `10 — paper` | Must land before the SciPost paper is published: silent-failure defects, anything that falsifies `docs/paper/main.tex`, and the decisions those depend on. |
-| `20 — internal API` | The #9 subtree — dataframe backend abstraction, public/internal API separation, util reorganisation. Deliberately deferred past the paper. |
-| `30 — reach & polish` | Hardware breadth, display and ergonomics, performance, outreach. Nothing here blocks publication. |
+| `1.0 — paper` | Must land before the SciPost paper is published: silent-failure defects, anything that falsifies `docs/paper/main.tex`, the decisions those depend on, and the release itself (#169). |
+| `1.x` | After the paper, and compatible with 1.0.0: nothing the paper prints changes, and no code written against 1.0.0 breaks. |
+| `2.0` | After the paper, and breaking: changes what the paper prints, or the 1.0.0 API. |
+| `ideas` | Worth considering, not committed to. Moves to a numbered milestone once someone takes it on. |
 
-**Types say _what the work is_.** Org-level GitHub issue *types*, not labels, and a separate axis from both of the others — which is why a search for a "decision label" finds nothing and the wrong conclusion was drawn here until 2026-09-22.
+`10 — paper` was renamed to `1.0 — paper`; `20 — internal API` (a topic, now #163 and #167) and `30 — reach & polish` were retired on 2026-10-02.
+
+**Types** are org-level GitHub issue types, not labels — which is why a search for a "decision label" finds nothing.
 
 | type | what it means |
 | --- | --- |
@@ -35,23 +48,30 @@ Every item here has a GitHub issue, and the two carry different things. **This f
 | `Feature` | A request, idea, or new functionality |
 | `Decision` | An open API or design decision that must be settled before dependent work can proceed |
 
-`Decision` is the tracker's counterpart of §C, and carries "flag and ask, never settle unilaterally" onto GitHub. Set it on anything whose entry here offers two options rather than a fix. Open `Decision` issues as of 2026-09-23: **#85, #97, #133, #143, #144, #145** (#53 was settled and closed on 2026-09-23). #85 was settled on 2026-09-25 and 2026-09-27 (C7) and has a roadmap; the detail of `expand`'s grid was settled on 2026-09-29. #154 (2026-09-27) was settled on 2026-09-29, as option (b) with (b1). #142 was settled and closed on 2026-09-29.
+`Decision` is the tracker's counterpart of §C, and carries "flag and ask, never settle unilaterally" onto GitHub. Set it on anything whose entry here offers two options rather than a fix. Open as of 2026-10-02, in `1.0 — paper`: **#142**, the most urgent (what `None` means in `origin` and `context`), **#167** (pandas, polars or neither) and **#133** (D18); in `1.x`, **#144** (D23) and **#159**. #163, a `Feature`, settles the shape of the user API and should follow #142, since its answer may be one of the defaults that API holds.
 
-**Labels say _what kind_.** `silent` (a wrong answer with no error — outranks visible failures, and puts the item in `10 — paper` by default); `paper-affecting` (falsifies a claim in `main.tex`, so §G applies and the *code* changes); `consistency` (causes mental friction); `potentially surprising` (not wrong as such, but likely to surprise a user); and the area tags `ux`, `performance`, `docs`, `adwin`, `origin`.
+**Labels**, thirteen:
+
+- **risk, at most one:** `silent` (a wrong answer with no error — outranks visible failures, and puts the item in `1.0 — paper` by default) or `potentially surprising` (not wrong as such, but likely to surprise a user). They exclude each other;
+- **`paper-affecting`:** any change falsifies a claim in `main.tex`, so §G applies and the *code* changes;
+- **area:** `api` (what users call), `origin`, `adwin`, `dataframe`, `display`, `docs`, `performance`, `hardware` (backends other than ADwin);
+- **for contributors:** `good first issue`, `help wanted`.
+
+Retired on 2026-10-02: `ux` and `consistency` (too broad to filter on), `internal refactor` (a `Task` without `api` says it), `future` (now the `ideas` milestone), `extension` (renamed `hardware`), and `duplicate`, `invalid`, `wontfix` (GitHub's close reasons carry them). Deleting a label removed it from closed issues too.
+
+**Topics** are parent issues: **#163** the public API (#166, #168, #138, #69), **#167** the dataframe library (#162), **#169** the 1.0.0 release (#10). #9, the old umbrella of both, was closed as superseded.
 
 **The section letters here are not the labels.** A is silent failures, B correctness, C open decisions, D structural — but a D item can be `silent` (D11, D14, D15, D18 all are), so set the label from the behaviour rather than from the letter.
 
-**One gap, not two — the first was an error of mine, corrected 2026-09-22.** This paragraph claimed there was nothing on the tracker for an open decision. There is: the `Decision` issue **type** above, in use since before the claim was written (#83, #95–#98). It was missed because the search was for a *label*, and types are a third axis. Every open issue now carries a type; the ten that did not were all filed from here, the same oversight as the milestones before them. The real remaining gap is compatibility work (#88, Pandas 3), which has no label and no obvious type.
-
-**What `paper-affecting` currently covers, as of 2026-09-22.** Four issues carry the label — #136 (B10), #121 (D7), #85, and #143 (`t` vs `time`, filed the same day) — and on review that undercounts. **#133 (D18) belongs in the set**: `sec:adwin` states that "ADwin is modular, so which channel types are available is a question of which modules are installed, not of the control software", and a backend that writes every digital update to module 1 makes that false for a second digital module. Two further paper items are tracked by no issue at all:
+**Paper items tracked by no issue**, kept as the record:
 
 - ~~the manuscript in `docs/paper/` has **local changes since the arXiv import** that have not been carried back to Overleaf.~~ **Done 2026-09-23**: carried across by the maintainer, and the committed file is canonical again. The inventory, `docs/paper/CHANGES-since-arXiv.md`, was deleted with it;
 - ~~**`sec:stacking` calls `trigger_camera(0.0,1e-3)`** without the `context` its definition requires.~~ **Fixed 2026-09-23**, with two more errors found by running the listing: `init` called `anchor()` although `t` is required, and never set the coils that `MOT` then ramps, so the ramp raised for lack of a start. The call now names `"imaging"`, `init` sets both coils to zero and anchors at `0.0`, and the listing runs as printed. The listing was unchanged since the Overleaf import; the coil error became an error on 2026-09-18, when a ramp from nothing stopped starting at zero silently. The rule itself is stated in `sec:functions` (“What a ramp refuses”);
-- **The opening listing of `sec:definitions` (main.tex:452–487) does not run** (found 2026-09-25). `shutter_MOT= 0` lacks its comma; `detuned_growth` ramps `lockbox_MOT__MHz`, which is never set, so the ramp raises (“What a ramp refuses”); and `final`, a table, fails as a later constituent of `stack` with `'DataFrame' object is not callable` (see D17's correction). **Folded into #85 (C7)** rather than fixed here: its `final = initial.copy()` cannot survive that change anyway, since `initial` becomes a stage. The listing is otherwise already written as C7 would have it — `stack(initial, MOT, detuned_growth, final)`, four peers — and what `final` means, one state in two contexts, is a function of the context: `default_state` in miniature, which `sec:discussion` argues for;
-- **In the same `init`, the `create` rows got no context.** `create` has already produced a timeline when `stack` receives it, so `stack`'s `context="initialization"` reached only the anchor. **Listing fixed 2026-09-23**: the context is now given to `create`, and the anchor inherits it. **The behavior of `stack` is unchanged and still open**, as C6 (#145): with a reserved context it silently changes the hardware sequence;
+- **The opening listing of `sec:definitions` (main.tex:452–487) does not run** (found 2026-09-25). `shutter_MOT= 0` lacks its comma; `detuned_growth` ramps `lockbox_MOT__MHz`, which is never set, so the ramp raises (“What a ramp refuses”); and `final`, a table, fails as a later constituent of `stack` with `'DataFrame' object is not callable` (see D17's correction). **Folded into #85 (C7)** rather than fixed here: its `final = initial.copy()` cannot survive that change anyway, since `initial` becomes a stage. The listing is otherwise already written as C7 would have it — `stack(initial, MOT, detuned_growth, final)`, four peers — and what `final` means, one state in two contexts, is a function of the context: `default_state` in miniature, which `sec:discussion` argues for. **Done 2026-09-29 in P6 of C7 (`a31757e`)**: `initial` and `final` are `update`s at −∞ and +∞, the whole is made a table by `to_timeline`, and the listing was executed against the package. This is N1 (see C7);
+- **In the same `init`, the `create` rows got no context.** `create` has already produced a timeline when `stack` receives it, so `stack`'s `context="initialization"` reached only the anchor. **Listing fixed 2026-09-23**: the context is now given to `create`, and the anchor inherits it. The behaviour of `stack` was C6 (#145), **settled and done 2026-09-29**: a `stack` takes stages only, so there is no leading table for a context to skip, and a forwarded context is a default;
 - ~~**The initial/final-state listing in `sec:functions` did not run.**~~ **Fixed 2026-09-23.** It read `final = init` (undefined; `initial` was meant), and even as `final = initial` the next line would have relabelled `initial` too, since both names hold one table: in-place modification, which the paper argues against. Now `final = initial.copy()`. Its `import timeline as tl` is also corrected to `from wignertime import timeline as tl`, as in the paper's other listings;
 - ~~**`sec:interweaving` pointed to `sec:demonstration` for further examples**, and that listing has none.~~ **Fixed 2026-09-23**: the section now shows `trigger_camera` placed at `origin="molasses"` into the complete `timeline__demo`, the case `test_demo.py` checks (#53), and points to `sec:parameter_scan` only. Its claims were checked against the real `timeline__demo`: the exposure runs 2.0–3.0 ms after molasses, inside magnetic trapping (0.58–3.63 ms), and no existing row moves;
-- **#142 is very likely a fifth**, though it is not labelled: it proposes replacing `origin=None` with a visible default, and `sec:functions` shows `origin=None` in the signatures of `update`, `ramp` and `anchor`. Flagged on the issue rather than labelled unilaterally, since it is the maintainer's own. **On `issue#142` (2026-09-28) the signatures show `INFER`, and `None` still means the same**, so the listings remain correct as printed; whether they should show the marker is open (A8's amendment);
+- **#142 is very likely a fifth**, though it is not labelled: it proposes replacing `origin=None` with a visible default, and `sec:functions` shows `origin=None` in the signatures of `update`, `ramp` and `anchor`. Flagged on the issue rather than labelled unilaterally, since it is the maintainer's own. **On `issue#142` (2026-09-28) the signatures show `INFER`, and `None` still means the same**, and since P6 the paper prints `INFER` in the signatures and says that `None` means the same (main.tex:550, 669, 938). **Labelled `paper-affecting` on 2026-10-02**: #142 was reopened by Thomas on 2026-09-30, and is now the most urgent open `Decision` – whether `None` keeps that meaning in 1.0.0. Giving it one of its own would change what every stage that forwards `origin=None` or `context=None` does, the paper's included (main.tex:739, 1287);
 - ~~`sec:discussion` carries a **commented-out paragraph** describing bit-flip-timed ramps, per Kowalski *et al.*, as future work.~~ **Done 2026-09-23.** Revived in the present tense and moved to `sec:adwin`, after the event-loop paragraph. That is where the conversion is described, and it leaves the Discussion's list of *remaining* gaps, where a done item does not belong. The paragraph states what the package uploads. `drop_repeats` itself has **not yet run on the rig** (the Lab2 fixture's archived tuples predate it), so the claim rests on the code, not on an observation of the hardware. Distinct from #87, which is about doing the expansion that way in `expand`.
 - **`sec:parameter_scan` calls `adwin.create` pure** (main.tex:1446): "it constructs a backend object without side effects". It has them: it writes `Par_1..3` and the data arrays on the machine, and with no `machine` it opens a connection to device 1. The listing works regardless, because each upload finishes before the start that follows it. Found 2026-09-23. **Settled the same day by the maintainer's decision on roadmap step 5 (#94), and the manuscript changed with the code, at his request.** `create` is renamed `upload`: the old name suggested building something and could be confused with `timeline.create`, while the paper had always called this step an upload (main.tex:518, 850, 882). It requires the machine and the process, and returns a record of the upload whose first two fields are the machine and the process. main.tex:818 now describes `upload`. `sec:demonstration` obtains the machine with `link_device`, uploads to process 1 and starts it. At :1446 the scan passes the record, which names the machine and the process, straight to the camera routine; the next paragraph's "impure hardware execution" now agrees with it. Both listings were run against a stand-in machine and work as printed.
 
@@ -1045,7 +1065,7 @@ Five changes: the row rule (A10); mixing the forms raises (A11); `[]`, a bare na
 
 **Blast radius was nil.** `expand`, the only programmatic producer, passes a two-element row (`[name, (N,2) array]`), untouched by any of it; demo and lab use the keyword form throughout; the one test using a long row had it commented out because it was broken.
 
-### C6 — a `context` given to `stack` silently skips a leading timeline **[new, found 2026-09-23; open; this is #145]**
+### C6 — a `context` given to `stack` silently skips a leading timeline **[new, found 2026-09-23; this is #145]** — **SETTLED AND FIXED 2026-09-29 on `issue#85`, with C7**
 
 `stack` forwards its keywords to the stages it composes, and a stage has to be a deferred function to receive them. A leading argument that is already a timeline receives nothing. `create` always returns a timeline (C2), so in
 
@@ -1145,6 +1165,13 @@ Depends on #85 and, through it, on B10 (#136).
 
 **Folded in:** the non-running opening listing of `sec:definitions` (see the paper items at the top), and D17's correction — under C7 a table is refused in any position of a `stack`, with a message naming the bridge.
 
+**N1–N4**, the four findings made while exploring #85 on 2026-09-25 (`5b12e1f`), recorded where they belong rather than as issues, and cited by these names in the roadmap. All four are done on `issue#85`, and N2–N4 were rechecked against it on 2026-09-30.
+
+- **N1** — the opening listing of `sec:definitions` did not run (see the paper items at the top). Done in P6.
+- **N2** — D17's claim that a table later in a `stack` is refused with a message was false. Done in P2 step 1: refused in any position, naming `to_timeline`.
+- **N3** — a `context` forwarded by `stack` overrode one a constituent states itself (C6). Done in P1: a forwarded keyword is a default.
+- **N4** — on an empty table, a missing context was reported as a missing origin, advising `origin=0.0`, which gave the same error again (C6). Done in P1 with #156: the message names the context.
+
 ---
 
 ## D. Structural
@@ -1242,7 +1269,7 @@ Nothing imports it, which is why the suite never noticed. But it ships in the wh
 
 One-character fix, no design question. Left unfixed only because it fell outside the scope of the 2026-09-01 pass.
 
-### D7 — Settle what `__` separates, then reconcile code, labs and paper in one pass **[maintainer decision, 2026-09-02; scope reopened and sharpened 2026-09-20]**
+### D7 — Settle what `__` separates, then reconcile code, labs and paper in one pass **[maintainer decision, 2026-09-02; scope reopened and sharpened 2026-09-20]** — **SETTLED AND DONE 2026-09-29 on `issue#85` (#121, closed)**
 
 **Settled by the maintainer, 2026-09-29, and done the same day on `issue#85` (with P6 of C7):**
 

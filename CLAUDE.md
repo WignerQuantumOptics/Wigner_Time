@@ -90,6 +90,12 @@ needs and nothing else: not `graphic/origin_resolution_figure.py` and its unused
 `desktop.ini`. `.latexmkrc`, which sets `-shell-escape` for `minted`, came from Overleaf and lives
 in both. Line numbers quoted in these notes refer to the repository's copy.
 
+**The paper describes version 1.0.0** (maintainer, 2026-10-01). `pyproject.toml` stays at 0.9.0 until
+the release: the bump is the last commit before the tag `v1.0.0` on `main`, so that 1.0.0 is exactly
+the code the paper prints; the steps are #169. From then on that API is frozen, and the question
+about any change is whether it breaks it, which is what the milestones `1.x` and `2.0` encode
+(`KNOWN_ISSUES.md`, "How work is tracked", for the whole tracker scheme agreed on 2026-10-02).
+
 **The lab code that uses the package is next door, and can be read at any time**:
 `../quantum_optics_lab/` (sibling of this repo). `timeline/experiment.py` and
 `timeline/diagnostics.py` are the real counterparts of the demo and of the paper's `sec:forwarding`;
@@ -225,7 +231,7 @@ quantity — `ANCHOR`, `LAST` and a context name each resolve to whichever varia
 the row at that instant, so they answered in the wrong units. They now raise. Nothing is lost: "the
 value `coil__A` held at the end of molasses" is `["molasses", VARIABLE]`. The `fig:origin` caption
 licensed the wider reading and was amended; the figure is generated
-(`docs/paper/graphic/origin_resolution_figure.py`) and must be rerun for the tags in P6.
+(`docs/paper/graphic/origin_resolution_figure.py`) and was rerun for the tags in P6 (`a31757e`).
 
 **`None` in a slot means "defer to the default for this slot"; `0.0` means "absolute".** Do not
 conflate them — that conflation was A6. `config.ORIGIN__DEFAULTS` (for `update`/`anchor`) and
