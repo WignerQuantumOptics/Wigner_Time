@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: 2024 Thomas W. Clark and András Vukics
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import importlib.util
-
 import numpy as np
 from scipy.interpolate import interp1d
 
@@ -110,13 +108,19 @@ def _read_calibration(path, read_csv__args):
     The columns of a calibration file, as `(names, rows)`: a list of column names and a
     2-D float array, rows with a missing entry dropped.
 
-    With pandas installed this is `pandas.read_csv(path, **read_csv__args)`, whose
-    arguments `function_from_file` takes. Without it, the file is read here, and only
+    On the pandas backend this is `pandas.read_csv(path, **read_csv__args)`, whose
+    arguments `function_from_file` takes. On any other, the file is read here, and only
     `sep` (or `delimiter`), `names` and `header` are understood, in `read_csv`'s sense:
     without `names` the first line is the header (and so is not data), with `names` it is
     data. Any other argument is refused rather than ignored.
+
+    The reader follows the backend, not what happens to be installed: a polars session
+    used to import pandas here whenever it was present, for one small file. Not through
+    `narwhals.read_csv`, which hands its arguments to the library's own reader: polars
+    takes a single-byte separator only, so it cannot read the whitespace-separated
+    calibration files the laboratories use.
     """
-    if importlib.util.find_spec("pandas") is not None:
+    if wt_frame.LIBRARY == "pandas":
         import pandas as pd
 
         df = pd.read_csv(path, **read_csv__args).dropna()
@@ -125,9 +129,10 @@ def _read_calibration(path, read_csv__args):
     unknown = set(read_csv__args) - {"sep", "delimiter", "names", "header"}
     if unknown:
         raise TypeError(
-            "Without pandas, `function_from_file` reads `sep`, `names` and `header` only,"
-            " and was given {}. Install pandas (`pip install wigner-time[pandas]`) for"
-            " the rest of `pandas.read_csv`'s arguments.".format(sorted(unknown))
+            "On the {} backend, `function_from_file` reads `sep`, `names` and `header`"
+            " only, and was given {}. The rest of `pandas.read_csv`'s arguments need the"
+            " pandas backend (`WIGNERTIME_BACKEND=pandas`, with the `pandas`"
+            " extra).".format(wt_frame.BACKEND, sorted(unknown))
         )
     sep = read_csv__args.get("sep", read_csv__args.get("delimiter", ","))
     names = read_csv__args.get("names")
@@ -171,8 +176,8 @@ def function_from_file(
     To invert the calibration, give them the other way round, `indices__column=[1, 0]`.
     Where the `x` column repeats a value, the `y` values are averaged.
 
-    The keyword arguments are `pandas.read_csv`'s. Without pandas, only `sep`, `names`
-    and `header` are understood (see `_read_calibration`).
+    The keyword arguments are `pandas.read_csv`'s on the pandas backend. On polars, only
+    `sep`, `names` and `header` are understood (see `_read_calibration`).
 
     e.g.
     function_from_file(
