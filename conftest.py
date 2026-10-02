@@ -4,9 +4,9 @@
 """
 The suite runs against one dataframe backend at a time:
 
-    pytest                          # the package's default: pandas if installed, else polars
-    pytest --backend=pandas
+    pytest                          # the package's default: polars if installed, else pandas
     pytest --backend=polars
+    pytest --backend=pandas
     pytest --backend=pandas-strict  # pandas, refusing any operation that bypasses `wt_frame`
 
 The backend is fixed when `wignertime` is first imported, so it is passed through the
@@ -30,8 +30,8 @@ def pytest_addoption(parser):
         "--backend",
         choices=BACKENDS,
         default=os.environ.get("WIGNERTIME_BACKEND")
-        or ("pandas" if importlib.util.find_spec("pandas") else "polars"),
-        help="the dataframe backend wignertime runs on (default: $WIGNERTIME_BACKEND, else pandas if installed, else polars)",
+        or ("polars" if importlib.util.find_spec("polars") else "pandas"),
+        help="the dataframe backend wignertime runs on (default: $WIGNERTIME_BACKEND, else polars if installed, else pandas)",
     )
 
 

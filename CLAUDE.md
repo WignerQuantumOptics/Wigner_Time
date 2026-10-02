@@ -455,7 +455,8 @@ real, which is what #154 was about.
 - **A timeline is held by pandas or by polars, and every operation on it goes through `wt_frame`**
   (branch `dataframe-backend`; D5 is reopened, see there). `internal/dataframe/` (imported as
   `wt_frame`) takes the library from `WIGNERTIME_BACKEND` (`pandas`, `polars`, `pandas-strict`),
-  else pandas if installed, else polars; one of the two is required (the `pandas`/`polars` extras).
+  else polars if installed, else pandas (polars the default since 2026-10-02); one of the two is
+  required (the `polars`/`pandas` extras).
   One implementation serves both, `_narwhals.py`: generic work through narwhals, the order rules
   written out, and a small adapter per library for construction, casting, stacking, files and test
   comparison. `wt_frame.INTERFACE` is the whole of what the package may do to a table, in frames,
