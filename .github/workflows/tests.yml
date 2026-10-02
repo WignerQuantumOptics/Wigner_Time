@@ -9,6 +9,12 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        # `pandas-strict` refuses any operation on a timeline that bypasses `wt_frame`.
+        backend: [pandas, pandas-strict]
+
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -27,4 +33,4 @@ jobs:
         run: poetry install --with dev --all-extras 
 
       - name: Run tests
-        run: poetry run pytest
+        run: poetry run pytest --backend=${{ matrix.backend }}

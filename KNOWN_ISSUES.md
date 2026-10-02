@@ -1193,6 +1193,8 @@ The optional namespaces load on first use, so the main import needs neither ADwi
 
 **2026-10-01 (Thomas): `api.v09` → `api.v0_9`**, so that the version reads unambiguously (0.9, not 9 or 0.09); the next would be `api.v1_0`. Renamed throughout, this entry's earlier notes included.
 
+**2026-10-02 (Thomas): phase 1 of the dataframe backend merged into `issue#163`** (`d995038` of `issue#167`; narwhals and polars, phase 2, are not). Every operation on a timeline goes through `wt_frame`, on #163's layout too: #167's changes to `timeline.py` were carried into `timeline/build.py` and `timeline/internal/{stages,checks,compose}.py` by a three-way merge of the old and new splits. #163's own code was brought under the rule: `timeline.query` (`previous`, `context_information`, `units`), `io.file.load` (the moved-module unpickler now goes through `wt_frame.read_pickle(path, unpickler=...)`), and `hardware.conversion.function_from_file` (through `wt_frame.read_csv(path, **options)`, with #167's A19 fix: the inverse is no longer the identity). `wt.previous` returns a `Munch` (`row.time` and `row["time"]`), since `wt_frame` gives rows as dicts. `pytest --backend=pandas-strict` passes with no leak logged; the tests added on #163 use `wt_frame` too. Merging `issue#167` later brings phase 2 only.
+
 ---
 
 ## D. Structural
@@ -1270,7 +1272,18 @@ One thing deliberately left: a commented-out predecessor of `stack` sits just ab
 
 `stack(timeline_or_f, *fs: list[Callable], ...)` and `cascade(*fs: list[Callable], ...)` annotate each individual argument as a *list* of callables. Should be `*fs: Callable`.
 
-### D5 — `context_info` pandas coupling — **SETTLED AND CLOSED 2026-09-30**
+### D5 — `context_info` pandas coupling — **CLOSED 2026-09-30 (András) and REOPENED THE SAME DAY (Thomas), on the branch `dataframe-backend`**
+
+**Reopened as an open decision between the maintainers**, not as a defect. Whether pandas is the only possible backend is not settled; the paper's statement that a timeline *is* a `pandas.DataFrame` remains true of the default and is not touched here.
+
+**What the branch establishes (phase 1).** The count below, "some 180 pandas operations outside `wt_frame`", was measured rather than estimated: a *strict* backend (`--backend=pandas-strict`) makes every timeline a `DataFrame` subclass that raises when package code outside `wt_frame` touches it, and in a logging mode lists each site once. At `c50369f` the suite reached **173 source lines**. All of them now go through `wt_frame.INTERFACE`, and the strict suite passes (520). The interface is backend-neutral by construction: columns come out as numpy arrays, masks are numpy booleans aligned by position, rows are addressed by position, and no function mutates its argument. `expand`, the one real dependence on row labels, now carries each ramp's written position in a column.
+
+Found on the way, by the strict run: `adwin.internal.to_tuples` sorted by cycle with bare `sort_values` (A18's unstable sort; harmless there, since tied rows are on different channels, but now stable), and a `.loc` in `util.ensure_timeline`'s error path that its only test could not reach, because it built its frame with `pd.DataFrame`. The Lab2 checksums are unchanged throughout; nothing under `adwin/` has been checked on the rig.
+
+**What is left to decide.** (1) Whether a second backend is wanted at all — the cost of phase 1 is paid, so the question is now the value. (2) If so, whether it is polars by hand (`_polars.py`, which today raises `NotImplementedError` per operation) or one implementation over narwhals, which would serve pandas and polars frames natively. narwhals 2.26 does not keep the order rules by itself — its pandas `sort` is unstable on one column and its `group_by` ignores `maintain_order` — so `wt_frame` would stay as the place those rules are kept either way. (3) Callables in the `function` column, which polars can hold only as `Object`.
+
+**The entry as closed that morning:**
+
 
 **Not a defect: pandas is the interface.** The paper says a timeline is a `pandas.DataFrame` and that a user may fall back to pandas; no change of backend is planned. So the TODO went, and so did the idea behind it, that `internal/dataframe.py` is a seam through which polars would one day replace pandas. It was never one in practice: some 180 pandas operations sat outside it, which is what a swap would first have had to pull in. The module stays, as the home of the operations plain pandas gets subtly wrong (above all the stable `sort`, A18). Its three uncalled helpers (`fill_null`, `for_input`, `is_column_string`) are deleted, and so is the unused `parallel_processing` extra, which pinned a polars from before 1.0.
 

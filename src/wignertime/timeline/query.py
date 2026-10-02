@@ -8,9 +8,12 @@ Reading a timeline back: what is in it, rather than adding to it.
     context_information(timeline)["MOT"]    # the variables and time span of a context
     units(timeline)                         # the units in use
 
-A timeline is a table, so anything else is asked of it directly, e.g.
-`timeline[timeline["context"] == "MOT"]`.
+A timeline is a table, so anything else can be asked of it with the library that holds
+it. These go through `wt_frame`, like every operation of the package, so they do not
+depend on which library that is.
 """
+
+from munch import Munch
 
 from wignertime.timeline import variable as wt_variable
 from wignertime.internal import dataframe as wt_frame
@@ -24,9 +27,9 @@ def previous(
     time__max=None,
 ):
     """
-    The latest row of `timeline`: optionally only rows whose `column` equals `variable`,
-    and only rows at or before `time__max`. Among rows at the same latest time, the one
-    written last is returned.
+    The latest row of `timeline`, as a `Munch` (read it as `row.time` or `row["time"]`):
+    optionally only rows whose `column` equals `variable`, and only rows at or before
+    `time__max`. Among rows at the same latest time, the one written last is returned.
 
         previous(timeline)                                   # the last entry of all
         previous(timeline, "shutter__MOT").time              # when the shutter was last set
@@ -43,7 +46,7 @@ def previous(
 
     Raises `ValueError` when the timeline is empty, or nothing matches.
     """
-    if timeline is None or timeline.empty:
+    if timeline is None or wt_frame.is_empty(timeline):
         raise ValueError(
             "\n".join(
                 [
@@ -58,18 +61,23 @@ def previous(
         )
 
     if time__max is not None:
-        tline = timeline[timeline["time"] <= time__max]
+        tline = wt_frame.filter(
+            timeline, wt_frame.column(timeline, "time") <= time__max
+        )
     else:
         tline = timeline
 
     if variable is not None:
-        tl__filtered = tline[tline[column] == variable]
-        if tl__filtered.empty and (variable == wt_tags.LABEL__ANCHOR):
-            tl__filtered = tline[tline[column].str.startswith(variable)]
+        names = wt_frame.column(tline, column)
+        tl__filtered = wt_frame.filter(tline, names == variable)
+        if wt_frame.is_empty(tl__filtered) and (variable == wt_tags.LABEL__ANCHOR):
+            tl__filtered = wt_frame.filter(
+                tline, [isinstance(n, str) and n.startswith(variable) for n in names]
+            )
     else:
         tl__filtered = tline
 
-    if tl__filtered.empty:
+    if wt_frame.is_empty(tl__filtered):
         raise ValueError(
             "No row{}{} in this timeline.".format(
                 "" if variable is None else " with {} {!r}".format(column, variable),
@@ -77,7 +85,7 @@ def previous(
             )
         )
 
-    return wt_frame.row_from_max_column(tl__filtered)
+    return Munch(wt_frame.row_from_max_column(tl__filtered))
 
 
 def context_information(timeline):
@@ -86,18 +94,17 @@ def context_information(timeline):
 
     e.g. To get the start and end times of the 'MOT' context, call `context_information(timeline)['MOT']['times']`.
     """
-    if {"context", "time", "variable"}.issubset(timeline.columns):
-        tlg = timeline.groupby("context")
-        return {
-            k: {
-                "variables": tlg["variable"].agg(set).to_dict()[k],
-                "times": tlg["time"]
-                .agg(["first", "last"])
-                .apply(list, axis=1)
-                .to_dict()[k],
+    if wt_frame.has_columns(timeline, ["context", "time", "variable"]):
+        info = {}
+        for k, rows in sorted(
+            wt_frame.group_by(timeline, "context"), key=lambda pair: pair[0]
+        ):
+            times = wt_frame.column(rows, "time")
+            info[k] = {
+                "variables": set(wt_frame.column(rows, "variable")),
+                "times": [times[0], times[-1]],
             }
-            for k in tlg.groups.keys()
-        }
+        return info
 
     else:
         return None
@@ -107,7 +114,7 @@ def units(timeline: wt_frame.CLASS, do_digital: bool = True):
     """
     Returns a set of different timeline units (strs).
     """
-    us = set(map(wt_variable.unit, timeline["variable"].unique()))
+    us = set(map(wt_variable.unit, wt_frame.unique(timeline, "variable")))
     if do_digital:
         return us
     else:

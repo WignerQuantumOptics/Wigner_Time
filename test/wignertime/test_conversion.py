@@ -1,5 +1,4 @@
 import pytest
-import pandas as pd
 from munch import Munch
 import numpy as np
 
@@ -55,7 +54,7 @@ def test_add_linear_conversion(df_simple):
 
     df_added = conv._add_linear(df_devs)
 
-    return pd.testing.assert_frame_equal(
+    return wt_frame.assert_equal(
         df_added,
         wt_frame.new(
             {
@@ -166,7 +165,7 @@ def test_addRealistic(df_simple):
     df = device.add(df_simple, device.new("AOM__science__trans", func__AOM, 0.0, 1.0))
 
     actual = conv.add(df)[["value", "to_V", "value__digits"]]
-    expected = pd.DataFrame(
+    expected = wt_frame.new(
         [
             [0.0, np.nan, np.nan],
             [2.0, np.nan, np.nan],
@@ -177,3 +176,20 @@ def test_addRealistic(df_simple):
     )
 
     return wt_frame.assert_equal(actual, expected)
+
+
+_CALIBRATION = "resources/calibration/aom_calibration.dat"
+
+
+def test_function_from_file_inverts_when_the_columns_are_swapped():
+    """
+    `indices__column=[1, 0]` is how the docstring says to invert a calibration. After
+    averaging the duplicated `x` values, the grouped column had moved to the front, and
+    both columns were then taken by position -- so `[1, 0]` read the same column twice and
+    returned the identity function, silently (A19).
+    """
+    kw = dict(names=["voltage", "transparency"], sep=r"\s+")
+    forward = conv.function_from_file(_CALIBRATION, **kw)
+    inverse = conv.function_from_file(_CALIBRATION, indices__column=[1, 0], **kw)
+    assert abs(inverse(0.5) - 0.5) > 1e-3  # not the identity
+    assert forward(inverse(0.5)) == pytest.approx(0.5, abs=5e-3)

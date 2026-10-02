@@ -7,8 +7,7 @@ The choice made here is to model our ADwin connections as little more than table
 
 What follows are simply convenience functions to make the creation easier.
 """
-from copy import deepcopy
-import pandas as pd
+import re
 import numpy as np
 
 from wignertime.internal import dataframe as wt_frame
@@ -21,14 +20,19 @@ _SCHEMA = {"variable": str, "module": int, "channel": int}
 
 
 def is_valid_name(timeline):
-    return timeline.variable.str.match(wt_config.VARIABLE__REGEX).all()
+    return all(
+        isinstance(v, str) and re.match(wt_config.VARIABLE__REGEX, v) is not None
+        for v in wt_frame.column(timeline, "variable")
+    )
 
 
 def _ensure_valid_names(timeline):
     if is_valid_name(timeline):
         return timeline
     else:
-        offenders = [v for v in timeline.variable if not variable.is_valid(v)]
+        offenders = [
+            v for v in wt_frame.column(timeline, "variable") if not variable.is_valid(v)
+        ]
         raise ValueError(
             "Connection name(s) {} do not follow the naming convention `<device>__<UID>(__<unit>)` set by `config.VARIABLE__REGEX`.".format(
                 offenders
@@ -36,7 +40,7 @@ def _ensure_valid_names(timeline):
         )
 
 
-def new(*variable_module_channel) -> pd.DataFrame:
+def new(*variable_module_channel) -> wt_frame.CLASS:
     """
     Convenience for creating a table with 'variable', 'module' and 'channel' columns.
 
@@ -66,16 +70,12 @@ def remove_unconnected_variables(timeline, connections):
     """
     Purges the given timeline of any `variable`s that do not have a matching `connection`.
 
-    NOTE: Assumes timeline and connections are both pd.DataFrame-like things
+    A new frame; `timeline` is left alone.
     """
-    timeline = deepcopy(timeline)
-    _disconnections = [
-        v
-        for v in timeline["variable"].unique()
-        if v not in connections["variable"].unique()
-    ]
-
-    for v in _disconnections:
-        timeline.drop(timeline[timeline.variable == v].index, inplace=True)
-
-    return timeline
+    return wt_frame.filter(
+        timeline,
+        np.isin(
+            wt_frame.column(timeline, "variable"),
+            wt_frame.unique(connections, "variable"),
+        ),
+    )

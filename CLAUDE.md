@@ -10,6 +10,8 @@ poetry run pytest                        # whole suite, from the repo root
 poetry run pytest test/wignertime/test_drop_repeats.py                              # one file
 poetry run pytest test/wignertime/test_drop_repeats.py::test_channels_are_independent  # one test
 poetry run pytest -k ramp                # by name
+poetry run pytest --backend=pandas-strict   # refuses any timeline operation that bypasses wt_frame
+WIGNERTIME_STRICT_LOG=leaks.txt poetry run pytest --backend=pandas-strict   # list them all instead
 
 poetry run black src test                # formatter used throughout
 poetry run isort src test
@@ -18,8 +20,9 @@ poetry run pyflakes src
 poetry run mkdocs serve                  # docs from docs/, API page is generated from docstrings
 ```
 
-There is no pytest configuration and no `conftest.py`; the suite relies on the project being installed
-(`poetry install`) and on being run from the repo root.
+There is no pytest configuration file. `conftest.py` at the repo root adds `--backend` (see the
+`wt_frame` rule below) and the `pandas_only` marker, and nothing else; the suite relies on the
+project being installed (`poetry install`) and on being run from the repo root.
 
 `test_file.py` writes through `file.save`, which resolves relative paths against the cwd and
 auto-increments rather than overwriting. It therefore runs each of its tests in a fresh `tmp_path`
@@ -448,16 +451,18 @@ real, which is what #154 was about.
   deliberately not renamed; extending the units-only rule into the package is a separate decision.
   Trailing `__002` on filenames is `file.py`'s collision suffix. Stage parameters mirror the core
   functions: `time`, not `t`.
-- **pandas is the interface, not a detail to hide** (decided 2026-09-30): the paper says a
-  timeline *is* a `pandas.DataFrame`, and no change of backend is planned. So use pandas directly
-  where it fits. `internal/dataframe.py` (imported as `wt_frame`) was meant as a seam for a polars
-  backend; it is now the home of the helpers whose behaviour carries one of the package's rules, and
-  new helpers belong there only if they do too. **Sort with `wt_frame.sort`, never `sort_values`
-  bare**: pandas sorts one column unstably by default, and order among tied rows is meaning (A18).
-  The same goes for `drop_duplicates` (keeps the last row written) and `insert_dataframes` (by
-  position). Its thin wrappers over pandas (`new`, `concat`, `isnull`, `read_*`, `assert_equal`) and
-  `wt_frame.CLASS` stay, as there is nothing to gain from rewriting their callers, but need not be
-  used in new code.
+- **Every operation on a timeline goes through `wt_frame`** (phase 1 of `dataframe-backend`, merged into #163; D5 is
+  reopened, see there). `internal/dataframe/` (imported as `wt_frame`) picks its implementation from
+  `WIGNERTIME_BACKEND`; `wt_frame.INTERFACE` is the whole of what the package may do to a table, in
+  frames, column names, row *positions* and numpy arrays — never row labels, and never a pandas
+  Series handed out. Package code outside `wt_frame` does not index, slice, mutate or call methods
+  on a timeline; tests may, but build the frames they hand to the package with `wt_frame.new`.
+  `pytest --backend=pandas-strict` enforces this on every path the suite runs; a green default
+  suite does not. For a timeline, the user-facing type is still a `pandas.DataFrame` by default,
+  as the paper says. **Sort with `wt_frame.sort`, never `sort_values` bare**: pandas sorts one
+  column unstably by default, and order among tied rows is meaning (A18). The same goes for
+  `drop_duplicates` (keeps the last row written), `group_by` (groups in first-appearance order) and
+  `insert_dataframes` (by position). A new operation goes into `INTERFACE` and every backend.
 - Optional dependencies are looked for where they are used, not at import: `adwin.core.link_device`
   needs `ADwin` and `io.display` needs `matplotlib`, and each raises `ModuleNotFoundError` naming its
   extra. Importing the package, `wt.adwin` included, needs neither. Keep new optional code the same

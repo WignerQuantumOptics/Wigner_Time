@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: 2024 Thomas W. Clark and András Vukics
 # SPDX-License-Identifier: GPL-3.0-or-later
-from copy import deepcopy
 
 import numpy as np
-import pandas as pd
 from scipy.interpolate import interp1d
 
 from wignertime.internal import dataframe as wt_frame
@@ -27,24 +25,23 @@ def _add_linear(
     timeline,
     column__conversion="to_V",
     column__new: str = "value__digits",
-    is_inplace=False,
     specifications=SPECIFICATIONS__DEFAULT,
 ):
     """
     Performs a linear conversion, according to the associated conversion factor, adds the resulting values as another column, `value__digits`, and returns the result.
     """
-    mask = pd.to_numeric(timeline[column__conversion], errors="coerce").notna()
+    factors = wt_frame.column(timeline, column__conversion)
+    mask = ~wt_frame.not_numeric(factors)
     if mask.any():
-        if is_inplace:
-            dff = timeline
-        else:
-            dff = deepcopy(timeline)
-
-        dff.loc[mask, column__new] = to_digits(
-            dff.loc[mask, "value"] * dff.loc[mask, column__conversion], **specifications
+        values = wt_frame.column(timeline, "value")
+        return wt_frame.with_column(
+            timeline,
+            column__new,
+            to_digits(
+                np.asarray(values[mask] * factors[mask], dtype=float), **specifications
+            ),
+            where=mask,
         )
-
-        return dff
     else:
         return timeline
 
@@ -53,31 +50,26 @@ def _add_function(
     timeline,
     column__conversion="to_V",
     column__new: str = "value__digits",
-    is_inplace=False,
     specifications=SPECIFICATIONS__DEFAULT,
 ):
     """
     Performs a conversion, according to the associated function, adds the resulting values as another column, `value__digits`, and returns the result.
     """
-    mask = timeline[column__conversion].apply(callable)
+    functions = wt_frame.column(timeline, column__conversion)
+    mask = np.array([callable(f) for f in functions], dtype=bool)
     if mask.any():
-        if is_inplace:
-            dff = timeline
-        else:
-            dff = deepcopy(timeline)
-
-        s = dff.loc[mask].apply(
-            lambda row: row[column__conversion](row["value"]), axis=1
+        values = wt_frame.column(timeline, "value")
+        return wt_frame.with_column(
+            timeline,
+            column__new,
+            to_digits(
+                np.array(
+                    [f(v) for f, v in zip(functions[mask], values[mask])], dtype=float
+                ),
+                **specifications,
+            ),
+            where=mask,
         )
-
-        dff.loc[mask, column__new] = to_digits(
-            dff.loc[mask]
-            .apply(lambda row: row[column__conversion](row["value"]), axis=1)
-            .to_numpy(dtype=float),
-            **specifications,
-        )
-
-        return dff
     else:
         return timeline
 
@@ -91,7 +83,7 @@ def add(
     """
     Performs a conversion, according to the associated factor or function, adds the resulting values as another column, `value__digits`, and returns the result.
     """
-    if column__conversion in timeline.columns:
+    if wt_frame.has_columns(timeline, [column__conversion]):
         dff = _add_linear(
             timeline,
             column__conversion=column__conversion,
@@ -111,6 +103,18 @@ def add(
         )
 
 
+def _read_calibration(path, read_csv__args):
+    """
+    The columns of a calibration file, as `(names, rows)`: a list of column names and a
+    2-D float array, rows with a missing entry dropped. Read through `wt_frame`, so the
+    keyword arguments are those of the backend's CSV reader (`pandas.read_csv`).
+    """
+    df = wt_frame.read_csv(path, **read_csv__args)
+    names = list(wt_frame.columns(df))
+    rows = np.column_stack([wt_frame.column(df, n, dtype=float) for n in names])
+    return names, rows[~np.isnan(rows).any(axis=1)]
+
+
 def function_from_file(
     path,
     method="cubic",
@@ -121,25 +125,27 @@ def function_from_file(
     """
     An interpolation function drawn from *two columns* of a CSV-like calibration file.
 
-    NOTE: If you would like to invert the interpolation then just specify the columns backwards, e.g. indices__column=[1,0]
+    `indices__column` says which: `[x, y]`, the function taking the first to the second.
+    To invert the calibration, give them the other way round, `indices__column=[1, 0]`.
+    Where the `x` column repeats a value, the `y` values are averaged.
+
+    The keyword arguments are those of the CSV reader (`pandas.read_csv`).
 
     e.g.
     function_from_file(
         "resources/calibration/aom_calibration.dat",
         names=["voltage", "transparency"],
-        `sep=r"\s+"`,
+        sep=r"\s+",
     ),
     """
-    # TODO: Include default 'sep' etc.
-    df = pd.read_csv(path, **read_csv__args).dropna()
+    _, rows = _read_calibration(path, read_csv__args)
+    i__x, i__y = indices__column
 
-    # Deal with possible x-duplicates
-    columns = df.columns
-    df_avg = df.groupby(columns[indices__column[0]], as_index=False).mean()
+    # Deal with possible x-duplicates: the mean `y` of each distinct `x`, in ascending `x`.
+    x, inverse = np.unique(rows[:, i__x], return_inverse=True)
+    y = np.bincount(inverse, weights=rows[:, i__y]) / np.bincount(inverse)
 
-    return interp1d(
-        df_avg.iloc[:, 0],
-        df_avg.iloc[:, indices__column[1]],
-        kind=method,
-        fill_value=fill_value,
-    )
+    # The columns are named by `indices__column` in the file's own order. They used to be
+    # taken by position from the averaged frame, in which the grouped column had moved to
+    # the front, so `[1, 0]` gave `x` twice and the "inverse" was the identity function.
+    return interp1d(x, y, kind=method, fill_value=fill_value)

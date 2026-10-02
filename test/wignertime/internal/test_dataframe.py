@@ -25,7 +25,7 @@ df_simple2 = frame.new(
 @pytest.mark.parametrize("input_value", [df_simple1, df_simple2])
 def test_row_from_max_column(input_value):
     row = ["thing2", 7.0, 5.0, "init"]
-    assert list(frame.row_from_max_column(input_value)) == row
+    assert list(frame.row_from_max_column(input_value).values()) == row
 
 
 df_duplicate1 = frame.new(

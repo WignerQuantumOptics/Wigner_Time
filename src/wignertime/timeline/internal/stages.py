@@ -37,7 +37,7 @@ def given(timeline, name):
 
 def empty():
     """A timeline with no rows: what a stage is applied to when nothing precedes it."""
-    return wt_frame.new([], columns=SCHEMA.keys()).astype(SCHEMA)
+    return wt_frame.cast(wt_frame.new([], columns=SCHEMA.keys()), SCHEMA)
 
 
 def populate_timeline(
@@ -73,20 +73,21 @@ def populate_timeline(
     # there as `TypeError: float() argument must be a string or a real number, not
     # 'dict'` -- from inside pandas, naming neither the variable nor the call. One
     # vectorised check instead, before the cast (C5).
-    values__bad = wt_frame.not_numeric(df_rows["value"])
+    values = wt_frame.column(df_rows, "value")
+    values__bad = wt_frame.not_numeric(values)
     if values__bad.any():
         raise ValueError(
             "Not a numeric value for {}: {}. A variable's value must be a number.".format(
-                sorted(set(df_rows.loc[values__bad, "variable"])),
-                sorted(set(map(repr, df_rows.loc[values__bad, "value"]))),
+                sorted(set(wt_frame.column(df_rows, "variable")[values__bad])),
+                sorted(set(map(repr, values[values__bad]))),
             )
         )
 
-    df_rows = df_rows.astype(schema)
+    df_rows = wt_frame.cast(df_rows, schema)
     new = wt_origin.update(df_rows, timeline, origin=origin)
 
     if timeline is not None:
-        inherit.context(new, timeline, context=context)
+        new = inherit.context(new, timeline, context=context)
         return wt_frame.concat([timeline, inherit.require(new)])
 
     return inherit.require(new)
@@ -110,7 +111,9 @@ def update(timeline, time, context, origin, **vtvc_dict):
 def anchor(timeline, time, context, origin):
     """`anchor`, applied."""
     timeline = given(timeline, "anchor")
-    num_anchors = timeline["variable"].loc[wt_anchor.mask(timeline)].nunique()
+    num_anchors = len(
+        set(wt_frame.column(timeline, "variable")[wt_anchor.mask(timeline)])
+    )
 
     # `origin` and `context` are passed through unresolved: `update` resolves both, with
     # the same defaults `anchor` would use.
@@ -174,45 +177,58 @@ def ramp(
     if time2 is None and duration is not None:
         time2 = duration
 
-    df_2 = wt_frame.new(
-        wt_input.rows_from_arguments(*[], time=time2, context=context, **vtvc_dict),
-        columns=SCHEMA.keys(),
-    ).astype(SCHEMA)
+    df_2 = wt_frame.cast(
+        wt_frame.new(
+            wt_input.rows_from_arguments(*[], time=time2, context=context, **vtvc_dict),
+            columns=SCHEMA.keys(),
+        ),
+        SCHEMA,
+    )
 
-    # Copied, not sliced: these rows have their time and value overwritten to make start
-    # points out of them, and writing through would zero the very end values the ramp is
-    # aiming at (B4/#111; pandas 3 makes copy-on-write unconditional, #88).
-    df_1 = df_2.copy()
-    df_1.loc[:, "time"] = 0.0 if time is None else time
-    df_1.loc[:, "value"] = 0.0
+    # A new frame, not a view: these rows have their time and value overwritten to make
+    # start points out of them, and writing through would zero the very end values the
+    # ramp is aiming at (B4/#111). The cast keeps `time` a float when given an int.
+    df_1 = wt_frame.cast(
+        wt_frame.with_column(
+            wt_frame.with_column(df_2, "time", 0.0 if time is None else time),
+            "value",
+            0.0,
+        ),
+        SCHEMA,
+    )
 
     origin = wt_origin.auto(
         timeline, origin, origin__defaults=wt_config.ORIGIN__DEFAULTS__RAMP
     )
-    new1 = wt_origin.update(df_1, timeline, origin=origin)
-    new1["function"] = function
-    inherit.context(new1, timeline, context=context)
+    new1 = wt_frame.with_column(
+        wt_origin.update(df_1, timeline, origin=origin), "function", function
+    )
+    new1 = inherit.context(new1, timeline, context=context)
     inherit.require(new1)
 
-    new2 = wt_origin.update(df_2, new1, origin=origin2)
-    new2["function"] = function
-    new2["context"] = new1["context"]
+    new2 = wt_frame.with_column(
+        wt_origin.update(df_2, new1, origin=origin2), "function", function
+    )
+    new2 = wt_frame.with_column(new2, "context", wt_frame.column(new1, "context"))
 
     # `new1` is a copy of `df_2`, so the two frames hold the same variables in the same
     # order. They used to be built from different dictionaries, one per input form, and
     # subtracting them positionally compared one variable's boundary against another's
     # whenever the forms were mixed in one call (B1/#108); with one form there is nothing
     # to mix, and the alignment below only states what holds by construction.
-    new2__aligned = wt_frame.align_to(new2, new1["variable"])
+    variables = wt_frame.column(new1, "variable")
+    times__start = wt_frame.column(new1, "time", dtype=float)
+    new2__aligned = wt_frame.align_to(new2, variables)
+    times__end = wt_frame.column(new2__aligned, "time", dtype=float)
 
     # A ramp runs between two instants, and ±∞ is before or after the run (#154). Unlike
     # the degeneracies below, which are about the interval, this is about the ends.
-    ends = np.concatenate([new1["time"].to_numpy(float), new2["time"].to_numpy(float)])
+    ends = np.concatenate([times__start, times__end])
     if not np.isfinite(ends).all():
         raise ValueError(
             "A ramp runs between two instants, and ±∞ is before or after the run, not an"
             " instant (#154). Check `time`, `time2` and `duration`: {}.".format(
-                ", ".join(sorted(set(new1["variable"])))
+                ", ".join(sorted(set(variables)))
             )
         )
 
@@ -238,7 +254,7 @@ def ramp(
     #   row of each channel -- so the redundancy is paid for in the device-layer table
     #   only, and that table is the thing the user is meant to be able to read.
     TOL = 1e-15
-    duration__actual = new2__aligned["time"] - new1["time"]
+    duration__actual = times__end - times__start
     time__degenerate = np.abs(duration__actual) < TOL
     time__reversed = duration__actual < -TOL
 
@@ -249,10 +265,10 @@ def ramp(
                     "A ramp must end after it begins.",
                     "",
                     "  zero duration : {}".format(
-                        sorted(set(new1.loc[time__degenerate, "variable"])) or "none"
+                        sorted(set(variables[time__degenerate])) or "none"
                     ),
                     "  ends earlier  : {}".format(
-                        sorted(set(new1.loc[time__reversed, "variable"])) or "none"
+                        sorted(set(variables[time__reversed])) or "none"
                     ),
                     "",
                     "Check `duration` (or `time2`) -- a duration computed as a difference"
@@ -278,9 +294,7 @@ def ramp(
     # it says that which comes first is a matter of rounding.
     overlaps = [
         (variable, float(start), float(end), (float(before[0]), float(before[1])))
-        for variable, start, end in zip(
-            new1["variable"], new1["time"], new2__aligned["time"]
-        )
+        for variable, start, end in zip(variables, times__start, times__end)
         for before in intervals__ramp(timeline, variable)
         if start < before[1] and before[0] < end
     ]
@@ -328,13 +342,19 @@ def intervals__ramp(timeline, variable):
     `expand` pairs them, and valid for exactly as long as no two ramps of one variable
     overlap.
     """
-    if "function" not in timeline.columns:
+    if not wt_frame.has_columns(timeline, ["function"]):
         return []
 
-    rows = timeline[
-        (timeline["variable"] == variable) & timeline["function"].notna()
-    ].sort_values("time", kind="stable")
-    times, functions = rows["time"].tolist(), rows["function"].tolist()
+    rows = wt_frame.sort(
+        wt_frame.filter(
+            timeline,
+            (wt_frame.column(timeline, "variable") == variable)
+            & ~wt_frame.isnull(wt_frame.column(timeline, "function")),
+        ),
+        "time",
+    )
+    times = wt_frame.column(rows, "time").tolist()
+    functions = wt_frame.column(rows, "function").tolist()
 
     out, i = [], 0
     while i < len(times):

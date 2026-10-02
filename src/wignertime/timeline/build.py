@@ -520,19 +520,30 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
             " it with `ramp_function.with_points(n)` if you are writing one."
         )
 
-    if "function" not in timeline.columns:
+    if not wt_frame.has_columns(timeline, ["function"]):
         # TODO: Add test for this 'feature'
         return timeline
 
-    # Labels are the written positions from here on, which is what each ramp's rows are
-    # put back at, and what makes the label-based `drop` below exact.
-    timeline = timeline.reset_index(drop=True)
-    _mask_fs = timeline["function"].notna()
-    _dff = timeline[_mask_fs].sort_values(by=["variable", "time"])
-    _indices_drop = _dff.index
+    # Each ramp row carries the position it was written at, which is where the ramp's
+    # rows are put back. A column, because a backend need not have row labels.
+    _POSITION = "__position__expand"
+    _mask_fs = ~wt_frame.isnull(wt_frame.column(timeline, "function"))
+    _dff = wt_frame.sort(
+        wt_frame.filter(
+            wt_frame.with_column(
+                timeline, _POSITION, np.arange(wt_frame.n_rows(timeline))
+            ),
+            _mask_fs,
+        ),
+        ["variable", "time"],
+    )
 
     # For adding back in the value of other columns, based on the first row, like `context` etc. Written this way to allow for more, unknown columns to continue.
-    _columns__keep = _dff.columns.drop(["time", "value", "variable", "function"])
+    _columns__keep = [
+        c
+        for c in wt_frame.columns(_dff)
+        if c not in ("time", "value", "variable", "function", _POSITION)
+    ]
 
     # Grouped per variable rather than by striding the whole frame. The old global stride
     # meant one variable with an odd number of rows silently misaligned the pairing of
@@ -541,22 +552,22 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
     # nothing (B6). Per variable, the arithmetic is local and the offender has a name.
     _inds__start = []
     _dfs = []
-    for variable, rows in _dff.groupby("variable", sort=False):
-        points__required = wt_ramp_function.points(rows["function"].iloc[0])
+    for variable, rows in wt_frame.group_by(_dff, "variable"):
+        functions = wt_frame.column(rows, "function")
+        times = wt_frame.column(rows, "time")
+        values = wt_frame.column(rows, "value")
+        positions = wt_frame.column(rows, _POSITION)
+        points__required = wt_ramp_function.points(functions[0])
 
-        if len(rows) % points__required:
+        if len(functions) % points__required:
             raise ValueError(
                 "\n".join(
                     [
                         "{} has {} ramp row(s), which is not a whole number of ramps:"
                         " {} makes each one out of {}.".format(
                             variable,
-                            len(rows),
-                            getattr(
-                                rows["function"].iloc[0],
-                                "__name__",
-                                repr(rows["function"].iloc[0]),
-                            ),
+                            len(functions),
+                            getattr(functions[0], "__name__", repr(functions[0])),
                             points__required,
                         ),
                         "",
@@ -567,13 +578,13 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
                 )
             )
 
-        for i in range(0, len(rows), points__required):
-            group = rows.iloc[i : i + points__required]
-            _inds__start.append(group.index[0])
+        for i in range(0, len(functions), points__required):
+            group = slice(i, i + points__required)
+            _inds__start.append(int(positions[i]))
 
             # A default, never an override: each keyword reaches only the functions that
             # leave it unstated, so a ramp keeps a resolution it binds (#65, C7 item 7).
-            function = group["function"].iloc[0]
+            function = functions[i]
             if "time_resolution" not in function_args and (
                 "time_resolution" in wt_util.parameters__unstated(function)
             ):
@@ -582,18 +593,20 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
                     " none. Give one, `expand(timeline, time_resolution=1e-4)`, or bind"
                     " one into the ramp: `function=functools.partial(tanh,"
                     " time_resolution=1e-4)`. `adwin.core.convert` gives the cycle"
-                    " period.".format(variable, group["time"].iloc[0])
+                    " period.".format(variable, times[i])
                 )
             func = wt_util.function__defaults(function, **function_args)
 
             # The internal constructor, because this is the one caller that assembles
             # rows rather than being handed them: `create` takes keywords only.
-            _dfs.append(
-                wt_stages.populate_timeline(
-                    [variable, func(*group[["time", "value"]].values)],
-                    context=group["context"].iloc[0],
-                ).assign(**group.iloc[0][_columns__keep].to_dict())
+            first = wt_frame.row(rows, i)
+            expanded = wt_stages.populate_timeline(
+                [variable, func(*np.column_stack([times[group], values[group]]))],
+                context=first["context"],
             )
+            for c in _columns__keep:
+                expanded = wt_frame.with_column(expanded, c, first[c])
+            _dfs.append(expanded)
 
     # Dropped into a new frame rather than in place. Every other function here returns a
     # new timeline and leaves its argument alone, and the "description is data" story
@@ -602,7 +615,8 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
     #
     # `adwin.core.convert` was unharmed only by accident of pipeline order:
     # `remove_unconnected_variables` runs first and hands `expand` a fresh frame.
-    timeline = timeline.drop(index=_indices_drop).drop(columns=["function"])
+    positions__kept = np.flatnonzero(~_mask_fs)
+    timeline = wt_frame.drop_columns(wt_frame.filter(timeline, ~_mask_fs), ["function"])
 
     # Each ramp's rows go back where the ramp was written: before the first row kept from
     # after its start, in the order the ramps were written. Among a variable's rows at
@@ -612,6 +626,6 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
     ramps = sorted(zip(_inds__start, _dfs), key=lambda ramp: ramp[0])
     return wt_frame.insert_dataframes(
         timeline,
-        list(timeline.index.searchsorted([start for start, _ in ramps])),
+        [int(p) for p in np.searchsorted(positions__kept, [s for s, _ in ramps])],
         [rows for _, rows in ramps],
     )

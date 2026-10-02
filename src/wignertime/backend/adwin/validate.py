@@ -32,8 +32,9 @@ def cycles(timeline, special_contexts=None):
         special_contexts = wt_adwin.CONTEXTS__SPECIAL
 
     first, last = wt_adwin.CYCLES__RUN
-    mask__run = ~timeline["context"].isin(list(special_contexts))
-    mask__outside = mask__run & ~timeline["cycle"].between(first, last)
+    mask__run = ~np.isin(wt_frame.column(timeline, "context"), list(special_contexts))
+    cycle = wt_frame.column(timeline, "cycle")
+    mask__outside = mask__run & ~((cycle >= first) & (cycle <= last))
 
     if mask__outside.any():
         raise ValueError(
@@ -44,7 +45,10 @@ def cycles(timeline, special_contexts=None):
                 list(special_contexts),
                 first,
                 last,
-                timeline.loc[mask__outside, ["variable", "time", "context", "cycle"]],
+                wt_frame.select(
+                    wt_frame.filter(timeline, mask__outside),
+                    ["variable", "time", "context", "cycle"],
+                ),
             )
         )
 
@@ -93,30 +97,39 @@ def special_contexts(timeline, special_contexts=wt_adwin.CONTEXTS__SPECIAL):
 
     Similarly, the time values are adjusted to avoid automatic removal later on.
     """
-    df = timeline[timeline["context"].isin(special_contexts)]
-    side = df["context"].map(
-        lambda c: "before the run" if special_contexts[c] < 0 else "after the run"
-    )
-    df_N = df.assign(side=side).groupby(["variable", "side"])["context"].agg(list)
-    duplicates = df_N[df_N.map(len) > 1].reset_index()
-    duplicates.columns = ["variable", "side", "contexts"]
+    contexts__by_side = {}
+    for variable, context in wt_frame.rows(timeline, ["variable", "context"]):
+        if context in special_contexts:
+            side = (
+                "before the run" if special_contexts[context] < 0 else "after the run"
+            )
+            contexts__by_side.setdefault((variable, side), []).append(context)
+    duplicates = {
+        key: contexts
+        for key, contexts in sorted(contexts__by_side.items())
+        if len(contexts) > 1
+    }
 
     # Replace time values with those specified in wt_adwin.CONTEXTS__SPECIAL
     timeline = wt_frame.replace_column__filtered(timeline, wt_adwin.CONTEXTS__SPECIAL)
 
-    if duplicates.empty:
+    if not duplicates:
         return timeline
     else:
         raise ValueError(
             "The same variable has more than one value before the run (ADwin_LowInit and"
             " ADwin_Init together) or after it (ADwin_Finish). These special contexts have"
             " no concept of time, so nothing orders the values. For details, see the"
-            " duplicate information:\n" + str(duplicates)
+            " duplicate information:\n"
+            + "\n".join(
+                "  {}, {}: {}".format(variable, side, contexts)
+                for (variable, side), contexts in duplicates.items()
+            )
         )
 
 
 def types(timeline, schema=wt_adwin.SCHEMA):
-    return timeline.astype(schema)
+    return wt_frame.cast(timeline, schema)
 
 
 def drop_duplicates(
@@ -133,7 +146,11 @@ def drop_duplicates(
     """
     mask__duplicates = wt_frame.duplicated(timeline, subset=subset)
 
-    return timeline[~mask__duplicates | (timeline["context"].isin(unless_context))]
+    return wt_frame.filter(
+        timeline,
+        ~mask__duplicates
+        | np.isin(wt_frame.column(timeline, "context"), unless_context),
+    )
 
 
 def drop_repeats(
@@ -157,13 +174,13 @@ def drop_repeats(
     The first and last row of every channel are always kept. Retaining the last matters beyond making the final commanded state explicit: `adwin.core.upload` takes the run length from the highest non-special cycle, and the tail of a hyperbolic-tangent ramp is flat, so dropping trailing repeats would silently shorten the experiment.
     """
     columns__needed = set(subset) | {column__value, column__order, "context"}
-    if not columns__needed.issubset(timeline.columns):
+    if not wt_frame.has_columns(timeline, columns__needed):
         return timeline
 
-    mask__special = timeline["context"].isin(unless_context)
-    timeline__run = timeline[~mask__special]
+    mask__special = np.isin(wt_frame.column(timeline, "context"), unless_context)
+    timeline__run = wt_frame.filter(timeline, ~mask__special)
 
-    if timeline__run.empty:
+    if wt_frame.is_empty(timeline__run):
         return timeline
 
     mask__changed = wt_frame.mask__changed(
@@ -173,12 +190,12 @@ def drop_repeats(
         column__order=column__order,
     )
 
-    # `mask__changed` covers only the non-special rows, so it is widened back to the
-    # full index. `fill_value` is what keeps this a boolean mask: reindexing without
-    # one introduces NaN, which bool cannot hold, silently upcasting to object dtype.
-    mask__keep = mask__special | mask__changed.reindex(timeline.index, fill_value=False)
+    # `mask__changed` covers only the non-special rows, so it is widened back to all of
+    # them, by position. A special row is kept regardless.
+    mask__keep = mask__special.copy()
+    mask__keep[~mask__special] = mask__changed
 
-    return timeline[mask__keep]
+    return wt_frame.filter(timeline, mask__keep)
 
 
 def all(timeline, do_drop_repeats=True):

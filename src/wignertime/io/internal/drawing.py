@@ -82,7 +82,7 @@ def _into_margins(tline, fraction=MARGIN):
     as hard-coded 0.5 s bands over the start of the first stage and the end of the last,
     inside the run, where neither happens.
     """
-    times = tline["time"].to_numpy(dtype=float)
+    times = wt_frame.column(tline, "time", dtype=float)
     finite = np.isfinite(times)
     start, end = (times[finite].min(), times[finite].max()) if finite.any() else (0, 0)
     margin = fraction * (end - start) or 1.0
@@ -91,7 +91,7 @@ def _into_margins(tline, fraction=MARGIN):
     placed = np.where(
         times == -np.inf, start - margin, np.where(times == np.inf, end + margin, times)
     )
-    return tline.assign(time=placed), margin
+    return wt_frame.with_column(tline, "time", placed), margin
 
 
 def quantities(
@@ -138,7 +138,7 @@ def quantities(
     # =====================================================================
 
     if variables is None:
-        variables = tline["variable"].unique()
+        variables = wt_frame.unique(tline, "variable")
 
     if variables is None:
         return None
@@ -151,7 +151,9 @@ def quantities(
     }
     variables__digital = [v for v in variables if wt_variable.unit(v) == "digital"]
 
-    tline__anchors = tline[anchor.mask(tline)]
+    tline__anchors = wt_frame.filter(tline, anchor.mask(tline))
+    names = wt_frame.column(tline, "variable")
+    times, values = wt_frame.column(tline, "time"), wt_frame.column(tline, "value")
 
     prop_cycle = plt.rcParams["axes.prop_cycle"]
     colors = prop_cycle.by_key()["color"]
@@ -186,11 +188,10 @@ def quantities(
                 axis.set_ylabel(f"[{key}]")
 
             for variable, color in zip(unit_variables__analog[key], colors):
-                array = tline[tline["variable"] == variable]
-                # axis.plot(array["time"], array["value"], marker="o", ms=3)
+                mine = names == variable
                 axis.step(
-                    array["time"],
-                    array["value"],
+                    times[mine],
+                    values[mine],
                     where="post",
                     # color=color,
                     marker="o",
@@ -198,7 +199,7 @@ def quantities(
                 )
 
                 analogLabels.append(
-                    axis.text(0, array.iat[0, 2], variable, color=color)
+                    axis.text(0, values[mine][0], variable, color=color)
                 )
             if do_context:
                 _draw_context(axis, info__context, cmap__context=cmap__context)
@@ -215,12 +216,12 @@ def quantities(
             variables__digital, range(len(list(variables__digital))), colors
         ):
             baseline = offset / divider
-            array = tline[tline["variable"] == variable]
+            mine = names == variable
             axes[-1].axhline(baseline, color=color, linestyle=":", alpha=0.5)
             axes[-1].axhline(baseline + 1, color=color, linestyle=":", alpha=0.5)
             axes[-1].step(
-                array["time"],
-                array["value"] + baseline,
+                times[mine],
+                values[mine] + baseline,
                 where="post",
                 color=color,
                 marker="o",
@@ -237,14 +238,15 @@ def quantities(
         if do_context:
             _draw_context(axes[-1], info__context, cmap__context=cmap__context)
 
-    for anchorTime in tline__anchors["time"]:
+    for anchorTime in wt_frame.column(tline__anchors, "time"):
         for axis in axes:
             axis.axvline(anchorTime, color="0.5", linestyle="--")
 
     ax2 = axes[0].twiny()
     ax2.set_xlim(axes[0].get_xlim())
-    ax2.set_xticks(list(tline__anchors["time"]))  # Set ticks at the specified x-values
-    ax2.set_xticklabels(list(tline__anchors["context"]))
+    # Set ticks at the specified x-values
+    ax2.set_xticks(list(wt_frame.column(tline__anchors, "time")))
+    ax2.set_xticklabels(list(wt_frame.column(tline__anchors, "context")))
 
     def _sync_axes(event):
         xlim = axes[0].get_xlim()
