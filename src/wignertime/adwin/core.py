@@ -318,7 +318,10 @@ def upload(
         "uploading for process {process}, so as not to rewrite the arrays it is playing",
     )
     _warn_of_jumps(
-        wt_console.jumps(machine, analogue, connections, devices), cycle_period
+        wt_console.jumps(
+            machine, analogue, connections, devices, machine_specifications
+        ),
+        cycle_period,
     )
 
     # `endCC`, `analogArrayDim` and `digitalArrayDim` in `WignerTimeADwin.bas`: the event
@@ -336,10 +339,27 @@ def upload(
     machine.Set_Par(wt_adwin.PAR__PROCESSDELAY__EXPECTED, processdelay)
     machine.Set_Par(wt_adwin.PAR__PROCESSDELAY__REPORTED, 0)
 
+    # The digital modules, which `lowinit:` programs as outputs (D18).
+    modules__digital = ad.modules__digital(ad.specifications(machine_specifications))
+    if len(modules__digital) > wt_adwin.MODULES__DIGITAL__MAX:
+        raise ValueError(
+            "The machine specifications describe {} digital modules, and the sequencer"
+            " programs at most {}.".format(
+                len(modules__digital), wt_adwin.MODULES__DIGITAL__MAX
+            )
+        )
+    machine.Set_Par(wt_adwin.PAR__MODULES__DIGITAL, len(modules__digital))
+    if modules__digital:
+        machine.SetData_Long(
+            modules__digital,
+            wt_adwin.DATA__MODULES__DIGITAL,
+            1,
+            len(modules__digital),
+        )
+
     # `cycle, module, channel, digits` go to data_10..13 for the analogue set and
     # data_20..23 for the digital one. The final state is `module, channel, digits` in
-    # data_31..33 and `channel, value` in data_42..43: the same numbers plus 20, without the
-    # cycle, and without the digital module, which the sequencer does not read (D18).
+    # data_31..33 and data_41..43: the same numbers plus 20, without the cycle.
     #
     # An empty set is communicated by its count alone, set just above: there is nothing
     # to write, and a zero-length transfer is not meaningful. The count is what stops the
@@ -349,7 +369,7 @@ def upload(
         (10, range(4), analogue),
         (20, range(4), digital),
         (wt_adwin.DATA__FINISH__ANALOGUE, range(3), analogue__finish),
-        (wt_adwin.DATA__FINISH__DIGITAL, range(1, 3), digital__finish),
+        (wt_adwin.DATA__FINISH__DIGITAL, range(3), digital__finish),
     ):
         if rows__set:
             for number, column in enumerate(columns, start=data__first):

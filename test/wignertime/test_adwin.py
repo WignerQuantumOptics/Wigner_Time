@@ -399,18 +399,30 @@ def test_upload_transfers_an_empty_analogue_set_as_a_count_of_zero():
 
     assert machine.par[2] == 0, "analogue count must be transferred as zero"
     assert machine.par[3] == 3, "digital count unaffected"
-    assert sorted(machine.data) == [20, 21, 22, 23], "only the digital arrays written"
+    assert sorted(machine.data) == [
+        20,
+        21,
+        22,
+        23,
+        44,
+    ], "only the digital arrays written"
 
 
 def test_upload_transfers_both_sets_when_both_are_populated():
     machine = _MachineRecording()
     adwin.upload(demo.timeline_demo, demo.connections, demo.devices, machine, 1)
 
-    assert sorted(machine.data) == [10, 11, 12, 13, 20, 21, 22, 23, 31, 32, 33, 42, 43]
+    assert sorted(machine.data) == [
+        *(10, 11, 12, 13),
+        *(20, 21, 22, 23),
+        *(31, 32, 33),
+        *(41, 42, 43),
+        44,
+    ]
     assert machine.par[2] == len(machine.data[10][0]) > 0
     assert machine.par[3] == len(machine.data[20][0]) > 0
     assert machine.par[15] == len(machine.data[31][0]) > 0
-    assert machine.par[16] == len(machine.data[42][0]) > 0
+    assert machine.par[16] == len(machine.data[41][0]) > 0
 
 
 ###############################################################################
@@ -455,8 +467,11 @@ def test_the_final_state_leaves_the_playback_arrays():
     assert finish not in machine.data[10][0] + machine.data[20][0]
     # The analogue final state: module, channel, digits; 0 A is mid-scale.
     assert [machine.data[n][0] for n in (31, 32, 33)] == [[3], [2], [32768]]
-    # The digital final state: channel and value; the module is not sent (D18).
-    assert sorted(zip(machine.data[42][0], machine.data[43][0])) == [(1, 1), (11, 0)]
+    # The digital final state: module, channel and value (D18).
+    assert sorted(zip(*(machine.data[n][0] for n in (41, 42, 43)))) == [
+        (1, 1, 1),
+        (1, 11, 0),
+    ]
     assert (machine.par[15], machine.par[16]) == (1, 2)
     assert log.analogue__finish == [(3, 2, 32768)]
 
@@ -556,7 +571,9 @@ def test_upload_converts_against_the_specification_it_is_given():
         timeline, conns, devs, machine, 1, machine_specifications=specifications
     )
 
-    assert sorted(machine.data) == [20, 21, 22, 23], "module 2 is the digital one here"
+    assert sorted(machine.data) == [20, 21, 22, 23, 44]
+    assert machine.data[21][0] == [2, 2, 2], "module 2 is the digital one here"
+    assert (machine.par[19], machine.data[44][0]) == (1, [2])
 
 
 def test_the_log_records_what_was_written_and_where():
@@ -1273,3 +1290,147 @@ def test_lowinit_and_init_may_set_different_variables():
     )
     _, digital = adwin.convert(timeline, conns, devs, 5e-6)
     assert [row[0] for row in digital] == [-2, -1, 0, 2**31 - 1]
+
+
+###############################################################################
+#   D11 / #125 -- each analogue module converts with its own range
+###############################################################################
+
+
+def _specifications(*analogue, digital=(1,)):
+    """Modules 1.. as given: the digital ones at the `digital` positions, else `analogue`."""
+    modules, entries = [], iter(analogue)
+    for number in range(1, len(analogue) + len(digital) + 1):
+        if number in digital:
+            modules.append({"bits": 1, "voltage_range": [0.0, 5.0], "gain": 1})
+        else:
+            modules.append(next(entries))
+    return {"modules": modules}
+
+
+def _coil(module=2):
+    conns = adcon.new(["shutter__MOT", 1, 11], ["coil__MOT__A", module, 1])
+    devs = device.new(["coil__MOT__A", 1.0, -10.0, 10.0])
+    timeline = tl.to_timeline(
+        tl.update(shutter__MOT=1, coil__MOT__A=2.5, time=0.0, context="run")
+    )
+    return timeline, conns, devs
+
+
+def test_an_analogue_module_converts_with_its_own_range():
+    """
+    It used to convert as ±10 V and 16 bits whatever its entry said, so 2.5 V on a ±5 V
+    module came out as 40959 rather than 49151, without a word.
+    """
+    specifications = _specifications(
+        {"bits": 16, "voltage_range": [-5.0, 5.0], "gain": 1}
+    )
+    analogue, _ = adwin.convert(*_coil(), 5e-6, machine_specifications=specifications)
+    assert analogue[0][3] == conversion.to_digits(2.5, [-5.0, 5.0], 16) == 49151
+
+
+@pytest.mark.parametrize(
+    "entry, digits",
+    [
+        ({"bits": 12, "voltage_range": [-10.0, 10.0], "gain": 1}, 2559),
+        ({"bits": 16, "voltage_range": [-10.0, 10.0], "gain": 2}, 49151),
+        ({"bits": 16, "voltage_range": [0.0, 10.0], "gain": 1}, 16384),
+    ],
+)
+def test_width_gain_and_offset_come_from_the_module_too(entry, digits):
+    analogue, _ = adwin.convert(
+        *_coil(), 5e-6, machine_specifications=_specifications(entry)
+    )
+    assert analogue[0][3] == digits
+
+
+def test_modules_convert_independently():
+    specifications = _specifications(
+        {"bits": 16, "voltage_range": [-10.0, 10.0], "gain": 1},
+        {"bits": 16, "voltage_range": [-5.0, 5.0], "gain": 1},
+    )
+    conns = adcon.new(["coil__MOT__A", 2, 1], ["coil__trap__A", 3, 1])
+    devs = device.new(
+        ["coil__MOT__A", 1.0, -10.0, 10.0], ["coil__trap__A", 1.0, -10.0, 10.0]
+    )
+    timeline = tl.to_timeline(
+        tl.update(coil__MOT__A=2.5, coil__trap__A=2.5, time=0.0, context="run")
+    )
+    analogue, _ = adwin.convert(
+        timeline, conns, devs, 5e-6, machine_specifications=specifications
+    )
+    assert sorted((row[1], row[3]) for row in analogue) == [(2, 40959), (3, 49151)]
+
+
+def test_a_module_the_specifications_do_not_describe_is_refused():
+    with pytest.raises(
+        ValueError, match=r"module\(s\) \[7\].* describe modules 1 to 4"
+    ):
+        adwin.convert(*_coil(module=7), 5e-6)
+
+
+def test_an_analogue_module_without_its_range_is_refused():
+    with pytest.raises(ValueError, match=r"Module 2 is analogue.* \['voltage_range'\]"):
+        adwin.convert(
+            *_coil(),
+            5e-6,
+            machine_specifications=_specifications({"bits": 16, "gain": 1}),
+        )
+
+
+###############################################################################
+#   D18 / #133 -- any number of digital modules
+###############################################################################
+
+
+def _two_digital_modules():
+    specifications = _specifications(
+        {"bits": 16, "voltage_range": [-10.0, 10.0], "gain": 1}, digital=(1, 3)
+    )
+    conns = adcon.new(["shutter__MOT", 1, 11], ["shutter__trap", 3, 4])
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(shutter__MOT=0, shutter__trap=0, context="ADwin_LowInit"),
+            tl.update(shutter__MOT=1, shutter__trap=1, time=0.0, context="run"),
+            tl.update(shutter__MOT=0, shutter__trap=1, context="ADwin_Finish"),
+        )
+    )
+    return timeline, conns, device.new(), specifications
+
+
+def test_each_digital_row_names_its_module_and_every_digital_module_is_programmed():
+    """
+    The real-time program wrote every digital row to module 1 and programmed only module 1
+    as outputs, while the specifications let any module be digital: a line on a second
+    digital module appeared on the first.
+    """
+    timeline, conns, devs, specifications = _two_digital_modules()
+    machine = _MachineRecording()
+    log = adwin.upload(
+        timeline, conns, devs, machine, 1, machine_specifications=specifications
+    )
+
+    played = sorted(zip(*(machine.data[n][0] for n in (21, 22, 23))))
+    assert set(played) >= {(1, 11, 1), (3, 4, 1)}
+    assert sorted(zip(*(machine.data[n][0] for n in (41, 42, 43)))) == [
+        (1, 11, 0),
+        (3, 4, 1),
+    ]
+    assert (machine.par[19], machine.data[44][0]) == (2, [1, 3])
+    assert sorted(log.digital__finish) == [(1, 11, 0), (3, 4, 1)]
+
+
+def test_more_digital_modules_than_the_sequencer_programs_are_refused():
+    timeline, conns, devs, _ = _two_digital_modules()
+    specifications = {
+        "modules": [{"bits": 1, "voltage_range": [0.0, 5.0], "gain": 1}] * 17
+    }
+    with pytest.raises(ValueError, match="17 digital modules.* at most 16"):
+        adwin.upload(
+            timeline,
+            conns,
+            devs,
+            _MachineRecording(),
+            1,
+            machine_specifications=specifications,
+        )

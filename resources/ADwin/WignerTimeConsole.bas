@@ -28,9 +28,10 @@
 '
 '   data_51[i]   the digits wanted for entry i, written by Python; -2 when unknown
 '   data_52[i]   the digits last written for entry i; -1 to write again, -2 when unknown
-'   data_53[i]   the module of entry i (module 1 is digital, and takes 0 or 1)
+'   data_53[i]   the module of entry i
 '   data_54[i]   the channel of entry i
 '   data_55[i]   1 where this process has written entry i since it started, else 0
+'   data_56[i]   1 where entry i is a digital line, which takes 0 or 1; 0 where analog
 '   par_75       the number of entries; Python sets it to 0 while it rewrites them
 '   par_74       hardware writes since this process was started
 '   par_77       sweeps since this process was started, as a heartbeat
@@ -99,26 +100,28 @@
 
 dim data_51[consoleMaxEntries] as long ' digits wanted, written by Python; -2 unknown
 dim data_52[consoleMaxEntries] as long ' digits last written; -1 to write again, -2 unknown
-dim data_53[consoleMaxEntries] as long ' module of each entry; 1 is digital
+dim data_53[consoleMaxEntries] as long ' module of each entry
 dim data_54[consoleMaxEntries] as long ' channel of each entry
 dim data_55[consoleMaxEntries] as long ' 1 where written since this process started
+dim data_56[consoleMaxEntries] as long ' 1 where the entry is digital, 0 where analog
 
 dim i, f, digits, writes as long
 
 init:
-  p2_digprog(1,1111b) ' set all the digital ports to output
   sweeps = 0 : writesTotal = 0
   for i = 1 to entryCount
     data_55[i] = 0
+    ' Every port of the module of each digital entry an output (D18).
+    if (data_56[i] = 1) then p2_digprog(data_53[i],1111b)
   next i
 
   if (sequencesFinished <> sequencesSeen) then
     ' A sequence has finished since this process last looked: adopt its final state.
     for i = 1 to entryCount
       data_51[i] = unknownDigits : data_52[i] = unknownDigits
-      if (data_53[i] = 1) then
+      if (data_56[i] = 1) then
         for f = 1 to digitalFinishDim
-          if (data_42[f] = data_54[i]) then
+          if ((data_41[f] = data_53[i]) and (data_42[f] = data_54[i])) then
             data_51[i] = data_43[f] : data_52[i] = data_43[f]
           endif
         next f
@@ -147,11 +150,11 @@ event:
     for i = 1 to entryCount
       digits = data_51[i]
       if ((digits >= 0) and (digits <> data_52[i]) and (writes < maxWritesPerSweep)) then
-        if (data_53[i] = 1) then
+        if (data_56[i] = 1) then
           if (digits = 0) then
-            p2_digout(1,data_54[i],0)
+            p2_digout(data_53[i],data_54[i],0)
           else
-            p2_digout(1,data_54[i],1)
+            p2_digout(data_53[i],data_54[i],1)
           endif
         else
           p2_dac(data_53[i],data_54[i],digits)

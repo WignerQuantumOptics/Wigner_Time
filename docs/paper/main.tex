@@ -840,7 +840,7 @@ sub processUpdates(cc)
   ' digital
   if ( (digitalIdx <= digitalArrayDim) and (data_20[digitalIdx] = cc) ) then
     do
-      p2_digout(1,data_22[digitalIdx],data_23[digitalIdx])
+      p2_digout(data_21[digitalIdx],data_22[digitalIdx],data_23[digitalIdx])
       inc digitalIdx
     until ( (digitalIdx > digitalArrayDim) or (data_20[digitalIdx] > cc) )
   endif

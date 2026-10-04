@@ -30,7 +30,8 @@ the root, which also made two of its own assertions vacuous — see the fixture'
 ## Working rules
 
 `KNOWN_ISSUES.md` is the standing checklist for code work and is **authoritative over this file** on
-anything it covers. Read it before touching `timeline.py` or `internal/origin.py`. Its rules:
+anything it covers; the full accounts of resolved items, with their measurements, are in
+`docs/design-record.md`. Read both before touching `timeline.py` or `internal/origin.py`. Its rules:
 
 - **Do not "fix" by adding try/except or defensive branching.** Failures should be loud and early, at
   the point where the user's intent was ambiguous — not absorbed downstream. The value proposition is
@@ -46,6 +47,11 @@ anything it covers. Read it before touching `timeline.py` or `internal/origin.py
 - **The paper and the code are developed together.** If a change makes a claim in `docs/paper/main.tex`
   inaccurate or hard to state, stop and report it. Do not edit the paper to match the code. If a
   behaviour is awkward to describe in prose, that is a signal to change the code.
+- **The records hold no git state** (maintainer, 2026-10-04): this file, `KNOWN_ISSUES.md` and
+  `docs/design-record.md` record diagnosis, reasoning and decisions, never branch names, commit
+  hashes or what is merged where, which go stale with the next merge. Refer to work by issue or
+  PR number, which survive the squash merges this repository uses, and to the paper by section
+  label, never by line number.
 
 **Reader-facing prose follows `WRITING.md`**: the paper, `README.md`, `docs/index.md`, onboarding
 documents and the front pages of the documentation. They are written for physicists who write Python,
@@ -78,7 +84,7 @@ Overleaf's. `minted` requires `pygmentize` and `-shell-escape`, which `docs/pape
 Build from inside `docs/paper/`; the figure paths are relative to it.
 
 **The committed manuscript is canonical, and Overleaf is kept in step with it from here.** The
-arXiv version was imported at `fdd2e0d` (2026-09-15). Since 2026-10-01 the Overleaf project is
+arXiv version was imported on 2026-09-15. Since 2026-10-01 the Overleaf project is
 cloned next door, in `../Wigner_Time_Overleaf/` (branch `master`, the only one Overleaf has), and
 syncing it is ours to do, push included (maintainer, 2026-10-01). A sync goes both ways, Overleaf
 first: pull the clone, and bring any edit made on Overleaf into `docs/paper/` as an ordinary commit
@@ -88,7 +94,7 @@ changed the same passage, stop and show the maintainer both, rather than choosin
 synced point is therefore the newest such message in the clone's `git log`. The clone carries what the build
 needs and nothing else: not `graphic/origin_resolution_figure.py` and its unused PNG preview, nor
 `desktop.ini`. `.latexmkrc`, which sets `-shell-escape` for `minted`, came from Overleaf and lives
-in both. Line numbers quoted in these notes refer to the repository's copy.
+in both.
 
 **The paper describes version 1.0.0** (maintainer, 2026-10-01). `pyproject.toml` stays at 0.9.0 until
 the release: the bump is the last commit before the tag `v1.0.0` on `main`, so that 1.0.0 is exactly
@@ -231,7 +237,7 @@ quantity — `ANCHOR`, `LAST` and a context name each resolve to whichever varia
 the row at that instant, so they answered in the wrong units. They now raise. Nothing is lost: "the
 value `coil__A` held at the end of molasses" is `["molasses", VARIABLE]`. The `fig:origin` caption
 licensed the wider reading and was amended; the figure is generated
-(`docs/paper/graphic/origin_resolution_figure.py`) and was rerun for the tags in P6 (`a31757e`).
+(`docs/paper/graphic/origin_resolution_figure.py`) and was rerun for the tags (#85).
 
 **`None` in a slot means "defer to the default for this slot"; `0.0` means "absolute".** Do not
 conflate them — that conflation was A6. `config.ORIGIN__DEFAULTS` (for `update`/`anchor`) and
@@ -368,16 +374,24 @@ keeps, and it knows only the T12; any other processor is refused by name.
 machine. It reads the period off the machine on every call, as `Get_Processdelay(process)` over the
 processor's rate, and never sets it, because an ADbasic program can overwrite its own
 `Processdelay`. It converts at that period, pushes the result into `Par_1..3` and
-`Data_10..13` / `Data_20..23`, starts nothing, and returns an `Upload` log: machine, process,
+`Data_10..13` / `Data_20..23` (cycle, module, channel, digits), starts nothing, and returns an
+`Upload` log: machine, process,
 processor, Processdelay, period, last cycle and the arrays. The log is a named tuple whose first two
 fields are the machine and the process, so it serves wherever the lab's `(machine, process)` pair
 does. (It was `create` until 2026-09-23; renamed because it neither creates anything nor should be
 confused with `timeline.create`.) The final state (`ADwin_Finish`) does not go into the playback
 arrays: `upload` moves those rows to `data_31..33` (analogue module, channel, digits) and
-`data_42..43` (digital channel, value), with the counts in `Par_15`/`Par_16`. `finish:` plays them
+`data_41..43` (digital module, channel, value), with the counts in `Par_15`/`Par_16`. `finish:` plays them
 unconditionally, so a stopped run restores the default state too (B11). `convert`'s output still
 carries them at the finish sentinel. Every array's capacity is `adwin.ROWS__MAX`, which must match
 the `.bas` defines, and `upload` refuses a timeline that exceeds one before writing anything.
+**Everything about a module comes from the machine specifications** (D11, D18; #125, #133): a
+module of one-bit channels is digital, and each analogue module converts with its own
+`voltage_range`, `bits` and `gain`; a connection to a module the specifications do not describe
+is refused. Any number of modules may be digital: `upload` writes them to `data_44` (count in
+`Par_19`), every sequencer's `lowinit:` programs each as outputs, and every digital row is
+written to its own module, as analogue rows are. There is no module-1 literal left in the
+ADbasic.
 The arrays have an owner: each sequencer sets `Par_17` to its own process number at the start of
 `lowinit:` and clears it at the end of `finish:`. Right after claiming `Par_17` it stops the manual
 console (process 10), having first noted whether it was running (ADbasic's `Process10_Running`), and
@@ -414,9 +428,11 @@ file and plays the same arrays. It also records an ADC channel in burst mode ove
 `finish:`. The program itself has no notion of the period (step 10). The manual console is
 `adwin.console` with `WignerTimeConsole.bas` as process 10, which includes the same file. It
 keeps a shadow state rather than a mailbox: `configure` writes the panel as entries into
-`data_51..54`, `set_value` writes the digits wanted for one entry and returns, and the program's
+`data_51..54` and `data_56` (1 for a digital entry), `set_value` writes the digits wanted for one
+entry and returns, and the program's
 sweep writes wherever wanted and written differ, so nothing waits on anything. The panel comes
-from `panel(connections, devices, defaults)`, so a channel is converted and bounded exactly as
+from `panel(connections, devices, defaults, machine_specifications)`, so a channel is converted
+and bounded exactly as
 the pipeline does it. Values are refused while a sequence owns the outputs. When a sequence has
 finished since the program last looked (`Par_18`, counted by every `finish:`), it adopts the
 run's final state on starting, and marks unknown what the final state does not name. A start
@@ -494,9 +510,8 @@ real, which is what #154 was about.
 ## Known rough edges
 
 For bugs and open API decisions, **`KNOWN_ISSUES.md` is the list.** Do not duplicate it here, and do
-not re-report its section F. Its items were verified against the live repo on 2026-09-01; D1 (the
-`origin.py` self-import) and E (the suite aborting when an optional extra was absent) were fixed then,
-and the verification results are recorded in the entries themselves.
+not re-report what it lists as resolved. An item ID cited in this file (A6, C7, D17…) is either
+open there or resolved and indexed there, with its full account in `docs/design-record.md`.
 
 The trap that used to lead this section, **A4**, was fixed on 2026-09-18: a `ramp` onto an
 anchorless timeline no longer lands at absolute time, because `ramp`'s chain now has a `LAST` step
@@ -523,7 +538,7 @@ Not covered by `KNOWN_ISSUES.md`:
   grammar. What still differs is content: the paper's `MOT_off` respects the shutter lags, the
   demo's does not, and the demo drives compensation coils the paper leaves out. **`docs/paper/main.tex`
   is canonical: when they disagree, the code changes** (maintainer decision, 2026-09-02).
-- `drop_repeats` (on this branch, not yet on `main`) times analog transitions at the cycles where
+- `drop_repeats` times analog transitions at the cycles where
   the DAC code actually changes, per Kowalski *et al.* Its docstring argues the filtering is
   *equivalent* to bit-flip-timed expansion on the hardware's own grid, not an approximation to it.
   Since 2026-09-23 `sec:adwin` says so, in a paragraph after the event loop. That paragraph used to

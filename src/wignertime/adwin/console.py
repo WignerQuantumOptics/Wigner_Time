@@ -8,7 +8,8 @@ and debugging, through `resources/ADwin/WignerTimeConsole.bas` loaded as process
 It works from the tables the timelines use. `panel` joins `connections` to `devices`, so a
 channel is named, converted and bounded in one place only (D22). An analogue value goes
 through its device's `to_V`, a function where it is one, and then through
-`conversion.to_digits`, the conversion the sequencer's arrays are made with. The console
+`conversion.to_digits` with its module's range, width and gain from the machine
+specifications, the conversion the sequencer's arrays are made with (D11). The console
 has no notion of a timeline beyond the one it takes its starting values from.
 
 **Shadow state, not a mailbox.** `configure` writes the panel into the program as a list of
@@ -24,8 +25,9 @@ The contract with the program, whose `#define`s must agree with the numbers belo
 - `data_51[i]` / `data_52[i]`: the digits wanted for entry `i`, written here, and the digits
   last written to the hardware, written by the program. -1 in `data_52` means write again; -2 in
   either means unknown.
-- `data_53[i]` / `data_54[i]`: the module and channel of entry `i`, in the panel's row order;
-  module 1 is the digital one, and takes 0 or 1.
+- `data_53[i]` / `data_54[i]`: the module and channel of entry `i`, in the panel's row order.
+- `data_56[i]`: 1 where entry `i` is a digital line, which takes 0 or 1, and 0 where it is
+  analogue. The program programs the module of every digital entry as outputs (D18).
 - `data_55[i]`: 1 where the program has written entry `i` since it started, which is what makes
   its value one set on the console rather than one a run left there. `jumps` reads it.
 - `Par_75`: the number of entries. `configure` sets it to 0 while it rewrites them.
@@ -72,6 +74,7 @@ DATA__WRITTEN = 52
 DATA__MODULE = 53
 DATA__CHANNEL = 54
 DATA__TOUCHED = 55
+DATA__DIGITAL = 56
 
 PAR__WRITES = 74
 PAR__ENTRIES = 75
@@ -81,9 +84,6 @@ PAR__TOKEN = 78
 
 DIGITS__REASSERT = -1
 DIGITS__UNKNOWN = -2
-
-MODULE__DIGITAL = 1
-"""The digital module, the only one the program switches as such (D18)."""
 
 
 class OutputsOwned(RuntimeError):
@@ -113,11 +113,12 @@ class Console(NamedTuple):
     token: int
 
 
-def panel(connections, devices, timeline__defaults):
+def panel(connections, devices, timeline__defaults, machine_specifications=None):
     """
     The table the console works from: `connections` joined to `devices`, with a
     `default_value` per variable, the last value `timeline__defaults` gives it (normally the
-    lab's `experiment.init()`).
+    lab's `experiment.init()`), and what `_conversions` adds from `machine_specifications`
+    (`adwin.internal.SPECIFICATIONS__DEFAULT` when not given), as the pipeline reads them.
 
     The two tables must describe the same apparatus (`device.check_correspondence`). Here
     that matters more than anywhere: a variable with no device is taken for a digital line,
@@ -131,11 +132,7 @@ def panel(connections, devices, timeline__defaults):
     runs, and building the console should not undo that.
     """
     device.check_correspondence(connections, devices)
-    # The program switches module 1 as digital and writes every other one as analogue, so a
-    # variable of the other kind there would be written as the wrong kind: a digital line on
-    # an analogue module goes to its DAC as the digits 0 or 1, that is, -10 V (A16, D18).
-    wt_internal.check_module_kinds(connections, [MODULE__DIGITAL])
-    table = wt_frame.join(connections, devices)
+    table = _conversions(wt_frame.join(connections, devices), machine_specifications)
 
     analogue = table["to_V"].notna()
     unbounded = table.loc[
@@ -170,10 +167,47 @@ def panel(connections, devices, timeline__defaults):
     return table
 
 
-def to_digits(value, to_V):
-    """The digits for `value` of a device with conversion `to_V`, as the sequencer gets them."""
-    voltage = to_V(value) if callable(to_V) else value * to_V
-    return int(conversion.to_digits(voltage))
+def _conversions(table, machine_specifications=None):
+    """
+    `table`, connections joined to devices, with what the console needs from the machine
+    specifications: `digital`, true for a variable on a digital module, and for each analogue
+    variable its module's conversion to digits, as `voltage__min`, `voltage__max` (the
+    module's range over its gain) and `bits`.
+
+    A variable of the wrong kind for its module would be written as that kind: a digital line
+    on an analogue module goes to its DAC as the digits 0 or 1, that is, to the bottom of its
+    range (A16). So the kinds are checked here, as the pipeline checks them.
+    """
+    specifications = wt_internal.specifications(machine_specifications)
+    wt_internal.check_modules_described(table, specifications)
+    digital = wt_internal.modules__digital(specifications)
+    wt_internal.check_module_kinds(table, digital)
+
+    table = table.copy()
+    table["digital"] = table["module"].isin(digital)
+    table["voltage__min"] = np.nan
+    table["voltage__max"] = np.nan
+    table["bits"] = np.nan
+    for module in sorted(set(table.loc[~table["digital"], "module"])):
+        spec = wt_internal.conversion__module(specifications, int(module))
+        mask = table["module"] == module
+        v_min, v_max = np.asarray(spec["voltage_range"], dtype=float) / spec["gain"]
+        table.loc[mask, "voltage__min"] = v_min
+        table.loc[mask, "voltage__max"] = v_max
+        table.loc[mask, "bits"] = spec["num_bits"]
+    return table
+
+
+def to_digits(row, value):
+    """The digits for `value` of the panel's analogue `row`, as the sequencer gets them."""
+    voltage = row.to_V(value) if callable(row.to_V) else value * row.to_V
+    return int(
+        conversion.to_digits(
+            voltage,
+            voltage_range=[row.voltage__min, row.voltage__max],
+            num_bits=int(row.bits),
+        )
+    )
 
 
 def from_digits(row, digits):
@@ -183,9 +217,8 @@ def from_digits(row, digits):
     calibration function, which cannot in general be inverted, is inverted by interpolation
     over the row's range, which assumes that it is monotonic there.
     """
-    specification = conversion.SPECIFICATIONS__DEFAULT
-    v_min, v_max = np.asarray(specification["voltage_range"]) / specification["gain"]
-    step = (v_max - v_min) / (2 ** specification["num_bits"] - 1)
+    v_min, v_max = row.voltage__min, row.voltage__max
+    step = (v_max - v_min) / (2 ** int(row.bits) - 1)
     voltage = v_min + digits * step
     # 0 V falls on the boundary between two codes, and is read back as 0 rather than as the
     # middle of the code it was rounded to, half a step away.
@@ -238,7 +271,7 @@ def _digits(table, name, value):
             }
         )
     )
-    return index, to_digits(value, row["to_V"])
+    return index, to_digits(row, value)
 
 
 def configure(machine, table):
@@ -273,6 +306,7 @@ def configure(machine, table):
         (DATA__WANTED, wanted),
         (DATA__WRITTEN, [DIGITS__REASSERT] * count),
         (DATA__TOUCHED, [0] * count),
+        (DATA__DIGITAL, [int(d) for d in table["digital"]]),
     ):
         machine.SetData_Long(values, number, 1, count)
     machine.Set_Par(
@@ -366,11 +400,11 @@ def final_state(machine, table):
     count = machine.Get_Par(wt_adwin.PAR__FINISH__DIGITAL)
     if count:
         first = wt_adwin.DATA__FINISH__DIGITAL
-        channels, values = (
-            np.asarray(machine.GetData_Long(first + i, 1, count)) for i in range(2)
+        modules, channels, values = (
+            np.asarray(machine.GetData_Long(first + i, 1, count)) for i in range(3)
         )
-        for channel, value in zip(channels, values):
-            row = by_port.get((MODULE__DIGITAL, int(channel)))
+        for module, channel, value in zip(modules, channels, values):
+            row = by_port.get((int(module), int(channel)))
             if row is not None:
                 state[row.variable] = int(value)
 
@@ -390,7 +424,7 @@ class Jump(NamedTuple):
     cycle: int
 
 
-def jumps(machine, analogue, connections, devices):
+def jumps(machine, analogue, connections, devices, machine_specifications=None):
     """
     The `Jump`s of a run whose analogue rows are `analogue`, as `adwin.core.convert` gives them:
     each analogue channel that holds a value written by the console since it last started, and
@@ -411,7 +445,7 @@ def jumps(machine, analogue, connections, devices):
         if cycle != wt_adwin.CONTEXTS__SPECIAL["ADwin_Finish"]:
             first.setdefault((int(module), int(channel)), (int(cycle), int(digits)))
 
-    table = wt_frame.join(connections, devices)
+    table = _conversions(wt_frame.join(connections, devices), machine_specifications)
     by_port = {(int(r.module), int(r.channel)): r for r in table.itertuples()}
     modules, channels, written, touched = (
         np.asarray(machine.GetData_Long(number, 1, count))
