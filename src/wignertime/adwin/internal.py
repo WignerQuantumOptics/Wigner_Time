@@ -87,9 +87,9 @@ def modules__digital(machine_specifications):
 
     NOTE: Modules are numbered from 1 (unlike Python lists).
 
-    NOTE: Nothing here restricts how many modules may be digital, and the real-time
-    program cannot honour more than one -- both `p2_digprog` and `p2_digout` name module
-    1 as a literal. See D18/#133, which is an open decision rather than an oversight.
+    Any number of modules may be digital, and the real-time program honours each: `upload`
+    sends it the list, which its `lowinit:` programs as outputs, and the module of every
+    digital row, as it does for the analogue ones (D18, #133).
     """
     modules = machine_specifications["modules"]
 
@@ -104,6 +104,54 @@ def modules__digital(machine_specifications):
         )
 
     return [i + 1 for i, m in enumerate(modules) if m["bits"] == 1]
+
+
+def check_modules_described(connections, machine_specifications):
+    """
+    Checks that every module a connection names is one the specifications describe.
+
+    Everything about a module – whether it is digital, and how its values become digits – is
+    read from its entry in the specifications, so a connection to a module without one has no
+    right answer. It used to be taken for analogue and converted as ±10 V, 16 bits.
+    """
+    count = len(machine_specifications["modules"])
+    undescribed = sorted(
+        {int(m) for m in connections["module"] if not 1 <= int(m) <= count}
+    )
+    if undescribed:
+        raise ValueError(
+            "Connections name module(s) {}, but the machine specifications describe modules"
+            " 1 to {} only. Describe every installed module in"
+            " `machine_specifications['modules']`, or correct the connections.".format(
+                undescribed, count
+            )
+        )
+
+
+def conversion__module(machine_specifications, module):
+    """
+    How the values of an analogue `module` become digits, as the keyword arguments of
+    `conversion.to_digits`: the module's `voltage_range`, its width in `bits`, and its `gain`,
+    from its entry in the specifications.
+
+    Each module is converted with its own entry (D11, #125). Every analogue module the
+    package had run on is ±10 V and 16 bits, which is why converting all of them with
+    `conversion.SPECIFICATIONS__DEFAULT` went unnoticed: a module of any other range was
+    converted wrongly, without a word. An entry missing one of the three raises, rather
+    than being completed with those values.
+    """
+    entry = machine_specifications["modules"][module - 1]
+    missing = [key for key in ("voltage_range", "bits", "gain") if key not in entry]
+    if missing:
+        raise ValueError(
+            "Module {} is analogue, but its entry in the machine specifications gives no {},"
+            " so its values cannot be converted to digits.".format(module, missing)
+        )
+    return {
+        "voltage_range": entry["voltage_range"],
+        "num_bits": entry["bits"],
+        "gain": entry["gain"],
+    }
 
 
 def check_module_kinds(connections, modules__digital):
@@ -239,8 +287,8 @@ def add(timeline, connections, devices, cycle_period, machine_specifications=Non
     """
     Takes an 'operational' layer timeline and inserts ADwin-specific columns, e.g. cycles and numbers for the module and channel etc.
 
-    Digital: module 1
-    Analogue otherwise
+    Which modules are digital, and how each analogue module converts to digits, are read
+    from `machine_specifications` (D11, D18).
 
     `cycle_period` is the period of the controller's event loop, in seconds; see
     `core.convert`.
@@ -253,6 +301,7 @@ def add(timeline, connections, devices, cycle_period, machine_specifications=Non
     # point at which hardware enters. Neither `connection.new` nor `device.new` can do it
     # alone: each sees only its own vocabulary (A14).
     device.check_correspondence(connections, devices)
+    check_modules_described(connections, machine_specifications)
     check_module_kinds(connections, modules__digital(machine_specifications))
 
     dff = wt_frame.join(timeline, connections)
@@ -262,10 +311,16 @@ def add(timeline, connections, devices, cycle_period, machine_specifications=Non
     # put a ramp's end after the `update` superseding it, and send the ramp's end.
     dff = wt_frame.sort(dff, "time")
 
-    dff = conv.add(dff)
-    # TODO: ^ This 'feels' inefficient/wrong?
-
     mask__digital = dff["module"].isin(modules__digital(machine_specifications))
+
+    # Each analogue module with its own range, width and gain (D11).
+    dff["value__digits"] = np.nan
+    for module in sorted(set(dff.loc[~mask__digital, "module"])):
+        mask = dff["module"] == module
+        dff.loc[mask, "value__digits"] = conv.add(
+            dff.loc[mask],
+            specifications=conversion__module(machine_specifications, int(module)),
+        )["value__digits"].to_numpy()
 
     dff.loc[mask__digital, "value__digits"] = round(dff["value"])
     # TODO: Shouldn't all of value__digits be rounded?

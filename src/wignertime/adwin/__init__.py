@@ -50,12 +50,22 @@ run, when the apparatus holds the run's final state, from a restart by hand.
 PAR__FINISH__ANALOGUE = 15
 PAR__FINISH__DIGITAL = 16
 DATA__FINISH__ANALOGUE = 31
-DATA__FINISH__DIGITAL = 42
+DATA__FINISH__DIGITAL = 41
 """
 Where `upload` leaves the final state (B11): the number of analogue and digital rows in
 `Par_15` and `Par_16`, the analogue rows as module, channel and digits in `data_31..33`, the
-digital ones as channel and value in `data_42..43`. The sequencer's `finish:` plays them, and the
-console reads them back to show what the apparatus holds after a run.
+digital ones as module, channel and value in `data_41..43`. The sequencer's `finish:` plays
+them, and the console reads them back to show what the apparatus holds after a run.
+"""
+
+PAR__MODULES__DIGITAL = 19
+DATA__MODULES__DIGITAL = 44
+MODULES__DIGITAL__MAX = 16
+"""
+The digital modules, which the sequencer's `lowinit:` programs as outputs: their number in
+`Par_19`, and the modules in `data_44`, at most `digitalModulesMaxDim` of them. `upload` writes
+them from the machine specifications, so a second digital module is programmed like the first,
+and its rows reach it through their own module number, as analogue rows do (D18, #133).
 """
 
 ROWS__MAX = {

@@ -48,6 +48,12 @@
 ' than re-asserting what it held before the run.
 #define sequencesFinished par_18
 
+' The digital modules, which lowinit: programs as outputs: data_44[1..digitalModulesDim],
+' written by upload from the machine specifications. Each digital row names its module, as an
+' analog row does, so any number of digital modules is played (D18).
+#define digitalModulesDim par_19
+#define digitalModulesMaxDim 16
+
 
 sub processUpdates(cc)
   ' analog
@@ -61,7 +67,7 @@ sub processUpdates(cc)
   ' digital
   if ( (digitalIdx <= digitalArrayDim) and (data_20[digitalIdx] = cc) ) then
     do
-      p2_digout(1,data_22[digitalIdx],data_23[digitalIdx])
+      p2_digout(data_21[digitalIdx],data_22[digitalIdx],data_23[digitalIdx])
       '      par_20=data_20[digitalIdx] : par_22=data_22[digitalIdx] : par_23=data_23[digitalIdx]
       inc digitalIdx
     until ( (digitalIdx > digitalArrayDim) or (data_20[digitalIdx] > cc) )
@@ -75,6 +81,7 @@ dim data_12[analogMaxArrayDim] as long ' Channels of analog updates
 dim data_13[analogMaxArrayDim] as long ' Values (digitized) of analog updates
 
 dim data_20[digitalMaxArrayDim] as long ' Clock cycles of digital updates
+dim data_21[digitalMaxArrayDim] as long ' Module numbers of digital updates
 dim data_22[digitalMaxArrayDim] as long ' Channels of digital updates
 dim data_23[digitalMaxArrayDim] as long ' Values (0 or 1) of digital updates
 
@@ -82,8 +89,12 @@ dim data_31[finishMaxArrayDim] as long ' Module numbers of the final analog stat
 dim data_32[finishMaxArrayDim] as long ' Channels of the final analog state
 dim data_33[finishMaxArrayDim] as long ' Values (digitized) of the final analog state
 
+dim data_41[finishMaxArrayDim] as long ' Module numbers of the final digital state
 dim data_42[finishMaxArrayDim] as long ' Channels of the final digital state
 dim data_43[finishMaxArrayDim] as long ' Values (0 or 1) of the final digital state
 
+dim data_44[digitalModulesMaxDim] as long ' The digital modules
+
 dim finishIdx as long
+dim moduleIdx as long
 dim consoleWasRunning as long

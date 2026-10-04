@@ -62,7 +62,11 @@ lowinit:
   cyclecount = 0 : analogIdx = 1 : digitalIdx = 1
   par_4 = analogMaxArrayDim
   par_5 = digitalMaxArrayDim
-  p2_digprog(1,1111b) ' set all the digital ports to output
+  ' Every port of each digital module an output. The modules are the machine
+  ' specifications', written by upload (D18).
+  for moduleIdx = 1 to digitalModulesDim
+    p2_digprog(data_44[moduleIdx],1111b)
+  next moduleIdx
   
   processUpdates(-2)
     
@@ -113,7 +117,7 @@ finish:
     p2_dac(data_31[finishIdx],data_32[finishIdx],data_33[finishIdx])
   next finishIdx
   for finishIdx = 1 to digitalFinishDim
-    p2_digout(1,data_42[finishIdx],data_43[finishIdx])
+    p2_digout(data_41[finishIdx],data_42[finishIdx],data_43[finishIdx])
   next finishIdx
   
   ' The samples, only if the burst had its whole window. A run that was not armed, was stopped

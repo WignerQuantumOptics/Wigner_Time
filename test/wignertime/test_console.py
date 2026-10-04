@@ -56,18 +56,19 @@ class _Machine:
         self.running = 1
         wanted, written = self._array(51), self._array(52)
         modules, channels = self._array(53), self._array(54)
+        digital__entry = self._array(56)
         par = self.par
         for i in range(par.get(75, 0)):
             self._array(55)[i] = 0
         if par.get(FINISHED, 0) != par.get(76, 0):
             analogue = [self._array(31 + k) for k in range(3)]
-            digital = [self._array(42 + k) for k in range(2)]
+            digital = [self._array(41 + k) for k in range(3)]
             for i in range(par.get(75, 0)):
                 wanted[i] = written[i] = -2
-                if modules[i] == 1:
+                if digital__entry[i] == 1:
                     for f in range(par.get(16, 0)):
-                        if digital[0][f] == channels[i]:
-                            wanted[i] = written[i] = digital[1][f]
+                        if (digital[0][f], digital[1][f]) == (modules[i], channels[i]):
+                            wanted[i] = written[i] = digital[2][f]
                 else:
                     for f in range(par.get(15, 0)):
                         if (analogue[0][f], analogue[1][f]) == (
@@ -105,13 +106,13 @@ class _Machine:
         self.running = 0
         for k in range(3):
             self.SetData_Long([r[k] for r in analogue__finish], 31 + k, 1, 256)
-        for k in range(2):
-            self.SetData_Long([r[k] for r in digital__finish], 42 + k, 1, 256)
+        for k in range(3):
+            self.SetData_Long([r[k] for r in digital__finish], 41 + k, 1, 256)
         self.par[15], self.par[16] = len(analogue__finish), len(digital__finish)
         if during:
             during(self)
         self.hardware += [r for r in analogue__finish]
-        self.hardware += [(1, c, v) for c, v in digital__finish]
+        self.hardware += [r for r in digital__finish]
         self.par[FINISHED] = self.par.get(FINISHED, 0) + 1
         self.par[OWNER] = 0
         if was:
@@ -309,7 +310,7 @@ def test_a_panel_configured_again_elsewhere_refuses():
 
 FINAL = dict(
     analogue__finish=[(4, 1, conversion.to_digits(-1.2 * 2.0))],  # the coil
-    digital__finish=[(11, 0)],  # the shutter
+    digital__finish=[(1, 11, 0)],  # the shutter
 )
 
 
@@ -381,7 +382,7 @@ def test_the_final_state_is_read_back_in_the_devices_units(to_V):
             (4, 1, conversion.to_digits(-1.2 * 2.0)),
             (3, 8, conversion.to_digits(120.0 * 0.05)),
         ],
-        digital__finish=[(11, 0)],
+        digital__finish=[(1, 11, 0)],
     )
     state = console.final_state(machine, _panel(to_V=to_V))
     assert state["coil__MOT__A"] == pytest.approx(-1.2, abs=1e-3)
@@ -506,3 +507,50 @@ def test_the_UI_catches_up_with_a_run_at_the_next_move():
         sliders["lockbox__MOT__MHz"].style.handle_color is None
     ), "known again once set"
     assert machine.data[console.DATA__WANTED][2] == conversion.to_digits(10.0 * 0.05)
+
+
+# The machine specifications (D11, D18)
+
+
+def test_an_analogue_entry_converts_with_its_modules_range():
+    connections, devices, defaults = _tables()
+    specifications = {
+        "modules": [
+            {"bits": 1, "voltage_range": [0.0, 5.0], "gain": 1},
+            {"bits": 16, "voltage_range": [-10.0, 10.0], "gain": 1},
+            {"bits": 16, "voltage_range": [-10.0, 10.0], "gain": 1},
+            {"bits": 16, "voltage_range": [-5.0, 5.0], "gain": 1},
+        ]
+    }
+    machine = _Machine()
+    machine.start()
+    table = console.panel(connections, devices, defaults, specifications)
+    handle = console.configure(machine, table)
+
+    # coil__MOT__A on module 4: 1.5 A at 2 V/A is 3 V, on a ±5 V module.
+    expected = conversion.to_digits(3.0, [-5.0, 5.0], 16)
+    assert machine.data[console.DATA__WANTED][1] == expected
+    assert console.readback(handle)["value"][1] == pytest.approx(1.5, abs=1e-3)
+
+
+def test_a_digital_entry_on_a_second_digital_module_is_marked_and_read_back():
+    connections = adcon.new(["shutter__MOT", 1, 11], ["shutter__trap", 3, 4])
+    defaults = tl.to_timeline(
+        tl.update(shutter__MOT=1, shutter__trap=0, time=0.0, context="init")
+    )
+    specifications = {
+        "modules": [{"bits": 1, "voltage_range": [0.0, 5.0], "gain": 1}] * 3
+    }
+    machine = _Machine()
+    machine.start()
+    table = console.panel(connections, device.new(), defaults, specifications)
+    console.configure(machine, table)
+
+    assert machine.data[console.DATA__DIGITAL][:2] == [1, 1]
+    assert machine.data[console.DATA__MODULE][:2] == [1, 3]
+
+    machine.sequence(digital__finish=[(1, 11, 0), (3, 4, 1)])
+    assert console.final_state(machine, table) == {
+        "shutter__MOT": 0,
+        "shutter__trap": 1,
+    }
