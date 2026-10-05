@@ -75,15 +75,19 @@ high level: the period check, the final state, the hand-over, the jump warning),
 
 The manuscript is now committed and self-contained under `docs/paper/`, imported from Overleaf:
 `main.tex`, `SciPost.cls`, `SciPost_bibstyle.bst`, `WignerTime.bib`, and all five figures under
-`docs/paper/graphic/`. Three of those figures are **generated, not drawn**: `fig:origin` comes from
+`docs/paper/graphic/`. Four of those figures are **generated, not drawn**: `fig:origin` comes from
 `graphic/origin_resolution_figure.py`, so a change to the origin mechanism should be carried into the
 manuscript by rerunning it; `fig:timeline_overview` (`wigner-time--basics.pdf`) comes from
 `graphic/timeline_anatomy_figure.py`, which takes its rows from the demo and its digits from the
-conversion, so a change to the naming, the demo or the conversion is carried in the same way; and
+conversion, so a change to the naming, the demo or the conversion is carried in the same way;
 `fig:hardware_overview` (`hardware-overview.pdf`) comes from `graphic/hardware_overview_figure.py`,
-drawn in the text's own terms, so a renamed step or layer belongs in it too. Each checks its own
-text for overflow and refuses to write a figure that does not fit. The others are still static
-images; `language-tree.png`, which the hardware overview replaced, is unreferenced. Every `\includegraphics` target and the
+drawn in the text's own terms, so a renamed step or layer belongs in it too; and the drawing in
+`fig:ramp` (`ramp-options.pdf`) comes from `graphic/ramp_options_figure.py`, whose labels are the
+defaults of `ramp`'s signature, so a changed default is carried by a rerun. Its layout of the
+origin labels (diagonal, from beside each origin's point) is the maintainer's, made in Inkscape
+on the SVG and then written into the generator. Each checks its own text for overflow and refuses
+to write a figure that does not fit. Only `fig:timeline__example` is still a static image;
+`language-tree.png`, which the hardware overview replaced, is unreferenced. Every `\includegraphics` target and the
 `\bibliography{WignerTime.bib}` call resolve. No LaTeX toolchain is installed here, so the build is
 Overleaf's. `minted` requires `pygmentize` and `-shell-escape`, which `docs/paper/.latexmkrc` sets.
 Build from inside `docs/paper/`; the figure paths are relative to it.

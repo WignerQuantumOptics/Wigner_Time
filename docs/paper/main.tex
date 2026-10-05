@@ -611,7 +611,7 @@ def ramp(
   \begin{minipage}[t]{0.68\textwidth}
     \vspace{0pt}
     \centering
-    \includegraphics[width=\linewidth]{graphic/ramp-options.png}
+    \includegraphics[width=\linewidth]{graphic/ramp-options.pdf}
   \end{minipage}
   \caption{\label{fig:ramp} Programmatic and visual overview of a \python{ramp}. A ramp is defined by two time-value pairs and an interpolating function between them, and therefore requires two origins. \python{origin} places the starting time, as for \python{update}, and the start value is always that of the variable at that instant; \python{origin2} places the ending pair, its default referring the end \emph{time} to the start of the same variable. The end \emph{value} is absolute – the ramp finishes at the value given. The \python{duration} argument is a convenience alias: since the second point’s temporal origin is almost always the first point, \python{duration} and \python{time2} are equivalent in the common case. Where both are specified, \python{time2} takes precedence.}
 \end{figure}
