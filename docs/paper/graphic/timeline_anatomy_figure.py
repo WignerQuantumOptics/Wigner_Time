@@ -25,6 +25,9 @@ import pathlib
 import matplotlib
 
 matplotlib.use("Agg")
+# The SVG keeps its text as text, so that it can be edited (in Inkscape, say); its
+# fonts are then the viewer's, and DejaVu is what the PDF embeds.
+matplotlib.rcParams["svg.fonttype"] = "none"
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
@@ -350,11 +353,15 @@ if __name__ == "__main__":
             + "\n".join(offenders)
         )
 
-    for suffix, kw in ((".pdf", {}), (".png", dict(dpi=300))):
+    for suffix, kw in (
+        (".pdf", {}),
+        (".png", dict(dpi=300)),
+        (".svg", dict(metadata={"Date": None})),
+    ):
         f.fig.savefig(
             here / ("wigner-time--basics" + suffix),
             bbox_inches="tight",
             pad_inches=0.02,
             **kw,
         )
-    print("wrote wigner-time--basics.pdf and .png to {}".format(here))
+    print("wrote wigner-time--basics.pdf, .png and .svg to {}".format(here))

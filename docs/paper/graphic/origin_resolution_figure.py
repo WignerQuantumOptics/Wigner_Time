@@ -24,6 +24,9 @@ import pathlib
 import matplotlib
 
 matplotlib.use("Agg")
+# The SVG keeps its text as text, so that it can be edited (in Inkscape, say); its
+# fonts are then the viewer's, and DejaVu is what the PDF embeds.
+matplotlib.rcParams["svg.fonttype"] = "none"
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
@@ -343,4 +346,10 @@ if __name__ == "__main__":
     fig.savefig(
         here / "origin-resolution.png", dpi=300, bbox_inches="tight", pad_inches=0.02
     )
-    print("wrote origin-resolution.pdf and .png to {}".format(here))
+    fig.savefig(
+        here / "origin-resolution.svg",
+        bbox_inches="tight",
+        pad_inches=0.02,
+        metadata={"Date": None},
+    )
+    print("wrote origin-resolution.pdf, .png and .svg to {}".format(here))

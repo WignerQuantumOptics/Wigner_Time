@@ -97,7 +97,7 @@ on the working branch; then copy `docs/paper/` over the clone, commit there nami
 commit it carries (`Sync with docs/paper/ of Wigner_Time at <hash>`), and push. When both sides
 changed the same passage, stop and show the maintainer both, rather than choosing. The last
 synced point is therefore the newest such message in the clone's `git log`. The clone carries what the build
-needs and nothing else: not the `graphic/*_figure.py` generators and their unused PNG previews, nor
+needs and nothing else: not the `graphic/*_figure.py` generators and their unused PNG previews and SVG copies (written for editing, text kept as text), nor
 `desktop.ini`. `.latexmkrc`, which sets `-shell-escape` for `minted`, came from Overleaf and lives
 in both.
 
