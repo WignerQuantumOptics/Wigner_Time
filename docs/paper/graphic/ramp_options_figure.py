@@ -34,11 +34,11 @@ from matplotlib.patches import FancyArrowPatch
 from matplotlib.transforms import offset_copy
 
 # --- palette -----------------------------------------------------------------
-# That of the other generated figures; the two origins take blue and orange, and the ramp
-# the violet of the original drawing.
+# That of the other generated figures, where orange means hardware, so it is not used here:
+# the two origins take blue and green, and the ramp the violet of the original drawing.
 INK = "#16232e"
 BLUE__DEEP = "#1d5f99"
-ORANGE = "#d1762f"
+GREEN = "#3c8d4f"
 VIOLET = "#5b3a9a"
 GREY = "#78858f"
 
@@ -63,17 +63,32 @@ FRAME = 0.85  # length of a frame's axes
 
 
 def arrow(ax, a, b, *, colour=INK, linewidth=0.9, dashed=False, head=True):
+    """
+    An arrow from `a` to `b`. A dashed one is drawn as a dashed shaft and a solid head
+    separately: a dash pattern given to the arrow as a whole dashes the outline of the
+    head too.
+    """
+    style = dict(color=colour, linewidth=linewidth, shrinkA=0, shrinkB=0, zorder=3)
+    if dashed:
+        ax.plot(
+            [a[0], b[0]],
+            [a[1], b[1]],
+            color=colour,
+            linewidth=linewidth,
+            linestyle=(0, (3, 2)),
+            solid_capstyle="butt",
+            zorder=3,
+        )
+        if not head:
+            return
+        # The head alone, on a vanishing stretch of the shaft's end.
+        a = (b[0] - 1e-3 * (b[0] - a[0]), b[1] - 1e-3 * (b[1] - a[1]))
     ax.add_patch(
         FancyArrowPatch(
             a,
             b,
             arrowstyle="-|>,head_length=4,head_width=2.2" if head else "-",
-            color=colour,
-            linewidth=linewidth,
-            linestyle=(0, (3, 2)) if dashed else "solid",
-            shrinkA=0,
-            shrinkB=0,
-            zorder=3,
+            **style,
         )
     )
 
@@ -182,7 +197,7 @@ def build():
     text(ax, 3.5, y - 0.33, "time", family=MONO, va="baseline")
 
     # --- origin2: the end time from the start, the end value from zero -----------------
-    frame(ax, T__START, 0, ORANGE)
+    frame(ax, T__START, 0, GREEN)
     diagonal(
         fig,
         ax,
@@ -190,7 +205,7 @@ def build():
         0,
         LABEL__ANGLE,
         [("origin2=[VARIABLE,0.0]", dict(fontweight="bold"))],
-        color=ORANGE,
+        color=GREEN,
     )
 
     y = -0.55

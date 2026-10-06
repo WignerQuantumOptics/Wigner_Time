@@ -36,11 +36,13 @@ from wignertime import conversion, device
 from wignertime.demo import full_experiment as demo
 
 # --- palette -----------------------------------------------------------------
-# That of `origin_resolution_figure.py`: blue for what every timeline has, orange for what
-# is added to it.
+# That of `hardware_overview_figure.py`: blue for the experiment, orange for the hardware.
+# The rows composing adds are experiment, so they are blue like the four columns every
+# timeline has; the column the conversion adds is hardware, so it alone is orange.
 INK = "#16232e"
 BLUE = "#1f7fd0"
 BLUE__DEEP = "#1d5f99"
+BLUE__PALE = "#e3eef8"
 ORANGE = "#d1762f"
 ORANGE__PALE = "#fbe6d4"
 ORANGE__BAND = "#fdf3e9"
@@ -208,7 +210,7 @@ class Figure:
         self.rule(cur.y, colour=GREY, linewidth=0.7)
         return y__top, cur.y
 
-    def note(self, x, y, lines, *, ha):
+    def note(self, x, y, lines, *, ha, face, edge):
         self.text(
             x,
             y,
@@ -219,8 +221,8 @@ class Figure:
             linespacing=1.35,
             bbox=dict(
                 boxstyle="round,pad=0.45,rounding_size=0.25",
-                facecolor=ORANGE__PALE,
-                edgecolor=ORANGE,
+                facecolor=face,
+                edgecolor=edge,
                 linewidth=0.8,
             ),
         )
@@ -237,6 +239,8 @@ def build():
         cur.take(0.62) + 0.30,
         ["Later steps add columns –", "here, the digits sent to the hardware"],
         ha="right",
+        face=ORANGE__PALE,
+        edge=ORANGE,
     )
 
     # --- the header ---------------------------------------------------------------
@@ -268,6 +272,8 @@ def build():
         y__gap + 0.39,
         ["Composing an experiment adds rows –", "here, the coil ramps of two stages"],
         ha="left",
+        face=BLUE__PALE,
+        edge=BLUE__DEEP,
     )
     f.text(
         COLUMNS[0][1] - 0.035,
@@ -276,10 +282,10 @@ def build():
         family=FONT,
         fontsize=PT["dots"],
         fontweight="bold",
-        color=ORANGE,
+        color=BLUE__DEEP,
     )
     y0, y1 = f.block(cur, appended)
-    f.rect(COLUMNS[0][1] - 0.05, y0, 0.03, y1 - y0, facecolor=ORANGE, zorder=2)
+    f.rect(COLUMNS[0][1] - 0.05, y0, 0.03, y1 - y0, facecolor=BLUE__DEEP, zorder=2)
     cur.take(0.06)
 
     # --- time runs down -------------------------------------------------------------
