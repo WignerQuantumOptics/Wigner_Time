@@ -323,7 +323,6 @@ def add(timeline, connections, devices, cycle_period, machine_specifications=Non
         )["value__digits"].to_numpy()
 
     dff.loc[mask__digital, "value__digits"] = round(dff["value"])
-    # TODO: Shouldn't all of value__digits be rounded?
 
     device.check_within_range(dff)
     dcycle = add_cycle(dff, cycle_period)

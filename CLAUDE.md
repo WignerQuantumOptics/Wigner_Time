@@ -494,8 +494,8 @@ real, which is what #154 was about.
 - Standard aliases: `tl` (timeline), `wt_frame`, `wt_origin`, `wt_util`, `wt_config`, `wt_adwin`.
 - Numpy-style docstrings (mkdocstrings is configured for them). Prose in docstrings tends to explain
   *why* a rule exists, not just what the function does — match that.
-- `internal/` is explicitly unstable API. `internal/doc/` and `doc/` are org-mode notes and scratch
-  notebooks, not built documentation; `docs/` is the mkdocs source (`docs/index.md` duplicates the
+- `internal/` is explicitly unstable API. `internal/doc/` and `doc/` are org-mode notes, not built
+  documentation; `docs/` is the mkdocs source (`docs/index.md` duplicates the
   README, so changes to the overview belong in both). The paper lives in its own self-contained
   subtree, `docs/paper/`; neither it nor `docs/origin-resolution.md` is in `mkdocs.yml`'s nav.
 - Tests live under `test/wignertime/`, mirroring the package. (They sat under `test/wigner/time/`,
@@ -522,14 +522,14 @@ in the 2-D form, which #142's rule removed — every ramp now starts from wherev
 
 Not covered by `KNOWN_ISSUES.md`:
 
-- `internal/constructor.py` calls `tl.previous_time`, which no longer exists. Nothing in the package
-  or the suite imports it; its only importers are `internal/doc/demonstration.py` and
-  `internal/experimental/demonstration.py`, which are scratch notes. Dead code, but with references.
-- `internal/timeline/validate.py` is documented as out of date with respect to the current schema
-  (it references `unit_range`/`safety_range` columns that `device.py` no longer produces).
-- `black` passes on everything except `src/wignertime/internal/doc/diagnosticsDemo.py`, which is a
-  scratch notebook rather than package code (checked 2026-09-22: 1 file would be reformatted, 57 left
-  alone). Format files you touch; a repo-wide `black` run would bury your diff.
+- The dead modules went on 2026-10-07 (#138): `internal/constructor.py`, `internal/scratch.py`,
+  `internal/timeline/validate.py` (written for a schema `device.py` no longer produces) with its
+  test, `internal/experimental/`, and the scripts and notebook in `internal/doc/` and `doc/`, all
+  importing names that no longer exist. So did every `TODO` in the package, each fixed, deleted as
+  stale, or already tracked by an issue.
+- `black` passes on everything (57 files, 2026-10-07). `isort --check-only` does not, on 28 files
+  whose imports that sweep left as it found them. Sort the imports of files you touch; a repo-wide
+  run would bury your diff.
 - **The paper's demo listing (`sec:demonstration`) is a cleaned-up variant of
   `src/wignertime/demo/full_experiment.py`, not a copy of it**: a smaller apparatus (the rule is
   spelling, not extent). The spellings were reconciled on 2026-09-29 (D7): the demo now uses the

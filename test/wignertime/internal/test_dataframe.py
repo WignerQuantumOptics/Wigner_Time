@@ -74,11 +74,11 @@ def test_drop_duplicatesSubset(input_value):
     )
 
 
-# TODO: FIx this merge
 @pytest.mark.parametrize("input", [df_duplicate1])
 def test_increment_selected_rows(input):
+    # Not in place: `df_duplicate1` is shared with the tests above.
     return frame.assert_equal(
-        frame.increment_selected_rows(input, thing=1.0),
+        frame.increment_selected_rows(input, in_place=False, thing=1.0),
         frame.new(
             [
                 ["thing2", 7.0, 5, "init"],

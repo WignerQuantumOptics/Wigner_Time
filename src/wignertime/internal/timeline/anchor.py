@@ -5,8 +5,6 @@
 Utility functions related to setting, finding and querying anchors in a timeline.
 """
 
-# TODO: Not sure if this should be a separate file or not.
-
 from typing import Callable
 
 from wignertime import config as wt_config

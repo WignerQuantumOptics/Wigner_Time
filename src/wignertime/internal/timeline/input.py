@@ -50,10 +50,7 @@ def __ensure_time_context(collection, time, context=None, context__default=""):
     """
     Ensures the collection is in 2D, checks the dimensions of a single row of data and, where necessary, adds the `time` and `context` information to the data.
     """
-    # TODO: Make more efficient
-
     shape_c = np.shape(collection)
-    # print("shape_c: {}".format(shape_c))
 
     match len(shape_c):
         case 0:
@@ -74,10 +71,6 @@ def __ensure_time_context(collection, time, context=None, context__default=""):
                 )
             )
 
-    # print(f"coll[0] shape[-1]: {np.shape(coll[0])[-1]}")
-    # print(f"coll: {coll}")
-    # print(f"time: {time}")
-    # print(f"context: {context}")
     match np.shape(coll[0])[-1]:
         case 3:
             return coll
@@ -163,11 +156,7 @@ def convert(
                   ...]]
     ['variable002', [...] ]]
 
-    This was abstracted from `create`... to simplify (well, we tried) the logic.
     """
-    # TODO: could probably still be simplified
-    # - make consistent: sometimes a tuple and sometimes a list
-
     shape = np.array(vtvc, dtype=object).shape
 
     if shape != (0,) and vtvc_dict:
@@ -190,21 +179,13 @@ def convert(
     if shape == (0,):
         return __correct_variable_list(vtvc_dict.items(), time, context)
     else:
-        depth = __find_depth(vtvc)
-        # TODO: Check that first element is actually a string.
-
-        match depth:
+        # `__find_depth` returns 1, 2 or 3, or raises.
+        match __find_depth(vtvc):
             case 3:
-                temp = __correct_variable_list(vtvc[0], time, context)
-                # Assumed to be programmatic input
-                # print('depth 3: ')
-                return temp
-
+                return __correct_variable_list(vtvc[0], time, context)
             case 2:
-                # print('depth 2: ')
                 return __correct_variable_list(vtvc, time, context)
             case 1:
-                # print("depth 1: ")
                 vtvc = list(vtvc)
 
                 vals = (
@@ -213,23 +194,12 @@ def convert(
                     else __ensure_time_context(vtvc[1:], time, context)
                 )
                 return [[vtvc[0], vals]]
-            case _:
-                return
 
 
 def rows_from_input(input):
     """
     Takes input, where every variable has its own list, and converts the output to a list of length-4 lists.
     """
-    # TODO:
-    # - profiling suggests that this is very slow.
-    # - is this even necessary??
-    # rows = []
-    # for row in input:
-    #     for rowv in row[1]:
-    #         rows.append(np.concatenate([rowv[:1], [row[0]], rowv[1:]], dtype=object))
-    # return rows
-
     rows = []
     a = rows.append
 
@@ -248,7 +218,10 @@ def rows_from_input(input):
 
 
 def rows_from_arguments(*vtvc, time=0.0, context=None, **vtvc_dict):
-    # NOTE: What is the point of this function?
+    """
+    The input of `update` and `ramp`, in whichever form it was given, as rows of
+    `[time, variable, value, context]`.
+    """
     return rows_from_input(convert(*vtvc, time=time, context=context, **vtvc_dict))
 
 

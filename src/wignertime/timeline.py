@@ -1026,13 +1026,7 @@ def cascade(*fs: Callable, **kws) -> Callable | wt_frame.CLASS:
     That is only safe because the operation layer confines the open namespace to
     `default_state` and the two functions that wrap it; a stage that collects `**kwargs`
     is, correctly, still permissive here.
-
-    WARNING: API is not settled; may get combined with `stack` in the next release.
     """
-    # TODO:
-    # - Consider alternative names: 'compose'?
-    # - Consider nested dictionaries instead of prefixed keywords?
-    #
     # NOTE: keyed by `__name__`, so a stage appearing twice receives the same keywords
     # both times. That is relied upon; see `KNOWN_ISSUES.md` §C.
     for f in fs:
@@ -1174,7 +1168,6 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
         )
 
     if "function" not in timeline.columns:
-        # TODO: Add test for this 'feature'
         return timeline
 
     # Labels are the written positions from here on, which is what each ramp's rows are
@@ -1240,7 +1233,7 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
             func = wt_util.function__defaults(function, **function_args)
 
             # The internal constructor, because this is the one caller that assembles
-            # rows rather than being handed them: `create` takes keywords only.
+            # rows rather than being handed them: `update` takes keywords only.
             _dfs.append(
                 _populate_timeline(
                     [variable, func(*group[["time", "value"]].values)],
