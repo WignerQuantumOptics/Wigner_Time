@@ -263,7 +263,7 @@ EndSub
 \begin{minipage}{.9\linewidth}
 \textbf{(b) Wigner Time: the same stage}
 \begin{minted}[fontsize=\mintedsmall, frame=lines, breaklines, breakanywhere, linenos=false]{python}
-def optical_pumping(
+def optical_pumping(  # assumes the repump is on
     duration_exposition=80e-6,
     duration_coil_ramp=50e-6,
     i=-0.12,
@@ -346,9 +346,9 @@ abstraction level.
 \paragraph{Fast} Decoupling the timeline design from the implementation also means
 that the real-time system program (\cref{fig:hardware_overview}), as distinct from
 the Python code, is maximally simple. As almost all of the logic happens outside
-the hardware, the low-level code can be reduced to a single concept: “at this time
-instant, if any desired voltage is different from the past time instant, update
-this voltage.” This matters because every instruction in the event loop must
+the hardware, the low-level code can be reduced to a single concept: “at this cycle,
+write the values listed for it.” Which values need writing at all – those that
+differ from what an output already holds – is decided beforehand, in Python. This matters because every instruction in the event loop must
 complete within one cycle, so logic in the real-time program is paid for directly
 in temporal resolution. The effect is concrete: the ADbasic implementation this
 work replaced evaluated ramp trajectories – including transcendental functions –
@@ -391,7 +391,7 @@ Timelines sit at the heart of every layer. They are the output of the operationa
 
 As an example, consider controlling a cooling laser with an optical shutter, an acousto-optical modulator (AOM), and a beat lock with variable offset connected to the real-time system. The relevant functions will be introduced as needed, with a full description following in subsequent sections.
  
-The first step is to define the experimental system. For digital channels, this means \emph{naming} the physical connections – associating module and channel numbers with their intended purpose. For analog channels, the same applies, with the addition of a unit. This distinguishes analog from digital channels, as required by most timing systems, and also allows multiple connections to the same device to be named unambiguously.
+The first step is to define the experimental system. For digital channels, this means \emph{naming} the physical connections – associating module and channel numbers with their intended purpose. For analog channels, the same applies, with the addition of a unit. This distinguishes analog from digital channels, as required by most timing systems.
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none]{python}
 from wignertime.adwin import connection as adcon
@@ -413,7 +413,7 @@ For analog connections, conversions and value ranges must also be specified. The
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none]{python}
 devices = device.new(
-    ["lockbox__MOT__MHz", 0.05, -200, 200],
+    ["lockbox__MOT__MHz", 0.05, -200, 200],  # 0.05 V/MHz: +/-200 MHz spans +/-10 V
     [
         "AOM__MOT__transmission",
         conv.function_from_file(
@@ -431,36 +431,31 @@ Next, it is useful to specify the aspects of the experiment that change rarely, 
 import math
 from wignertime import timeline as tl
 
-initial = tl.update(
-    time=-math.inf,
-    context="ADwin_LowInit",
-    shutter__MOT=1,
-    AOM__MOT=0,
-    lockbox__MOT__MHz=0.0,
-)
-final = tl.update(
-    time=math.inf,
-    context="ADwin_Finish",
-    shutter__MOT=1,
-    AOM__MOT=0,
-    lockbox__MOT__MHz=0.0,
-)
+def default_state(**kwargs):
+    return tl.update(
+        shutter__MOT=0,  # closed
+        AOM__MOT=1,  # kept on, in thermal equilibrium
+        lockbox__MOT__MHz=0.0,
+        **kwargs,
+    )
+
+initial = default_state(time=-math.inf, context="ADwin_LowInit")
+final = default_state(time=math.inf, context="ADwin_Finish")
 \end{minted}
 %
-Here, \python{update} allows the user to specify common arguments such as the \python{time} and the \python{context}, as well as experiment-specific variables like \python{shutter__MOT} – all with a high signal-to-noise ratio in the syntax. The initial and final states belong to no instant of the experiment, and are therefore placed before and after it, at $-\infty$ and $+\infty$ (\cref{sec:context}).
+Here, \python{update} allows the user to specify common arguments such as the \python{time} and the \python{context}, as well as experiment-specific variables like \python{shutter__MOT} – all with a high signal-to-noise ratio in the syntax. The initial and final states are the same, so they are written once and placed twice. They belong to no instant of the experiment, and are therefore placed before and after it, at $-\infty$ and $+\infty$ (\cref{sec:context}).
 
 The key experimental procedures are then defined:
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none]{python}
 MOT = tl.update(
-            shutter__MOT=0,
-            AOM__MOT=1,
-            context="MOT",
-        )
+    shutter__MOT=1,
+    context="MOT",
+)
 detuned_growth = tl.ramp(
-                    lockbox__MOT__MHz=-5,
-                    duration=10e-3,
-        )
+    lockbox__MOT__MHz=-5,
+    duration=10e-3,
+)
 \end{minted}
 %
 None of these is yet a timeline. Each is a \emph{stage}: a description of what happens, written relative to its own beginning, which can later be placed anywhere. Stages are composed into a complete experiment in a readable and modular fashion, and \python{to_timeline} makes a timeline of the result:
@@ -517,14 +512,14 @@ Timelines are most naturally constructed from relative rather than absolute refe
  
 \paragraph{A context as origin} Passing the name of a \python{context} (\cref{sec:context}), e.g. \python{origin="molasses"}, measures the new entries from that stage rather than from the immediately preceding one – specifically from its anchor if it has one, and from its last entry otherwise. This is the mechanism behind interweaving (\cref{sec:interweaving}): a diagnostic, imaging or trigger operation can be attached to a named point of an existing timeline without restructuring the stages around it, and without the offset being worked out by hand.
  
-\paragraph{Ramps} For \python{ramp} the mechanism carries over unchanged for the starting time. The start value is not written at all: a ramp always starts where its variable is, since a start that differed from the current value would be a jump hidden inside the ramp. A jump that is wanted is an \python{update} before the ramp, where it shows. The end point is placed by a second keyword, \python{origin2} (\cref{fig:ramp}), whose default refers it to the start point of the same variable – which is why \python{duration} and \python{time2} coincide in the common case. End values are absolute: a ramp ends at the value named, which is the physical intuition of “ramping to” a target.
+\paragraph{Ramps} For \python{ramp} the mechanism carries over unchanged for the starting time. The start value is not written at all: a ramp always starts where its variable is, since a start that differed from the current value would be a jump hidden inside the ramp. A jump that is wanted is an \python{update} before the ramp, which appears in the timeline as a row of its own. The end point is placed by a second keyword, \python{origin2} (\cref{fig:ramp}), whose default refers it to the start point of the same variable – which is why \python{duration} and \python{time2} coincide in the common case. End values are absolute: a ramp ends at the value named, which is the physical intuition of “ramping to” a target.
 
 The \python{origin} mechanism is deliberately an \emph{easy} layer over a \emph{simple} substrate: its flexibility exists only at construction time and never leaks into the data. Once resolved, the timeline contains nothing but absolute times and values, and any origin specification could equally have been written as an explicit numeric coordinate. The generality catalogued in \cref{sec:origin_full} is thus transient and optional, rather than a permanent property of the resulting artifact.
  
 \subsection{Core functions}
 \label{sec:functions}
 
-The three main convenience functions are \python{update}, which sets variables at given instants; \python{ramp}, which transitions variables to new values over time; and \python{anchor}, which places the virtual reference rows that the \python{origin} mechanism of \cref{sec:origin} resolves against. Each of them returns a stage, and \python{to_timeline} makes a timeline of a stage.
+The three main convenience functions are \python{update}, which sets variables at given instants; \python{ramp}, which transitions variables to new values over time; and \python{anchor}, which places the virtual reference rows that the \python{origin} mechanism of \cref{sec:origin} resolves against. Each of them returns a \emph{stage}, and \python{to_timeline} makes a timeline of a stage (\cref{sec:to_timeline}).
 
 \subsubsection{Update}
 %
@@ -532,7 +527,7 @@ The three main convenience functions are \python{update}, which sets variables a
 def update( *, time=0.0, context=INFER, origin=INFER, **vtvc_dict )
 \end{minted}
 %
-This function accepts a wide range of input formats through the \python{**vtvc_dict} keyword argument, whose possibilities are laid out in \cref{tab:inputSpecs}. The arguments \python{time} and \python{context} serve as defaults for cases where time and context are not specified individually for each variable. Any other keyword is read as the name of a variable – a property put to use in \cref{sec:forwarding}.
+This function accepts a wide range of input formats through the \python{**vtvc_dict} keyword argument, whose possibilities are laid out in \cref{tab:inputSpecs}. The arguments \python{time} and \python{context} serve as defaults for cases where time and context are not specified individually for each variable. Any other keyword is read as the name of a variable – a property put to use in \cref{sec:forwarding}. The asterisk in the signature means that the arguments after it can be given only by name, so that a value cannot end up in the wrong argument because of where it was written.
 
 \python{INFER}, the default of \python{context} and \python{origin}, means that the value is taken from the timeline the stage is eventually applied to. Times are interpreted relative to prior entries, through the \python{origin} mechanism of \cref{sec:origin}, and the \python{context} of the preceding entry is inherited (\cref{sec:context}). This reflects a general principle: only state changes that differ from the previous ones need to be specified. Worked examples of the reference points available, in both time and value, are collected in \cref{tab:originSpecs}.
 
@@ -551,19 +546,6 @@ This function accepts a wide range of input formats through the \python{**vtvc_d
     \caption{The input formats for \python{update}; see the API documentation \cite{wignertime_docs} for details. Times are measured from the reference point that the \python{origin} resolves to (\cref{sec:origin}).}
     \label{tab:inputSpecs}
 \end{table}
-
-\subsubsection{From a stage to a timeline}
-\label{sec:to_timeline}
-%
-\begin{minted}[fontsize=\footnotesize, breaklines, frame=none, linenos=false]{python}
-def to_timeline( stage, onto=None )
-\end{minted}
-%
-A stage is applied to the timeline given as \python{onto}, or to an empty one, and the result is a new timeline. No function modifies the timeline it is given. In contrast to most other scientific software, every function returns new data instead, which is the functional paradigm in action, and all user-defined functions are recommended to follow the same pattern. The principal advantage is the natural ability to construct pipelines, a design principle that is particularly exploited by the \python{stack} function (\cref{sec:stacking}).
-
-At the start of an experiment there is nothing to refer to or to inherit from, so the first rows are placed in absolute time and must name their context: every row of a timeline has one.
-
-The \python{onto} argument places a stage into an existing timeline, even a finished one (\cref{sec:interweaving}). Since \python{to_timeline(b, onto=to_timeline(a))} is the same timeline as \python{to_timeline(stack(a, b))}, a base timeline can be built once and each variation of a parameter scan placed onto it (\cref{sec:parameter_scan}).
 
 \subsubsection{Ramp}
 While \python{update} places variables at discrete time points, analog variables often require smooth transitions to avoid discontinuities. The \python{ramp} function defines such a transition between two time-value pairs – a start and an end point – via a user-specified function, defaulting to hyperbolic tangent (\cref{fig:ramp}).
@@ -658,21 +640,35 @@ An anchor is simply a special row in the timeline – one whose \python{variable
 Note that \python{time} is required, and is a displacement from whatever the \python{origin} resolves to rather than an absolute time. Since the default origin is the most recent anchor where one exists, \python{time} is normally a duration measured from the end of the \emph{preceding stage} – which is precisely what allows a stage to write rows past its own closing anchor, as \python{optical_pumping} does when it reinitializes its shutters, without dragging the following stage along with them. Where the intention is instead to mark the end of everything written so far, that is a different instant and is asked for explicitly:
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none, linenos=false]{python}
-anchor(0.0, origin=tl.LAST)  # here, at the last entry in the timeline
-anchor(0.0)                  # here, at the most recent anchor
+anchor(0.1, origin=tl.LAST)  # 0.1 s after the last entry in the timeline
+anchor(0.1)                  # 0.1 s after the most recent anchor
 \end{minted}
 %
-The two coincide until some stage writes past its own anchor, and then they do not: in the example of \cref{sec:demonstration} they differ by about 0.1\,s from \python{optical_pumping} onwards. Which of the two is meant should therefore always be stated.
+The two coincide only when the last stage ended with an anchor and wrote nothing after it. In the example of \cref{sec:demonstration}, \python{optical_pumping} reinitializes its shutters 0.1\,s after its anchor, so throughout magnetic trapping the last entry lies about 0.1\,s after the most recent anchor. The anchor of the final stage, a second later, makes the two coincide again. Which of the two is meant should therefore always be stated.
  
+\subsubsection{From a stage to a timeline}
+\label{sec:to_timeline}
+%
+\begin{minted}[fontsize=\footnotesize, breaklines, frame=none, linenos=false]{python}
+def to_timeline( stage, onto=None )
+\end{minted}
+%
+A stage is applied to the timeline given as \python{onto}, or to an empty one, and the result is a new timeline. No function modifies the timeline it is given. In contrast to most other scientific software, every function returns new data instead, which is the functional paradigm in action, and all user-defined functions are recommended to follow the same pattern. The principal advantage is the natural ability to construct pipelines, a design principle that is particularly exploited by the \python{stack} function (\cref{sec:stacking}).
+
+At the start of an experiment there is nothing to refer to or to inherit from, so the first rows are placed in absolute time and must name their context: every row of a timeline has one.
+
+The \python{onto} argument places a stage into an existing timeline, even a finished one (\cref{sec:interweaving}). Since \python{to_timeline(b, onto=to_timeline(a))} is the same timeline as \python{to_timeline(stack(a, b))}, a base timeline can be built once and each variation of a parameter scan placed onto it (\cref{sec:parameter_scan}).
+
 \subsection{Context}
 \label{sec:context}
 The fourth core column, \python{context}, labels the experimental stage to which a row belongs, e.g. \python{"MOT"} or \python{"optical_pumping"}. It carries no timing information of its own and is never sent to the hardware, but it does three distinct kinds of work.
- 
-First, it is documentation that survives into the data. An assembled timeline records not only what happened and when, but which part of the experiment each update belonged to – which is what makes an archived run readable a year later, by someone who did not write it. The display conveniences use it to group and annotate a plot (\cref{fig:timeline__example}), and \python{timeline.context_info} reports, for each context, the set of variables it touches and its temporal extent, which is often the quickest way to check that a composed timeline is what was intended.
- 
-Second, a context is addressable as an \python{origin} (\cref{sec:origin}). A stage is thereby a \emph{named} region of the timeline, and other operations can be placed relative to it without any absolute instant being computed – the mechanism underlying interweaving (\cref{sec:interweaving}).
- 
-Third, a backend may reserve particular context names for its own purposes. In the ADwin case, \python{"ADwin_LowInit"} and \python{"ADwin_Finish"} mark rows that are actuated outside the timed sequence – on initialization, and on termination including interruption – so that the apparatus is left in a defined state however the run ends (\cref{sec:demonstration}). Such rows belong to no instant of the run, and the timeline says so: the initial state is written at \python{time=-math.inf} and the final state at \python{time=math.inf}. Nothing is placed relative to either, and a stage written after the initial state starts at absolute zero.
+\begin{enumerate}
+\item It is documentation that survives into the data. An assembled timeline records not only what happened and when, but which part of the experiment each update belonged to – which is what makes an archived run readable a year later, by someone who did not write it. The display conveniences use it to group and annotate a plot (\cref{fig:timeline__example}), and \python{timeline.context_info} reports, for each context, the set of variables it touches and its temporal extent, which is often the quickest way to check that a composed timeline is what was intended.
+
+\item A context is addressable as an \python{origin} (\cref{sec:origin}). A stage is thereby a \emph{named} region of the timeline, and other operations can be placed relative to it without any absolute instant being computed – the mechanism underlying interweaving (\cref{sec:interweaving}).
+
+\item A backend may reserve particular context names for its own purposes. In the ADwin case, \python{"ADwin_LowInit"} and \python{"ADwin_Finish"} mark rows that are actuated outside the timed sequence – on initialization, and on termination including interruption – so that the apparatus is left in a defined state however the run ends (\cref{sec:demonstration}). Such rows belong to no instant of the run, and the timeline says so: the initial state is written at \python{time=-math.inf} and the final state at \python{time=math.inf}. Nothing is placed relative to either, and a stage written after the initial state starts at absolute zero.
+\end{enumerate}
 
 Contexts are inherited rather than repeated. Where \python{context} is not given explicitly, \python{update}, \python{ramp} and \python{anchor} adopt the latest context of the timeline they extend, so a stage need be named only once. The initial and final states pass on no context, so a row written after them names its own, or takes that of the last stage of the run. The same principle operates from above: a \python{context} passed to \python{stack} is forwarded to all of its constituents (\cref{sec:stacking}), so a single \python{context="MOT"} labels every row that stack produces, except those of a constituent that names its own. This is the general rule that only what differs from the preceding state need be stated. Every row of a timeline has a context, stated or inherited.
  
@@ -714,7 +710,7 @@ def MOT(duration, lower_current, upper_current):
         context="MOT"
     )
 \end{minted}
-This returns a stage that can be slotted into any later timeline. Its arguments are best named explicitly rather than collected in \python{**kwargs}: \python{update} and \python{ramp} read any keyword they do not recognize as a variable name (\cref{sec:functions}), so a misspelled argument would become a new variable without any error. The exception is the default state of the apparatus, where this is exactly what is wanted (\cref{sec:forwarding}).
+This returns a stage that can be slotted into any later timeline. Its arguments are best named explicitly rather than collected in \python{**kwargs}: \python{update} and \python{ramp} read any keyword they do not recognize as a variable name (\cref{sec:functions}), so a misspelled argument would become a new variable without any error. The exception is the default state of the apparatus, where reading unrecognized keywords as variables is exactly what is wanted (\cref{sec:forwarding}).
 
 Similarly, triggering a camera is a useful abstraction, parameterized by the time instant and the duration of the exposition:
 \begin{minted}[frame=none]{python}
@@ -804,7 +800,7 @@ The ADwin real-time DAQ and control device is one such system – a self-standin
  
 Two properties are worth emphasizing, precisely because they belong to the backend rather than to Wigner Time. First, the determinism of the output – timing jitter and long-term drift – is set by the timing hardware and its clock-distribution chain, not by the layer that generates the timeline; ADwin systems can be referenced to an external clock, so a laboratory-grade frequency standard can be used wherever the experiment demands it. Second, ADwin is modular, so which channel types are available is a question of which modules are installed, not of the control software. Wigner Time inherits both properties here, and would inherit the corresponding properties of any other backend – which is what back-end agnosticism means in practice.
  
-Wigner Time comes with a subpackage, \python{wignertime.adwin}, that provides many conveniences. Some functions, such as those within the display module, are drop-in replacements for the defaults provided by Wigner Time more centrally, catering for ADwin-specific timeline columns and contexts. Others, like those in \python{wignertime.adwin.core}, interact directly with the hardware and rely on the official ADwin Python support \cite{adwin_pypi}
+Wigner Time comes with a subpackage, \python{wignertime.adwin}, that provides many conveniences. Some of them know only what is particular to ADwin and touch no hardware: the display module, for instance, which knows the contexts that ADwin reserves and draws the initial and final states either side of the run. Others, like those in \python{wignertime.adwin.core}, interact directly with the hardware and rely on the official ADwin Python support \cite{adwin_pypi}.
  
 In practice, few of these functions are necessary on a day-to-day basis. As demonstrated in \cref{sec:demonstration}, the main function required is \python{wignertime.adwin.core.upload}, which converts a timeline at the cycle period read from the controller itself and writes the result into the controller’s memory. It returns a record of what was written, which can be archived alongside the data.
  
@@ -830,15 +826,16 @@ endsub.
 \end{minted}
  
 As can be seen, the role of ADwin has been reduced to a single concept – “at this
-time instant, if any desired voltage is different from the past time instant,
-update this voltage” – written once each for analog and digital connections. The
+cycle, write the values listed for it” – written once each for analog and digital
+connections. It does not compare values: which ones have changed has already been
+decided before the upload, as described below. The
 loop therefore costs two comparisons per channel group, with early exit, and no
 arithmetic whatsoever. This is what permits the 1\,µs cycle time quoted in
 \cref{sec:intro}: the previous implementation evaluated, on every cycle and for
 every ramp in progress, an expression of the form
 \python{Tanh(...)/TwoTimesTanhOfTheTanhInterval} and was limited to 5\,µs as a result.
 
-The arrays uploaded to the controller are prepared in the same spirit. Ramps are expanded at the cycle period of the controller, unless a ramp fixes a coarser resolution of its own (\cref{sec:functions}), and converted to DAC codes, and every row that would leave a channel at the code it already holds is then removed. What remains is one row for each change of code, at the first cycle at which that change occurs. This is the treatment of ramps suggested by Kowalski \textit{et al.} \cite{kowalski2023entangleware}, who time analog transitions at the instants when the DAC code actually changes, rather than sampling the trajectory at a fixed rate; on hardware that can act only at cycle boundaries, the two give the same result. A ramp is therefore as smooth as the hardware allows, the controller receives no more rows than are needed to describe it, and no time resolution has to be chosen.
+The arrays uploaded to the controller are prepared in the same spirit. Ramps are expanded at the cycle period of the controller, unless a ramp fixes a coarser resolution of its own (\cref{sec:functions}), and converted to DAC codes, and every row that would leave a channel at the code it already holds is then removed. What remains is one row for each change of code, at the first cycle at which that change occurs. Kowalski \textit{et al.} \cite{kowalski2023entangleware} arrive at the same rows from the other direction: rather than sampling a ramp at a fixed rate, they compute the instants at which its DAC code changes, and output only there. A controller that changes its outputs once per cycle can act at such an instant only at the next cycle, which is the very cycle that the filtering above keeps. On such a controller the two procedures send the same rows. A ramp is therefore as smooth as the hardware allows, the controller receives no more rows than are needed to describe it, and no time resolution has to be chosen.
 
 \medskip
 How the controller divides its outputs between a run and a manual console is described in \cref{sec:adwin_operation}. For further details, consult the API documentation \cite{wignertime_docs}.
