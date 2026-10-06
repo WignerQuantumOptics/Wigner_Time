@@ -293,7 +293,8 @@ def _digits(table, name, value):
             }
         )
     )
-    return index, to_digits(row, value)
+    # `to_digits` reads the row's columns as attributes, as `_records` gives them.
+    return index, to_digits(SimpleNamespace(**row), value)
 
 
 def configure(machine, table):
