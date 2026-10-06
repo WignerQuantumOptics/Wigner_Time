@@ -244,7 +244,8 @@ EndIf
  
 '=== MOT_full.bas, EVENT, some 150 lines further down =================
 If ((CycleCount >= rampCoilsBeginCC) And (CycleCount <= rampCoilsEndCC)) Then
-  rampCoilsTemp = Tanh(TanhInterval*(2.*(CycleCount-rampCoilsBeginCC)/(rampCoilsEndCC-rampCoilsBeginCC)-1.))/TwoTimesTanhOfTheTanhInterval
+  rampCoilsTemp = Tanh(TanhInterval*(2.*(CycleCount-rampCoilsBeginCC)/(rampCoilsEndCC-rampCoilsBeginCC)-1.))
+    /TwoTimesTanhOfTheTanhInterval
   ...
 EndIf
  
@@ -413,7 +414,8 @@ For analog connections, conversions and value ranges must also be specified. The
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none]{python}
 devices = device.new(
-    ["lockbox__MOT__MHz", 0.05, -200, 200],  # 0.05 V/MHz: +/-200 MHz spans +/-10 V
+    ["lockbox__MOT__MHz", 0.05, -200, 200], 
+    # 0.05 V/MHz: +/-200 MHz spans +/-10 V
     [
         "AOM__MOT__transmission",
         conv.function_from_file(
@@ -705,7 +707,8 @@ Breaking this down into reusable operations, the MOT stage is clearly central, a
 def MOT(duration, lower_current, upper_current):
     return stack(
         update(shutter__MOT=1, shutter__repump=1),
-        ramp(coil__MOT_lower__A=lower_current, coil__MOT_upper__A=upper_current, duration=0.1),
+        ramp(coil__MOT_lower__A=lower_current, coil__MOT_upper__A=upper_current,
+             duration=0.1),
         anchor(duration),
         context="MOT"
     )
@@ -725,7 +728,8 @@ The initial conditions are defined separately:
 def init():
     return stack(
         update(
-            AOM__MOT=1, AOM__repump=1, shutter__MOT=0, shutter__repump=0, trigger__camera=0,
+            AOM__MOT=1, AOM__repump=1, shutter__MOT=0, shutter__repump=0,
+            trigger__camera=0,
             coil__MOT_lower__A=1, coil__MOT_upper__A=1,  # kept energized between runs
         ),
         anchor(0.0),
@@ -1057,7 +1061,9 @@ from wignertime import ramp_function
 # They are all collected together here for demonstration purposes only.
 
 """
-`connections` allows us to label physical links (inputs and outputs) between devices and the timing system. By using labels that follow a particular regex, configurable as `config.VARIABLE__REGEX`, we can separate out the design and the implementation of our experiment.
+`connections` allows us to label physical links (inputs and outputs) between devices and the timing system.
+By using labels that follow a particular regex, configurable as `config.VARIABLE__REGEX`,
+we can separate out the design and the implementation of our experiment.
 """
 connections = adcon.new(
     ["shutter__MOT", 1, 11],
@@ -1077,9 +1083,13 @@ connections = adcon.new(
 )
 
 """
-`devices` stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable. A linear conversion is the factor taking the unit *to* volts, so a device whose permitted range spans the controller's full output is `10 / limit` – `10 / 5.0` for a coil driven over +/-5 A by a +/-10 V DAC.
+`devices` stores how to map our physical quantities to an implementation voltage,
+as well as specifying the range of values that should be allowed for this variable.
+A linear conversion is the factor taking the unit *to* volts, so a device whose permitted range spans
+the controller's full output is `10 / limit` – `10 / 5.0` for a coil driven over +/-5 A by a +/-10 V DAC.
 
-These specifications are deliberately separated from `connection`s because they represent physical properties and conversions that are independent of the particular DAC wiring.
+These specifications are deliberately separated from `connection`s because they represent
+physical properties and conversions that are independent of the particular DAC wiring.
 """
 devices = device.new(
     ["coil__MOT_lower__A", 10 / 5.0, -5, 5],
@@ -1121,7 +1131,8 @@ def default_state(MOT_ON=True, **kwargs):
     """
     Starts/leaves the system in a sane state that is appropriate for creating a new timeline
 
-    As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. When needed, we turn them off before the opening of the shutter. The same holds for the coils.
+    As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. 
+    When needed, we turn them off before the opening of the shutter. The same holds for the coils.
     """
     return tl.update(
         lockbox__MOT__MHz=0.0,
@@ -1142,7 +1153,8 @@ def default_state(MOT_ON=True, **kwargs):
 
 def init(**kwargs):
     """
-    The initial state belongs to no instant of the run: it is placed before it, at minus infinity, in `ADwin_LowInit`, a 'special' context that the ADwin system plays before the run starts.
+    The initial state belongs to no instant of the run: it is placed before it, at minus infinity,
+    in `ADwin_LowInit`, a 'special' context that the ADwin system plays before the run starts.
     """
     return default_state(
         time=-math.inf,
@@ -1153,11 +1165,14 @@ def init(**kwargs):
 
 def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwargs):
     """
-    Safely winds down the system, 'ramping' the analog variables to the “default state” in a given duration by the default `ramp_function`.
+    Safely winds down the system, 'ramping' the analog variables 
+    to the “default state” in a given duration by the default `ramp_function`.
 
     The `anchor` function is used to specify a key time instant, around which other times can be specified.
 
-    `ADwin_Finish` is again a special context. It means that the “default state” will be actuated when the run ends, even when it is interrupted, and is therefore placed after the run, at plus infinity.
+    `ADwin_Finish` is again a special context.
+    It means that the “default state” will be actuated when the run ends,
+    even when it is interrupted, and is therefore placed after the run, at plus infinity.
     """
     duration = 1e-2
 
@@ -1390,7 +1405,7 @@ There are two unsatisfying ways to arrange this. The base \python{default_state}
 
 Keyword forwarding provides a third way. \python{default_state} accepts \python{**kwargs} and passes them on to its \python{update} call, which reads any keyword it does not itself recognize as a variable and its value (\cref{sec:functions}). The two stages that wrap it, \python{init} and \python{finish}, forward \python{**kwargs} in the same way, so a keyword that neither consumes falls through to the default state and initializes a variable at both ends of the run. Only these three functions accept arbitrary keywords; ordinary stages name their arguments explicitly, since there a misspelled argument would otherwise become a new variable (\cref{sec:stacking}).
 
-\begin{minted}[fontsize=\scriptsize, breaklines, breakanywhere, frame=none]{python}
+\begin{minted}[fontsize=\tiny, breaklines, breakanywhere, frame=none]{python}
 # experiment.py - the base apparatus
 def default_state(MOT_ON=True, cavity_transmission=True, **kwargs):
     return tl.update(
@@ -1412,7 +1427,7 @@ def init(MOT_ON=False, cavity_transmission=False, **kwargs):
         **kwargs,
     )
 
-# finish(**kwargs) forwards to default_state in the same way (appendix B)
+# finish(**kwargs) forwards to default_state in an analogous way (appendix B)
 
 # diagnostics.py - a module that adds absorption imaging
 connections = pd.concat([
