@@ -1037,6 +1037,7 @@ An example implementation of a real experiment, using Wigner Time timelines.
 As well as providing conveniences, the functions can be used to document the intention and meaning of each stage.
 """
  
+import functools
 import math
 
 from munch import Munch
@@ -1094,7 +1095,7 @@ devices = device.new(
         0.0,
         1.0,
     ],
-    ["dispenser__Rb__A", 10 / 3.0, -3, 3],
+    ["dispenser__Rb__A", 10 / 5.0, -5, 5],
 )
 
 
@@ -1102,19 +1103,11 @@ devices = device.new(
 'constants' allow us to store site-specific details that help define our experiment.
 """
 constants = Munch(
-    safety_factor=1.1,
     lag_MOT_shutter=2.3e-3,
     lag_repump_shutter=2.3e-3,
-    Compensation=Munch(
-        Z__A=-0.1,
-        Y__A=1.5,
-        X__A=0.25,
-    ),
     OP=Munch(
-        lag_AOM_on=15e-6,
         lag_shutter_on=1.48e-3,
         lag_shutter_off=1.78e-3,
-        duration_shutter_on=140e-6,
     ),
 )
 
@@ -1143,6 +1136,7 @@ def default_state(MOT_ON=True, **kwargs):
         shutter__OP2=1,
         shutter__science=0,
         AOM__science__trans=1.0,
+        dispenser__Rb__A=3.8,
         **kwargs,
     )
 
@@ -1169,13 +1163,12 @@ def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwarg
     duration = 1e-2
 
     return tl.stack(
-        tl.anchor(wait, context="finalize"),
+        tl.anchor(wait),
         tl.ramp(
             lockbox__MOT__MHz=0.0,
             coil__MOT_lower__A=lower_current,
             coil__MOT_upper__A=upper_current,
             duration=duration,
-            context="finalize",
         ),
         default_state(
             time=math.inf,
@@ -1183,6 +1176,7 @@ def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwarg
             MOT_ON=MOT_ON,
             **kwargs,
         ),
+        context="finalize",
     )
 
 
@@ -1214,13 +1208,6 @@ def MOT_detuned_growth( duration=100e-3, duration_ramp=10e-3, detuning__MHz=-5 )
         tl.anchor(duration),
         context="MOT",
     )
-
-
-def MOT_off():
-    """
-    respecting shutter lags
-    """
-    return tl.update(shutter__MOT=[-constants.lag_MOT_shutter,0], AOM__MOT=0, shutter__repump=[-constants.lag_repump_shutter,0], AOM__repump=0)
 
 
 def molasses(
@@ -1309,9 +1296,7 @@ def pull_coils(duration, lower_current, upper_current, pt=3, time=None):
     return tl.ramp(
         coil__MOT_lower__A=lower_current,
         coil__MOT_upper__A=upper_current,
-        function=lambda origin, terminus, time_resolution: ramp_function.tanh(
-            origin, terminus, time_resolution, pt
-        ),
+        function=functools.partial(ramp_function.tanh, sharpness=pt),
         duration=duration,
         time=time,
     )
