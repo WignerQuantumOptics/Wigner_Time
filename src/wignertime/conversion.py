@@ -118,7 +118,7 @@ def function_from_file(
     indices__column=[0, 1],
     **read_csv__args,
 ):
-    """
+    r"""
     An interpolation function drawn from *two columns* of a CSV-like calibration file.
 
     NOTE: If you would like to invert the interpolation then just specify the columns backwards, e.g. indices__column=[1,0]
@@ -130,7 +130,6 @@ def function_from_file(
         `sep=r"\s+"`,
     ),
     """
-    # TODO: Include default 'sep' etc.
     df = pd.read_csv(path, **read_csv__args).dropna()
 
     # Deal with possible x-duplicates

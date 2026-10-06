@@ -346,9 +346,6 @@ def find(
     - ["init", VARIABLE] (time from a context, value from each variable itself)
     """
 
-    # TODO:
-    # - More meaningful error if anchor is not available
-
     # Normalised once, here. `find` used to do this twice -- once for the early return
     # and again through `sanitize_origin` -- which left the "a string origin needs a
     # timeline" check unable to gate the early return, and a reader unable to tell which

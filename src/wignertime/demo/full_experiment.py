@@ -123,7 +123,7 @@ def default_state(MOT_ON=True, **kwargs):
             coil__MOT_upper_plus__A=constants.Compensation.Z__A,
             AOM__MOT=1,
             AOM__repump=1,
-            AOM__OP_aux=0,  # TODO: USB-controlled AOMs should be treated on a higher level
+            AOM__OP_aux=0,
             AOM__OP=1,
             AOM__science=1,
             shutter__MOT=int(MOT_ON),
@@ -157,8 +157,6 @@ def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwarg
     The ADwin_Finish environment means that the “default state” will be actuated even when the process is interrupted.
     """
     duration = 1e-2
-    # TODO:
-    # - The default_state function should be used to populate the ramp?
     return tl.stack(
         tl.anchor(wait, context="finalRamps"),
         tl.ramp(

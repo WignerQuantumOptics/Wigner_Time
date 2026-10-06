@@ -256,9 +256,6 @@ def upload(
 
     NOTE: Stateful. It writes `Par_1..3` and the data arrays, and starts nothing.
     """
-    # TODO:
-    # - Should we prepare all of the possible variables or does this waste memory?
-
     processor, processdelay, cycle_period = _timing(machine, process)
 
     output = convert(

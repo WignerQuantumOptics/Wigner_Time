@@ -254,6 +254,28 @@ def test_expand_leaves_the_timeline_it_was_given_alone():
     wt_frame.assert_equal(expanded, tl.expand(timeline, time_resolution=0.1))
 
 
+def test_expand_without_ramps_returns_the_timeline_unchanged():
+    """
+    A timeline with no `function` column has nothing to expand: one that never held a
+    ramp, and one already expanded, whose ramps are rows by now. `convert` expands
+    whatever it is given, so both reach `expand` in ordinary use.
+    """
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(c__A=2.0, y=0, time=0.0, context="s"),
+            tl.update(y=1, time=0.5),
+        )
+    )
+    assert "function" not in timeline.columns
+    wt_frame.assert_equal(tl.expand(timeline, time_resolution=0.1), timeline)
+
+    expanded = tl.expand(
+        tl.to_timeline(tl.ramp(c__A=9.0, duration=0.5), onto=timeline),
+        time_resolution=0.1,
+    )
+    wt_frame.assert_equal(tl.expand(expanded, time_resolution=0.1), expanded)
+
+
 def test_convert_leaves_the_timeline_it_was_given_alone():
     """
     `adwin.core.convert` expands internally. It was unharmed by B5 only by accident of

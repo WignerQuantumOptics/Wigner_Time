@@ -106,9 +106,6 @@ def quantities(
 
     NOTE: Unit and quantity terminology taken from SI conventions.
     """
-    # TODO:
-    # - Separate style and content
-    # - offer filtering by `context`
     if variables:
         tline = wt_frame.subframe(timeline, "variable", variables)
     else:
