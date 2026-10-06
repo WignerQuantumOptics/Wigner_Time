@@ -1,5 +1,5 @@
 """
-Regression tests for `wignertime.device.check_within_range`.
+Regression tests for `wignertime.hardware.device.check_within_range`.
 
 Run with `pytest test_check_within_range.py` from this directory.
 """
@@ -10,15 +10,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "shim"))
 
 import numpy as np
-import pandas as pd
 import pytest
 
-from wignertime import device
+from wignertime.hardware import device
+from wignertime.internal import dataframe as wt_frame
 
 
 def frame(rows):
     """rows are (variable, value, value__min, value__max)."""
-    return pd.DataFrame(
+    return wt_frame.new(
         [
             dict(variable=v, value=float(val), value__min=lo, value__max=hi)
             for v, val, lo, hi in rows
@@ -158,4 +158,4 @@ def test_empty_timeline_passes():
 def test_input_is_not_mutated():
     before = MIXED.copy()
     device.check_within_range(MIXED)
-    pd.testing.assert_frame_equal(MIXED, before)
+    wt_frame.assert_equal(MIXED, before)

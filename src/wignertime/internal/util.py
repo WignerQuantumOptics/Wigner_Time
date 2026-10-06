@@ -12,8 +12,8 @@ from typing import Callable
 
 import numpy as np
 
-from wignertime import config as wt_config
-from wignertime.config import wtlog
+from wignertime.internal import tags as wt_tags
+from wignertime.internal.tags import wtlog
 from wignertime.internal import dataframe as wt_frame
 
 
@@ -166,7 +166,7 @@ def range__inclusive(start, stop, step):
 
 def sample(lst: list, N: int):
     """
-    Retrive `N`, equally and maximally spaced, elements from the `list`.
+    Retrieve `N`, equally and maximally spaced, elements from the `list`.
     """
     indices = np.linspace(0, len(lst) - 1, N, dtype=int)
     return [lst[i] for i in indices]
@@ -201,7 +201,7 @@ def parameters__unstated(f: Callable) -> set[str]:
         name
         for name, p in inspect.signature(f).parameters.items()
         if p.kind in (p.KEYWORD_ONLY, p.POSITIONAL_OR_KEYWORD)
-        and (p.default is p.empty or p.default is None or p.default is wt_config.INFER)
+        and (p.default is p.empty or p.default is None or p.default is wt_tags.INFER)
     }
 
 
@@ -401,9 +401,10 @@ def ensure_timeline(
     if timeline is None:
         return timeline
 
-    if isinstance(timeline, wt_frame.CLASS):
+    if wt_frame.is_frame(timeline):
+        columns__present = wt_frame.columns(timeline)
         if columns__required is not None:
-            missing = [c for c in columns__required if c not in timeline.columns]
+            missing = [c for c in columns__required if c not in columns__present]
             if missing:
                 raise TypeError(
                     "`{}` was given a frame missing the column(s) {}. A timeline has "
@@ -417,10 +418,9 @@ def ensure_timeline(
         # minimum (#28) and then inherited by every row appended after it. Refused
         # instead, where the table enters, since from here on nothing records that
         # anything was missing.
-        if column__context in timeline.columns:
-            missing = wt_frame.isnull(timeline[column__context]) | (
-                timeline[column__context] == ""
-            )
+        if column__context in columns__present:
+            contexts = wt_frame.column(timeline, column__context)
+            missing = wt_frame.isnull(contexts) | (contexts == "")
             if missing.any():
                 raise ValueError(
                     "`{}` was given a timeline in which {} row(s) have no context: {}."
@@ -428,7 +428,14 @@ def ensure_timeline(
                         name__function,
                         int(missing.sum()),
                         ", ".join(
-                            sorted(set(map(str, timeline.loc[missing, "variable"])))
+                            sorted(
+                                set(
+                                    map(
+                                        str,
+                                        wt_frame.column(timeline, "variable")[missing],
+                                    )
+                                )
+                            )
                         ),
                     )
                 )
@@ -515,7 +522,7 @@ def _unstated(f, arguments):
         if parameter.default is parameter.empty or name not in arguments:
             continue
         value, default = arguments[name], parameter.default
-        if value is default or (default is wt_config.INFER and value is None):
+        if value is default or (default is wt_tags.INFER and value is None):
             out.add(name)
         elif (
             not callable(default)

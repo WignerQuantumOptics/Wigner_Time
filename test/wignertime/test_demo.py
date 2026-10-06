@@ -2,16 +2,16 @@ import math
 from copy import deepcopy
 
 import pytest
-import pandas as pd
 
-from wignertime import timeline as tl
-from wignertime.internal.timeline import anchor as anchor
+from wignertime.timeline import build as tl
+from wignertime.timeline.internal import anchor as anchor
 from wignertime.internal import dataframe as frame
 
 from wignertime.demo import full_experiment as ex
+from wignertime.internal import dataframe as wt_frame
 
 # NOTE: the commented-out `adwin_display` calls below need
-# `from wignertime.adwin import display as adwin_display`, and with it the
+# `from wignertime.backend.adwin import display as adwin_display`, and with it the
 # optional `display` extra. It is not imported at module scope so that these
 # tests remain runnable without that extra.
 
@@ -75,7 +75,7 @@ def test_MOT():
         )
     )
 
-    tl__original = pd.DataFrame(
+    tl__original = wt_frame.new(
         [
             {
                 "time": -math.inf,
@@ -242,7 +242,7 @@ def test_MOTdetuned():
         )
     ).drop(columns="function")
 
-    tl__original = pd.DataFrame(
+    tl__original = wt_frame.new(
         [
             [-math.inf, "lockbox__MOT__MHz", 0.0, "ADwin_LowInit"],
             [-math.inf, "coil__compensation_X__A", 0.25, "ADwin_LowInit"],
@@ -323,7 +323,7 @@ def test_fullDemo():
             ex.finish(),
         )
     ).drop(columns=["function"])
-    expected = pd.DataFrame(
+    expected = wt_frame.new(
         {
             "time": [
                 -math.inf,

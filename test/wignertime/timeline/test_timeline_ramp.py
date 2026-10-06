@@ -2,10 +2,13 @@ import pytest
 from munch import Munch
 import numpy as np
 
-from wignertime import ramp_function, timeline as tl
+from wignertime.timeline import ramp_function
+from wignertime.internal import tags as wt_tags
+from wignertime.timeline import build as tl
+from wignertime.timeline.internal import stages as wt_stages
 
 # NOTE: the commented-out `display` call below needs
-# `from wignertime.adwin import display`, and with it the optional `display`
+# `from wignertime.backend.adwin import display`, and with it the optional `display`
 # extra. It is not imported at module scope so that these tests remain runnable
 # without that extra.
 from wignertime.internal import dataframe as wt_frame
@@ -34,7 +37,7 @@ def dfseq():
 
 @pytest.fixture
 def tl_anchor():
-    return tl._populate_timeline(
+    return wt_stages.populate_timeline(
         [
             ["lockbox__MOT__V", 0.0],
             ["⚓__001", 0.0],
@@ -53,19 +56,19 @@ def tl_anchor():
         Munch(
             lockbox__MOT__V=[100e-3, 5],
             context="init",
-            origin=[tl.LAST, tl.VARIABLE],
-            origin2=[tl.VARIABLE],
+            origin=[wt_tags.LAST, wt_tags.VARIABLE],
+            origin2=[wt_tags.VARIABLE],
         ),
         Munch(
             lockbox__MOT__V=[100e-3, 5],
             context="init",
-            origin=[tl.LAST, tl.VARIABLE],
-            origin2=[tl.VARIABLE, tl.VARIABLE],
+            origin=[wt_tags.LAST, wt_tags.VARIABLE],
+            origin2=[wt_tags.VARIABLE, wt_tags.VARIABLE],
         ),
     ],
 )
 def test_ramp0(args):
-    timeline = tl._populate_timeline(
+    timeline = wt_stages.populate_timeline(
         [
             ["lockbox__MOT__V", 0.0, 0.0],
             ["⚓__001", 0.0, 0.0],
@@ -73,7 +76,7 @@ def test_ramp0(args):
         context="init",
     )
     tl_ramp = tl.to_timeline(tl.ramp(**args), onto=timeline)
-    tl_check = tl._populate_timeline(
+    tl_check = wt_stages.populate_timeline(
         [
             ["lockbox__MOT__V", [0.0, 0.0, "init"]],
             ["⚓__001", [0.0, 0.0, "init"]],
@@ -94,28 +97,28 @@ def test_ramp0(args):
         Munch(
             lockbox__MOT__V=5,
             duration=0.05,
-            origin=[0.05, tl.VARIABLE],
-            origin2=[tl.VARIABLE],
+            origin=[0.05, wt_tags.VARIABLE],
+            origin2=[wt_tags.VARIABLE],
         ),
         Munch(
             lockbox__MOT__V=[50e-3, 5],
-            origin=[tl.LAST, tl.VARIABLE],
-            origin2=[tl.VARIABLE],
+            origin=[wt_tags.LAST, wt_tags.VARIABLE],
+            origin2=[wt_tags.VARIABLE],
         ),
         Munch(
             lockbox__MOT__V=[50e-3, 4.8],
-            origin=[tl.LAST, tl.VARIABLE],
-            origin2=[tl.VARIABLE, tl.VARIABLE],
+            origin=[wt_tags.LAST, wt_tags.VARIABLE],
+            origin2=[wt_tags.VARIABLE, wt_tags.VARIABLE],
         ),
     ],
 )
 def test_ramp1(args):
-    timeline = tl._populate_timeline(
+    timeline = wt_stages.populate_timeline(
         [["lockbox__MOT__V", [50e-3, 0.2]], ["⚓__001", [0.0, 0.0]]], context="init"
     )
 
     tl_ramp = tl.to_timeline(tl.ramp(**args, context="init"), onto=timeline)
-    tl_check = tl._populate_timeline(
+    tl_check = wt_stages.populate_timeline(
         [
             ["lockbox__MOT__V", [50e-3, 0.2]],
             [
@@ -156,7 +159,7 @@ def test_a_written_start_is_refused_and_a_jump_is_an_update():
     kept literal with `origin=[0.0, 0.0]` -- and a start that differs from the current
     value is a step hidden inside the ramp. The step is now an `update`, where it shows.
     """
-    timeline = tl._populate_timeline(
+    timeline = wt_stages.populate_timeline(
         [["lockbox__MOT__V", [50e-3, 0.2]], ["⚓__001", [0.0, 0.0]]], context="init"
     )
     with pytest.raises(ValueError, match="its start is not written: lockbox__MOT__V"):
@@ -248,7 +251,9 @@ def test_ramp_combined():
         tl.stack(
             tl.ramp(lockbox__MOT__V=10.0, time=5.0, duration=1.0),
         ),
-        onto=tl._populate_timeline("lockbox__MOT__V", [[1.0, 1.0]], context="badger"),
+        onto=wt_stages.populate_timeline(
+            "lockbox__MOT__V", [[1.0, 1.0]], context="badger"
+        ),
     )
     return wt_frame.assert_equal(tl_check, tl_ramp)
 
@@ -262,7 +267,7 @@ def test_ramp_start(tl_anchor):
         tl.ramp(lockbox__MOT__V=[0.05, 5], time=0.05, duration=100e-3), onto=tl_anchor
     )
 
-    tl_check = tl._populate_timeline(
+    tl_check = wt_stages.populate_timeline(
         [
             ["lockbox__MOT__V", [0.0, 0.0, "init"]],
             ["⚓__001", [0.0, 0.0, "init"]],
@@ -284,7 +289,7 @@ def test_ramp_start(tl_anchor):
 # def test_ramp_start2(tl_anchor, args):
 #     tl_ramp = tl.to_timeline(tl.ramp(lockbox__MOT__V=args, duration=0.0), onto=tl_anchor)
 
-#     tl_check = tl._populate_timeline(
+#     tl_check = wt_stages.populate_timeline(
 #         [
 #             ["lockbox__MOT__V", [0.0, 0.0, "init"]],
 #             ["⚓__001", [0.0, 0.0, "init"]],
@@ -304,11 +309,13 @@ def test_ramp_expand():
             tl.ramp(
                 lockbox__MOT__V=[1.0, 10.0],
                 origin="lockbox__MOT__V",
-                origin2=[tl.VARIABLE],
+                origin2=[wt_tags.VARIABLE],
             ),
             lambda tline: tl.expand(tline, time_resolution=0.2),
         ),
-        onto=tl._populate_timeline("lockbox__MOT__V", [[1.0, 1.0]], context="badger"),
+        onto=wt_stages.populate_timeline(
+            "lockbox__MOT__V", [[1.0, 1.0]], context="badger"
+        ),
     )
     tl_check = wt_frame.new(
         [
@@ -328,10 +335,12 @@ def test_ramp_expand():
 def test_random_ramp():
     tl_ramp = tl.to_timeline(
         tl.stack(
-            tl.ramp(lockbox__MOT__V=11.0, duration=1.0, origin=["blah", tl.VARIABLE]),
+            tl.ramp(
+                lockbox__MOT__V=11.0, duration=1.0, origin=["blah", wt_tags.VARIABLE]
+            ),
             context="blah",
         ),
-        onto=tl._populate_timeline(
+        onto=wt_stages.populate_timeline(
             ["device_pump", [0.0, 0.0, "ADwin_Init"]],
             ["lockbox__MOT__V", [1.0, 00.0, "ADwin_Init"]],
             ["lockbox__MOT__V", [2.0, 10.0, "blah"]],
@@ -716,7 +725,7 @@ def test_placed_from_the_others_end_the_same_ramp_is_kept():
     )
     first = tl.to_timeline(tl.ramp(coil__X__A=10.0, duration=0.2), onto=base)
     second = tl.to_timeline(
-        tl.ramp(coil__X__A=20.0, duration=0.2, origin=tl.LAST), onto=first
+        tl.ramp(coil__X__A=20.0, duration=0.2, origin=wt_tags.LAST), onto=first
     )
     rows = second[second["variable"] == "coil__X__A"]
     assert rows["value"].iloc[-2] == 10.0  # it starts where the first one ended

@@ -1,5 +1,5 @@
 """
-Regression tests for `wignertime.adwin.validate.drop_repeats`.
+Regression tests for `wignertime.backend.adwin.validate.drop_repeats`.
 
 Run with `pytest test_drop_repeats.py` from this directory.
 """
@@ -11,11 +11,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "shim"))
 
 import numpy as np
-import pandas as pd
 import pytest
 
-import wignertime.adwin as wt_adwin
-from wignertime.adwin import validate
+import wignertime.backend.adwin as wt_adwin
+from wignertime.backend.adwin import validate
 from wignertime.internal import dataframe as wt_frame
 
 
@@ -26,7 +25,7 @@ def frame(rows):
     """
     Rows are (time, variable, value, context, module, channel, cycle, value__digits).
     """
-    return pd.DataFrame(rows, columns=COLUMNS).astype(wt_adwin.SCHEMA)
+    return wt_frame.cast(wt_frame.new(rows, columns=COLUMNS), wt_adwin.SCHEMA)
 
 
 def row(cycle, digits, variable="coil__A", context="MOT", module=2, channel=1):
@@ -195,7 +194,7 @@ def test_input_is_not_mutated():
     tl = frame([row(c, 100) for c in range(4)])
     before = tl.copy()
     validate.drop_repeats(tl)
-    pd.testing.assert_frame_equal(tl, before)
+    wt_frame.assert_equal(tl, before)
 
 
 def test_unordered_input_is_handled():
@@ -206,7 +205,7 @@ def test_unordered_input_is_handled():
 
 def test_passthrough_when_not_digitized():
     tl = frame([row(c, 100) for c in range(4)]).drop(columns=["value__digits"])
-    pd.testing.assert_frame_equal(validate.drop_repeats(tl), tl)
+    wt_frame.assert_equal(validate.drop_repeats(tl), tl)
 
 
 # ---------------------------------------------------------------------------

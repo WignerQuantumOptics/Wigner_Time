@@ -16,7 +16,8 @@ import itertools
 
 import pytest
 
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
+from wignertime.timeline.internal import stages as wt_stages
 from wignertime.internal import dataframe as wt_frame
 
 VARIABLE = "AOM__imaging"
@@ -47,7 +48,7 @@ def test_the_public_and_internal_forms_agree(follows, expected):
     context entirely (A10 / #58).
     """
     by_keyword = tl.to_timeline(tl.update(**{VARIABLE: follows}, context=CONTEXT))
-    by_row = tl._populate_timeline([VARIABLE, follows], context=CONTEXT)
+    by_row = wt_stages.populate_timeline([VARIABLE, follows], context=CONTEXT)
 
     assert _one(by_keyword) == {**expected, "context": expected["context"] or CONTEXT}
     wt_frame.assert_equal(by_row, by_keyword)
@@ -55,14 +56,15 @@ def test_the_public_and_internal_forms_agree(follows, expected):
     if isinstance(follows, list):
         # the brackets around `<follows>` are optional in the positional forms
         wt_frame.assert_equal(
-            tl._populate_timeline([VARIABLE, *follows], context=CONTEXT), by_keyword
+            wt_stages.populate_timeline([VARIABLE, *follows], context=CONTEXT),
+            by_keyword,
         )
         wt_frame.assert_equal(
-            tl._populate_timeline(VARIABLE, *follows, context=CONTEXT), by_keyword
+            wt_stages.populate_timeline(VARIABLE, *follows, context=CONTEXT), by_keyword
         )
     else:
         wt_frame.assert_equal(
-            tl._populate_timeline(VARIABLE, follows, context=CONTEXT), by_keyword
+            wt_stages.populate_timeline(VARIABLE, follows, context=CONTEXT), by_keyword
         )
 
 
@@ -76,8 +78,10 @@ def test_several_instants_for_one_variable():
 
 def test_rows_may_be_batched():
     wt_frame.assert_equal(
-        tl._populate_timeline([["a_x__V", 1.0], ["b_y__V", 2.0]], context=CONTEXT),
-        tl._populate_timeline(["a_x__V", 1.0], ["b_y__V", 2.0], context=CONTEXT),
+        wt_stages.populate_timeline(
+            [["a_x__V", 1.0], ["b_y__V", 2.0]], context=CONTEXT
+        ),
+        wt_stages.populate_timeline(["a_x__V", 1.0], ["b_y__V", 2.0], context=CONTEXT),
     )
 
 
@@ -99,22 +103,24 @@ def test_mixing_positional_and_keyword_raises():
     the experiment rather than merely mis-stated.
     """
     with pytest.raises(ValueError, match="cannot be mixed"):
-        tl._populate_timeline(["a_x__V", 1.0], b_y__V=2.0)
+        wt_stages.populate_timeline(["a_x__V", 1.0], b_y__V=2.0)
 
 
 @pytest.mark.parametrize(
     "call",
     [
-        pytest.param(lambda: tl._populate_timeline([]), id="empty row"),
+        pytest.param(lambda: wt_stages.populate_timeline([]), id="empty row"),
         pytest.param(
-            lambda: tl._populate_timeline(["a_x__V", 1.0], []),
+            lambda: wt_stages.populate_timeline(["a_x__V", 1.0], []),
             id="empty row among others",
         ),
         pytest.param(
-            lambda: tl._populate_timeline(VARIABLE), id="name with nothing following"
+            lambda: wt_stages.populate_timeline(VARIABLE),
+            id="name with nothing following",
         ),
         pytest.param(
-            lambda: tl._populate_timeline(VARIABLE, 1, 2, 3, 4), id="too many elements"
+            lambda: wt_stages.populate_timeline(VARIABLE, 1, 2, 3, 4),
+            id="too many elements",
         ),
         pytest.param(
             lambda: tl.to_timeline(tl.update(**{VARIABLE: [[[[1.0, 2.0]]]]})),
@@ -148,8 +154,8 @@ def test_no_shape_lands_in_between():
     shapes = scalars + pairs + triples + nested + malformed
     builders = [
         lambda f: tl.to_timeline(tl.update(**{VARIABLE: f})),
-        lambda f: tl._populate_timeline([VARIABLE, f]),
-        lambda f: tl._populate_timeline(VARIABLE, f),
+        lambda f: wt_stages.populate_timeline([VARIABLE, f]),
+        lambda f: wt_stages.populate_timeline(VARIABLE, f),
     ]
 
     for follows, build in itertools.product(shapes, builders):

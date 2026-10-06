@@ -3,7 +3,8 @@ import pathlib as pl
 import sys
 import pytest
 
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
+from wignertime.timeline.internal import stages as wt_stages
 from wignertime.internal import dataframe as frame
 from wignertime.internal import dataframe as wt_frame
 
@@ -54,7 +55,7 @@ def test_stack(dfseq):
             tl.ramp(time=5.0, lockbox__MOT__V=[0.8, 1.0]),
             lambda tline: tl.expand(tline, time_resolution=0.2),
         ),
-        onto=tl._populate_timeline(
+        onto=wt_stages.populate_timeline(
             "lockbox__MOT__V", [[0.0, 0.0], [5.0, 0.0]], context="init"
         ),
     )
@@ -62,7 +63,7 @@ def test_stack(dfseq):
 
 
 def test_stack__kws(dfseq):
-    tline = tl._populate_timeline(
+    tline = wt_stages.populate_timeline(
         "lockbox__MOT__V", [[0.0, 0.0], [5.0, 0.0]], context="init"
     )
     tst = tl.expand(
@@ -266,7 +267,7 @@ def test_expand_without_ramps_returns_the_timeline_unchanged():
             tl.update(y=1, time=0.5),
         )
     )
-    assert "function" not in timeline.columns
+    assert "function" not in wt_frame.columns(timeline)
     wt_frame.assert_equal(tl.expand(timeline, time_resolution=0.1), timeline)
 
     expanded = tl.expand(
@@ -282,7 +283,7 @@ def test_convert_leaves_the_timeline_it_was_given_alone():
     pipeline order -- `remove_unconnected_variables` runs first and hands `expand` a fresh
     frame -- so it is worth pinning rather than assuming.
     """
-    from wignertime.adwin import core
+    from wignertime.backend.adwin import core
 
     before = ex.timeline_demo.copy()
     core.convert(ex.timeline_demo, ex.connections, ex.devices, 5e-6)

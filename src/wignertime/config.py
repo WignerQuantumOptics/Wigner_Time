@@ -1,141 +1,223 @@
 # SPDX-FileCopyrightText: 2024 Thomas W. Clark and András Vukics
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import enum
-import logging
+"""
+The settings a user may change, and nothing else.
+
+    wt.config                                   # what they are, and their defaults
+    wt.config.VARIABLE__REGEX = r"^...$"        # checked when it is set
+    with wt.config.override(VARIABLE__REGEX=r"^...$"):
+        ...                                     # changed for this block only
+    wt.config.reset()                           # back to the defaults
+
+A setting is read by the package each time it is used, so a change takes effect at once,
+without reimporting. A value that cannot work is refused when it is set, and so is a name
+that is not a setting, so a misspelt one does not pass unnoticed.
+"""
+
+import contextlib
+import difflib
 import re
+import sys
+import types
+
+from wignertime.internal import tags as _tags
 
 ###############################################################################
-#                   Constants                                                 #
+#                   The settings                                              #
 ###############################################################################
-LABEL__ANCHOR = "⚓"
-# `TIME_RESOLUTION`, the ramp functions' default sampling step, is gone (#85 P3, C7 item
-# 7): a ramp binds its own resolution or is given one by whoever expands it, and
-# `adwin.core.convert` gives the cycle period. As a default bound at import it could not
-# even be changed (#144).
 
 VARIABLE__REGEX = re.compile(r"^([^_]+)__([^_]+(?:_[^_]+)*)(?:__([^_]+))?$")
 """
-The naming convention for a `variable`, as `<device>__<UID>(__<unit>)`, e.g.
-`coil__MOT_lower__A` and `shutter__MOT`; the three groups are what `variable.parse`
-returns. A missing `__<unit>` is what marks a line as digital. `<device>` and `<unit>`
-contain no `_`; the `<UID>` may contain single ones (D7, #121, settled by the
-maintainer 2026-09-29).
+The naming convention for variables: `<device>__<UID>(__<unit>)`, as in
+`coil__MOT_lower__A` and `shutter__MOT`. A name without `__<unit>` is a digital line.
+`<device>` and `<unit>` contain no `_`, and `<UID>` may contain single ones.
 
-Keeping `_` out of `<device>` is what makes the grammar safe to migrate to: a name in the
-old `<device>_<UID>(__<unit>)` form has a `_` before its first `__`, so it is refused
-rather than read with its unit taken for a UID, i.e. as digital. It also refuses a
-device of several words, `power_supply__X__V`, which the old grammar split silently;
-such a device is `supply__power_X__V`.
-
-This lives here, rather than in `variable`, because the convention is a *default*
-rather than a law: a site that consistently applies a different one can rebind this
-name before building its `connection`s. `variable.parse` and
-`adwin.connection.is_valid_name` read it at call time, so an override takes effect
-without reimporting.
+A site that keeps a different convention may set its own, as a pattern or a string with
+three groups – device, UID and unit (the last may match nothing). Connections and devices
+are checked against it when they are made.
 """
 
-
-class _Infer:
-    __slots__ = ()
-
-    def __repr__(self):
-        return "INFER"
-
-    def __reduce__(self):
-        # `copy`, `deepcopy` and `pickle` all return this same object, so an `is` test
-        # still holds for a default captured by a deferred call.
-        return "INFER"
-
-
-INFER = _Infer()
+ORIGIN__DEFAULTS = ((_tags.ANCHOR, None), (_tags.LAST, None))
 """
-The default of `origin` in `update`, `anchor` and `ramp`, and of `context` in `create`,
-`update`, `anchor` and `ramp` (#142). It is there so that a signature shows that the
-default *does* something: the origin is inferred from the timeline being extended (see
-`ORIGIN__DEFAULTS` and `ORIGIN__DEFAULTS__RAMP`), and an unstated context is inherited
-from it, and `help(tl.update)` reads `origin=INFER`.
-
-`None` means exactly the same, both as the whole argument and in either slot of an
-origin pair. That is deliberate. A stage that takes `origin=None` or `context=None` and
-passes it on -- the usual way of writing "no opinion of my own" -- then gets the
-library's default without having to know that this object exists, and a pair such as
-`[None, 0.0]` reads the same as `[INFER, 0.0]`. Absolute placement is a number,
-`origin=0.0`, and reads the same in `update`, `anchor` and `ramp`: a ramp always starts
-where its variable is (#142), so its value slot is never an origin question. There is
-no way to switch context inheritance off: every row has a context, stated or inherited
-(#156).
-
-It is an object rather than a string so that it cannot be mistaken for a name:
-`context="INFER"` is an ordinary context.
+Where `update` and `anchor` place what they write when no `origin` is given: the first
+of these that the timeline has, here the most recent anchor, else the latest entry. On a
+timeline that has neither, absolute zero. Each entry is a (time, value) pair.
 """
 
-ORIGIN__INFER = INFER
-"""`INFER`, under the name the `origin` signatures use."""
-
-
-# Time references in order of priority, each paired with the value reference that goes
-# with it. `origin.auto` walks the list and takes the first entry whose time reference
-# this timeline can satisfy, then completes whichever slots the caller left as `None`.
-# The chain is terminal: if nothing is satisfiable the time origin is 0.0, with a
-# warning.
-class Origin(enum.Enum):
-    """
-    The reserved origin words, as tags rather than strings (#158, 2026-09-29).
-
-    A string in an `origin` is always a *name* -- of a variable or of a context -- and a
-    tag is always a *rule*. While the rules were the strings `"anchor"`, `"last"` and
-    `"variable"`, a string was sometimes one and sometimes the other, so a context or a
-    variable named after one of the words could not be referred to, and had to be refused
-    where it was written (A9). Tags are compared with `is`, print as their bare names, as
-    `INFER` does, and never reach the data, since an origin is resolved while the
-    timeline is built.
-
-    - `ANCHOR`: the most recent anchor;
-    - `LAST`: the latest entry of the timeline;
-    - `VARIABLE`: each variable relative to its own most recent entry, in time or in
-      value -- the one tag admissible in either slot.
-    """
-
-    ANCHOR = "anchor"
-    LAST = "last"
-    VARIABLE = "variable"
-
-    def __repr__(self):
-        return self.name
-
-    __str__ = __repr__
-
-
-ANCHOR = Origin.ANCHOR
-LAST = Origin.LAST
-VARIABLE = Origin.VARIABLE
-
-ORIGIN__DEFAULTS = [[ANCHOR, None], [LAST, None]]
-"""For `update` and `anchor`, whose values are absolute -- hence `None` in every value slot."""
-
-ORIGIN__DEFAULTS__RAMP = [[ANCHOR, VARIABLE], [LAST, VARIABLE]]
+ORIGIN__DEFAULTS__RAMP = ((_tags.ANCHOR, _tags.VARIABLE), (_tags.LAST, _tags.VARIABLE))
 """
-For `ramp`, which is the one core function that *needs* a value origin: a ramp runs from
-wherever the variable currently sits to the target, so its start value has to be looked
-up. Hence `VARIABLE` in the value slot -- the variable's own previous value, bounded by
-the time origin. It is the only thing that slot can hold: a ramp always starts where its
-variable is (#142), and `ramp` refuses anything else written there.
-
-The `LAST` step is not decoration. Without it (this was a single-entry list until
-2026-09-18) a `ramp` onto a timeline holding no anchor fell off the end of the chain and
-landed in absolute time, so it could be placed *before* the rows it was appended to, with
-no warning. See KNOWN_ISSUES A4.
+The same for `ramp`. Its value slot is always `VARIABLE`: a ramp starts from where its
+variable is.
 """
-
-CONTEXT__INFER = INFER
-"""`INFER`, under the name the `context` signatures use."""
 
 ###############################################################################
-#                   Logging                                                 #
+#                   Checking, showing, resetting                              #
 ###############################################################################
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-wtlog = logging.getLogger("wtlog")
-wtlog.setLevel(logging.WARNING)
+
+
+def _check__regex(value):
+    pattern = re.compile(value) if isinstance(value, str) else value
+    if not isinstance(pattern, re.Pattern):
+        raise TypeError(
+            "VARIABLE__REGEX is a pattern or a string, not {}.".format(
+                type(value).__name__
+            )
+        )
+    if pattern.groups != 3:
+        raise ValueError(
+            "VARIABLE__REGEX needs three groups – device, UID and unit – and {!r} has"
+            " {}.".format(pattern.pattern, pattern.groups)
+        )
+    return pattern
+
+
+def _check__origins(name, value, value_slot=None):
+    if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
+        raise TypeError(
+            "{} is a sequence of (time, value) pairs, not {!r}.".format(name, value)
+        )
+    entries = tuple(tuple(entry) for entry in value)
+    if not entries:
+        raise ValueError("{} needs at least one (time, value) pair.".format(name))
+    for entry in entries:
+        if len(entry) != 2:
+            raise ValueError(
+                "{} is a sequence of (time, value) pairs; {!r} is not a pair.".format(
+                    name, entry
+                )
+            )
+        if entry[0] is _tags.VARIABLE:
+            raise ValueError(
+                "{}: `VARIABLE` is a value reference, so it cannot be the time of"
+                " {!r}.".format(name, entry)
+            )
+        if value_slot is not None and entry[1] is not value_slot:
+            raise ValueError(
+                "{}: a ramp starts from where its variable is, so every value slot is"
+                " `VARIABLE`, and {!r} is not.".format(name, entry)
+            )
+    return entries
+
+
+_SETTINGS = {
+    "VARIABLE__REGEX": (VARIABLE__REGEX, _check__regex),
+    "ORIGIN__DEFAULTS": (
+        ORIGIN__DEFAULTS,
+        lambda v: _check__origins("ORIGIN__DEFAULTS", v),
+    ),
+    "ORIGIN__DEFAULTS__RAMP": (
+        ORIGIN__DEFAULTS__RAMP,
+        lambda v: _check__origins("ORIGIN__DEFAULTS__RAMP", v, _tags.VARIABLE),
+    ),
+}
+
+# Names this module answered to before it held only settings (2026-10-01). They still
+# resolve, so that old code and old pickles do, but are not listed and cannot be rebound.
+_FIXED = {
+    "LABEL__ANCHOR": _tags.LABEL__ANCHOR,
+    "INFER": _tags.INFER,
+    "ORIGIN__INFER": _tags.ORIGIN__INFER,
+    "CONTEXT__INFER": _tags.CONTEXT__INFER,
+    "Origin": _tags.Origin,
+    "ANCHOR": _tags.ANCHOR,
+    "LAST": _tags.LAST,
+    "VARIABLE": _tags.VARIABLE,
+    "wtlog": _tags.wtlog,
+}
+globals().update(_FIXED)
+
+
+def _shown(value):
+    return value.pattern if isinstance(value, re.Pattern) else repr(value)
+
+
+def show():
+    """Prints the settings, and marks those that differ from their defaults."""
+    print(_describe())
+
+
+def _describe():
+    module = sys.modules[__name__]
+    width = max(map(len, _SETTINGS))
+    lines = ["wignertime settings (wt.config):"]
+    for name, (default, _) in _SETTINGS.items():
+        value = getattr(module, name)
+        lines.append(
+            "  {:<{}}  {}{}".format(
+                name,
+                width,
+                _shown(value),
+                "" if value == default else "   (default {})".format(_shown(default)),
+            )
+        )
+    return "\n".join(lines)
+
+
+def reset(*names):
+    """Puts the named settings, or all of them, back to their defaults."""
+    module = sys.modules[__name__]
+    for name in names or _SETTINGS:
+        _require_setting(name)
+        setattr(module, name, _SETTINGS[name][0])
+
+
+@contextlib.contextmanager
+def override(**settings):
+    """
+    Changes settings for the duration of a `with` block, and restores them after it, also
+    when the block raises. Every value is checked before any is changed.
+    """
+    module = sys.modules[__name__]
+    for name in settings:
+        _require_setting(name)
+    checked = {name: _SETTINGS[name][1](value) for name, value in settings.items()}
+    before = {name: getattr(module, name) for name in checked}
+    for name, value in checked.items():
+        setattr(module, name, value)
+    try:
+        yield module
+    finally:
+        for name, value in before.items():
+            setattr(module, name, value)
+
+
+def _require_setting(name):
+    if name in _SETTINGS:
+        return
+    if name in _FIXED:
+        raise AttributeError(
+            "`{}` is fixed by the package, not a setting. The settings are {}.".format(
+                name, ", ".join(_SETTINGS)
+            )
+        )
+    close = difflib.get_close_matches(name, _SETTINGS, n=1)
+    raise AttributeError(
+        "`{}` is not a setting.{} The settings are {}.".format(
+            name,
+            " Did you mean `{}`?".format(close[0]) if close else "",
+            ", ".join(_SETTINGS),
+        )
+    )
+
+
+__all__ = [*_SETTINGS, "show", "reset", "override"]
+
+
+class _Config(types.ModuleType):
+    """This module, with its settings checked when they are set."""
+
+    def __setattr__(self, name, value):
+        if not name.startswith("_"):
+            _require_setting(name)
+            value = _SETTINGS[name][1](value)
+        super().__setattr__(name, value)
+
+    def __dir__(self):
+        return sorted(__all__)
+
+    def __repr__(self):
+        return _describe()
+
+
+sys.modules[__name__].__class__ = _Config

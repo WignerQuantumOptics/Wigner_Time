@@ -9,7 +9,9 @@ import math
 
 import pytest
 
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
+
+from wignertime.internal import tags as wt_tags
 
 
 def before(**values):
@@ -71,7 +73,7 @@ def test_a_value_lookup_sees_the_state_before_the_run_and_never_after_it():
     "origin,names",
     [
         ("ADwin_LowInit", "every row of 'ADwin_LowInit' is"),
-        (tl.LAST, "every row of this timeline is"),
+        (wt_tags.LAST, "every row of this timeline is"),
     ],
     ids=["a context", "LAST"],
 )

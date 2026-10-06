@@ -17,7 +17,7 @@ import pathlib
 import numpy as np
 import pandas as pd
 
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
 from wignertime.internal import util as wt_util
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "reference"
@@ -89,7 +89,7 @@ def convert(timeline, connections, devices, period):
     specifications; since `issue#94` it is an argument of its own, and the ramps are
     sampled at it unless a resolution is given.
     """
-    from wignertime.adwin import core
+    from wignertime.backend.adwin import core
 
     return core.convert(timeline, connections, devices, period)
 

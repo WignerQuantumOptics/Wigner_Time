@@ -1,25 +1,25 @@
 import pathlib as pl
 import sys
 import pytest
-import pandas as pd
 
-import wignertime.adwin as wt_adwin
+import wignertime.backend.adwin as wt_adwin
 
 # `adwin.core` needs the optional `adwin` extra. Skip rather than error, so that
 # the suite is green for the right reasons in an environment without it.
 pytest.importorskip("ADwin", reason="the `adwin` extra is not installed")
 
-from wignertime.adwin import core as adwin
-from wignertime.adwin import adc
-from wignertime.adwin import console
-from wignertime.adwin import connection as adcon
-from wignertime.adwin import validate as wt_validate
-from wignertime.adwin import internal as adi
-from wignertime import conversion
-from wignertime import device
-from wignertime import timeline as tl
+from wignertime.backend.adwin import core as adwin
+from wignertime.backend.adwin import adc
+from wignertime.backend.adwin import console
+from wignertime.backend.adwin import connection as adcon
+from wignertime.backend.adwin import validate as wt_validate
+from wignertime.backend.adwin import internal as adi
+from wignertime.hardware import conversion
+from wignertime.hardware import device
+from wignertime.timeline import build as tl
 from wignertime.internal import dataframe as frame
 from wignertime.demo import full_experiment as demo
+from wignertime.internal import dataframe as wt_frame
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
 # import experimentDemo as ex
@@ -29,7 +29,7 @@ print(str(pl.Path.cwd() / "doc"))
 
 @pytest.fixture
 def df_simple():
-    return pd.DataFrame(
+    return wt_frame.new(
         [
             [0.0, "AOM__imaging", 0.0, "init"],
             [0.0, "AOM__imaging__V", 2.0, "init"],
@@ -50,9 +50,9 @@ def connections_simple():
 
 
 def test_remove_unconnected_variables(df_simple, connections_simple):
-    return pd.testing.assert_frame_equal(
+    return wt_frame.assert_equal(
         adcon.remove_unconnected_variables(df_simple, connections_simple),
-        pd.DataFrame(
+        wt_frame.new(
             {
                 "time": [0.0] * 3,
                 "variable": ["AOM__imaging", "AOM__imaging__V", "AOM__repump"],
@@ -64,16 +64,16 @@ def test_remove_unconnected_variables(df_simple, connections_simple):
 
 
 def test_add_cycle():
-    df = pd.DataFrame({"time": range(10), "value": range(11, 21)})
+    df = wt_frame.new({"time": range(10), "value": range(11, 21)})
     df["context"] = (
         ["MOT"] * 4 + ["ADwin_LowInit"] * 3 + ["ADwin_Init"] * 2 + ["ADwin_Finish"]
     )
     tst = frame.cast(adi.add_cycle(df, 5e-6), wt_adwin.SCHEMA)
 
-    return pd.testing.assert_frame_equal(
+    return wt_frame.assert_equal(
         tst,
         frame.cast(
-            pd.DataFrame(
+            wt_frame.new(
                 {
                     "time": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                     "value": [11, 12, 13, 14, 15.0, 16, 17, 18, 19, 20],
@@ -198,9 +198,7 @@ def test_sanitize_raises(input_value):
 
 
 def test_sanitize_success():
-    return pd.testing.assert_frame_equal(
-        wt_validate.all(df_special3), df_special3__corrected
-    )
+    return wt_frame.assert_equal(wt_validate.all(df_special3), df_special3__corrected)
 
 
 def test_convert():
@@ -610,7 +608,7 @@ def test_upload_waits_for_a_running_process_before_writing(monkeypatch, caplog):
     monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
     machine = _MachineRecording(status=[1, 1, -1])
 
-    with caplog.at_level("WARNING", logger="wtlog"):
+    with caplog.at_level("WARNING", logger="wignertime"):
         adwin.upload(*_digital_only(), machine, 1)
 
     first_write = next(
@@ -625,7 +623,7 @@ def test_upload_waits_for_a_running_process_before_writing(monkeypatch, caplog):
 
 def test_upload_to_a_stopped_process_neither_waits_nor_says_so(caplog):
     machine = _MachineRecording()
-    with caplog.at_level("WARNING", logger="wtlog"):
+    with caplog.at_level("WARNING", logger="wignertime"):
         adwin.upload(*_digital_only(), machine, 1)
 
     assert machine.calls[0] == ("Process_Status", 0)
@@ -760,7 +758,7 @@ def test_upload_waits_for_another_process_playing_the_arrays(monkeypatch, caplog
     monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
     machine = _owned_by(4, {4: [1, 1, 0]})
 
-    with caplog.at_level("WARNING", logger="wtlog"):
+    with caplog.at_level("WARNING", logger="wignertime"):
         adwin.upload(*_digital_only(), machine, 1)
 
     assert [r.message for r in caplog.records] == [
@@ -776,7 +774,7 @@ def test_upload_waits_for_another_process_playing_the_arrays(monkeypatch, caplog
 def test_an_owner_that_is_not_running_holds_nothing_up(caplog):
     """A value left behind by a process that did not finish names it; it does not block."""
     machine = _owned_by(4, {})
-    with caplog.at_level("WARNING", logger="wtlog"):
+    with caplog.at_level("WARNING", logger="wignertime"):
         adwin.upload(*_digital_only(), machine, 1)
     assert not caplog.records
 
@@ -787,7 +785,7 @@ def test_starting_waits_for_another_process_playing_the_arrays(monkeypatch, capl
     log.machine.par[wt_adwin.PAR__SEQUENCE__OWNER] = 4
     log.machine.status = {4: [1, 0]}
 
-    with caplog.at_level("WARNING", logger="wtlog"):
+    with caplog.at_level("WARNING", logger="wignertime"):
         adwin.start(log)
 
     assert [r.message for r in caplog.records] == [
@@ -802,7 +800,7 @@ def test_starting_a_replay_waits_for_the_previous_run(monkeypatch, caplog):
     log = _uploaded()
     log.machine.status = [1, 1, 0]
 
-    with caplog.at_level("WARNING", logger="wtlog"):
+    with caplog.at_level("WARNING", logger="wignertime"):
         adwin.start(log)
 
     assert _names(log.machine.calls)[-1] == "Start_Process"
@@ -906,7 +904,7 @@ def test_upload_warns_of_a_channel_the_run_jumps_from_a_console_value(caplog):
     """The coil set to 2 A by hand, and the run's first row for it at -1.5 A."""
     machine = _MachineRecording()
     _console_holding(machine, conversion.to_digits(4.0), touched=1)
-    with caplog.at_level("WARNING", logger="wtlog"):
+    with caplog.at_level("WARNING", logger="wignertime"):
         adwin.upload(*_coil_run(), machine, 1)
     assert [r.message for r in caplog.records] == [
         "The run will jump 1 analogue channel(s) from a value set on the console:"
@@ -918,7 +916,7 @@ def test_upload_is_quiet_about_a_value_the_console_did_not_set(caplog):
     """The same record, but adopted from the last run's final state rather than set by hand."""
     machine = _MachineRecording()
     _console_holding(machine, conversion.to_digits(4.0), touched=0)
-    with caplog.at_level("WARNING", logger="wtlog"):
+    with caplog.at_level("WARNING", logger="wignertime"):
         adwin.upload(*_coil_run(), machine, 1)
     assert not caplog.records
 
@@ -1197,7 +1195,7 @@ def test_a_ramp_keeps_its_own_resolution_through_conversion():
     """
     import functools
 
-    from wignertime import ramp_function
+    from wignertime.timeline import ramp_function
 
     conns = adcon.new(["coil__MOT__A", 3, 2])
     devs = device.new(["coil__MOT__A", 2.0, -5.0, 5.0])

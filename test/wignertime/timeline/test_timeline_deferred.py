@@ -8,7 +8,7 @@ attribute, far from its cause.
 
 import pytest
 
-from wignertime import timeline as tl
+from wignertime.timeline import build as tl
 from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import util as wt_util
 from wignertime.demo import full_experiment as demo
@@ -160,9 +160,7 @@ def test_a_frame_without_context_is_refused(f, args):
     #28. `context` is a required column, and a frame lacking it used to raise a bare
     `KeyError: 'context'` from four frames down, naming neither function nor column.
     """
-    import pandas as pd
-
-    incomplete = pd.DataFrame(
+    incomplete = wt_frame.new(
         [[0.0, "coil__A", 1.0]], columns=["time", "variable", "value"]
     )
     with pytest.raises(TypeError, match="missing the column"):
@@ -176,9 +174,7 @@ def test_a_table_with_a_row_lacking_a_context_is_refused(missing):
     used to be normalised to the empty string as the minimum (#28), which every row
     appended after it then inherited. It is refused where it enters instead.
     """
-    import pandas as pd
-
-    hand = pd.DataFrame(
+    hand = wt_frame.new(
         [[0.0, "coil__A", 1.0, missing]],
         columns=["time", "variable", "value", "context"],
     )
