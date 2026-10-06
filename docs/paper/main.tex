@@ -28,9 +28,8 @@
  
 \fancypagestyle{SPstyle}{
 \fancyhf{}
-\lhead{\colorbox{scipostblue}{\bf \color{white} ~SciPost Physics Codebases }}
-%\lhead{\colorbox{scipostblue}{\bf \color{white} ~Wigner Time }}
-\rhead{{\bf \color{scipostdeepblue} ~Submission }}
+\lhead{{\bf \color{scipostdeepblue} Wigner Time: data-oriented experimental timelines}}
+\rhead{{\bf \color{scipostdeepblue} T. W. Clark \textit{et al.}}}
 \renewcommand{\headrulewidth}{1pt}
 \fancyfoot[C]{\textbf{\thepage}}
 }
@@ -161,25 +160,8 @@ multi-device timing.
 }}
  
 \vspace{\baselineskip}
- 
-%%%%%%%%%% BLOCK: Copyright information
-% This block will be filled during the proof stage, and finilized just before publication.
-% It exists here only as a placeholder, and should not be modified by authors.
-\noindent\textcolor{white!90!black}{%
-\fbox{\parbox{0.975\linewidth}{%
-\textcolor{white!40!black}{\begin{tabular}{lr}%
-  \begin{minipage}{0.6\textwidth}%
-    {\small Copyright attribution to authors. \newline
-    This work is a submission to SciPost Physics Codebases. \newline
-    License information to appear upon publication. \newline
-    Publication information to appear upon publication.}
-  \end{minipage} & \begin{minipage}{0.4\textwidth}
-    {\small Received Date \newline Accepted Date \newline Published Date}%
-  \end{minipage}
-\end{tabular}}
-}}
-}
-%%%%%%%%%% BLOCK: Copyright information
+
+\noindent\textbf{Keywords:} experiment control; real-time systems; timing; cold atoms; data-oriented programming; Python; ADwin
  
  
 %%%%%%%%%% TODO: LINENO
@@ -912,13 +894,54 @@ Scientific software in this domain is remarkably unstandardized: each lab typica
  
 It is in this context that Wigner Time offers tools that are unusually composable and portable, enabling high-performance hardware control while making a modern functional paradigm available to physics labs internationally.
  
-\section*{Acknowledgements}
+\section*{List of abbreviations}
+\begin{description}
+\item[AMO] atomic, molecular and optical
+\item[AOM] acousto-optical modulator
+\item[API] application programming interface
+\item[CCD] charge-coupled device
+\item[DAC] digital-to-analog converter
+\item[DAQ] data acquisition
+\item[FPGA] field-programmable gate array
+\item[I/O] input/output
+\item[IDE] integrated development environment
+\item[MOT] magneto-optical trap
+\item[NI] National Instruments
+\item[PC] personal computer
+\item[PCI] Peripheral Component Interconnect
+\item[TOF] time of flight
+\item[UID] unique identifier
+\item[vtvc] variable–time–value–context
+\end{description}
+
+\section*{Declarations}
+
+\subsection*{Availability of data and materials}
+No datasets were generated or analysed during the current study. The software described in this article is available as follows.
+\begin{description}
+\item[Project name] Wigner Time
+\item[Project home page] \url{https://github.com/wignerquantumoptics/Wigner_Time}
+\item[Archived version] Zenodo, \alert{DOI to be added}
+\item[Operating system(s)] Platform independent
+\item[Programming language] Python; the real-time program on the controller is written in ADbasic
+\item[Other requirements] Python 3.10 or higher, pandas, SciPy, funcy and munch; optionally the ADwin Python package \cite{adwin_pypi}, for running experiments on ADwin hardware, and matplotlib, for display
+\item[License] GNU General Public License, version 3 or later
+\item[Any restrictions to use by non-academics] None
+\end{description}
+
+\subsection*{Competing interests}
+The authors declare that they have no competing interests.
+
+\subsection*{Funding}
+This research was supported by the Hungarian National Research, Development and Innovation Office (Grant Nos. 2022-2.1.1-NL-2022-00004 and 2025-3.1.1-ED-2025-00011), the ERANET COFUND QuantERA programme (MOCA 2019-2.1.7-ERA\_NET-2022-00041), the QuantERA II Programme (V-mag 2024-1.2.2-ERA\_NET-2024-00012), and by the Swiss National Science Foundation (Grant No. 230870). AD and TWC acknowledge support from the János Bolyai research scholarship of the Hungarian Academy of Sciences.
+
+\subsection*{Authors’ contributions}
+TWC, BS and AV designed Wigner Time, and TWC and AV implemented it. AD, ÁK, DN, AS, DV and PD made it work in a laboratory. They ran the two cold-atom experiments with it daily for more than two years, and each version was tested on their apparatus, which is the only place where the hardware back end can be verified. What they needed to express in the course of real experiments – stages placed relative to a named point of a running sequence, diagnostics added to an existing apparatus, scans over a parameter – is what the operation layer of this article answers, and their reports of failures and their design ideas shaped the package throughout. A complete experiment run by DV on one of the setups is part of the package’s test suite. All authors read and approved the final manuscript.
+
+\subsection*{Acknowledgements}
 T. W. Clark would like to acknowledge and thank the informal contribution of the Clojure community in general, as well as the Clojure data science community in particular, who have been working to bring data-oriented programming into the mainstream.
 
 A systematic review of the codebase was carried out with the assistance of Anthropic’s Claude Code. The same tool has subsequently been used for rectification, verification, and documentation. The design decisions, and the final judgement on each finding, remained with the authors.
-
-\paragraph{Funding information}
-This research was supported by the Hungarian National Research, Development and Innovation Office (Grant Nos. 2022-2.1.1-NL-2022-00004 and 2025-3.1.1-ED-2025-00011), the ERANET COFUND QuantERA programme (MOCA 2019-2.1.7-ERA\_NET-2022-00041), the QuantERA II Programme (V-mag 2024-1.2.2-ERA\_NET-2024-00012), and by the Swiss National Science Foundation (Grant No. 230870). AD and TWC acknowledges support from the János Bolyai research scholarship of the Hungarian Academy of Sciences.
  
 \begin{appendix}
 \numberwithin{equation}{section}
