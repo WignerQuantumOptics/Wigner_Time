@@ -268,7 +268,7 @@ def test_expand_without_ramps_returns_the_timeline_unchanged():
             tl.update(y=1, time=0.5),
         )
     )
-    assert "function" not in timeline.columns
+    assert "function" not in wt_frame.columns(timeline)
     wt_frame.assert_equal(tl.expand(timeline, time_resolution=0.1), timeline)
 
     expanded = tl.expand(

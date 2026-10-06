@@ -534,7 +534,9 @@ def test_an_analogue_entry_converts_with_its_modules_range():
     # coil__MOT__A on module 4: 1.5 A at 2 V/A is 3 V, on a ±5 V module.
     expected = conversion.to_digits(3.0, [-5.0, 5.0], 16)
     assert machine.data[console.DATA__WANTED][1] == expected
-    assert console.readback(handle)["value"][1] == pytest.approx(1.5, abs=1e-3)
+    assert wt_frame.column(console.readback(handle), "value")[1] == pytest.approx(
+        1.5, abs=1e-3
+    )
 
 
 def test_a_digital_entry_on_a_second_digital_module_is_marked_and_read_back():
