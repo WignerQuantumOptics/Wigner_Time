@@ -187,7 +187,7 @@ multi-device timing.
  
 \section{Introduction}
 \label{sec:intro}
-Experimental setups in atomic, molecular, and optical (AMO) physics are now the most precisely controllable systems ever produced by mankind \cite{PhysRevLett.132.190001,Bluvstein2024}. Accordingly, these systems require a high level of electronic control, where timed signals, both analog and digital, command a diverse array of components, such as laser frequencies, optical shutters, acousto-optical modulators, electromagnets and optomechanical stages. In this context, however, “precisely” routinely means microsecond repeatability or, in the most demanding experiments, even sub-microsecond resolution – ruling out general-purpose workstations. Instead, specialized \emph{real-time} I/O systems are necessary, either in the form of PCI measurement cards, custom FPGA-based modules, or self-standing units.
+Experimental setups in atomic, molecular, and optical (AMO) physics are now the most precisely controllable systems ever produced by mankind \cite{PhysRevLett.132.190001,Bluvstein2024}. Accordingly, these systems require a high level of electronic control, where timed signals, both analog and digital, command a diverse array of components, such as laser frequencies, optical shutters, acousto-optical modulators, electromagnets and optomechanical stages. In this context, however, “precisely” routinely means microsecond repeatability or, in the most demanding experiments, even sub-microsecond resolution – ruling out general-purpose workstations. Instead, specialized \emph{real-time} input/output (I/O) systems are necessary, either in the form of Peripheral Component Interconnect (PCI) measurement cards, custom modules built on field-programmable gate arrays (FPGAs), or self-standing units.
  
 By eschewing general-purpose machines and even linear programming languages,
 however, such systems impose their own terms on the description of the experiment.
@@ -315,15 +315,15 @@ Wigner Time bridges the gap between user-friendly design of experimental procedu
  
 By grounding the framework in a foundational table structure, we can benefit from decades of database development, particularly in-memory database-like systems. When in doubt, therefore, the user can simply manipulate their timeline using the well-developed pandas ecosystem completely independently of our package. For most operations, however, this will not be necessary, as Wigner Time provides layers of convenience functions.
  
-Existing solutions to the control problem fall broadly into two families. The first co-designs software together with its own hardware. An early and influential example is the laboratory control system of Meyrath and Schreck \cite{meyrath_schreck_control}, which distributes data from a central computer over a parallel bus to purpose-built analog, digital and radio-frequency output boards, with circuit designs and software released for others to rebuild. The same philosophy, at greater scale, characterizes the Sinara hardware ecosystem and its ARTIQ control system \cite{kasprowicz2020artiq,bourdeauducq2016artiq}: a modular open-hardware platform organized around an FPGA carrier, programmed in a Python-derived language that is compiled and executed on the hardware itself. The second family provides software over commercial off-the-shelf hardware, and divides in turn by how the experiment is described. Cicero/Atticus \cite{keshet2013distributed} uses a graphical editor, in which a sequence is composed of successive “words” – each beginning when the previous one ends – and dispatched through a client–server split to National Instruments output cards. labscript \cite{starkey2013labscript,labscript} and the Entangleware Sequencer \cite{kowalski2023entangleware} are instead scripted: experiments are written as Python programs that emit low-level hardware instructions, in the former case timed by a pseudoclock across a range of supported vendors, in the latter compiled to a bitstream for an NI FPGA. Alongside all of these sit the private, lab-specific programs commonplace in cold-atom groups, of which little is ever published.
+Existing solutions to the control problem fall broadly into two families. The first co-designs software together with its own hardware. An early and influential example is the laboratory control system of Meyrath and Schreck \cite{meyrath_schreck_control}, which distributes data from a central computer over a parallel bus to purpose-built analog, digital and radio-frequency output boards, with circuit designs and software released for others to rebuild. The same philosophy, at greater scale, characterizes the Sinara hardware ecosystem and its ARTIQ control system \cite{kasprowicz2020artiq,bourdeauducq2016artiq}: a modular open-hardware platform organized around an FPGA carrier, programmed in a Python-derived language that is compiled and executed on the hardware itself. The second family provides software over commercial off-the-shelf hardware, and divides in turn by how the experiment is described. Cicero/Atticus \cite{keshet2013distributed} uses a graphical editor, in which a sequence is composed of successive “words” – each beginning when the previous one ends – and dispatched through a client–server split to National Instruments (NI) output cards. labscript \cite{starkey2013labscript,labscript} and the Entangleware Sequencer \cite{kowalski2023entangleware} are instead scripted: experiments are written as Python programs that emit low-level hardware instructions, in the former case timed by a pseudoclock across a range of supported vendors, in the latter compiled to a bitstream for an NI FPGA. Alongside all of these sit the private, lab-specific programs commonplace in cold-atom groups, of which little is ever published.
  
 \begin{figure}
   \centering
   \includegraphics[width=.95\linewidth]{graphic/hardware-overview.pdf}
-  \caption{\label{fig:hardware_overview} How Wigner Time connects Python on the PC to the ADwin controller. The experiment is described entirely on the PC, in the three layers of \cref{sec:definitions}. Stages compose a timeline in physical units, which can be plotted, compared and archived like any other table, and the conversion step combines it with the \python{connection} and \python{device} tables into hardware-ready arrays. This is the only point at which hardware detail enters. Through the ADwin API, \python{upload} writes the arrays into the controller’s memory, and \python{run} starts the sequencer, which plays them. The manual console shares the outputs with the sequencer, one program at a time (\cref{sec:adwin_operation}). The colors mark how often each part is rewritten: the parameters of the stages change from shot to shot, and the stages themselves between experiments; the \python{connection} table changes when the apparatus is rewired, and the \python{device} table when a device is recalibrated; the sequencer is written once.}
+  \caption{\label{fig:hardware_overview} How Wigner Time connects Python on the personal computer (PC) to the ADwin controller. The experiment is described entirely on the PC, in the three layers of \cref{sec:definitions}. Stages compose a timeline in physical units, which can be plotted, compared and archived like any other table, and the conversion step combines it with the \python{connection} and \python{device} tables into hardware-ready arrays. This is the only point at which hardware detail enters. Through the ADwin application programming interface (API), \python{upload} writes the arrays into the controller’s memory, and \python{run} starts the sequencer, which plays them. The manual console shares the outputs with the sequencer, one program at a time (\cref{sec:adwin_operation}). The colors mark how often each part is rewritten: the parameters of the stages change from shot to shot, and the stages themselves between experiments; the \python{connection} table changes when the apparatus is rewired, and the \python{device} table when a device is recalibrated; the sequencer is written once.}
 \end{figure}
  
-Wigner Time cuts across this division, because the distinction that matters to us is not which hardware is targeted but what the experimental description \emph{is}. In every system above, the description is a \emph{program}: an imperative script, a graphical program, or a compiled real-time kernel, which is then executed in order to \emph{emit} hardware instructions. In Wigner Time the description is \emph{data} – a table of rows – and the library is a set of functions that transform tables. Hardware enters at exactly one point, the conversion step of \cref{sec:connectionlayer}. This is the origin of the advantages listed below: portability and inspectability follow from the timeline being a value rather than a side effect, and hardware detail – module numbers, channel assignments, conversions to DAC codes – no longer has to sit next to the physics. The properties below each answer some part of this: the global coupling of times, the mixing of hardware detail with the physics, and the fact that a program, once run, leaves nothing behind to inspect.
+Wigner Time cuts across this division, because the distinction that matters to us is not which hardware is targeted but what the experimental description \emph{is}. In every system above, the description is a \emph{program}: an imperative script, a graphical program, or a compiled real-time kernel, which is then executed in order to \emph{emit} hardware instructions. In Wigner Time the description is \emph{data} – a table of rows – and the library is a set of functions that transform tables. Hardware enters at exactly one point, the conversion step of \cref{sec:connectionlayer}. This is the origin of the advantages listed below: portability and inspectability follow from the timeline being a value rather than a side effect, and hardware detail – module numbers, channel assignments, conversions to the codes of a digital-to-analog converter (DAC) – no longer has to sit next to the physics. The properties below each answer some part of this: the global coupling of times, the mixing of hardware detail with the physics, and the fact that a program, once run, leaves nothing behind to inspect.
 
 \paragraph{Easy} In Hickey’s now-standard distinction \cite{Hickey2011Simple},
 a tool is \emph{easy} if it is familiar and near at hand. Specialized timing
@@ -365,7 +365,7 @@ in a high-level language like Python is an equally significant advantage.
 \paragraph{Curatable} Experimental stages are ordinary functions, so the quantities one expects to vary are their arguments – declared once, with defaults, alongside the code they govern – while everything that rarely changes is enclosed in the body. A stage’s interface is therefore self-documenting and discoverable by the usual Python means, and a specification needed in more than one place, such as a safe default state for the apparatus, can be written once and reused. Because the composition and its parameters live together in ordinary source, a complete experiment becomes a single versionable artifact: the difference between two campaigns is a diff, and the timeline actually delivered to the hardware can be archived alongside the data it produced.
  
 \bigskip
-With these goals in mind, the package has been under development at the Wigner Research Centre for Physics, Budapest, and so was named in honor of the Hungarian-born Nobel laureate: \emph{Eugene Wigner}. Having been in use for more than two years across two cold-atom setups, we now present it as an open-source package, distributed under the GNU Public License v3 \cite{github}. In the rest of this paper, we first describe the high-level Python API in a back-end agnostic manner (\cref{sec:pythonAPI}) before presenting the conversion features specific to the ADwin timing system (\cref{sec:adwin}). We conclude with an overview and future outlook, before exhibiting concrete cold-atom laboratory examples in the appendices.
+With these goals in mind, the package has been under development at the Wigner Research Centre for Physics, Budapest, and so was named in honor of the Hungarian-born Nobel laureate: \emph{Eugene Wigner}. Having been in use for more than two years across two cold-atom setups, we now present it as an open-source package, distributed under the GNU General Public License v3 \cite{github}. In the rest of this paper, we first describe the high-level Python API in a back-end agnostic manner (\cref{sec:pythonAPI}) before presenting the conversion features specific to the ADwin timing system (\cref{sec:adwin}). We conclude with an overview and future outlook, before exhibiting concrete cold-atom laboratory examples in the appendices.
  
 \section{Python API}
 \label{sec:pythonAPI}
@@ -406,7 +406,7 @@ connections = adcon.new(
     )
 \end{minted}
 %
-Although the form of these names can be arbitrary, the package by default assumes and enforces the format \texttt{<device>\_\_<UID>(\_\_<unit>)}, where \texttt{<...>} denotes a user-defined identifier and \texttt{(...)} indicates an optional component. The device and the unit are single words, while the UID may contain single underscores, as in \python{coil__MOT_lower__A}. Any alternative convention should be applied consistently.
+Although the form of these names can be arbitrary, the package by default assumes and enforces the format \texttt{<device>\_\_<UID>(\_\_<unit>)}, where \texttt{<...>} denotes a user-defined identifier and \texttt{(...)} indicates an optional component. The device and the unit are single words, while the UID, a unique identifier, may contain single underscores, as in \python{coil__MOT_lower__A}. Any alternative convention should be applied consistently.
  
 For analog connections, conversions and value ranges must also be specified. The conversion can be a linear factor, a function, or an interpolation from a calibration file – in each case mapping the conceptual unit to a voltage, which we assume to be the unit of the actual real-time controller analog outputs. The remaining arguments define the minimum and maximum permitted values, which are enforced before output. Omitted bounds default to $\pm\infty$.
 %\alert{There's a problem here about whether or not a device is actually a 'conversion'. Should 'device' and 'connection' actually be 'connection' and 'voltage' (layers).}
@@ -471,7 +471,7 @@ tline = tl.to_timeline(
 )
 \end{minted}
 %
-By design, each component automatically follows the end of the previous one, forming a causal chain through the \python{origin} mechanism (see \cref{sec:origin}). The result is a \python{pandas.DataFrame}, which can be manipulated directly when convenient: \python{tline[tline["context"] == "MOT"]}, for instance, selects the rows of the MOT stage. The timeline can then be converted to an ADwin-compatible format and uploaded with \python{wignertime.adwin.core.upload} (\cref{sec:adwin}).
+By design, each component automatically follows the end of the previous one, forming a causal chain through the \python{origin} mechanism (see \cref{sec:origin}). The result is a \python{pandas.DataFrame}, which can be manipulated directly when convenient: \python{tline[tline["context"] == "MOT"]}, for instance, selects the rows of the stage that forms a magneto-optical trap (MOT). The timeline can then be converted to an ADwin-compatible format and uploaded with \python{wignertime.adwin.core.upload} (\cref{sec:adwin}).
  
  
 \subsubsection{The operation layer}
@@ -698,9 +698,9 @@ stack(
 %
 Note that stages are written in execution order, the immediate advantage being legibility over nesting one call inside another. The deeper value, however, is in the modularity it enables.
 
-This is best illustrated by example. Suppose we want to estimate the number of atoms in an atomic cloud. The procedure requires configuring a combination of lasers (MOT and repump), setting electromagnet drive currents, collecting atoms in a magneto-optical trap for 0.1\,s, reconfiguring the lasers, and recording fluorescence on a CCD.
+This is best illustrated by example. Suppose we want to estimate the number of atoms in an atomic cloud. The procedure requires configuring a combination of lasers (MOT and repump), setting electromagnet drive currents, collecting atoms in a magneto-optical trap for 0.1\,s, reconfiguring the lasers, and recording fluorescence on a charge-coupled device (CCD) camera.
 
-Breaking this down into reusable operations, the MOT stage is clearly central, and can be defined as a reusable function. It turns on the appropriate shutters and electromagnets (the latter by a smooth ramp to minimize self-induction):
+Breaking this down into reusable operations, the MOT stage is clearly central, and can be defined as a reusable function. It opens the appropriate shutters and brings the electromagnets to the stage’s currents, by a smooth ramp to minimize self-induction:
 \begin{minted}[fontsize=\scriptsize,frame=none]{python}
 def MOT(duration, lower_current, upper_current):
     return stack(
@@ -714,11 +714,11 @@ This returns a stage that can be slotted into any later timeline. Its arguments 
 
 Similarly, triggering a camera is a useful abstraction, parameterized by the time instant and the duration of the exposition:
 \begin{minted}[frame=none]{python}
-def trigger_camera(time, exposure, context, origin=None) :
+def trigger_camera(time, exposure, context, origin):
     return update(trigger__camera=[[time,1],[time+exposure,0]],
                   context=context, origin=origin)
 \end{minted}
-This pattern – a thin wrapper around \python{update} – covers the vast majority of digital operations.
+This pattern – a thin wrapper around \python{update} – covers the vast majority of digital operations. Unlike \python{MOT}, the camera trigger is \emph{placed}: its \python{origin} has no default, so the point it is measured from is always named where it is used (\cref{sec:interweaving}).
 
 The initial conditions are defined separately:
 \begin{minted}[fontsize=\scriptsize, frame=none]{python}
@@ -726,7 +726,7 @@ def init():
     return stack(
         update(
             AOM__MOT=1, AOM__repump=1, shutter__MOT=0, shutter__repump=0, trigger__camera=0,
-            coil__MOT_lower__A=0, coil__MOT_upper__A=0,
+            coil__MOT_lower__A=1, coil__MOT_upper__A=1,  # kept energized between runs
         ),
         anchor(0.0),
         context="initialization"
@@ -740,13 +740,13 @@ timeline = to_timeline(stack(
     init(),
     MOT(0.1,1,1),
     update(AOM__repump=0),
-    trigger_camera(0.0,1e-3,"imaging")
+    trigger_camera(0.0,1e-3,"imaging",origin="MOT")
 ))
 \end{minted}
 %
 The additional \python{update} switching off one laser before imaging slots naturally between custom functions without friction.
 
-The brevity of this declaration follows from a series of design decisions. Since all constituents keep the default origin, operations are chained one after the other. Since anchors are used, every \python{time} argument becomes $\Delta t$ from the previous anchor. The result is code with a high signal-to-noise ratio that nonetheless compiles to a concrete table of time-value rows in absolute terms.
+The brevity of this declaration follows from a series of design decisions. Since the stages keep the default origin, operations are chained one after the other, and the camera trigger, placed at the end of the MOT stage, falls in line with them. Since anchors are used, every \python{time} argument becomes $\Delta t$ from the previous anchor. The result is code with a high signal-to-noise ratio that nonetheless compiles to a concrete table of time-value rows in absolute terms.
 
 A further useful function for stacking is \python{cascade}:
 %
@@ -777,7 +777,7 @@ Routing is strict: a keyword that matches no stage, or none of the parameters of
 \label{sec:interweaving}
 Stacking is a powerful technique for composing linear timelines, where each stage follows the previous one. In practice, non-linear timelines are also useful – where an operation is anchored not to the end of the preceding stage but to some earlier reference point.
  
-Returning to the example above (\cref{sec:stacking}), the \python{trigger_camera} function need not follow linearly from the MOT stage. By supplying \python{origin="initialization"}, the camera trigger can be placed relative to the initial anchor instead. Such \emph{interweaving} is particularly valuable for inserting diagnostic operations into an existing timeline without restructuring it.
+Returning to the example above (\cref{sec:stacking}), the \python{trigger_camera} function need not follow linearly from the MOT stage. Given \python{origin="initialization"} instead, the camera trigger is placed relative to the initial anchor. Such \emph{interweaving} is particularly valuable for inserting diagnostic operations into an existing timeline without restructuring it.
 
 The timeline need not even be unfinished. Taking the complete \python{timeline_demo} of \cref{sec:demonstration}, with the camera trigger added to the apparatus as in \cref{sec:forwarding}, a single call triggers the camera 2\,ms after the end of the molasses stage:
 \begin{minted}[frame=none]{python}
@@ -796,7 +796,7 @@ In \cref{sec:parameter_scan}, the same mechanism places an imaging stage at a se
 \label{sec:adwin}
 While the vast majority of Wigner Time is concerned with the design, creation and manipulation of timelines, at some point it is necessary to translate these to a real-time hardware system.
  
-The ADwin real-time DAQ and control device is one such system – a self-standing unit combining hardware, an IDE, a language, and a compiler \cite{ADwin}. Having gained popularity in AMO physics within the last decade, ADwin has been used as a back-end in the NQontrol platform \cite{darsow2020nqontrol}, which provides multi-channel digital feedback loops for quantum-optical experiments. Although it currently competes with other options, such as the Sinara/ARTIQ control system \cite{kasprowicz2020artiq,bourdeauducq2016artiq} and NI’s compactRIO systems, ADwin is the only system that has been tested by the authors and so is the only one for which integration software is provided. As outlined below, however, so little code is needed for the integration that users should not have difficulty building bridges to other manufacturers.
+The ADwin real-time data acquisition (DAQ) and control device is one such system – a self-standing unit combining hardware, an integrated development environment (IDE), a language, and a compiler \cite{ADwin}. Having gained popularity in AMO physics within the last decade, ADwin has been used as a back-end in the NQontrol platform \cite{darsow2020nqontrol}, which provides multi-channel digital feedback loops for quantum-optical experiments. Although it currently competes with other options, such as the Sinara/ARTIQ control system \cite{kasprowicz2020artiq,bourdeauducq2016artiq} and NI’s compactRIO systems, ADwin is the only system that has been tested by the authors and so is the only one for which integration software is provided. As outlined below, however, so little code is needed for the integration that users should not have difficulty building bridges to other manufacturers.
  
 Two properties are worth emphasizing, precisely because they belong to the backend rather than to Wigner Time. First, the determinism of the output – timing jitter and long-term drift – is set by the timing hardware and its clock-distribution chain, not by the layer that generates the timeline; ADwin systems can be referenced to an external clock, so a laboratory-grade frequency standard can be used wherever the experiment demands it. Second, ADwin is modular, so which channel types are available is a question of which modules are installed, not of the control software. Wigner Time inherits both properties here, and would inherit the corresponding properties of any other backend – which is what back-end agnosticism means in practice.
  
@@ -835,7 +835,7 @@ arithmetic whatsoever. This is what permits the 1\,µs cycle time quoted in
 every ramp in progress, an expression of the form
 \python{Tanh(...)/TwoTimesTanhOfTheTanhInterval} and was limited to 5\,µs as a result.
 
-The arrays uploaded to the controller are prepared in the same spirit. Ramps are expanded at the cycle period of the controller, unless a ramp fixes a coarser resolution of its own (\cref{sec:functions}), and converted to DAC codes, and every row that would leave a channel at the code it already holds is then removed. What remains is one row for each change of code, at the first cycle at which that change occurs. Kowalski \textit{et al.} \cite{kowalski2023entangleware} arrive at the same rows from the other direction: rather than sampling a ramp at a fixed rate, they compute the instants at which its DAC code changes, and output only there. A controller that changes its outputs once per cycle can act at such an instant only at the next cycle, which is the very cycle that the filtering above keeps. On such a controller the two procedures send the same rows. A ramp is therefore as smooth as the hardware allows, the controller receives no more rows than are needed to describe it, and no time resolution has to be chosen.
+The arrays uploaded to the controller are prepared in the same spirit. Ramps are expanded at the cycle period of the controller, unless a ramp fixes a coarser resolution of its own (\cref{sec:functions}), and converted to DAC codes, and every row that would leave a channel at the code it already holds is then removed. What remains is one row for each change of code, at the first cycle at which that change occurs. Kowalski \textit{et al.} \cite{kowalski2023entangleware} treat ramps in the same spirit, timing analog transitions at the instants when the DAC code changes rather than sampling the trajectory at a fixed rate. A ramp is therefore as smooth as the hardware allows, the controller receives no more rows than are needed to describe it, and no time resolution has to be chosen.
 
 \medskip
 How the controller divides its outputs between a run and a manual console is described in \cref{sec:adwin_operation}. For further details, consult the API documentation \cite{wignertime_docs}.

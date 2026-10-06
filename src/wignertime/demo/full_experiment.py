@@ -360,9 +360,13 @@ def magnetic_trapping(
 # NOTE: Unlike the stages above, which each act on the state the previous one left behind, a diagnostic is *placed*: it can be attached to any named point of an existing timeline, even a finished one, without restructuring it. Its signature says so by declaring `origin`.
 
 
-def trigger_camera(time, exposure, context, origin=None):
+def trigger_camera(time, exposure, context, origin):
     """
     Opens the camera for `exposure`, starting `time` after `origin`.
+
+    `origin` has no default, because this stage is placed rather than chained: with one,
+    a call that forgot it would fall back on the latest anchor and land wherever the
+    timeline happened to end, without an error (maintainer, 2026-10-06).
 
     `context` is required rather than inherited: a trigger placed into a finished timeline would otherwise adopt the context of its last row at an instant, `finalRamps`, and a camera trigger is not part of the final ramps.
 

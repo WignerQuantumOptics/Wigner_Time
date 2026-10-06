@@ -550,8 +550,10 @@ Not covered by `KNOWN_ISSUES.md`:
 - `drop_repeats` times analog transitions at the cycles where
   the DAC code actually changes, per Kowalski *et al.* Its docstring argues the filtering is
   *equivalent* to bit-flip-timed expansion on the hardware's own grid, not an approximation to it.
-  Since 2026-09-23 `sec:adwin` says so, in a paragraph after the event loop. That paragraph used to
-  sit commented out at the end of `sec:discussion` as future work. It has not been run on the rig.
+  `sec:adwin` describes the filtering in a paragraph after the event loop, but since 2026-10-06 it
+  cites Kowalski *et al.* only as treating ramps "in the same spirit", without the equivalence: the
+  route is not ideal, since it computes every cycle's value of a ramp only to drop most of them
+  (maintainer), and the paper does not go into it. It has not been run on the rig.
 - The other stated gap is peripherals programmed over serial rather than driven by a voltage (DDS
   being the canonical case). The paper commits to implementing this as an `expand`-shaped conversion —
   one device-layer row becoming several bit-level rows — rather than as a special case.
