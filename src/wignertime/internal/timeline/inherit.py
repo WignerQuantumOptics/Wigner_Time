@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2024 Thomas W. Clark and András Vukics
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from copy import deepcopy
+from wignertime.internal import dataframe as wt_frame
 
 from wignertime import config as wt_config
 from wignertime.internal import origin as wt_origin
@@ -48,13 +48,16 @@ def require(rows):
     #145, produced exactly such rows: the conversion played them at cycle 0 rather than
     in the reserved context they were meant for.
     """
-    missing = rows["context"].isna() | (rows["context"] == "")
+    contexts = wt_frame.column(rows, "context")
+    missing = wt_frame.isnull(contexts) | (contexts == "")
     if missing.any():
         raise ValueError(
             "\n".join(
                 [
                     "Every row needs a context (#156), and these would have none: {}.".format(
-                        ", ".join(sorted(set(rows.loc[missing, "variable"])))
+                        ", ".join(
+                            sorted(set(wt_frame.column(rows, "variable")[missing]))
+                        )
                     ),
                     "",
                     "A context is stated or inherited from the timeline the rows join,"
@@ -80,22 +83,16 @@ def _mask__no_context(timeline):
     tolerance the rest of the pipeline did not honour: such a frame raised `KeyError`
     four lines further down.
     """
-    return timeline["context"] == ""
+    return wt_frame.column(timeline, "context") == ""
 
 
-def context(
-    timeline, timeline__previous, context=None, is_inPlace=True, time__max=None
-):
+def context(timeline, timeline__previous, context=None, time__max=None):
     """
-    Updates the context, taken from previous values where unspecified.
+    `timeline` with the context filled in where it is unspecified: taken from the
+    previous rows, or `context` when there are none. A new frame; `timeline` is left alone.
 
     Allows for situations where the new timelines are inserted at earlier times.
     """
-    if is_inPlace:
-        df = timeline
-    else:
-        df = deepcopy(timeline)
-
     if (timeline__previous is not None) and (context is None):
         # Inherited from a row at an instant only. The state before the run, at −∞, and
         # the state after it, at +∞, are in contexts a backend may reserve, and inheriting
@@ -103,24 +100,29 @@ def context(
         # finished timeline into the final one, without a word (#154).
         timeline__previous = wt_origin.instants(timeline__previous)
         if time__max == "min":
-            time__max = timeline["time"].min()
+            time__max = wt_frame.column(timeline, "time").min()
         if time__max is not None:
-            timeline__previous = timeline__previous[
-                timeline__previous["time"] <= time__max
-            ]
-        if timeline__previous.empty:
+            timeline__previous = wt_frame.filter(
+                timeline__previous,
+                wt_frame.column(timeline__previous, "time") <= time__max,
+            )
+        if wt_frame.is_empty(timeline__previous):
             # Nothing to inherit from. `require` says so, naming the context -- asking
             # `origin.previous` instead raised a message about the *origin*, whose advice
             # (`origin=0.0`) gave the same error again (#145).
-            return df
+            return timeline
 
-        df.loc[_mask__no_context(timeline), "context"] = wt_origin.previous(
-            timeline__previous
-        )["context"]
-        return df
+        return wt_frame.with_column(
+            timeline,
+            "context",
+            wt_origin.previous(timeline__previous)["context"],
+            where=_mask__no_context(timeline),
+        )
 
     elif (timeline__previous is None) and (context is not None):
-        df.loc[_mask__no_context(timeline), "context"] = context
+        return wt_frame.with_column(
+            timeline, "context", context, where=_mask__no_context(timeline)
+        )
 
     else:
         return timeline

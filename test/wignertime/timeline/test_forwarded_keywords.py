@@ -9,6 +9,7 @@ made strict in 2026-09-16 (C1); `stack` follows here (A5/#103).
 import pytest
 
 from wignertime import timeline as tl
+from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import util as wt_util
 
 
@@ -47,8 +48,8 @@ def test_the_refusal_says_what_could_have_been_placed(base):
 def test_a_placeable_keyword_still_reaches_its_constituent(base):
     """The forwarding idiom itself, which the guard exists to protect rather than end."""
     result = tl.to_timeline(tl.stack(tl.update(a__A=1.0), context="MOT"), onto=base)
-    assert result.iloc[-1]["context"] == "MOT"
-    assert "typo_duration" not in set(result["variable"])
+    assert wt_frame.row(result, -1)["context"] == "MOT"
+    assert "typo_duration" not in set(wt_frame.column(result, "variable"))
 
 
 def test_noop_does_not_switch_the_guard_off(base):
@@ -122,14 +123,16 @@ def test_cascade_still_routes_by_prefix():
         return tl.update(a__A=0.0, time=0.0, context="init")
 
     result = tl.to_timeline(tl.cascade(init, stage__named, stage__named_duration=7.0))
-    assert result.iloc[-1]["value"] == pytest.approx(7.0)
+    assert wt_frame.row(result, -1)["value"] == pytest.approx(7.0)
 
 
 # --- B10 and #145: forwarding reaches nested stacks, and fills only the unstated ---
 
 
 def _contexts(timeline):
-    return dict(zip(timeline["variable"], timeline["context"]))
+    return dict(
+        zip(wt_frame.column(timeline, "variable"), wt_frame.column(timeline, "context"))
+    )
 
 
 def test_a_keyword_reaches_the_constituents_of_a_nested_stack(base):
@@ -140,7 +143,7 @@ def test_a_keyword_reaches_the_constituents_of_a_nested_stack(base):
     """
     stage = tl.stack(tl.update(b__A=1.0), tl.anchor(1.0))
     result = tl.to_timeline(tl.stack(stage, context="MOT"), onto=base)
-    assert set(result.iloc[1:]["context"]) == {"MOT"}
+    assert set(wt_frame.column(result, "context")[1:]) == {"MOT"}
 
 
 def test_a_nested_stacks_own_keyword_is_stated_closer_and_wins(base):
@@ -168,7 +171,7 @@ def test_a_forwarded_context_does_not_override_a_stated_one(base):
     )
     contexts = _contexts(result)
     assert contexts["a_b"] == "ADwin_Finish"
-    assert contexts[result["variable"].iloc[-1]] == "finalRamps"
+    assert contexts[wt_frame.column(result, "variable")[-1]] == "finalRamps"
 
 
 def test_a_stage_passing_on_context_none_still_takes_the_stacks(base):

@@ -220,7 +220,9 @@ def test_cascade_stays_permissive_where_the_target_has_kwargs():
         tl.cascade(ex.init, ex.MOT, init_coil__MOT_lower__A=0.5, MOT_duration=1.0)
     )
     assert 0.5 in set(
-        built.loc[built["variable"] == "coil__MOT_lower__A", "value"]
+        wt_frame.column(built, "value")[
+            wt_frame.column(built, "variable") == "coil__MOT_lower__A"
+        ]
     ), "injection through `init` into `default_state` must still work"
 
 
@@ -241,12 +243,12 @@ def test_expand_leaves_the_timeline_it_was_given_alone():
         ),
         onto=tl.to_timeline(tl.update(c__A=2.0, time=0.0, context="s")),
     )
-    before = timeline.copy()
+    before = wt_frame.copy(timeline)
 
     expanded = tl.expand(timeline, time_resolution=0.1)
 
     wt_frame.assert_equal(timeline, before)
-    assert "function" in timeline.columns
+    assert "function" in wt_frame.columns(timeline)
     assert len(expanded) > len(timeline)
 
     # And so expanding twice gives the same answer, rather than the second call silently
@@ -266,7 +268,7 @@ def test_expand_without_ramps_returns_the_timeline_unchanged():
             tl.update(y=1, time=0.5),
         )
     )
-    assert "function" not in timeline.columns
+    assert "function" not in wt_frame.columns(timeline)
     wt_frame.assert_equal(tl.expand(timeline, time_resolution=0.1), timeline)
 
     expanded = tl.expand(
@@ -284,7 +286,7 @@ def test_convert_leaves_the_timeline_it_was_given_alone():
     """
     from wignertime.adwin import core
 
-    before = ex.timeline_demo.copy()
+    before = wt_frame.copy(ex.timeline_demo)
     core.convert(ex.timeline_demo, ex.connections, ex.devices, 5e-6)
     wt_frame.assert_equal(ex.timeline_demo, before)
 
@@ -308,7 +310,7 @@ def test_expand_puts_each_ramp_where_it_was_written():
         )
     )
     expanded = tl.expand(timeline, time_resolution=0.5)
-    assert list(zip(expanded["time"], expanded["variable"], expanded["value"])) == [
+    assert wt_frame.rows(expanded, ["time", "variable", "value"]) == [
         (0.0, "x__A", 0.0),
         (0.0, "y", 0.0),
         (0.0, "x__A", 0.0),

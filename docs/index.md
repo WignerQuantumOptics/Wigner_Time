@@ -8,6 +8,7 @@ A preprint has been submitted to arXiv; the identifier will be added here once i
 
 
 ## Optional dependencies (package `extras`) 
+ - `polars` or `pandas`: the library that holds the timelines. One of the two is required; polars is the default.
  - `performance_and_export` (Recommended): Installs `pyarrow` for memory management, sharing between systems and export to `parquet`.
  - `display`: Installs `matplotlib` and `pyqt` for visualization.
 
@@ -41,7 +42,7 @@ poetry run pytest
 
 We introduce Wigner Time, an approach and Python package for defining and
 manipulating experimental timelines in real-time open-loop control systems.
-Fundamentally, procedures are expressed functionally and implemented tabularly, such that the core timelines can be represented with in-memory databases, e.g. `pandas.DataFrame`. The associated functional-style API is clear, flexible, and integrates well with the broader scientific Python ecosystem. The package has been optimized for ADwin-based quantum-optics experiments, but is broadly applicable to any experimental domain requiring precisely timed, multi-device control.
+Fundamentally, procedures are expressed functionally and implemented tabularly, such that the core timelines can be represented with in-memory databases, e.g. `polars.DataFrame` or `pandas.DataFrame`. The associated functional-style API is clear, flexible, and integrates well with the broader scientific Python ecosystem. The package has been optimized for ADwin-based quantum-optics experiments, but is broadly applicable to any experimental domain requiring precisely timed, multi-device control.
 
 ![An example timeline.](resources/timeline--example.png "A timeline generated and displayed by the package.")
 
@@ -96,7 +97,7 @@ The essential data is always accesible and transferrable to any other language o
 
 ## Robust
 
-Implemented ontop of the \`pandas\` system, the most widely-used data science package.
+Implemented on top of `polars` – fast, typed, data-science tables – with `pandas` as an alternative.
 
 
 <a id="org6bc654b"></a>
@@ -115,7 +116,7 @@ Wigner Time is based around the idea of a &rsquo;timeline&rsquo;, which is, at h
 -   Add more parameters by adding columns
 -   Add more operations by adding rows
 
-By boiling the design down to a &rsquo;table&rsquo; as the foundation, then we can benfit from decades of database development, particularly in-memory database-like systems like \`pandas\`. Therefore, when in doubt, the user can simply manipulate their timeline using the well-developed \`pandas\` ecosystem. For most operations however, even this won&rsquo;t be necessary as wigner<sub>time</sub> provides layers of conveninece functions ontop of this for designing open-loop experiments.
+By boiling the design down to a &rsquo;table&rsquo; as the foundation, then we can benfit from decades of database development, particularly in-memory database-like systems like `polars`. Therefore, when in doubt, the user can simply manipulate their timeline using the well-developed `polars` (or `pandas`) ecosystem. For most operations however, even this won&rsquo;t be necessary as wigner<sub>time</sub> provides layers of conveninece functions ontop of this for designing open-loop experiments.
 
 
 <a id="orge8cea69"></a>
@@ -206,7 +207,7 @@ tline = tl.to_timeline(
 )
 ```
 
-The timeline is a *pandas.DataFrame*, so it can be edited and inspected directly: `tline[tline["context"] == "MOT"]` selects the rows of the MOT stage.
+The timeline is a *DataFrame*, so it can be edited and inspected directly: with `import polars as pl`, `tline.filter(pl.col("context") == "MOT")` selects the rows of the MOT stage (with pandas, `tline[tline["context"] == "MOT"]`).
 
 It can then be converted to an ADwin-compatible format. The cycle period has to be stated, in seconds, because it belongs to the program running on the ADwin rather than to the experiment.
 

@@ -1,14 +1,15 @@
 import math
 from copy import deepcopy
 
+import numpy as np
 import pytest
-import pandas as pd
 
 from wignertime import timeline as tl
 from wignertime.internal.timeline import anchor as anchor
 from wignertime.internal import dataframe as frame
 
 from wignertime.demo import full_experiment as ex
+from wignertime.internal import dataframe as wt_frame
 
 # NOTE: the commented-out `adwin_display` calls below need
 # `from wignertime.adwin import display as adwin_display`, and with it the
@@ -17,20 +18,20 @@ from wignertime.demo import full_experiment as ex
 
 
 def replace_anchor_symbol(df, symbol__old="Anchor", symbol__new="⚓"):
-    timeline = deepcopy(df)
-    timeline["variable"] = timeline["variable"].replace(symbol__old, symbol__new)
-    return timeline
+    variables = wt_frame.column(df, "variable")
+    return wt_frame.with_column(
+        df,
+        "variable",
+        np.where(variables == symbol__old, symbol__new, variables).astype(object),
+    )
 
 
 def label_anchors(df):
-    timeline = deepcopy(df)
-    timeline.sort_values(by=["time", "variable"])
-    indices = list(timeline[timeline["variable"] == "⚓"].index)
-
-    for i, ind in enumerate(indices):
-        timeline.loc[ind, "variable"] = "⚓_{:03}".format(i + 1)
-
-    return timeline
+    is_anchor = wt_frame.column(df, "variable") == "⚓"
+    labels = ["⚓_{:03}".format(i + 1) for i in range(int(is_anchor.sum()))]
+    if not labels:
+        return wt_frame.copy(df)
+    return wt_frame.with_column(df, "variable", labels, where=is_anchor)
 
 
 def update_anchor(df):
@@ -38,19 +39,15 @@ def update_anchor(df):
 
 
 def filter_ramp(df, variable, context):
-    filtered_rows = df[(df["variable"] == variable) & (df["context"] == context)]
+    selected = (wt_frame.column(df, "variable") == variable) & (
+        wt_frame.column(df, "context") == context
+    )
+    positions = np.flatnonzero(selected)
+    values = wt_frame.column(df, "value", dtype=float)[positions]
 
-    min_row = filtered_rows.loc[filtered_rows["value"].idxmin()]
-    max_row = filtered_rows.loc[filtered_rows["value"].idxmax()]
-
-    keep_indices = [min_row.name, max_row.name]
-    return df.drop(
-        df[
-            (df["variable"] == variable)
-            & (df["context"] == context)
-            & (~df.index.isin(keep_indices))
-        ].index
-    ).reset_index(drop=True, inplace=False)
+    keep_positions = [positions[np.argmin(values)], positions[np.argmax(values)]]
+    dropped = selected & ~np.isin(np.arange(wt_frame.n_rows(df)), keep_positions)
+    return wt_frame.filter(df, ~dropped)
 
 
 def filter_ramps(df, var_cons, index=0):
@@ -75,7 +72,7 @@ def test_MOT():
         )
     )
 
-    tl__original = pd.DataFrame(
+    tl__original = wt_frame.new(
         [
             {
                 "time": -math.inf,
@@ -240,9 +237,10 @@ def test_MOTdetuned():
             ex.MOT(),
             ex.MOT_detuned_growth(),
         )
-    ).drop(columns="function")
+    )
+    tl__new = wt_frame.drop_columns(tl__new, ["function"])
 
-    tl__original = pd.DataFrame(
+    tl__original = wt_frame.new(
         [
             [-math.inf, "lockbox__MOT__MHz", 0.0, "ADwin_LowInit"],
             [-math.inf, "coil__compensation_X__A", 0.25, "ADwin_LowInit"],
@@ -285,28 +283,30 @@ def remove_rows_within_time(df, time_threshold):
     and 'time' values differ by less than 'time_threshold'.
 
     Args:
-        df (pd.DataFrame): Input DataFrame with 'time' and 'variable' columns.
+        df: Input frame with 'time' and 'variable' columns.
         time_threshold (float): Threshold for time differences to define blocks.
 
     Returns:
-        pd.DataFrame: Filtered DataFrame retaining only the first and last rows of each block.
+        Filtered frame retaining only the first and last rows of each block.
     """
-    df = df.sort_values(by=["variable", "time"]).reset_index(drop=True)
+    df = wt_frame.sort(df, ["variable", "time"])
+    variables = wt_frame.column(df, "variable")
+    times = wt_frame.column(df, "time", dtype=float)
 
-    def filter_blocks(group):
-        group["block"] = (
-            group["time"].diff().fillna(float("inf")) > time_threshold
-        ).cumsum()
+    positions = []
+    for variable in wt_frame.unique(df, "variable"):
+        group = np.flatnonzero(variables == variable)
+        gaps = np.concatenate([[np.inf], np.diff(times[group])])
+        blocks = np.cumsum(gaps > time_threshold)
+        for block in np.unique(blocks):
+            members = group[blocks == block]
+            positions += [members[0], members[-1]]
 
-        return group.groupby("block", group_keys=False).apply(lambda x: x.iloc[[0, -1]])
-
-    result = df.groupby("variable", group_keys=False).apply(filter_blocks)
-
-    return result.drop(columns=["block"])
+    return wt_frame.take(df, positions)
 
 
 def remove_anchors(timeline):
-    df = timeline[~anchor.mask(timeline)]
+    df = wt_frame.filter(timeline, ~anchor.mask(timeline))
     return df
 
 
@@ -322,8 +322,9 @@ def test_fullDemo():
             ex.pull_coils(50e-3, -4.1, -4.7, -0.6, -0.6),
             ex.finish(),
         )
-    ).drop(columns=["function"])
-    expected = pd.DataFrame(
+    )
+    actual = wt_frame.drop_columns(actual, ["function"])
+    expected = wt_frame.new(
         {
             "time": [
                 -math.inf,
@@ -794,21 +795,23 @@ def test_trigger_camera_interweaves_into_a_finished_timeline():
         ex.trigger_camera(2e-3, 1e-3, context="imaging", origin="molasses"), onto=full
     )
 
-    time__molasses = full[anchor.mask(full) & (full["context"] == "molasses")][
-        "time"
-    ].max()
-    time__final_ramps = full[anchor.mask(full) & (full["context"] == "finalRamps")][
-        "time"
-    ].max()
-    imaging = woven[woven["context"] == "imaging"]
+    times = wt_frame.column(full, "time")
+    contexts = wt_frame.column(full, "context")
+    time__molasses = times[anchor.mask(full) & (contexts == "molasses")].max()
+    time__final_ramps = times[anchor.mask(full) & (contexts == "finalRamps")].max()
+    is_imaging = wt_frame.column(woven, "context") == "imaging"
+    imaging = wt_frame.filter(woven, is_imaging)
 
     # measured from the end of molasses, not from the end of the timeline ...
-    assert imaging["variable"].tolist() == ["trigger__camera", "trigger__camera"]
-    assert imaging["time"].tolist() == pytest.approx(
+    assert wt_frame.column(imaging, "variable").tolist() == [
+        "trigger__camera",
+        "trigger__camera",
+    ]
+    assert wt_frame.column(imaging, "time").tolist() == pytest.approx(
         [time__molasses + 2e-3, time__molasses + 3e-3]
     )
-    assert imaging["value"].tolist() == [1, 0]
+    assert wt_frame.column(imaging, "value").tolist() == [1, 0]
     # ... so it lands inside the run, during magnetic trapping ...
-    assert imaging["time"].max() < time__final_ramps
+    assert wt_frame.column(imaging, "time").max() < time__final_ramps
     # ... and nothing that was already there moves.
-    frame.assert_equal(woven[woven["context"] != "imaging"], full)
+    frame.assert_equal(wt_frame.filter(woven, ~is_imaging), full)

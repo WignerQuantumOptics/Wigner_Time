@@ -252,7 +252,7 @@ def test_a_row_stating_its_own_context_needs_none_from_the_call():
     frame = tl.to_timeline(
         tl.update(AOM__MOT=[0.0, 1, "init"], shutter__MOT=[0.0, 0, "init"])
     )
-    assert set(frame["context"]) == {"init"}
+    assert set(wt_frame.column(frame, "context")) == {"init"}
 
 
 def test_one_row_without_a_context_is_enough_to_refuse():
@@ -266,7 +266,7 @@ def test_onto_an_empty_table_the_refusal_is_about_the_context():
     advice to give `origin=0.0` -- which gave the same error again, because what was
     missing was the context.
     """
-    empty = wt_frame.new([], columns=tl._SCHEMA.keys()).astype(tl._SCHEMA)
+    empty = wt_frame.cast(wt_frame.new([], columns=list(tl._SCHEMA.keys())), tl._SCHEMA)
     for origin in (wt_config.INFER, 0.0):
         with pytest.raises(ValueError, match="Every row needs a context") as e:
             tl.to_timeline(tl.update(AOM__MOT=1, origin=origin), onto=empty)
@@ -275,7 +275,7 @@ def test_onto_an_empty_table_the_refusal_is_about_the_context():
     named = tl.to_timeline(
         tl.update(AOM__MOT=1, context="init", origin=0.0), onto=empty
     )
-    assert list(named["context"]) == ["init"]
+    assert list(wt_frame.column(named, "context")) == ["init"]
 
 
 def test_update_real_context_is_taken_as_written(df__mixed):
@@ -305,7 +305,7 @@ def test_a_context_named_INFER_is_an_ordinary_context(df__mixed):
         tl.update(AOM__imaging__V=[2.2, 3.0], origin=0.0, context="INFER"),
         onto=df__mixed,
     )
-    assert new["context"].iloc[-1] == "INFER"
+    assert wt_frame.column(new, "context")[-1] == "INFER"
 
 
 ###############################################################################

@@ -31,12 +31,12 @@ import pathlib
 import re
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from wignertime import config, device, ramp_function
 from wignertime import timeline as tl
 from wignertime.adwin import core
+from wignertime.internal import dataframe as wt_frame
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "lab2"
 
@@ -84,7 +84,7 @@ def _ramp_function(sharpness):
 
 @pytest.fixture(scope="module")
 def timeline():
-    described = pd.read_parquet(FIXTURES / "timeline.parquet")
+    described = wt_frame.read_parquet(FIXTURES / "timeline.parquet")
     cache = {}
     functions = [
         (
@@ -93,24 +93,25 @@ def timeline():
             else cache.setdefault(float(sharpness), _ramp_function(float(sharpness)))
         )
         for name, sharpness in zip(
-            described["function"], described["function__sharpness"]
+            wt_frame.column(described, "function"),
+            wt_frame.column(described, "function__sharpness"),
         )
     ]
-    out = described.drop(columns=["function__sharpness"]).copy()
-    out["function"] = functions
-    return out
+    out = wt_frame.drop_columns(described, ["function__sharpness"])
+    return wt_frame.with_column(out, "function", functions)
 
 
 @pytest.fixture(scope="module")
 def connections():
-    return pd.read_parquet(FIXTURES / "connections.parquet")
+    return wt_frame.read_parquet(FIXTURES / "connections.parquet")
 
 
 @pytest.fixture(scope="module")
 def devices():
-    return pd.read_parquet(FIXTURES / "devices.parquet")[
-        ["variable", "to_V", "value__min", "value__max"]
-    ]
+    return wt_frame.select(
+        wt_frame.read_parquet(FIXTURES / "devices.parquet"),
+        ["variable", "to_V", "value__min", "value__max"],
+    )
 
 
 @pytest.fixture(scope="module")
@@ -125,10 +126,17 @@ def converted(timeline, connections, devices):
     """
     return core.convert(
         timeline,
-        connections[connections["variable"] != "imaging_beam_intensity__V"],
+        wt_frame.filter(
+            connections,
+            wt_frame.column(connections, "variable") != "imaging_beam_intensity__V",
+        ),
         devices,
         CYCLE_PERIOD,
     )
+
+
+def _dropna(values):
+    return values[~wt_frame.isnull(values)]
 
 
 def _digest__tuples(rows):
@@ -140,15 +148,19 @@ def _digest__tuples(rows):
 
 
 def test_the_fixture_is_the_experiment_it_claims_to_be(timeline):
-    assert len(timeline) == 131
-    assert timeline["variable"].nunique() == 35
-    assert sum(v.startswith("⚓") for v in timeline["variable"].unique()) == 11
+    assert wt_frame.n_rows(timeline) == 131
+    variables = wt_frame.unique(timeline, "variable")
+    assert len(_dropna(np.asarray(variables, dtype=object))) == 35
+    assert sum(v.startswith("⚓") for v in variables) == 11
 
     sharpnesses = sorted(
         set(
-            pd.read_parquet(FIXTURES / "timeline.parquet")[
-                "function__sharpness"
-            ].dropna()
+            _dropna(
+                wt_frame.column(
+                    wt_frame.read_parquet(FIXTURES / "timeline.parquet"),
+                    "function__sharpness",
+                )
+            )
         )
     )
     assert sharpnesses == [0.3, 1.6, 3.0]
@@ -159,12 +171,14 @@ def test_every_ramp_function_is_data_rather_than_code():
     The point of the fixture: the takeout's closures were reduced to a name and a number,
     and the reconstruction has to reproduce the curve exactly or the archive is worthless.
     """
-    described = pd.read_parquet(FIXTURES / "timeline.parquet")
-    named = set(described["function"].dropna())
+    described = wt_frame.read_parquet(FIXTURES / "timeline.parquet")
+    named = set(_dropna(wt_frame.column(described, "function")))
     assert named == {"wignertime.ramp_function.tanh"}
 
     origin, terminus, resolution = [0.0, 1.0], [0.5, 4.0], 1e-3
-    for sharpness in sorted(set(described["function__sharpness"].dropna())):
+    for sharpness in sorted(
+        set(_dropna(wt_frame.column(described, "function__sharpness")))
+    ):
         assert np.allclose(
             _ramp_function(sharpness)(origin, terminus, resolution),
             ramp_function.tanh(origin, terminus, resolution, sharpness),
@@ -186,8 +200,8 @@ def test_lab2_connects_an_analogue_channel_it_does_not_calibrate(connections, de
     with pytest.raises(ValueError, match="do not describe the same apparatus"):
         device.check_correspondence(connections, devices)
 
-    assert "imaging_beam_intensity__V" in set(connections["variable"])
-    assert "imaging_beam_intensity__V" not in set(devices["variable"])
+    assert "imaging_beam_intensity__V" in set(wt_frame.column(connections, "variable"))
+    assert "imaging_beam_intensity__V" not in set(wt_frame.column(devices, "variable"))
 
 
 # --- the pipeline -------------------------------------------------------------
@@ -196,14 +210,16 @@ def test_lab2_connects_an_analogue_channel_it_does_not_calibrate(connections, de
 def test_expansion_is_unchanged(timeline):
     expanded = tl.expand(timeline, time_resolution=CYCLE_PERIOD)
 
-    assert len(expanded) == EXPANDED__ROWS
-    assert expanded["time"].max() == pytest.approx(12.4991, abs=1e-4)
+    assert wt_frame.n_rows(expanded) == EXPANDED__ROWS
+    assert wt_frame.column(expanded, "time").max() == pytest.approx(12.4991, abs=1e-4)
 
-    ordered = expanded.sort_values(["variable", "time", "value"]).reset_index(drop=True)
+    ordered = wt_frame.sort(expanded, ["variable", "time", "value"])
     digest = hashlib.sha256()
-    digest.update(chr(0).join(ordered["variable"].astype(str)).encode())
-    digest.update(ordered["time"].to_numpy().tobytes())
-    digest.update(ordered["value"].to_numpy().tobytes())
+    digest.update(
+        chr(0).join(str(v) for v in wt_frame.column(ordered, "variable")).encode()
+    )
+    digest.update(wt_frame.column(ordered, "time").tobytes())
+    digest.update(wt_frame.column(ordered, "value").tobytes())
     assert digest.hexdigest() == EXPANDED__DIGEST
 
 

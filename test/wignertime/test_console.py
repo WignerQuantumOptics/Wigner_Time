@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 
 import wignertime.adwin as wt_adwin
@@ -7,6 +6,7 @@ from wignertime import device
 from wignertime import timeline as tl
 from wignertime.adwin import connection as adcon
 from wignertime.adwin import console
+from wignertime.internal import dataframe as wt_frame
 
 OWNER = wt_adwin.PAR__SEQUENCE__OWNER
 FINISHED = wt_adwin.PAR__SEQUENCES__FINISHED
@@ -150,9 +150,11 @@ DEFAULTS = [(1, 11, 1), (4, 1, conversion.to_digits(3.0))]  # the lockbox has no
 
 def test_the_panel_takes_its_defaults_from_the_timeline(capsys):
     table = _panel()
-    values = dict(zip(table["variable"], table["default_value"]))
+    values = dict(
+        zip(wt_frame.column(table, "variable"), wt_frame.column(table, "default_value"))
+    )
     assert values["shutter__MOT"] == 1.0 and values["coil__MOT__A"] == 1.5
-    assert np.isnan(values["lockbox__MOT__MHz"]), "no default: left as it is"
+    assert wt_frame.isnull(values["lockbox__MOT__MHz"]), "no default: left as it is"
     assert "lockbox__MOT__MHz" in capsys.readouterr().out, "the missing one is reported"
 
 
@@ -164,7 +166,7 @@ def test_a_variable_without_a_default_is_left_alone_and_unknown():
     machine, panel = _configured()
     machine.sweep()
     assert (3, 8) not in [(m, c) for m, c, _ in machine.hardware]
-    assert np.isnan(console.readback(panel)["value"][2])
+    assert wt_frame.isnull(wt_frame.column(console.readback(panel), "value")[2])
 
 
 def test_an_analogue_channel_without_a_device_is_refused():
@@ -327,13 +329,15 @@ def test_after_a_run_the_console_adopts_the_final_state_and_writes_nothing():
         (1, 11, 0),
     ]
     held = console.readback(panel)
-    values = dict(zip(held["variable"], held["value"]))
+    values = dict(
+        zip(wt_frame.column(held, "variable"), wt_frame.column(held, "value"))
+    )
     assert values["coil__MOT__A"] == pytest.approx(-1.2, abs=1e-3)
     assert values["shutter__MOT"] == 0
-    assert np.isnan(
+    assert wt_frame.isnull(
         values["lockbox__MOT__MHz"]
     ), "not named by the final state: unknown"
-    assert not held["pending"].any()
+    assert not wt_frame.column(held, "pending").any()
 
 
 def test_a_value_wanted_just_before_the_run_is_discarded():
@@ -370,8 +374,8 @@ def test_a_console_closed_during_the_run_adopts_when_it_is_started():
     machine.sequence(**FINAL)
     machine.start()
     held = console.readback(panel)
-    assert np.isnan(held["value"][2])
-    assert held["value"][1] == pytest.approx(-1.2, abs=1e-3)
+    assert wt_frame.isnull(wt_frame.column(held, "value")[2])
+    assert wt_frame.column(held, "value")[1] == pytest.approx(-1.2, abs=1e-3)
 
 
 @pytest.mark.parametrize("to_V", [2.0, lambda amps: 2.0 * amps])
@@ -530,7 +534,9 @@ def test_an_analogue_entry_converts_with_its_modules_range():
     # coil__MOT__A on module 4: 1.5 A at 2 V/A is 3 V, on a ±5 V module.
     expected = conversion.to_digits(3.0, [-5.0, 5.0], 16)
     assert machine.data[console.DATA__WANTED][1] == expected
-    assert console.readback(handle)["value"][1] == pytest.approx(1.5, abs=1e-3)
+    assert wt_frame.column(console.readback(handle), "value")[1] == pytest.approx(
+        1.5, abs=1e-3
+    )
 
 
 def test_a_digital_entry_on_a_second_digital_module_is_marked_and_read_back():

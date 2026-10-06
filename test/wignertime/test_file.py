@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from pathlib import Path
 
@@ -77,13 +79,21 @@ def test_save_load__types_with_functions(fname, timeline_demo_function):
     file.save(timeline_demo_function, fname)
     actual = file.load(fname)
 
-    mask = actual["function"].notna()
+    functions = frame.column(actual, "function")
+    mask = ~frame.isnull(functions)
 
-    if bool(actual.loc[mask, "function"].map(lambda x: isinstance(x, str)).all()):
-        output = timeline_demo_function.copy(deep=True)
-        output.loc[mask, "function"] = "wignertime.ramp_function.tanh"
-        # A column of names is typed as one: `object` under pandas 2, `str` under 3.
-        output["function"] = output["function"].infer_objects()
+    if all(isinstance(x, str) for x in functions[mask]):
+        output = frame.with_column(
+            frame.copy(timeline_demo_function),
+            "function",
+            "wignertime.ramp_function.tanh",
+            where=mask,
+        )
+        # A column of names is typed as one, as the library reads it back: `object`
+        # under pandas 2, `str` under pandas 3, `String` under polars.
+        output = frame.with_column(
+            output, "function", list(frame.column(output, "function"))
+        )
     else:
         output = timeline_demo_function
 
@@ -121,8 +131,12 @@ def test_save_load__nulls_survive_the_round_trip(suffix, timeline_demo_function)
     def kinds(column):
         return {type(v) for v in column if not callable(v) and not isinstance(v, str)}
 
-    assert kinds(back["function"]) == kinds(timeline_demo_function["function"])
-    assert not any(v is None for v in back["function"])
+    functions__back = frame.column(back, "function")
+    functions__written = frame.column(timeline_demo_function, "function")
+    assert kinds(functions__back) == kinds(functions__written)
+    assert [v is None for v in functions__back] == [
+        v is None for v in functions__written
+    ]
 
 
 @pytest.mark.parametrize("suffix", [".json", ".csv", ".pickle", ".parquet"])
@@ -135,6 +149,45 @@ def test_the_state_before_and_after_the_run_survives_a_round_trip(suffix):
         pytest.importorskip("pyarrow")
     timeline = tl.to_timeline(tl.cascade(demo.init, demo.MOT, demo.finish))
     back = file.load(file.save(timeline, "t" + suffix))
-    assert {float("-inf"), float("inf")} <= set(timeline["time"])
+    assert {float("-inf"), float("inf")} <= set(frame.column(timeline, "time"))
     # JSON and CSV round the finite times in their last digits, which is not at issue.
-    assert list(back["time"]) == pytest.approx(list(timeline["time"]), rel=1e-12)
+    assert list(frame.column(back, "time")) == pytest.approx(
+        list(frame.column(timeline, "time")), rel=1e-12
+    )
+
+
+@pytest.mark.parametrize("writer", ["pandas", "polars"])
+def test_a_pickle_written_with_either_library_loads_with_this_one(
+    writer, tmp_path, timeline_demo_function
+):
+    """
+    A timeline holds its ramp functions, and a pickle keeps them. polars cannot pickle a
+    column of functions, so its backend pickles the columns instead; a timeline pickled
+    with either library loads with either, functions and column types intact.
+
+    Only a function pickle can find again by name is kept, as always with pickle: a
+    lambda or a function defined inside another cannot be saved by either library.
+    """
+    import importlib.util
+    import subprocess
+    import sys
+
+    if importlib.util.find_spec(writer) is None:
+        pytest.skip(f"{writer} is not installed")
+    path = tmp_path / "t.pkl"
+    code = (
+        "from wignertime import timeline as tl, file\n"
+        "from wignertime.demo import full_experiment as demo\n"
+        "t = tl.to_timeline(tl.cascade(demo.init, demo.MOT, demo.MOT_detuned_growth))\n"
+        f"file.save(t, {str(path)!r})\n"
+    )
+    env = dict(os.environ, WIGNERTIME_BACKEND=writer)
+    env.pop("WIGNERTIME_STRICT_LOG", None)
+    # From the repository, where the demo finds its calibration file.
+    root = Path(__file__).resolve().parents[2]
+    subprocess.run([sys.executable, "-c", code], env=env, check=True, cwd=root)
+
+    back = file.load(path)
+    frame.assert_equal(back, timeline_demo_function)
+    functions = frame.column(back, "function")
+    assert any(callable(f) for f in functions)

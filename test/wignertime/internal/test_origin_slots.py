@@ -11,6 +11,7 @@ which answers in the wrong units. Settled by the maintainer on 2026-09-18, again
 import pytest
 
 from wignertime import timeline as tl
+from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import origin as wt_origin
 
 
@@ -77,21 +78,21 @@ def test_a_variable_name_remains_a_value_origin(tline):
     new = tl.to_timeline(
         tl.update(coil__A=1.0, time=0.0, origin=["stage1", "coil__A"]), onto=tline
     )
-    assert new.iloc[-1]["value"] == pytest.approx(3.0)
+    assert wt_frame.row(new, -1)["value"] == pytest.approx(3.0)
 
 
 def test_variable_remains_a_value_origin(tline):
     new = tl.to_timeline(
         tl.update(coil__A=1.0, time=0.0, origin=["stage1", tl.VARIABLE]), onto=tline
     )
-    assert new.iloc[-1]["value"] == pytest.approx(3.0)
+    assert wt_frame.row(new, -1)["value"] == pytest.approx(3.0)
 
 
 def test_a_number_remains_a_value_origin(tline):
     new = tl.to_timeline(
         tl.update(coil__A=1.0, time=0.0, origin=[0.0, 10.0]), onto=tline
     )
-    assert new.iloc[-1]["value"] == pytest.approx(11.0)
+    assert wt_frame.row(new, -1)["value"] == pytest.approx(11.0)
 
 
 # --- the time slot is unchanged ----------------------------------------------
@@ -105,14 +106,17 @@ def test_the_time_slot_still_admits_everything(tline, label, time__expected):
     new = tl.to_timeline(
         tl.update(coil__A=1.0, time=0.0, origin=[label, None]), onto=tline
     )
-    assert new.iloc[-1]["time"] == pytest.approx(time__expected)
+    assert wt_frame.row(new, -1)["time"] == pytest.approx(time__expected)
 
 
 def test_ramp_still_chains_on_its_own_default(tline):
     """`ramp`'s `[[ANCHOR, VARIABLE]]` is precisely a legal pair under the split."""
     new = tl.to_timeline(tl.ramp(coil__A=9.0, duration=0.5), onto=tline)
-    points = new[new["function"].notna()][["time", "value"]].values.tolist()
-    assert points == [[3.5, 5.0], [4.0, 9.0]]
+    points = wt_frame.rows(
+        wt_frame.filter(new, ~wt_frame.isnull(wt_frame.column(new, "function"))),
+        ["time", "value"],
+    )
+    assert points == [(3.5, 5.0), (4.0, 9.0)]
 
 
 # --- the words are tags, so a string is always a name (#158) ------------------
@@ -126,7 +130,7 @@ def test_a_context_may_be_named_after_a_word(word):
     tags and a string is only ever a name.
     """
     timeline = tl.to_timeline(tl.update(coil__A=1.0, context=word))
-    assert list(timeline["context"]) == [word]
+    assert list(wt_frame.column(timeline, "context")) == [word]
 
 
 def test_a_context_named_after_a_word_is_what_the_word_refers_to():
@@ -139,7 +143,7 @@ def test_a_context_named_after_a_word_is_what_the_word_refers_to():
     placed = tl.to_timeline(
         tl.update(coil__A=3.0, time=0.5, origin="last"), onto=timeline
     )
-    assert placed.iloc[-1]["time"] == pytest.approx(2.5)
+    assert wt_frame.row(placed, -1)["time"] == pytest.approx(2.5)
 
 
 @pytest.mark.parametrize("word", ["anchor", "last", "variable"])

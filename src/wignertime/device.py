@@ -8,7 +8,6 @@ The unit range is used for conversion and the saftey range is for sanity checkin
 """
 
 import numpy as np
-import pandas as pd
 
 from wignertime import variable as wt_variable
 from wignertime.internal import dataframe as wt_frame
@@ -92,14 +91,17 @@ def new(*variable_toV_min_max) -> wt_frame.CLASS:
     _ensure_valid_names(new)
 
     # convert dtype to float if possible (i.e. no functions)
-    if pd.to_numeric(new["to_V"], errors="coerce").notna().all():
-        new["to_V"] = new["to_V"].astype(float)
+    to_V = wt_frame.column(new, "to_V")
+    if not wt_frame.not_numeric(to_V).any():
+        new = wt_frame.with_column(new, "to_V", to_V.astype(float))
 
     return new
 
 
 def _ensure_valid_names(devices):
-    offenders = [v for v in devices["variable"] if not wt_variable.is_valid(v)]
+    offenders = [
+        v for v in wt_frame.column(devices, "variable") if not wt_variable.is_valid(v)
+    ]
     if offenders:
         raise ValueError(
             "Device name(s) {} do not follow the naming convention"
@@ -130,8 +132,8 @@ def check_correspondence(connections, devices):
 
     A digital line has no unit and needs no device, so it is not expected to have one.
     """
-    names__connected = set(connections["variable"])
-    names__calibrated = set(devices["variable"])
+    names__connected = set(wt_frame.column(connections, "variable"))
+    names__calibrated = set(wt_frame.column(devices, "variable"))
 
     analogue = {
         v for v in names__connected if wt_variable.unit(v) != "digital"
@@ -179,35 +181,41 @@ def check_within_range(timeline, columns__bounds=["value__min", "value__max"]):
     ASSUMES: That a `value` column is present, and that the timeline has already been joined to `device`s.
     """
 
-    if not wt_frame.is_column_float(timeline["value"]):
+    if not wt_frame.is_column_float(timeline, "value"):
         raise ValueError("Value column might not contain floats.")
 
-    columns__missing = [c for c in columns__bounds if c not in timeline.columns]
+    columns__present = wt_frame.columns(timeline)
+    columns__missing = [c for c in columns__bounds if c not in columns__present]
     if columns__missing:
         raise ValueError(
             "Safety limits cannot be checked because the column(s) {} are absent. `device`s should be joined to the timeline before validation. Columns present: {}".format(
-                columns__missing, list(timeline.columns)
+                columns__missing, columns__present
             )
         )
 
     column__min, column__max = columns__bounds
     violations = []
 
-    for variable, group in timeline.groupby("variable"):
-        bound__min = group[column__min].iloc[0]
-        bound__max = group[column__max].iloc[0]
+    # In the order of the variables' names, so that the message is the same however the
+    # timeline happens to be ordered.
+    for variable, group in sorted(
+        wt_frame.group_by(timeline, "variable"), key=lambda pair: pair[0]
+    ):
+        first = wt_frame.row(group, 0)
+        bound__min, bound__max = first[column__min], first[column__max]
+        values = wt_frame.column(group, "value")
 
         if wt_frame.isnull(bound__min) and wt_frame.isnull(bound__max):
             # No device entry for this variable, so there is nothing to check.
             continue
 
         if not wt_frame.isnull(bound__max):
-            value__max = group["value"].max()
+            value__max = values.max()
             if value__max > bound__max:
                 violations.append((variable, value__max, "above", bound__max))
 
         if not wt_frame.isnull(bound__min):
-            value__min = group["value"].min()
+            value__min = values.min()
             if value__min < bound__min:
                 violations.append((variable, value__min, "below", bound__min))
 
