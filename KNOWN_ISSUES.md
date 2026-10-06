@@ -56,7 +56,7 @@ Retired on 2026-10-02: `ux` and `consistency` (too broad to filter on), `interna
 
 ## Open items
 
-Three items with an ID are open, all in section D and in `1.x`: **D16** (#130), **D23** (#144) and **D24** (#173). Two open issues carry no ID and are recorded at the end of this section.
+Three items with an ID are open, all in section D and in `1.x`: **D16** (#130), **D23** (#144) and **D24** (#173). Three open issues carry no ID and are recorded at the end of this section.
 
 ### D16 — the anchor label cannot be printed on a legacy Windows code page **[new, found 2026-09-11]**
 
@@ -129,8 +129,9 @@ Tracked as [#173](https://github.com/WignerQuantumOptics/Wigner_Time/issues/173)
 
 ### Open without an item ID
 
-- **#142** (`Decision`, `paper-affecting`, `1.0 — paper`) – reopened 2026-09-30, the most urgent open decision: whether `None` keeps, in 1.0.0, its meaning in `origin` and `context`, the same as `INFER`. A meaning of its own would change what every stage that forwards `origin=None` or `context=None` does, the paper's included (`pull_coils` in `sec:demonstration`). `trigger_camera` in `sec:stacking` no longer counts: since 2026-10-06 a *placed* stage takes `origin` with no default (maintainer), in the paper and the demo alike, so it forwards whatever its caller names. History: A8's amendment and the paper items, in the design record; D23 is the same question from the configuration side.
+- **#142** (`Decision`, `paper-affecting`, `1.0 — paper`) – reopened 2026-09-30, the most urgent open decision: whether `None` keeps, in 1.0.0, its meaning in `origin` and `context`, the same as `INFER`. A meaning of its own would change what every stage that forwards `origin=None` or `context=None` does – the lab's, though no longer the paper's or the demo's (2026-10-06, maintainer): `trigger_camera` in `sec:stacking` takes `origin` with no default, since a *placed* stage names its origin, and `pull_coils` in `sec:demonstration` takes no `context`, since it inherits that of `magnetic_trapping`, which states it once. History: A8's amendment and the paper items, in the design record; D23 is the same question from the configuration side.
 - **#160** (`1.0 — paper`) – `finish` should derive the final state from the initial state in the timeline rather than restate it through keywords (maintainer, 2026-09-02). It must keep the intended asymmetry (`MOT_ON` is `False` at `init`, `True` at `finish`: copy, then apply named overrides). **It carries the open remainder of B11**: a stopped run plays the final state only for the channels it names, and the lab's `ADwin_Finish` names neither the MOT coils, nor the dispenser, nor `AOM_science__V` (lab L9), so a run stopped in the magnetic trap leaves the coils at the trap's current, silently. Two directions, neither taken: name them in the lab's `finish()`, or have `upload` refuse or warn when the final state leaves a connected channel unnamed – a change to what `upload` accepts, so the maintainer's to decide. `sec:context`'s claim that every channel is then defined waits on it.
+- **#174** (`Decision`, `1.x`) – `config.ORIGIN__DEFAULTS` is a chain tried in order and can be rebound, but an entry that always resolves makes every later one unreachable: `LAST` resolves whenever `ANCHOR` would, so placed before it, it leaves `ANCHOR` dead without any error. The chain is only meaningful with entries that can be absent, such as a context name. Two directions, neither taken: refuse a chain with an always-resolving entry before the last, or stop presenting the chain as configuration. `ORIGIN__DEFAULTS__RAMP` has the same shape. Not paper-affecting: the paper does not mention that the order can be configured (maintainer, 2026-10-06).
 
 ## C. API decisions – the rules in force
 

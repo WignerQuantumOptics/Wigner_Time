@@ -109,7 +109,7 @@ def default_state(MOT_ON=True, **kwargs):
     """
     Starts/leaves the system in a sane state that is appropriate for creating a new timeline
 
-    As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. When needed, we turn them off before the opening of the shutter.
+    As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. When needed, we turn them off before the opening of the shutter. The same holds for the coils.
 
     The same stage at both ends of the experiment: `init` and `finish` differ only in the
     time, the context and `MOT_ON`.
@@ -126,8 +126,8 @@ def default_state(MOT_ON=True, **kwargs):
             AOM__OP_aux=0,  # TODO: USB-controlled AOMs should be treated on a higher level
             AOM__OP=1,
             AOM__science=1,
-            shutter__MOT=int(MOT_ON),
-            shutter__repump=int(MOT_ON),
+            shutter__MOT=MOT_ON,
+            shutter__repump=MOT_ON,
             shutter__OP1=0,
             shutter__OP2=1,
             shutter__science=0,
@@ -306,10 +306,12 @@ def pull_coils(
     upper_plus_current=0,
     pt=3,
     time=None,
-    context=None,
 ):
     """
     Controls the concentric coil pairs responsible for 'pulling' the atoms.
+
+    It names no context: it inherits the one of the stage it is part of, as
+    `magnetic_trapping`'s two calls do.
     """
     return tl.ramp(
         coil__MOT_lower__A=lower_current,
@@ -321,7 +323,6 @@ def pull_coils(
         ),
         duration=duration,
         time=time,
-        context=context,
     )
 
 
@@ -341,7 +342,6 @@ def magnetic_trapping(
             duration_initial,
             lower_current_initial,
             upper_current_initial,
-            context="magnetic_trapping",
         ),
         pull_coils(
             duration_strengthen,

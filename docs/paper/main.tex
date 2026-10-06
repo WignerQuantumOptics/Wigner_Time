@@ -952,17 +952,17 @@ The \python{origin} argument accepts
     \item a \python{float}: all times are offset by this number
     \item a \python{str}: the name of a variable or of a context, resolved against the timeline (see below)
     \item one of the tags \python{tl.ANCHOR}, \python{tl.LAST} and \python{tl.VARIABLE} (see below)
-    \item an \python{Iterable} of two values, following the same options for each: sets the numerical zero of the time and value columns independently
+    \item a pair, following the same options for each: sets the numerical zero of the time and value columns independently
 \end{itemize}
-The default, \python{INFER}, does not suppress the feature, but selects the first applicable option in \python{wignertime.config.ORIGIN__DEFAULTS} – by default the most recent anchor if one exists, and the most recent entry otherwise. The options are tried in order, and should neither be available, as at the start of an experiment, the new entries are placed in absolute time. The two slots are completed independently, so a partially stated origin keeps the default for the slot it leaves out – \python{origin="molasses"} passed to \python{ramp} takes its time from that context and its value from the variable itself. \python{None} means the same as \python{INFER}, as the whole origin or in one slot, and absolute placement is requested with \python{0.0}.
+The default, \python{INFER}, does not suppress the feature, but selects the most recent anchor if one exists, and the most recent entry otherwise. Should neither be available, as at the start of an experiment, the new entries are placed in absolute time. The two slots are completed independently, so a partially stated origin keeps the default for the slot it leaves out – \python{origin="molasses"} passed to \python{ramp} takes its time from that context and its value from the variable itself. \python{None} means the same as \python{INFER}, as the whole origin or in one slot, and absolute placement is requested with \python{0.0}.
 
 Three tags have dedicated meanings:
+
+\python{tl.ANCHOR} – time is relative to the most recent anchor entry (\cref{sec:anchor}), i.e. a variable whose name contains the \faAnchor~symbol, or the configured equivalent in \python{wignertime.config}.
 
 \python{tl.LAST} – time is relative to the entry with the highest time recorded so far in the timeline.
 
 \python{tl.VARIABLE} – each variable is placed relative to its own most recent entry, independently of the others. This is the one tag admissible in either slot.
-
-\python{tl.ANCHOR} – time is relative to the most recent anchor entry (\cref{sec:anchor}), i.e. a variable whose name contains the \faAnchor~symbol, or the configured equivalent in \python{wignertime.config}.
 
 \python{tl.LAST} and \python{tl.ANCHOR} are defined temporally and are admissible in the time slot only, as is a context name; the reason is given in the caption of \cref{fig:origin}.
 
@@ -988,7 +988,7 @@ The \python{ramp} function takes a second origin, \python{origin2}, following th
 update(AOM__MOT=0,
   shutter__MOT=0, time=1)
     \end{pythonTable}
-    & \small Assuming default \python{config}, turns off both the MOT AOM and shutter $\Delta t=1$\,s after the \emph{latest anchor} in the timeline. If no anchor is found, then after the latest entry in the timeline.\\\hline
+    & \small Turns off both the MOT AOM and shutter $\Delta t=1$\,s after the \emph{latest anchor} in the timeline. If no anchor is found, then after the latest entry in the timeline.\\\hline
 
     \begin{pythonTable}
 update(AOM__imaging=1,
@@ -1129,7 +1129,7 @@ def default_state(MOT_ON=True, **kwargs):
     """
     Starts/leaves the system in a sane state that is appropriate for creating a new timeline
 
-    As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. When needed, we turn them off before the opening of the shutter.
+    As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. When needed, we turn them off before the opening of the shutter. The same holds for the coils.
     """
     return tl.update(
         lockbox__MOT__MHz=0.0,
@@ -1137,8 +1137,8 @@ def default_state(MOT_ON=True, **kwargs):
         AOM__repump=1,
         AOM__OP=1,
         AOM__science=1,
-        shutter__MOT=int(MOT_ON),
-        shutter__repump=int(MOT_ON),
+        shutter__MOT=MOT_ON,
+        shutter__repump=MOT_ON,
         shutter__OP1=0,
         shutter__OP2=1,
         shutter__science=0,
@@ -1302,8 +1302,7 @@ def optical_pumping(
     )
 
 
-def pull_coils(duration, lower_current, upper_current, pt=3,
-               time=None, context=None):
+def pull_coils(duration, lower_current, upper_current, pt=3, time=None):
     """
     Pull the coil currents to a given value
     """
@@ -1315,7 +1314,6 @@ def pull_coils(duration, lower_current, upper_current, pt=3,
         ),
         duration=duration,
         time=time,
-        context=context,
     )
 
 
@@ -1331,9 +1329,10 @@ def magnetic_trapping(
     Pulls up the magnetic trap
     """
     return tl.stack(
-        pull_coils(duration_initial, lower_current_initial, upper_current_initial, context="magnetic_trapping"),
+        pull_coils(duration_initial, lower_current_initial, upper_current_initial),
         pull_coils(duration_strengthen, lower_current_strengthen, upper_current_strengthen, time=duration_initial),
-        tl.anchor(duration_initial + duration_strengthen, context="magnetic_trapping")
+        tl.anchor(duration_initial + duration_strengthen),
+        context="magnetic_trapping",
     )
 
 
@@ -1414,9 +1413,9 @@ def default_state(MOT_ON=True, cavity_transmission=True, **kwargs):
         lockbox__MOT__MHz=0.0,
         AOM__MOT=1,
         AOM__repump=1,
-        shutter__MOT=int(MOT_ON),
-        shutter__repump=int(MOT_ON),
-        shutter__science=int(cavity_transmission),
+        shutter__MOT=MOT_ON,
+        shutter__repump=MOT_ON,
+        shutter__science=cavity_transmission,
         trigger__TC__V=0.0,
         # ... the remainder of the base state
         **kwargs,
@@ -1428,6 +1427,8 @@ def init(MOT_ON=False, cavity_transmission=False, **kwargs):
         MOT_ON=MOT_ON, cavity_transmission=cavity_transmission,
         **kwargs,
     )
+
+# finish(**kwargs) forwards to default_state in the same way (appendix B)
 
 # diagnostics.py - a module that adds absorption imaging
 connections = pd.concat([
@@ -1489,7 +1490,7 @@ The sequencer checks what it is given before it plays it. \python{upload} record
 
 The console is driven by the same \python{connection} and \python{device} tables as the timelines. A channel is therefore named, calibrated and bounded in one place, and a value set on the console reaches its DAC as the same value in a timeline would, through a calibration file where there is one. For each channel the console keeps the code it has been asked for and the code it has last written, and writes the channel only when the two differ, so setting a value never waits for the controller.
 
-The outputs belong to one program at a time. Starting a sequence stops the console, and the console is started again once the sequence has applied its final state. Values set on the console during a run are discarded: after the run the apparatus holds its final state, and the console takes this over as its own, marking as unknown any channel the final state does not name. Before a run, \python{upload} warns about each analog channel that has been set by hand and that the run will change at once, whether in the initial state or when a stage first sets it. In our experiment the MOT coils are the case in point. The initial state leaves them untouched, so that the MOT stays in its steady state between runs, and after they have been adjusted by hand the MOT stage would otherwise move them without comment.
+The outputs belong to one program at a time. Starting a sequence stops the console, and the console is started again once the sequence has applied its final state. Values set on the console during a run are discarded: after the run the apparatus holds its final state, and the console takes this over as its own, marking as unknown any channel the final state does not name. Before a run, \python{upload} warns about each analog channel that has been set by hand and that the run will change in a single step, whether in the initial state or when a stage first sets it. In our experiment the MOT coils are the case in point. The initial state leaves them untouched, so that the MOT stays in its steady state between runs, and after they have been adjusted by hand the MOT stage would otherwise move them without comment.
 
 \end{appendix}
  
