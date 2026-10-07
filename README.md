@@ -8,7 +8,7 @@ Beta. The package has been in use on two cold-atom setups for more than two year
 
 A regression test now freezes a real experiment — a complete atom-cavity run taken off one of the two rigs — and checks the whole pipeline against it, so a change in what the package emits cannot pass unnoticed.
 
-A preprint has been submitted to arXiv; the identifier will be added here once it is announced.
+The accompanying paper, submitted to SciPost Physics Codebases, is on arXiv as [arXiv:2609.06230](https://arxiv.org/abs/2609.06230).
 
 ## Installation
 

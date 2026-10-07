@@ -109,7 +109,7 @@ def default_state(MOT_ON=True, **kwargs):
     """
     Starts/leaves the system in a sane state that is appropriate for creating a new timeline
 
-    As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. When needed, we turn them off before the opening of the shutter.
+    As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. When needed, we turn them off before the opening of the shutter. The same holds for the coils.
 
     The same stage at both ends of the experiment: `init` and `finish` differ only in the
     time, the context and `MOT_ON`.
@@ -126,8 +126,8 @@ def default_state(MOT_ON=True, **kwargs):
             AOM__OP_aux=0,
             AOM__OP=1,
             AOM__science=1,
-            shutter__MOT=int(MOT_ON),
-            shutter__repump=int(MOT_ON),
+            shutter__MOT=MOT_ON,
+            shutter__repump=MOT_ON,
             shutter__OP1=0,
             shutter__OP2=1,
             shutter__science=0,
@@ -304,10 +304,12 @@ def pull_coils(
     upper_plus_current=0,
     pt=3,
     time=None,
-    context=None,
 ):
     """
     Controls the concentric coil pairs responsible for 'pulling' the atoms.
+
+    It names no context: it inherits the one of the stage it is part of, as
+    `magnetic_trapping`'s two calls do.
     """
     return tl.ramp(
         coil__MOT_lower__A=lower_current,
@@ -319,7 +321,6 @@ def pull_coils(
         ),
         duration=duration,
         time=time,
-        context=context,
     )
 
 
@@ -339,7 +340,6 @@ def magnetic_trapping(
             duration_initial,
             lower_current_initial,
             upper_current_initial,
-            context="magnetic_trapping",
         ),
         pull_coils(
             duration_strengthen,
@@ -358,9 +358,13 @@ def magnetic_trapping(
 # NOTE: Unlike the stages above, which each act on the state the previous one left behind, a diagnostic is *placed*: it can be attached to any named point of an existing timeline, even a finished one, without restructuring it. Its signature says so by declaring `origin`.
 
 
-def trigger_camera(time, exposure, context, origin=None):
+def trigger_camera(time, exposure, context, origin):
     """
     Opens the camera for `exposure`, starting `time` after `origin`.
+
+    `origin` has no default, because this stage is placed rather than chained: with one,
+    a call that forgot it would fall back on the latest anchor and land wherever the
+    timeline happened to end, without an error (maintainer, 2026-10-06).
 
     `context` is required rather than inherited: a trigger placed into a finished timeline would otherwise adopt the context of its last row at an instant, `finalRamps`, and a camera trigger is not part of the final ramps.
 

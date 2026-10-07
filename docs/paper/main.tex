@@ -28,9 +28,8 @@
  
 \fancypagestyle{SPstyle}{
 \fancyhf{}
-\lhead{\colorbox{scipostblue}{\bf \color{white} ~SciPost Physics Codebases }}
-%\lhead{\colorbox{scipostblue}{\bf \color{white} ~Wigner Time }}
-\rhead{{\bf \color{scipostdeepblue} ~Submission }}
+\lhead{{\bf \color{scipostdeepblue} Wigner Time: data-oriented experimental timelines}}
+\rhead{{\bf \color{scipostdeepblue} T. W. Clark \textit{et al.}}}
 \renewcommand{\headrulewidth}{1pt}
 \fancyfoot[C]{\textbf{\thepage}}
 }
@@ -42,7 +41,7 @@
 \usepackage{fontawesome}
 %\usepackage{siunitx}
 % –––––––––––––-
-\usepackage{minted}             
+\usepackage{minted}
 %\usepackage{listing}             
 \usepackage{verbatim}             
 \usepackage{fvextra}           
@@ -161,25 +160,8 @@ multi-device timing.
 }}
  
 \vspace{\baselineskip}
- 
-%%%%%%%%%% BLOCK: Copyright information
-% This block will be filled during the proof stage, and finilized just before publication.
-% It exists here only as a placeholder, and should not be modified by authors.
-\noindent\textcolor{white!90!black}{%
-\fbox{\parbox{0.975\linewidth}{%
-\textcolor{white!40!black}{\begin{tabular}{lr}%
-  \begin{minipage}{0.6\textwidth}%
-    {\small Copyright attribution to authors. \newline
-    This work is a submission to SciPost Physics Codebases. \newline
-    License information to appear upon publication. \newline
-    Publication information to appear upon publication.}
-  \end{minipage} & \begin{minipage}{0.4\textwidth}
-    {\small Received Date \newline Accepted Date \newline Published Date}%
-  \end{minipage}
-\end{tabular}}
-}}
-}
-%%%%%%%%%% BLOCK: Copyright information
+
+\noindent\textbf{Keywords:} experiment control; real-time systems; timing; cold atoms; data-oriented programming; Python; ADwin
  
  
 %%%%%%%%%% TODO: LINENO
@@ -262,7 +244,8 @@ EndIf
  
 '=== MOT_full.bas, EVENT, some 150 lines further down =================
 If ((CycleCount >= rampCoilsBeginCC) And (CycleCount <= rampCoilsEndCC)) Then
-  rampCoilsTemp = Tanh(TanhInterval*(2.*(CycleCount-rampCoilsBeginCC)/(rampCoilsEndCC-rampCoilsBeginCC)-1.))/TwoTimesTanhOfTheTanhInterval
+  rampCoilsTemp = Tanh(TanhInterval*(2.*(CycleCount-rampCoilsBeginCC)/(rampCoilsEndCC-rampCoilsBeginCC)-1.))
+    /TwoTimesTanhOfTheTanhInterval
   ...
 EndIf
  
@@ -281,7 +264,7 @@ EndSub
 \begin{minipage}{.9\linewidth}
 \textbf{(b) Wigner Time: the same stage}
 \begin{minted}[fontsize=\mintedsmall, frame=lines, breaklines, breakanywhere, linenos=false]{python}
-def optical_pumping(
+def optical_pumping(  # assumes the repump is on
     duration_exposition=80e-6,
     duration_coil_ramp=50e-6,
     i=-0.12,
@@ -333,12 +316,12 @@ Wigner Time bridges the gap between user-friendly design of experimental procedu
  
 By grounding the framework in a foundational table structure, we can benefit from decades of database development, particularly in-memory database-like systems. When in doubt, therefore, the user can simply manipulate their timeline using the well-developed pandas ecosystem completely independently of our package. For most operations, however, this will not be necessary, as Wigner Time provides layers of convenience functions.
  
-Existing solutions to the control problem fall broadly into two families. The first co-designs software together with its own hardware. An early and influential example is the laboratory control system of Meyrath and Schreck \cite{meyrath_schreck_control}, which distributes data from a central computer over a parallel bus to purpose-built analog, digital and radio-frequency output boards, with circuit designs and software released for others to rebuild. The same philosophy, at greater scale, characterizes the Sinara hardware ecosystem and its ARTIQ control system \cite{kasprowicz2020artiq,bourdeauducq2016artiq}: a modular open-hardware platform organized around an FPGA carrier, programmed in a Python-derived language that is compiled and executed on the hardware itself. The second family provides software over commercial off-the-shelf hardware, and divides in turn by how the experiment is described. Cicero/Atticus \cite{keshet2013distributed} uses a graphical editor, in which a sequence is composed of successive “words” – each beginning when the previous one ends – and dispatched through a client–server split to National Instruments output cards. labscript \cite{starkey2013labscript,labscript} and the Entangleware Sequencer \cite{kowalski2023entangleware} are instead scripted: experiments are written as Python programs that emit low-level hardware instructions, in the former case timed by a pseudoclock across a range of supported vendors, in the latter compiled to a bitstream for an NI FPGA. Alongside all of these sit the private, lab-specific programs commonplace in cold-atom groups, of which little is ever published.
+Existing solutions to the control problem fall broadly into two families. The first co-designs software together with its own hardware. An early and influential example is the laboratory control system of Meyrath and Schreck \cite{meyrath_schreck_control}, which distributes data from a central computer over a parallel bus to purpose-built analog, digital and radio-frequency output boards, with circuit designs and software released for others to rebuild. The same philosophy, at greater scale, characterizes the Sinara hardware ecosystem and its ARTIQ control system \cite{kasprowicz2020artiq,bourdeauducq2016artiq}: a modular open-hardware platform organized around an FPGA carrier, programmed in a Python-derived language that is compiled and executed on the hardware itself. The second family provides software over commercial off-the-shelf hardware, and divides in turn by how the experiment is described. Cicero/Atticus \cite{keshet2013distributed} uses a graphical editor, in which a sequence is composed of successive “words” – each beginning when the previous one ends – and dispatched through a client–server split to National Instruments (NI) output cards. labscript \cite{starkey2013labscript,labscript} and the Entangleware Sequencer \cite{kowalski2023entangleware} are instead scripted: experiments are written as Python programs that emit low-level hardware instructions, in the former case timed by a pseudoclock across a range of supported vendors, in the latter compiled to a bitstream for an NI FPGA. Alongside all of these sit the private, lab-specific programs commonplace in cold-atom groups, of which little is ever published.
  
 \begin{figure}
   \centering
-  \includegraphics[width=.5\linewidth]{graphic/language-tree.png}
-  \caption{\label{fig:hardware_overview} How Wigner Time connects the high-level language (Python) to the real-time hardware system (ADwin). The experimental description lives entirely on the Python side; the real-time program is written once, to describe the hardware, and thereafter only receives arrays. Normally, therefore, the user simply composes their experiment from the convenience functions, and the ADbasic script is touched only when the apparatus itself changes.}
+  \includegraphics[width=.95\linewidth]{graphic/hardware-overview.pdf}
+  \caption{\label{fig:hardware_overview} How Wigner Time connects Python on the PC to the ADwin controller. The experiment is described entirely on the PC, in the three layers of \cref{sec:definitions}. Stages compose a timeline in physical units, which can be plotted, compared and archived like any other table, and the conversion step combines it with the \python{connection} and \python{device} tables into hardware-ready arrays. This is the only point at which hardware detail enters. Through the ADwin API, \python{upload} writes the arrays into the controller’s memory, and \python{run} starts the sequencer, which plays them. The manual console shares the outputs with the sequencer, one program at a time (\cref{sec:adwin_operation}). The colors mark how often each part is rewritten: the parameters of the stages change from shot to shot, and the stages themselves between experiments; the \python{connection} table changes when the apparatus is rewired, and the \python{device} table when a device is recalibrated; the sequencer is written once.}
 \end{figure}
  
 Wigner Time cuts across this division, because the distinction that matters to us is not which hardware is targeted but what the experimental description \emph{is}. In every system above, the description is a \emph{program}: an imperative script, a graphical program, or a compiled real-time kernel, which is then executed in order to \emph{emit} hardware instructions. In Wigner Time the description is \emph{data} – a table of rows – and the library is a set of functions that transform tables. Hardware enters at exactly one point, the conversion step of \cref{sec:connectionlayer}. This is the origin of the advantages listed below: portability and inspectability follow from the timeline being a value rather than a side effect, and hardware detail – module numbers, channel assignments, conversions to DAC codes – no longer has to sit next to the physics. The properties below each answer some part of this: the global coupling of times, the mixing of hardware detail with the physics, and the fact that a program, once run, leaves nothing behind to inspect.
@@ -364,9 +347,9 @@ abstraction level.
 \paragraph{Fast} Decoupling the timeline design from the implementation also means
 that the real-time system program (\cref{fig:hardware_overview}), as distinct from
 the Python code, is maximally simple. As almost all of the logic happens outside
-the hardware, the low-level code can be reduced to a single concept: “at this time
-instant, if any desired voltage is different from the past time instant, update
-this voltage.” This matters because every instruction in the event loop must
+the hardware, the low-level code can be reduced to a single concept: “at this cycle,
+write the values listed for it.” Which values need writing at all – those that
+differ from what an output already holds – is decided beforehand, in Python. This matters because every instruction in the event loop must
 complete within one cycle, so logic in the real-time program is paid for directly
 in temporal resolution. The effect is concrete: the ADbasic implementation this
 work replaced evaluated ramp trajectories – including transcendental functions –
@@ -383,7 +366,7 @@ in a high-level language like Python is an equally significant advantage.
 \paragraph{Curatable} Experimental stages are ordinary functions, so the quantities one expects to vary are their arguments – declared once, with defaults, alongside the code they govern – while everything that rarely changes is enclosed in the body. A stage’s interface is therefore self-documenting and discoverable by the usual Python means, and a specification needed in more than one place, such as a safe default state for the apparatus, can be written once and reused. Because the composition and its parameters live together in ordinary source, a complete experiment becomes a single versionable artifact: the difference between two campaigns is a diff, and the timeline actually delivered to the hardware can be archived alongside the data it produced.
  
 \bigskip
-With these goals in mind, the package has been under development at the Wigner Research Centre for Physics, Budapest, and so was named in honor of the Hungarian-born Nobel laureate: \emph{Eugene Wigner}. Having been in use for more than two years across two cold-atom setups, we now present it as an open-source package, distributed under the GNU Public License v3 \cite{github}. In the rest of this paper, we first describe the high-level Python API in a back-end agnostic manner (\cref{sec:pythonAPI}) before presenting the conversion features specific to the ADwin timing system (\cref{sec:adwin}). We conclude with an overview and future outlook, before exhibiting concrete cold-atom laboratory examples in the appendices.
+With these goals in mind, the package has been under development at the Wigner Research Centre for Physics, Budapest, and so was named in honor of the Hungarian-born Nobel laureate: \emph{Eugene Wigner}. Having been in use for more than two years across two cold-atom setups, we now present it as an open-source package, distributed under the GNU General Public License v3 \cite{github}. In the rest of this paper, we first describe the high-level Python API in a back-end agnostic manner (\cref{sec:pythonAPI}) before presenting the conversion features specific to the ADwin timing system (\cref{sec:adwin}). We conclude with an overview and future outlook, before exhibiting concrete cold-atom laboratory examples in the appendices.
  
 \section{Python API}
 \label{sec:pythonAPI}
@@ -409,7 +392,7 @@ Timelines sit at the heart of every layer. They are the output of the operationa
 
 As an example, consider controlling a cooling laser with an optical shutter, an acousto-optical modulator (AOM), and a beat lock with variable offset connected to the real-time system. The relevant functions will be introduced as needed, with a full description following in subsequent sections.
  
-The first step is to define the experimental system. For digital channels, this means \emph{naming} the physical connections – associating module and channel numbers with their intended purpose. For analog channels, the same applies, with the addition of a unit. This distinguishes analog from digital channels, as required by most timing systems, and also allows multiple connections to the same device to be named unambiguously.
+The first step is to define the experimental system. For digital channels, this means \emph{naming} the physical connections – associating module and channel numbers with their intended purpose. For analog channels, the same applies, with the addition of a unit. This distinguishes analog from digital channels, as required by most timing systems.
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none]{python}
 from wignertime.adwin import connection as adcon
@@ -431,7 +414,8 @@ For analog connections, conversions and value ranges must also be specified. The
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none]{python}
 devices = device.new(
-    ["lockbox__MOT__MHz", 0.05, -200, 200],
+    ["lockbox__MOT__MHz", 0.05, -200, 200], 
+    # 0.05 V/MHz: +/-200 MHz spans +/-10 V
     [
         "AOM__MOT__transmission",
         conv.function_from_file(
@@ -449,36 +433,31 @@ Next, it is useful to specify the aspects of the experiment that change rarely, 
 import math
 from wignertime import timeline as tl
 
-initial = tl.update(
-    time=-math.inf,
-    context="ADwin_LowInit",
-    shutter__MOT=1,
-    AOM__MOT=0,
-    lockbox__MOT__MHz=0.0,
-)
-final = tl.update(
-    time=math.inf,
-    context="ADwin_Finish",
-    shutter__MOT=1,
-    AOM__MOT=0,
-    lockbox__MOT__MHz=0.0,
-)
+def default_state(**kwargs):
+    return tl.update(
+        shutter__MOT=0,  # closed
+        AOM__MOT=1,  # kept on, in thermal equilibrium
+        lockbox__MOT__MHz=0.0,
+        **kwargs,
+    )
+
+initial = default_state(time=-math.inf, context="ADwin_LowInit")
+final = default_state(time=math.inf, context="ADwin_Finish")
 \end{minted}
 %
-Here, \python{update} allows the user to specify common arguments such as the \python{time} and the \python{context}, as well as experiment-specific variables like \python{shutter__MOT} – all with a high signal-to-noise ratio in the syntax. The initial and final states belong to no instant of the experiment, and are therefore placed before and after it, at $-\infty$ and $+\infty$ (\cref{sec:context}).
+Here, \python{update} allows the user to specify common arguments such as the \python{time} and the \python{context}, as well as experiment-specific variables like \python{shutter__MOT} – all with a high signal-to-noise ratio in the syntax. The initial and final states are the same, so they are written once and placed twice. They belong to no instant of the experiment, and are therefore placed before and after it, at $-\infty$ and $+\infty$ (\cref{sec:context}).
 
 The key experimental procedures are then defined:
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none]{python}
 MOT = tl.update(
-            shutter__MOT=0,
-            AOM__MOT=1,
-            context="MOT",
-        )
+    shutter__MOT=1,
+    context="MOT",
+)
 detuned_growth = tl.ramp(
-                    lockbox__MOT__MHz=-5,
-                    duration=10e-3,
-        )
+    lockbox__MOT__MHz=-5,
+    duration=10e-3,
+)
 \end{minted}
 %
 None of these is yet a timeline. Each is a \emph{stage}: a description of what happens, written relative to its own beginning, which can later be placed anywhere. Stages are composed into a complete experiment in a readable and modular fashion, and \python{to_timeline} makes a timeline of the result:
@@ -494,7 +473,7 @@ tline = tl.to_timeline(
 )
 \end{minted}
 %
-By design, each component automatically follows the end of the previous one, forming a causal chain through the \python{origin} mechanism (see \cref{sec:origin}). The result is a \python{pandas.DataFrame}, which can be manipulated directly when convenient: \python{tline[tline["context"] == "MOT"]}, for instance, selects the rows of the MOT stage. The timeline can then be converted to an ADwin-compatible format and uploaded with \python{wignertime.adwin.core.upload} (\cref{sec:adwin}).
+By design, each component automatically follows the end of the previous one, forming a causal chain through the \python{origin} mechanism (see \cref{sec:origin}). The result is a \python{pandas.DataFrame}, which can be manipulated directly when convenient: \python{tline[tline["context"] == "MOT"]}, for instance, selects the rows of the stage that forms a magneto-optical trap (MOT). The timeline can then be converted to an ADwin-compatible format and uploaded with \python{wignertime.adwin.core.upload} (\cref{sec:adwin}).
  
  
 \subsubsection{The operation layer}
@@ -535,14 +514,14 @@ Timelines are most naturally constructed from relative rather than absolute refe
  
 \paragraph{A context as origin} Passing the name of a \python{context} (\cref{sec:context}), e.g. \python{origin="molasses"}, measures the new entries from that stage rather than from the immediately preceding one – specifically from its anchor if it has one, and from its last entry otherwise. This is the mechanism behind interweaving (\cref{sec:interweaving}): a diagnostic, imaging or trigger operation can be attached to a named point of an existing timeline without restructuring the stages around it, and without the offset being worked out by hand.
  
-\paragraph{Ramps} For \python{ramp} the mechanism carries over unchanged for the starting time. The start value is not written at all: a ramp always starts where its variable is, since a start that differed from the current value would be a jump hidden inside the ramp. A jump that is wanted is an \python{update} before the ramp, where it shows. The end point is placed by a second keyword, \python{origin2} (\cref{fig:ramp}), whose default refers it to the start point of the same variable – which is why \python{duration} and \python{time2} coincide in the common case. End values are absolute: a ramp ends at the value named, which is the physical intuition of “ramping to” a target.
+\paragraph{Ramps} For \python{ramp} the mechanism carries over unchanged for the starting time. The start value is not written at all: a ramp always starts where its variable is, since a start that differed from the current value would be a jump hidden inside the ramp. A jump that is wanted is an \python{update} before the ramp, which appears in the timeline as a row of its own. The end point is placed by a second keyword, \python{origin2} (\cref{fig:ramp}), whose default refers it to the start point of the same variable – which is why \python{duration} and \python{time2} coincide in the common case. End values are absolute: a ramp ends at the value named, which is the physical intuition of “ramping to” a target.
 
 The \python{origin} mechanism is deliberately an \emph{easy} layer over a \emph{simple} substrate: its flexibility exists only at construction time and never leaks into the data. Once resolved, the timeline contains nothing but absolute times and values, and any origin specification could equally have been written as an explicit numeric coordinate. The generality catalogued in \cref{sec:origin_full} is thus transient and optional, rather than a permanent property of the resulting artifact.
  
 \subsection{Core functions}
 \label{sec:functions}
 
-The three main convenience functions are \python{update}, which sets variables at given instants; \python{ramp}, which transitions variables to new values over time; and \python{anchor}, which places the virtual reference rows that the \python{origin} mechanism of \cref{sec:origin} resolves against. Each of them returns a stage, and \python{to_timeline} makes a timeline of a stage.
+The three main convenience functions are \python{update}, which sets variables at given instants; \python{ramp}, which transitions variables to new values over time; and \python{anchor}, which places the virtual reference rows that the \python{origin} mechanism of \cref{sec:origin} resolves against. Each of them returns a \emph{stage}, and \python{to_timeline} makes a timeline of a stage (\cref{sec:to_timeline}).
 
 \subsubsection{Update}
 %
@@ -550,7 +529,7 @@ The three main convenience functions are \python{update}, which sets variables a
 def update( *, time=0.0, context=INFER, origin=INFER, **vtvc_dict )
 \end{minted}
 %
-This function accepts a wide range of input formats through the \python{**vtvc_dict} keyword argument, whose possibilities are laid out in \cref{tab:inputSpecs}. The arguments \python{time} and \python{context} serve as defaults for cases where time and context are not specified individually for each variable. Any other keyword is read as the name of a variable – a property put to use in \cref{sec:forwarding}.
+This function accepts a wide range of input formats through the \python{**vtvc_dict} keyword argument, whose possibilities are laid out in \cref{tab:inputSpecs}. The arguments \python{time} and \python{context} serve as defaults for cases where time and context are not specified individually for each variable. Any other keyword is read as the name of a variable – a property put to use in \cref{sec:forwarding}. The asterisk in the signature means that the arguments after it can be given only by name, so that a value cannot end up in the wrong argument because of where it was written.
 
 \python{INFER}, the default of \python{context} and \python{origin}, means that the value is taken from the timeline the stage is eventually applied to. Times are interpreted relative to prior entries, through the \python{origin} mechanism of \cref{sec:origin}, and the \python{context} of the preceding entry is inherited (\cref{sec:context}). This reflects a general principle: only state changes that differ from the previous ones need to be specified. Worked examples of the reference points available, in both time and value, are collected in \cref{tab:originSpecs}.
 
@@ -569,19 +548,6 @@ This function accepts a wide range of input formats through the \python{**vtvc_d
     \caption{The input formats for \python{update}; see the API documentation \cite{wignertime_docs} for details. Times are measured from the reference point that the \python{origin} resolves to (\cref{sec:origin}).}
     \label{tab:inputSpecs}
 \end{table}
-
-\subsubsection{From a stage to a timeline}
-\label{sec:to_timeline}
-%
-\begin{minted}[fontsize=\footnotesize, breaklines, frame=none, linenos=false]{python}
-def to_timeline( stage, onto=None )
-\end{minted}
-%
-A stage is applied to the timeline given as \python{onto}, or to an empty one, and the result is a new timeline. No function modifies the timeline it is given. In contrast to most other scientific software, every function returns new data instead, which is the functional paradigm in action, and all user-defined functions are recommended to follow the same pattern. The principal advantage is the natural ability to construct pipelines, a design principle that is particularly exploited by the \python{stack} function (\cref{sec:stacking}).
-
-At the start of an experiment there is nothing to refer to or to inherit from, so the first rows are placed in absolute time and must name their context: every row of a timeline has one.
-
-The \python{onto} argument places a stage into an existing timeline, even a finished one (\cref{sec:interweaving}). Since \python{to_timeline(b, onto=to_timeline(a))} is the same timeline as \python{to_timeline(stack(a, b))}, a base timeline can be built once and each variation of a parameter scan placed onto it (\cref{sec:parameter_scan}).
 
 \subsubsection{Ramp}
 While \python{update} places variables at discrete time points, analog variables often require smooth transitions to avoid discontinuities. The \python{ramp} function defines such a transition between two time-value pairs – a start and an end point – via a user-specified function, defaulting to hyperbolic tangent (\cref{fig:ramp}).
@@ -611,7 +577,7 @@ def ramp(
   \begin{minipage}[t]{0.68\textwidth}
     \vspace{0pt}
     \centering
-    \includegraphics[width=\linewidth]{graphic/ramp-options.png}
+    \includegraphics[width=\linewidth]{graphic/ramp-options.pdf}
   \end{minipage}
   \caption{\label{fig:ramp} Programmatic and visual overview of a \python{ramp}. A ramp is defined by two time-value pairs and an interpolating function between them, and therefore requires two origins. \python{origin} places the starting time, as for \python{update}, and the start value is always that of the variable at that instant; \python{origin2} places the ending pair, its default referring the end \emph{time} to the start of the same variable. The end \emph{value} is absolute – the ramp finishes at the value given. The \python{duration} argument is a convenience alias: since the second point’s temporal origin is almost always the first point, \python{duration} and \python{time2} are equivalent in the common case. Where both are specified, \python{time2} takes precedence.}
 \end{figure}
@@ -676,21 +642,35 @@ An anchor is simply a special row in the timeline – one whose \python{variable
 Note that \python{time} is required, and is a displacement from whatever the \python{origin} resolves to rather than an absolute time. Since the default origin is the most recent anchor where one exists, \python{time} is normally a duration measured from the end of the \emph{preceding stage} – which is precisely what allows a stage to write rows past its own closing anchor, as \python{optical_pumping} does when it reinitializes its shutters, without dragging the following stage along with them. Where the intention is instead to mark the end of everything written so far, that is a different instant and is asked for explicitly:
 %
 \begin{minted}[fontsize=\footnotesize, breaklines, frame=none, linenos=false]{python}
-anchor(0.0, origin=tl.LAST)  # here, at the last entry in the timeline
-anchor(0.0)                  # here, at the most recent anchor
+anchor(0.1, origin=tl.LAST)  # 0.1 s after the last entry in the timeline
+anchor(0.1)                  # 0.1 s after the most recent anchor
 \end{minted}
 %
-The two coincide until some stage writes past its own anchor, and then they do not: in the example of \cref{sec:demonstration} they differ by about 0.1\,s from \python{optical_pumping} onwards. Which of the two is meant should therefore always be stated.
+The two coincide only when the last stage ended with an anchor and wrote nothing after it. In the example of \cref{sec:demonstration}, \python{optical_pumping} reinitializes its shutters 0.1\,s after its anchor, so throughout magnetic trapping the last entry lies about 0.1\,s after the most recent anchor. The anchor of the final stage, a second later, makes the two coincide again. Which of the two is meant should therefore always be stated.
  
+\subsubsection{From a stage to a timeline}
+\label{sec:to_timeline}
+%
+\begin{minted}[fontsize=\footnotesize, breaklines, frame=none, linenos=false]{python}
+def to_timeline( stage, onto=None )
+\end{minted}
+%
+A stage is applied to the timeline given as \python{onto}, or to an empty one, and the result is a new timeline. No function modifies the timeline it is given. In contrast to most other scientific software, every function returns new data instead, which is the functional paradigm in action, and all user-defined functions are recommended to follow the same pattern. The principal advantage is the natural ability to construct pipelines, a design principle that is particularly exploited by the \python{stack} function (\cref{sec:stacking}).
+
+At the start of an experiment there is nothing to refer to or to inherit from, so the first rows are placed in absolute time and must name their context: every row of a timeline has one.
+
+The \python{onto} argument places a stage into an existing timeline, even a finished one (\cref{sec:interweaving}). Since \python{to_timeline(b, onto=to_timeline(a))} is the same timeline as \python{to_timeline(stack(a, b))}, a base timeline can be built once and each variation of a parameter scan placed onto it (\cref{sec:parameter_scan}).
+
 \subsection{Context}
 \label{sec:context}
 The fourth core column, \python{context}, labels the experimental stage to which a row belongs, e.g. \python{"MOT"} or \python{"optical_pumping"}. It carries no timing information of its own and is never sent to the hardware, but it does three distinct kinds of work.
- 
-First, it is documentation that survives into the data. An assembled timeline records not only what happened and when, but which part of the experiment each update belonged to – which is what makes an archived run readable a year later, by someone who did not write it. The display conveniences use it to group and annotate a plot (\cref{fig:timeline__example}), and \python{timeline.context_info} reports, for each context, the set of variables it touches and its temporal extent, which is often the quickest way to check that a composed timeline is what was intended.
- 
-Second, a context is addressable as an \python{origin} (\cref{sec:origin}). A stage is thereby a \emph{named} region of the timeline, and other operations can be placed relative to it without any absolute instant being computed – the mechanism underlying interweaving (\cref{sec:interweaving}).
- 
-Third, a backend may reserve particular context names for its own purposes. In the ADwin case, \python{"ADwin_LowInit"} and \python{"ADwin_Finish"} mark rows that are actuated outside the timed sequence – on initialization, and on termination including interruption – so that the apparatus is left in a defined state however the run ends (\cref{sec:demonstration}). Such rows belong to no instant of the run, and the timeline says so: the initial state is written at \python{time=-math.inf} and the final state at \python{time=math.inf}. Nothing is placed relative to either, and a stage written after the initial state starts at absolute zero.
+\begin{enumerate}
+\item It is documentation that survives into the data. An assembled timeline records not only what happened and when, but which part of the experiment each update belonged to – which is what makes an archived run readable a year later, by someone who did not write it. The display conveniences use it to group and annotate a plot (\cref{fig:timeline__example}), and \python{timeline.context_info} reports, for each context, the set of variables it touches and its temporal extent, which is often the quickest way to check that a composed timeline is what was intended.
+
+\item A context is addressable as an \python{origin} (\cref{sec:origin}). A stage is thereby a \emph{named} region of the timeline, and other operations can be placed relative to it without any absolute instant being computed – the mechanism underlying interweaving (\cref{sec:interweaving}).
+
+\item A backend may reserve particular context names for its own purposes. In the ADwin case, \python{"ADwin_LowInit"} and \python{"ADwin_Finish"} mark rows that are actuated outside the timed sequence – on initialization, and on termination including interruption – so that the apparatus is left in a defined state however the run ends (\cref{sec:demonstration}). Such rows belong to no instant of the run, and the timeline says so: the initial state is written at \python{time=-math.inf} and the final state at \python{time=math.inf}. Nothing is placed relative to either, and a stage written after the initial state starts at absolute zero.
+\end{enumerate}
 
 Contexts are inherited rather than repeated. Where \python{context} is not given explicitly, \python{update}, \python{ramp} and \python{anchor} adopt the latest context of the timeline they extend, so a stage need be named only once. The initial and final states pass on no context, so a row written after them names its own, or takes that of the last stage of the run. The same principle operates from above: a \python{context} passed to \python{stack} is forwarded to all of its constituents (\cref{sec:stacking}), so a single \python{context="MOT"} labels every row that stack produces, except those of a constituent that names its own. This is the general rule that only what differs from the preceding state need be stated. Every row of a timeline has a context, stated or inherited.
  
@@ -722,33 +702,35 @@ Note that stages are written in execution order, the immediate advantage being l
 
 This is best illustrated by example. Suppose we want to estimate the number of atoms in an atomic cloud. The procedure requires configuring a combination of lasers (MOT and repump), setting electromagnet drive currents, collecting atoms in a magneto-optical trap for 0.1\,s, reconfiguring the lasers, and recording fluorescence on a CCD.
 
-Breaking this down into reusable operations, the MOT stage is clearly central, and can be defined as a reusable function. It turns on the appropriate shutters and electromagnets (the latter by a smooth ramp to minimize self-induction):
+Breaking this down into reusable operations, the MOT stage is clearly central, and can be defined as a reusable function. It opens the appropriate shutters and brings the electromagnets to the stage’s currents, by a smooth ramp to minimize self-induction:
 \begin{minted}[fontsize=\scriptsize,frame=none]{python}
 def MOT(duration, lower_current, upper_current):
     return stack(
         update(shutter__MOT=1, shutter__repump=1),
-        ramp(coil__MOT_lower__A=lower_current, coil__MOT_upper__A=upper_current, duration=0.1),
+        ramp(coil__MOT_lower__A=lower_current, coil__MOT_upper__A=upper_current,
+             duration=0.1),
         anchor(duration),
         context="MOT"
     )
 \end{minted}
-This returns a stage that can be slotted into any later timeline. Its arguments are best named explicitly rather than collected in \python{**kwargs}: \python{update} and \python{ramp} read any keyword they do not recognize as a variable name (\cref{sec:functions}), so a misspelled argument would become a new variable without any error. The exception is the default state of the apparatus, where this is exactly what is wanted (\cref{sec:forwarding}).
+This returns a stage that can be slotted into any later timeline. Its arguments are best named explicitly rather than collected in \python{**kwargs}: \python{update} and \python{ramp} read any keyword they do not recognize as a variable name (\cref{sec:functions}), so a misspelled argument would become a new variable without any error. The exception is the default state of the apparatus, where reading unrecognized keywords as variables is exactly what is wanted (\cref{sec:forwarding}).
 
 Similarly, triggering a camera is a useful abstraction, parameterized by the time instant and the duration of the exposition:
 \begin{minted}[frame=none]{python}
-def trigger_camera(time, exposure, context, origin=None) :
+def trigger_camera(time, exposure, context, origin):
     return update(trigger__camera=[[time,1],[time+exposure,0]],
                   context=context, origin=origin)
 \end{minted}
-This pattern – a thin wrapper around \python{update} – covers the vast majority of digital operations.
+This pattern – a thin wrapper around \python{update} – covers the vast majority of digital operations. Unlike \python{MOT}, the camera trigger is \emph{placed}: its \python{origin} has no default, so the point it is measured from is always named where it is used (\cref{sec:interweaving}).
 
 The initial conditions are defined separately:
 \begin{minted}[fontsize=\scriptsize, frame=none]{python}
 def init():
     return stack(
         update(
-            AOM__MOT=1, AOM__repump=1, shutter__MOT=0, shutter__repump=0, trigger__camera=0,
-            coil__MOT_lower__A=0, coil__MOT_upper__A=0,
+            AOM__MOT=1, AOM__repump=1, shutter__MOT=0, shutter__repump=0,
+            trigger__camera=0,
+            coil__MOT_lower__A=1, coil__MOT_upper__A=1,  # kept energized between runs
         ),
         anchor(0.0),
         context="initialization"
@@ -762,13 +744,13 @@ timeline = to_timeline(stack(
     init(),
     MOT(0.1,1,1),
     update(AOM__repump=0),
-    trigger_camera(0.0,1e-3,"imaging")
+    trigger_camera(0.0,1e-3,"imaging",origin="MOT")
 ))
 \end{minted}
 %
 The additional \python{update} switching off one laser before imaging slots naturally between custom functions without friction.
 
-The brevity of this declaration follows from a series of design decisions. Since all constituents keep the default origin, operations are chained one after the other. Since anchors are used, every \python{time} argument becomes $\Delta t$ from the previous anchor. The result is code with a high signal-to-noise ratio that nonetheless compiles to a concrete table of time-value rows in absolute terms.
+The brevity of this declaration follows from a series of design decisions. Since the stages keep the default origin, operations are chained one after the other, and the camera trigger, placed at the end of the MOT stage, falls in line with them. Since anchors are used, every \python{time} argument becomes $\Delta t$ from the previous anchor. The result is code with a high signal-to-noise ratio that nonetheless compiles to a concrete table of time-value rows in absolute terms.
 
 A further useful function for stacking is \python{cascade}:
 %
@@ -799,7 +781,7 @@ Routing is strict: a keyword that matches no stage, or none of the parameters of
 \label{sec:interweaving}
 Stacking is a powerful technique for composing linear timelines, where each stage follows the previous one. In practice, non-linear timelines are also useful – where an operation is anchored not to the end of the preceding stage but to some earlier reference point.
  
-Returning to the example above (\cref{sec:stacking}), the \python{trigger_camera} function need not follow linearly from the MOT stage. By supplying \python{origin="initialization"}, the camera trigger can be placed relative to the initial anchor instead. Such \emph{interweaving} is particularly valuable for inserting diagnostic operations into an existing timeline without restructuring it.
+Returning to the example above (\cref{sec:stacking}), the \python{trigger_camera} function need not follow linearly from the MOT stage. Given \python{origin="initialization"} instead, the camera trigger is placed relative to the initial anchor. Such \emph{interweaving} is particularly valuable for inserting diagnostic operations into an existing timeline without restructuring it.
 
 The timeline need not even be unfinished. Taking the complete \python{timeline_demo} of \cref{sec:demonstration}, with the camera trigger added to the apparatus as in \cref{sec:forwarding}, a single call triggers the camera 2\,ms after the end of the molasses stage:
 \begin{minted}[frame=none]{python}
@@ -818,11 +800,11 @@ In \cref{sec:parameter_scan}, the same mechanism places an imaging stage at a se
 \label{sec:adwin}
 While the vast majority of Wigner Time is concerned with the design, creation and manipulation of timelines, at some point it is necessary to translate these to a real-time hardware system.
  
-The ADwin real-time DAQ and control device is one such system – a self-standing unit combining hardware, an IDE, a language, and a compiler \cite{ADwin}. Having gained popularity in AMO physics within the last decade, ADwin has been used as a back-end in the NQontrol platform \cite{darsow2020nqontrol}, which provides multi-channel digital feedback loops for quantum-optical experiments. Although it currently competes with other options, such as the Sinara/ARTIQ control system \cite{kasprowicz2020artiq,bourdeauducq2016artiq} and NI’s compactRIO systems, ADwin is the only system that has been tested by the authors and so is the only one for which integration software is provided. As outlined below, however, so little code is needed for the integration that users should not have difficulty building bridges to other manufacturers.
+The ADwin real-time data acquisition and control device is one such system – a self-standing unit combining hardware, an IDE, a language, and a compiler \cite{ADwin}. Having gained popularity in AMO physics within the last decade, ADwin has been used as a back-end in the NQontrol platform \cite{darsow2020nqontrol}, which provides multi-channel digital feedback loops for quantum-optical experiments. Although it currently competes with other options, such as the Sinara/ARTIQ control system \cite{kasprowicz2020artiq,bourdeauducq2016artiq} and NI’s compactRIO systems, ADwin is the only system that has been tested by the authors and so is the only one for which integration software is provided. As outlined below, however, so little code is needed for the integration that users should not have difficulty building bridges to other manufacturers.
  
 Two properties are worth emphasizing, precisely because they belong to the backend rather than to Wigner Time. First, the determinism of the output – timing jitter and long-term drift – is set by the timing hardware and its clock-distribution chain, not by the layer that generates the timeline; ADwin systems can be referenced to an external clock, so a laboratory-grade frequency standard can be used wherever the experiment demands it. Second, ADwin is modular, so which channel types are available is a question of which modules are installed, not of the control software. Wigner Time inherits both properties here, and would inherit the corresponding properties of any other backend – which is what back-end agnosticism means in practice.
  
-Wigner Time comes with a subpackage, \python{wignertime.adwin}, that provides many conveniences. Some functions, such as those within the display module, are drop-in replacements for the defaults provided by Wigner Time more centrally, catering for ADwin-specific timeline columns and contexts. Others, like those in \python{wignertime.adwin.core}, interact directly with the hardware and rely on the official ADwin Python support \cite{adwin_pypi}
+Wigner Time comes with a subpackage, \python{wignertime.adwin}, that provides many conveniences. Some of them know only what is particular to ADwin and touch no hardware: the display module, for instance, which knows the contexts that ADwin reserves and draws the initial and final states either side of the run. Others, like those in \python{wignertime.adwin.core}, interact directly with the hardware and rely on the official ADwin Python support \cite{adwin_pypi}.
  
 In practice, few of these functions are necessary on a day-to-day basis. As demonstrated in \cref{sec:demonstration}, the main function required is \python{wignertime.adwin.core.upload}, which converts a timeline at the cycle period read from the controller itself and writes the result into the controller’s memory. It returns a record of what was written, which can be archived alongside the data.
  
@@ -848,15 +830,16 @@ endsub.
 \end{minted}
  
 As can be seen, the role of ADwin has been reduced to a single concept – “at this
-time instant, if any desired voltage is different from the past time instant,
-update this voltage” – written once each for analog and digital connections. The
+cycle, write the values listed for it” – written once each for analog and digital
+connections. It does not compare values: which ones have changed has already been
+decided before the upload, as described below. The
 loop therefore costs two comparisons per channel group, with early exit, and no
 arithmetic whatsoever. This is what permits the 1\,µs cycle time quoted in
 \cref{sec:intro}: the previous implementation evaluated, on every cycle and for
 every ramp in progress, an expression of the form
 \python{Tanh(...)/TwoTimesTanhOfTheTanhInterval} and was limited to 5\,µs as a result.
 
-The arrays uploaded to the controller are prepared in the same spirit. Ramps are expanded at the cycle period of the controller, unless a ramp fixes a coarser resolution of its own (\cref{sec:functions}), and converted to DAC codes, and every row that would leave a channel at the code it already holds is then removed. What remains is one row for each change of code, at the first cycle at which that change occurs. This is the treatment of ramps suggested by Kowalski \textit{et al.} \cite{kowalski2023entangleware}, who time analog transitions at the instants when the DAC code actually changes, rather than sampling the trajectory at a fixed rate; on hardware that can act only at cycle boundaries, the two give the same result. A ramp is therefore as smooth as the hardware allows, the controller receives no more rows than are needed to describe it, and no time resolution has to be chosen.
+The arrays uploaded to the controller are prepared in the same spirit. Ramps are expanded at the cycle period of the controller, unless a ramp fixes a coarser resolution of its own (\cref{sec:functions}), and converted to DAC codes, and every row that would leave a channel at the code it already holds is then removed. What remains is one row for each change of code, at the first cycle at which that change occurs. Kowalski \textit{et al.} \cite{kowalski2023entangleware} treat ramps in the same spirit, timing analog transitions at the instants when the DAC code changes rather than sampling the trajectory at a fixed rate. A ramp is therefore as smooth as the hardware allows, the controller receives no more rows than are needed to describe it, and no time resolution has to be chosen.
 
 \medskip
 How the controller divides its outputs between a run and a manual console is described in \cref{sec:adwin_operation}. For further details, consult the API documentation \cite{wignertime_docs}.
@@ -912,14 +895,53 @@ Scientific software in this domain is remarkably unstandardized: each lab typica
  
 It is in this context that Wigner Time offers tools that are unusually composable and portable, enabling high-performance hardware control while making a modern functional paradigm available to physics labs internationally.
  
-\section*{Acknowledgements}
+\section*{List of abbreviations}
+\begin{description}
+\item[AMO] atomic, molecular and optical
+\item[AOM] acousto-optical modulator
+\item[API] application programming interface
+\item[CCD] charge-coupled device
+\item[DAC] digital-to-analog converter
+\item[FPGA] field-programmable gate array
+\item[I/O] input/output
+\item[IDE] integrated development environment
+\item[MOT] magneto-optical trap
+\item[NI] National Instruments
+\item[PC] personal computer
+\item[PCI] Peripheral Component Interconnect
+\item[TOF] time of flight
+\item[UID] unique identifier
+\item[vtvc] variable–time–value–context
+\end{description}
+
+\section*{Declarations}
+
+\subsection*{Availability of data and materials}
+No datasets were generated or analysed during the current study. The software described in this article is available as follows.
+\begin{description}
+\item[Project name] Wigner Time
+\item[Project home page] \url{https://github.com/wignerquantumoptics/Wigner_Time}
+\item[Archived version] Zenodo, \alert{DOI to be added}
+\item[Operating system(s)] Platform independent
+\item[Programming language] Python; the real-time program on the controller is written in ADbasic
+\item[Other requirements] Python 3.10 or higher, pandas, SciPy, funcy and munch; optionally the ADwin Python package \cite{adwin_pypi}, for running experiments on ADwin hardware, and matplotlib, for display
+\item[License] GNU General Public License, version 3 or later
+\item[Any restrictions to use by non-academics] None
+\end{description}
+
+\subsection*{Competing interests}
+The authors declare that they have no competing interests.
+
+\subsection*{Funding}
+This research was supported by the Hungarian National Research, Development and Innovation Office (Grant Nos. 2022-2.1.1-NL-2022-00004 and 2025-3.1.1-ED-2025-00011), the ERANET COFUND QuantERA programme (MOCA 2019-2.1.7-ERA\_NET-2022-00041), the QuantERA II Programme (V-mag 2024-1.2.2-ERA\_NET-2024-00012), and by the Swiss National Science Foundation (Grant No. 230870). AD and TWC acknowledge support from the János Bolyai research scholarship of the Hungarian Academy of Sciences.
+
+\subsection*{Authors’ contributions}
+TWC, BS and AV designed Wigner Time, and TWC and AV implemented it. AD, ÁK, DN, AS, DV and PD made it work in a laboratory. They ran the two cold-atom experiments with it daily for more than two years, and each version was tested on their apparatus, which is the only place where the hardware back end can be verified. What they needed to express in the course of real experiments – stages placed relative to a named point of a running sequence, diagnostics added to an existing apparatus, scans over a parameter – is what the operation layer of this article answers, and their reports of failures and their design ideas shaped the package throughout. A complete experiment run by DV on one of the setups is part of the package’s test suite. AV and TWC drafted the paper, and all authors read and approved the final manuscript.
+
+\subsection*{Acknowledgements}
 T. W. Clark would like to acknowledge and thank the informal contribution of the Clojure community in general, as well as the Clojure data science community in particular, who have been working to bring data-oriented programming into the mainstream.
 
-A systematic review of the codebase was carried out with the assistance of Anthropic’s Claude Code, which surfaced a number of latent defects – several of them silent, in the sense that they yield a physically wrong timeline without raising an error, and had survived more than two years of daily use.
-These are catalogued in the repository and are being addressed. The tool was used for review, verification and documentation; the design decisions, and the final judgement on each finding, remained with the authors.
-
-\paragraph{Funding information}
-This research was supported by the Hungarian National Research, Development and Innovation Office (Grant Nos. 2022-2.1.1-NL-2022-00004 and 2025-3.1.1-ED-2025-00011), the ERANET COFUND QuantERA programme (MOCA 2019-2.1.7-ERA\_NET-2022-00041), the QuantERA II Programme (V-mag 2024-1.2.2-ERA\_NET-2024-00012), and by the Swiss National Science Foundation (Grant No. 230870). AD and TWC acknowledges support from the János Bolyai research scholarship of the Hungarian Academy of Sciences.
+A systematic review of the codebase was carried out with the assistance of Anthropic’s Claude Code. The same tool has subsequently been used for rectification, verification, and documentation. The design decisions, and the final judgement on each finding, remained with the authors.
  
 \begin{appendix}
 \numberwithin{equation}{section}
@@ -933,17 +955,17 @@ The \python{origin} argument accepts
     \item a \python{float}: all times are offset by this number
     \item a \python{str}: the name of a variable or of a context, resolved against the timeline (see below)
     \item one of the tags \python{tl.ANCHOR}, \python{tl.LAST} and \python{tl.VARIABLE} (see below)
-    \item an \python{Iterable} of two values, following the same options for each: sets the numerical zero of the time and value columns independently
+    \item a pair, following the same options for each: sets the numerical zero of the time and value columns independently
 \end{itemize}
-The default, \python{INFER}, does not suppress the feature, but selects the first applicable option in \python{wignertime.config.ORIGIN__DEFAULTS} – by default the most recent anchor if one exists, and the most recent entry otherwise. The options are tried in order, and should neither be available, as at the start of an experiment, the new entries are placed in absolute time. The two slots are completed independently, so a partially stated origin keeps the default for the slot it leaves out – \python{origin="molasses"} passed to \python{ramp} takes its time from that context and its value from the variable itself. \python{None} means the same as \python{INFER}, as the whole origin or in one slot, and absolute placement is requested with \python{0.0}.
+The default, \python{INFER}, does not suppress the feature, but selects the most recent anchor if one exists, and the most recent entry otherwise. Should neither be available, as at the start of an experiment, the new entries are placed in absolute time. The two slots are completed independently, so a partially stated origin keeps the default for the slot it leaves out – \python{origin="molasses"} passed to \python{ramp} takes its time from that context and its value from the variable itself. \python{None} means the same as \python{INFER}, as the whole origin or in one slot, and absolute placement is requested with \python{0.0}.
 
 Three tags have dedicated meanings:
+
+\python{tl.ANCHOR} – time is relative to the most recent anchor entry (\cref{sec:anchor}), i.e. a variable whose name contains the \faAnchor~symbol, or the configured equivalent in \python{wignertime.config}.
 
 \python{tl.LAST} – time is relative to the entry with the highest time recorded so far in the timeline.
 
 \python{tl.VARIABLE} – each variable is placed relative to its own most recent entry, independently of the others. This is the one tag admissible in either slot.
-
-\python{tl.ANCHOR} – time is relative to the most recent anchor entry (\cref{sec:anchor}), i.e. a variable whose name contains the \faAnchor~symbol, or the configured equivalent in \python{wignertime.config}.
 
 \python{tl.LAST} and \python{tl.ANCHOR} are defined temporally and are admissible in the time slot only, as is a context name; the reason is given in the caption of \cref{fig:origin}.
 
@@ -969,7 +991,7 @@ The \python{ramp} function takes a second origin, \python{origin2}, following th
 update(AOM__MOT=0,
   shutter__MOT=0, time=1)
     \end{pythonTable}
-    & \small Assuming default \python{config}, turns off both the MOT AOM and shutter $\Delta t=1$\,s after the \emph{latest anchor} in the timeline. If no anchor is found, then after the latest entry in the timeline.\\\hline
+    & \small Turns off both the MOT AOM and shutter $\Delta t=1$\,s after the \emph{latest anchor} in the timeline. If no anchor is found, then after the latest entry in the timeline.\\\hline
 
     \begin{pythonTable}
 update(AOM__imaging=1,
@@ -1018,6 +1040,7 @@ An example implementation of a real experiment, using Wigner Time timelines.
 As well as providing conveniences, the functions can be used to document the intention and meaning of each stage.
 """
  
+import functools
 import math
 
 from munch import Munch
@@ -1038,7 +1061,9 @@ from wignertime import ramp_function
 # They are all collected together here for demonstration purposes only.
 
 """
-`connections` allows us to label physical links (inputs and outputs) between devices and the timing system. By using labels that follow a particular regex, configurable as `config.VARIABLE__REGEX`, we can separate out the design and the implementation of our experiment.
+`connections` allows us to label physical links (inputs and outputs) between devices and the timing system.
+By using labels that follow a particular regex, configurable as `config.VARIABLE__REGEX`,
+we can separate out the design and the implementation of our experiment.
 """
 connections = adcon.new(
     ["shutter__MOT", 1, 11],
@@ -1058,9 +1083,13 @@ connections = adcon.new(
 )
 
 """
-`devices` stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable. A linear conversion is the factor taking the unit *to* volts, so a device whose permitted range spans the controller's full output is `10 / limit` – `10 / 5.0` for a coil driven over +/-5 A by a +/-10 V DAC.
+`devices` stores how to map our physical quantities to an implementation voltage,
+as well as specifying the range of values that should be allowed for this variable.
+A linear conversion is the factor taking the unit *to* volts, so a device whose permitted range spans
+the controller's full output is `10 / limit` – `10 / 5.0` for a coil driven over +/-5 A by a +/-10 V DAC.
 
-These specifications are deliberately separated from `connection`s because they represent physical properties and conversions that are independent of the particular DAC wiring.
+These specifications are deliberately separated from `connection`s because they represent
+physical properties and conversions that are independent of the particular DAC wiring.
 """
 devices = device.new(
     ["coil__MOT_lower__A", 10 / 5.0, -5, 5],
@@ -1075,7 +1104,7 @@ devices = device.new(
         0.0,
         1.0,
     ],
-    ["dispenser__Rb__A", 10 / 3.0, -3, 3],
+    ["dispenser__Rb__A", 10 / 5.0, -5, 5],
 )
 
 
@@ -1083,19 +1112,11 @@ devices = device.new(
 'constants' allow us to store site-specific details that help define our experiment.
 """
 constants = Munch(
-    safety_factor=1.1,
     lag_MOT_shutter=2.3e-3,
     lag_repump_shutter=2.3e-3,
-    Compensation=Munch(
-        Z__A=-0.1,
-        Y__A=1.5,
-        X__A=0.25,
-    ),
     OP=Munch(
-        lag_AOM_on=15e-6,
         lag_shutter_on=1.48e-3,
         lag_shutter_off=1.78e-3,
-        duration_shutter_on=140e-6,
     ),
 )
 
@@ -1110,7 +1131,8 @@ def default_state(MOT_ON=True, **kwargs):
     """
     Starts/leaves the system in a sane state that is appropriate for creating a new timeline
 
-    As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. When needed, we turn them off before the opening of the shutter.
+    As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. 
+    When needed, we turn them off before the opening of the shutter. The same holds for the coils.
     """
     return tl.update(
         lockbox__MOT__MHz=0.0,
@@ -1118,19 +1140,21 @@ def default_state(MOT_ON=True, **kwargs):
         AOM__repump=1,
         AOM__OP=1,
         AOM__science=1,
-        shutter__MOT=int(MOT_ON),
-        shutter__repump=int(MOT_ON),
+        shutter__MOT=MOT_ON,
+        shutter__repump=MOT_ON,
         shutter__OP1=0,
         shutter__OP2=1,
         shutter__science=0,
         AOM__science__trans=1.0,
+        dispenser__Rb__A=3.8,
         **kwargs,
     )
 
 
 def init(**kwargs):
     """
-    The initial state belongs to no instant of the run: it is placed before it, at minus infinity, in `ADwin_LowInit`, a 'special' context that the ADwin system plays before the run starts.
+    The initial state belongs to no instant of the run: it is placed before it, at minus infinity,
+    in `ADwin_LowInit`, a 'special' context that the ADwin system plays before the run starts.
     """
     return default_state(
         time=-math.inf,
@@ -1141,22 +1165,24 @@ def init(**kwargs):
 
 def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwargs):
     """
-    Safely winds down the system, 'ramping' the analog variables to the “default state” in a given duration by the default `ramp_function`.
+    Safely winds down the system, 'ramping' the analog variables 
+    to the “default state” in a given duration by the default `ramp_function`.
 
     The `anchor` function is used to specify a key time instant, around which other times can be specified.
 
-    `ADwin_Finish` is again a special context. It means that the “default state” will be actuated when the run ends, even when it is interrupted, and is therefore placed after the run, at plus infinity.
+    `ADwin_Finish` is again a special context.
+    It means that the “default state” will be actuated when the run ends,
+    even when it is interrupted, and is therefore placed after the run, at plus infinity.
     """
     duration = 1e-2
 
     return tl.stack(
-        tl.anchor(wait, context="finalize"),
+        tl.anchor(wait),
         tl.ramp(
             lockbox__MOT__MHz=0.0,
             coil__MOT_lower__A=lower_current,
             coil__MOT_upper__A=upper_current,
             duration=duration,
-            context="finalize",
         ),
         default_state(
             time=math.inf,
@@ -1164,6 +1190,7 @@ def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwarg
             MOT_ON=MOT_ON,
             **kwargs,
         ),
+        context="finalize",
     )
 
 
@@ -1195,13 +1222,6 @@ def MOT_detuned_growth( duration=100e-3, duration_ramp=10e-3, detuning__MHz=-5 )
         tl.anchor(duration),
         context="MOT",
     )
-
-
-def MOT_off():
-    """
-    respecting shutter lags
-    """
-    return tl.update(shutter__MOT=[-constants.lag_MOT_shutter,0], AOM__MOT=0, shutter__repump=[-constants.lag_repump_shutter,0], AOM__repump=0)
 
 
 def molasses(
@@ -1283,20 +1303,16 @@ def optical_pumping(
     )
 
 
-def pull_coils(duration, lower_current, upper_current, pt=3,
-               time=None, context=None):
+def pull_coils(duration, lower_current, upper_current, pt=3, time=None):
     """
     Pull the coil currents to a given value
     """
     return tl.ramp(
         coil__MOT_lower__A=lower_current,
         coil__MOT_upper__A=upper_current,
-        function=lambda origin, terminus, time_resolution: ramp_function.tanh(
-            origin, terminus, time_resolution, pt
-        ),
+        function=functools.partial(ramp_function.tanh, sharpness=pt),
         duration=duration,
         time=time,
-        context=context,
     )
 
 
@@ -1312,9 +1328,10 @@ def magnetic_trapping(
     Pulls up the magnetic trap
     """
     return tl.stack(
-        pull_coils(duration_initial, lower_current_initial, upper_current_initial, context="magnetic_trapping"),
+        pull_coils(duration_initial, lower_current_initial, upper_current_initial),
         pull_coils(duration_strengthen, lower_current_strengthen, upper_current_strengthen, time=duration_initial),
-        tl.anchor(duration_initial + duration_strengthen, context="magnetic_trapping")
+        tl.anchor(duration_initial + duration_strengthen),
+        context="magnetic_trapping",
     )
 
 
@@ -1388,16 +1405,16 @@ There are two unsatisfying ways to arrange this. The base \python{default_state}
 
 Keyword forwarding provides a third way. \python{default_state} accepts \python{**kwargs} and passes them on to its \python{update} call, which reads any keyword it does not itself recognize as a variable and its value (\cref{sec:functions}). The two stages that wrap it, \python{init} and \python{finish}, forward \python{**kwargs} in the same way, so a keyword that neither consumes falls through to the default state and initializes a variable at both ends of the run. Only these three functions accept arbitrary keywords; ordinary stages name their arguments explicitly, since there a misspelled argument would otherwise become a new variable (\cref{sec:stacking}).
 
-\begin{minted}[fontsize=\scriptsize, breaklines, breakanywhere, frame=none]{python}
+\begin{minted}[fontsize=\tiny, breaklines, breakanywhere, frame=none]{python}
 # experiment.py - the base apparatus
 def default_state(MOT_ON=True, cavity_transmission=True, **kwargs):
     return tl.update(
         lockbox__MOT__MHz=0.0,
         AOM__MOT=1,
         AOM__repump=1,
-        shutter__MOT=int(MOT_ON),
-        shutter__repump=int(MOT_ON),
-        shutter__science=int(cavity_transmission),
+        shutter__MOT=MOT_ON,
+        shutter__repump=MOT_ON,
+        shutter__science=cavity_transmission,
         trigger__TC__V=0.0,
         # ... the remainder of the base state
         **kwargs,
@@ -1409,6 +1426,8 @@ def init(MOT_ON=False, cavity_transmission=False, **kwargs):
         MOT_ON=MOT_ON, cavity_transmission=cavity_transmission,
         **kwargs,
     )
+
+# finish(**kwargs) forwards to default_state in an analogous way (appendix B)
 
 # diagnostics.py - a module that adds absorption imaging
 connections = pd.concat([
@@ -1470,7 +1489,7 @@ The sequencer checks what it is given before it plays it. \python{upload} record
 
 The console is driven by the same \python{connection} and \python{device} tables as the timelines. A channel is therefore named, calibrated and bounded in one place, and a value set on the console reaches its DAC as the same value in a timeline would, through a calibration file where there is one. For each channel the console keeps the code it has been asked for and the code it has last written, and writes the channel only when the two differ, so setting a value never waits for the controller.
 
-The outputs belong to one program at a time. Starting a sequence stops the console, and the console is started again once the sequence has applied its final state. Values set on the console during a run are discarded: after the run the apparatus holds its final state, and the console takes this over as its own, marking as unknown any channel the final state does not name. Before a run, \python{upload} warns about each analog channel that has been set by hand and that the run will change at once, whether in the initial state or when a stage first sets it. In our experiment the MOT coils are the case in point. The initial state leaves them untouched, so that the MOT stays in its steady state between runs, and after they have been adjusted by hand the MOT stage would otherwise move them without comment.
+The outputs belong to one program at a time. Starting a sequence stops the console, and the console is started again once the sequence has applied its final state. Values set on the console during a run are discarded: after the run the apparatus holds its final state, and the console takes this over as its own, marking as unknown any channel the final state does not name. Before a run, \python{upload} warns about each analog channel that has been set by hand and that the run will change in a single step, whether in the initial state or when a stage first sets it. In our experiment the MOT coils are the case in point. The initial state leaves them untouched, so that the MOT stays in its steady state between runs, and after they have been adjusted by hand the MOT stage would otherwise move them without comment.
 
 \end{appendix}
  

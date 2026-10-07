@@ -56,7 +56,7 @@ Retired on 2026-10-02: `ux` and `consistency` (too broad to filter on), `interna
 
 ## Open items
 
-Two items with an ID are open, both in section D and in `1.x`: **D16** (#130) and **D23** (#144). Two open issues carry no ID and are recorded at the end of this section.
+Three items with an ID are open, all in section D and in `1.x`: **D16** (#130), **D23** (#144) and **D24** (#173). Three open issues carry no ID and are recorded at the end of this section.
 
 ### D16 — the anchor label cannot be printed on a legacy Windows code page **[new, found 2026-09-11]**
 
@@ -115,10 +115,23 @@ Tracked as [#144](https://github.com/WignerQuantumOptics/Wigner_Time/issues/144)
 
 **Applied to the first row only, 2026-09-23 (#94)**, as part of the #94 roadmap the maintainer approved (step 2). `SPECIFICATIONS__DEFAULT` is now read at call time, through `adwin.internal.specifications`, by `core.convert`, `core.upload` (then `create`), `internal.add` and `internal.to_tuples`. `add_cycle` no longer takes the specification at all, since the only thing it read from it was the period. `add_cycle`'s `CONTEXTS__SPECIAL` default was opened by the same change and follows the same rule. The other seven signatures, and the policy question itself, are untouched and remain #144's to decide.
 
+### D24 — `display.quantities` draws a zoomed timeline wrongly outside an interactive window, and draws ramps as jumps **[new, found 2026-10-05]**
+
+Found while regenerating `fig:timeline__example` from `timeline_demo`, which the paper describes as the output of `display.quantities(timeline_demo)`, zoomed. The figure was a screenshot of an interactive window, and stays one (maintainer, 2026-10-06) until this is fixed. Three faults in `adwin/display.py`, measured on `timeline_demo` with `range__x=(15.099, 15.1085)`:
+
+1. **`range__x` is applied before the variable labels exist.** They are created at x = 0, and `_sync_axes`, the `xlim_changed` callback that moves them to the left edge of the view, is connected after `set_xlim` has run. So they stay 15 s outside the window until the view changes once. Interactively the first zoom fires the callback, which is why nobody saw it.
+2. **The stage labels of `_draw_context` are not clipped to the axes.** Out of the window they are invisible but still count towards the figure's extent: `fig.get_tightbbox()` is 12 066 in × 7.6 in, from `MOT`'s label at 7.55 s, and `savefig(bbox_inches="tight")` at 200 dpi did not finish in two minutes. Fixing 1 does not fix 2; both were worked around (a second `set_xlim`, `set_clip_on(True)` on every text) to confirm that nothing else was in the way.
+3. **A ramp is drawn as a jump at its end.** Rows are joined with `step(where="post")`, and an unexpanded timeline holds a ramp's two boundary rows only, so the start value is drawn held to the ramp's end and jumping there: the molasses coil ramp (−0.98 A → 0 from 15.1 s, 0.9 ms) appears as a step at 15.1009 s. The timeline is right and the picture is wrong, so `potentially surprising` rather than `silent`. One direction, not settled: expand for drawing only, leaving the timeline passed in unchanged.
+
+Cosmetic, for the same pass: the labels of variables sharing a unit overprint each other, a zoomed time axis shows an offset (`+1.51e1`) rather than absolute times, and the stage names are too pale to read.
+
+Tracked as [#173](https://github.com/WignerQuantumOptics/Wigner_Time/issues/173).
+
 ### Open without an item ID
 
-- **#142** (`Decision`, `paper-affecting`, `1.0 — paper`) – reopened 2026-09-30, the most urgent open decision: whether `None` keeps, in 1.0.0, its meaning in `origin` and `context`, the same as `INFER`. A meaning of its own would change what every stage that forwards `origin=None` or `context=None` does, the paper's included (`trigger_camera` in `sec:stacking`, `pull_coils` in `sec:demonstration`). History: A8's amendment and the paper items, in the design record; D23 is the same question from the configuration side.
+- **#142** (`Decision`, `paper-affecting`, `1.0 — paper`) – reopened 2026-09-30, the most urgent open decision: whether `None` keeps, in 1.0.0, its meaning in `origin` and `context`, the same as `INFER`. A meaning of its own would change what every stage that forwards `origin=None` or `context=None` does – the lab's, though no longer the paper's or the demo's (2026-10-06, maintainer): `trigger_camera` in `sec:stacking` takes `origin` with no default, since a *placed* stage names its origin, and `pull_coils` in `sec:demonstration` takes no `context`, since it inherits that of `magnetic_trapping`, which states it once. History: A8's amendment and the paper items, in the design record; D23 is the same question from the configuration side.
 - **#160** (`1.0 — paper`) – `finish` should derive the final state from the initial state in the timeline rather than restate it through keywords (maintainer, 2026-09-02). It must keep the intended asymmetry (`MOT_ON` is `False` at `init`, `True` at `finish`: copy, then apply named overrides). **It carries the open remainder of B11**: a stopped run plays the final state only for the channels it names, and the lab's `ADwin_Finish` names neither the MOT coils, nor the dispenser, nor `AOM_science__V` (lab L9), so a run stopped in the magnetic trap leaves the coils at the trap's current, silently. Two directions, neither taken: name them in the lab's `finish()`, or have `upload` refuse or warn when the final state leaves a connected channel unnamed – a change to what `upload` accepts, so the maintainer's to decide. `sec:context`'s claim that every channel is then defined waits on it.
+- **#174** (`Decision`, `1.x`) – `config.ORIGIN__DEFAULTS` is a chain tried in order and can be rebound, but an entry that always resolves makes every later one unreachable: `LAST` resolves whenever `ANCHOR` would, so placed before it, it leaves `ANCHOR` dead without any error. The chain is only meaningful with entries that can be absent, such as a context name. Two directions, neither taken: refuse a chain with an always-resolving entry before the last, or stop presenting the chain as configuration. `ORIGIN__DEFAULTS__RAMP` has the same shape. Not paper-affecting: the paper does not mention that the order can be configured (maintainer, 2026-10-06).
 
 ## C. API decisions – the rules in force
 
