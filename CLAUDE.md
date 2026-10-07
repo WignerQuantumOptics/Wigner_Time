@@ -93,7 +93,11 @@ Overleaf's. `minted` requires `pygmentize` and `-shell-escape`, which `docs/pape
 Build from inside `docs/paper/`; the figure paths are relative to it.
 
 **The committed manuscript is canonical, and Overleaf is kept in step with it from here.** The
-arXiv version was imported on 2026-09-15. Since 2026-10-01 the Overleaf project is
+versions sent to arXiv (2609.06230) are tagged: `arxiv-v1` (sent 2026-09-05) holds arXiv's own
+source archive, byte for byte, since neither Overleaf nor this repository had kept that text; the
+import of 2026-09-15, long called "the arXiv version" here, is v1 plus the Claude Code
+acknowledgement. `arxiv-v2` (sent 2026-10-07) is `docs/paper/` as sent, in step with Overleaf's
+"ArXiv v2". Since 2026-10-01 the Overleaf project is
 cloned next door, in `../Wigner_Time_Overleaf/` (branch `master`, the only one Overleaf has), and
 syncing it is ours to do, push included (maintainer, 2026-10-01). A sync goes both ways, Overleaf
 first: pull the clone, and bring any edit made on Overleaf into `docs/paper/` as an ordinary commit

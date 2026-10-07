@@ -56,7 +56,7 @@ it with plain words or define it where it first appears.
 
 ## Voice
 
-The reference is the arXiv version of the manuscript (`git show fdd2e0d:docs/paper/main.tex`). For
+The reference is the first arXiv version of the manuscript (`git show arxiv-v1:docs/paper/main.tex`). For
 example:
 
 > Anchors are useful because key experimental time instants are often necessarily virtual. An anchor
