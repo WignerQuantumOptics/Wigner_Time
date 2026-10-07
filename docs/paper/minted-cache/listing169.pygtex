@@ -1,0 +1,3 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{n}{Tanh}\PYG{p}{(}\PYG{o}{...}\PYG{p}{)}\PYG{o}{/}\PYG{n}{TwoTimesTanhOfTheTanhInterval}
+\end{Verbatim}

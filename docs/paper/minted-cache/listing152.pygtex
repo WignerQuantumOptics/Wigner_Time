@@ -1,0 +1,11 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{def} \PYG{n+nf}{init}\PYG{p}{():}
+    \PYG{k}{return} \PYG{n}{stack}\PYG{p}{(}
+        \PYG{n}{create}\PYG{p}{(}
+            \PYG{n}{AOM\PYGZus{}MOT}\PYG{o}{=}\PYG{l+m+mi}{1}\PYG{p}{,} \PYG{n}{AOM\PYGZus{}repump}\PYG{o}{=}\PYG{l+m+mi}{1}\PYG{p}{,} \PYG{n}{shutter\PYGZus{}MOT}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,} \PYG{n}{shutter\PYGZus{}repump}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,} \PYG{n}{trigger\PYGZus{}camera}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}
+            \PYG{n}{t}\PYG{o}{=}\PYG{l+m+mf}{0.0}
+        \PYG{p}{),}
+        \PYG{n}{anchor}\PYG{p}{(),}
+        \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}initialization\PYGZdq{}}
+    \PYG{p}{)}\PYG{o}{.}
+\end{Verbatim}

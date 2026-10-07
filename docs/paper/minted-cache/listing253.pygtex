@@ -1,0 +1,9 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{def} \PYG{n+nf}{tof\PYGZus{}timelines}\PYG{p}{(}\PYG{n}{delays}\PYG{p}{,} \PYG{n}{exposure}\PYG{p}{,} \PYG{n}{base\PYGZus{}timeline}\PYG{p}{,} \PYG{n}{origin}\PYG{p}{,}
+                  \PYG{n}{imaging\PYGZus{}function}\PYG{o}{=}\PYG{n}{di}\PYG{o}{.}\PYG{n}{imaging\PYGZus{}absorption}\PYG{p}{,} \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{):}
+    \PYG{k}{for} \PYG{n}{d} \PYG{o+ow}{in} \PYG{n}{delays}\PYG{p}{:}
+        \PYG{k}{yield} \PYG{n}{d}\PYG{p}{,} \PYG{n}{imaging\PYGZus{}function}\PYG{p}{(}
+            \PYG{l+m+mf}{1e\PYGZhy{}3} \PYG{o}{*} \PYG{n}{d}\PYG{p}{,} \PYG{n}{exposure}\PYG{p}{,} \PYG{n}{origin}\PYG{o}{=}\PYG{n}{origin}\PYG{p}{,}
+            \PYG{n}{timeline}\PYG{o}{=}\PYG{n}{base\PYGZus{}timeline}\PYG{p}{,} \PYG{o}{**}\PYG{n}{kwargs}
+        \PYG{p}{)}
+\end{Verbatim}

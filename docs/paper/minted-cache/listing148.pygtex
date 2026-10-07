@@ -1,0 +1,3 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{n}{ramp}\PYG{p}{(}\PYG{o}{...}\PYG{p}{,} \PYG{n}{timeline}\PYG{o}{=}\PYG{n}{update}\PYG{p}{(}\PYG{o}{...}\PYG{p}{,} \PYG{n}{timeline}\PYG{o}{=}\PYG{n}{timeline}\PYG{p}{))}
+\end{Verbatim}

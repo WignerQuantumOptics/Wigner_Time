@@ -1,0 +1,19 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{n+nv+vg}{sub}\PYG{+w}{ }\PYG{n+nv+vg}{processUpdates}\PYG{p}{(}\PYG{n+nv+vg}{cc}\PYG{p}{)}
+\PYG{+w}{  }\PYG{c+c1}{\PYGZsq{} analog}
+\PYG{+w}{  }\PYG{n+nv+vg}{if}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nv+vg}{data\PYGZus{}10}\PYG{p}{[}\PYG{n+nv+vg}{analogIdx}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nv+vg}{cc}\PYG{p}{)}\PYG{+w}{ }\PYG{n+nv+vg}{then}
+\PYG{+w}{    }\PYG{n+nv+vg}{do}
+\PYG{+w}{      }\PYG{n+nv+vg}{p2\PYGZus{}dac}\PYG{p}{(}\PYG{n+nv+vg}{data\PYGZus{}11}\PYG{p}{[}\PYG{n+nv+vg}{analogIdx}\PYG{p}{],}\PYG{n+nv+vg}{data\PYGZus{}12}\PYG{p}{[}\PYG{n+nv+vg}{analogIdx}\PYG{p}{],}\PYG{n+nv+vg}{data\PYGZus{}13}\PYG{p}{[}\PYG{n+nv+vg}{analogIdx}\PYG{p}{])}
+\PYG{+w}{      }\PYG{n+nv+vg}{inc}\PYG{+w}{ }\PYG{n+nv+vg}{analogIdx}
+\PYG{+w}{    }\PYG{n+nv+vg}{until}\PYG{+w}{ }\PYG{p}{(}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nv+vg}{analogIdx}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{n+nv+vg}{analogArrayDim}\PYG{p}{)}\PYG{+w}{ }\PYG{n+nv+vg}{or}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nv+vg}{data\PYGZus{}10}\PYG{p}{[}\PYG{n+nv+vg}{analogIdx}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{n+nv+vg}{cc}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{)}
+\PYG{+w}{  }\PYG{n+nv+vg}{endif}
+
+\PYG{+w}{  }\PYG{c+c1}{\PYGZsq{} digital}
+\PYG{+w}{  }\PYG{n+nv+vg}{if}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nv+vg}{data\PYGZus{}20}\PYG{p}{[}\PYG{n+nv+vg}{digitalIdx}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nv+vg}{cc}\PYG{p}{)}\PYG{+w}{ }\PYG{n+nv+vg}{then}
+\PYG{+w}{    }\PYG{n+nv+vg}{do}
+\PYG{+w}{      }\PYG{n+nv+vg}{p2\PYGZus{}digout}\PYG{p}{(}\PYG{l+m+mi+il}{1}\PYG{p}{,}\PYG{n+nv+vg}{data\PYGZus{}22}\PYG{p}{[}\PYG{n+nv+vg}{digitalIdx}\PYG{p}{],}\PYG{n+nv+vg}{data\PYGZus{}23}\PYG{p}{[}\PYG{n+nv+vg}{digitalIdx}\PYG{p}{])}
+\PYG{+w}{      }\PYG{n+nv+vg}{inc}\PYG{+w}{ }\PYG{n+nv+vg}{digitalIdx}
+\PYG{+w}{    }\PYG{n+nv+vg}{until}\PYG{+w}{ }\PYG{p}{(}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nv+vg}{digitalIdx}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{n+nv+vg}{digitalArrayDim}\PYG{p}{)}\PYG{+w}{ }\PYG{n+nv+vg}{or}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nv+vg}{data\PYGZus{}20}\PYG{p}{[}\PYG{n+nv+vg}{digitalIdx}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{n+nv+vg}{cc}\PYG{p}{)}\PYG{+w}{ }\PYG{p}{)}
+\PYG{+w}{  }\PYG{n+nv+vg}{endif}
+\PYG{n+nv+vg}{endsub}\PYG{o}{.}
+\end{Verbatim}

@@ -1,0 +1,8 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{def} \PYG{n+nf}{parameter\PYGZus{}scan\PYGZus{}with\PYGZus{}imaging}\PYG{p}{(}\PYG{n}{exposure}\PYG{p}{,} \PYG{n}{iterator}\PYG{p}{,} \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{):}
+    \PYG{k}{return} \PYG{p}{\PYGZob{}}\PYG{n}{parameter}\PYG{p}{:} \PYG{n}{cc}\PYG{o}{.}\PYG{n}{take\PYGZus{}images\PYGZus{}ueye}\PYG{p}{(}
+                \PYG{l+m+mi}{4}\PYG{p}{,} \PYG{p}{(}\PYG{n}{exposure} \PYG{o}{+} \PYG{l+m+mi}{2} \PYG{o}{*} \PYG{n}{di}\PYG{o}{.}\PYG{n}{camera\PYGZus{}exposition\PYGZus{}margin}\PYG{p}{),}
+                \PYG{p}{(}\PYG{n}{adwin}\PYG{o}{.}\PYG{n}{create}\PYG{p}{(}\PYG{n}{timeline}\PYG{p}{,} \PYG{n}{connections}\PYG{p}{,} \PYG{n}{devices}\PYG{p}{),} \PYG{l+m+mi}{1}\PYG{p}{),}
+                \PYG{o}{**}\PYG{n}{kwargs}
+            \PYG{p}{)} \PYG{k}{for} \PYG{n}{parameter}\PYG{p}{,} \PYG{n}{timeline} \PYG{o+ow}{in} \PYG{n}{iterator}\PYG{p}{\PYGZcb{}}
+\end{Verbatim}

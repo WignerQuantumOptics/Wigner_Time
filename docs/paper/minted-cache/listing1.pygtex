@@ -1,0 +1,51 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{\PYGZsq{}=== defs.inc =========================================================}
+\PYG{err}{\PYGZsh{}}\PYG{n+nv+vg}{Define}\PYG{+w}{ }\PYG{n+nv+vg}{OP\PYGZus{}ExposureTime}\PYG{+w}{      }\PYG{n+nv+vg}{FPar\PYGZus{}17}\PYG{+w}{   }\PYG{c+c1}{\PYGZsq{} in us}
+\PYG{err}{\PYGZsh{}}\PYG{n+nv+vg}{Define}\PYG{+w}{ }\PYG{n+nv+vg}{OP\PYGZus{}Shutter1OnDelay}\PYG{+w}{   }\PYG{l+m+mf}{1.5}\PYG{+w}{       }\PYG{c+c1}{\PYGZsq{} in ms}
+\PYG{err}{\PYGZsh{}}\PYG{n+nv+vg}{Define}\PYG{+w}{ }\PYG{n+nv+vg}{OP\PYGZus{}Shutter2OnDelay}\PYG{+w}{   }\PYG{l+m+mf}{2.8}\PYG{+w}{       }\PYG{c+c1}{\PYGZsq{} in ms}
+\PYG{err}{\PYGZsh{}}\PYG{n+nv+vg}{Define}\PYG{+w}{ }\PYG{n+nv+vg}{ShutterResponseTime}\PYG{+w}{  }\PYG{l+m+mi+il}{4}\PYG{+w}{         }\PYG{c+c1}{\PYGZsq{} in ms}
+\PYG{err}{\PYGZsh{}}\PYG{n+nv+vg}{Define}\PYG{+w}{ }\PYG{n+nv+vg}{OP\PYGZus{}AOM\PYGZus{}Channel}\PYG{+w}{       }\PYG{l+m+mi+il}{30}
+\PYG{err}{\PYGZsh{}}\PYG{n+nv+vg}{Define}\PYG{+w}{ }\PYG{n+nv+vg}{OP\PYGZus{}Shutter1Channel}\PYG{+w}{   }\PYG{l+m+mi+il}{14}
+\PYG{err}{\PYGZsh{}}\PYG{n+nv+vg}{Define}\PYG{+w}{ }\PYG{n+nv+vg}{OP\PYGZus{}Shutter2Channel}\PYG{+w}{   }\PYG{l+m+mi+il}{15}
+
+\PYG{c+c1}{\PYGZsq{}=== MOT\PYGZus{}full.bas, file scope =========================================}
+\PYG{err}{\PYGZsh{}}\PYG{n+nv+vg}{Define}\PYG{+w}{ }\PYG{n+nv+vg}{OP\PYGZus{}Shutter2OffDelay}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nv+vg}{ShutterResponseTime}\PYG{o}{\PYGZhy{}}\PYG{n+nv+vg}{OP\PYGZus{}Shutter2OnDelay}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsq{}=== MOT\PYGZus{}full.bas, LOWINIT ============================================}
+\PYG{n+nv+vg}{endOfMOT\PYGZus{}Growth}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nv+vg}{secToCC}\PYG{p}{(}\PYG{n+nv+vg}{MOT\PYGZus{}GrowTime}\PYG{p}{)}
+\PYG{n+nv+vg}{endOfMolasses}\PYG{+w}{   }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nv+vg}{endOfMOT\PYGZus{}Growth}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{n+nv+vg}{msToCC}\PYG{p}{(}\PYG{n+nv+vg}{PolgradCoolingTime}\PYG{p}{)}
+\PYG{n+nv+vg}{endOfOP}\PYG{+w}{         }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nv+vg}{endOfMolasses}\PYG{+w}{   }\PYG{o}{+}\PYG{+w}{ }\PYG{n+nv+vg}{usToCC}\PYG{p}{(}\PYG{n+nv+vg}{OP\PYGZus{}ExposureTime}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsq{}=== MOT\PYGZus{}full.bas, EVENT: dispatch on the global cycle counter =========}
+\PYG{n+nv+vg}{If}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nv+vg}{CycleCount}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nv+vg}{endOfMolasses}\PYG{o}{\PYGZhy{}}\PYG{n+nv+vg}{msToCC}\PYG{p}{(}\PYG{n+nv+vg}{SafetyMargin}\PYG{o}{*}\PYG{n+nv+vg}{OP\PYGZus{}Shutter1OnDelay}\PYG{p}{))}\PYG{+w}{ }\PYG{n+nv+vg}{Then}
+\PYG{+w}{  }\PYG{n+nv+vg}{OP\PYGZus{}Shutter1}\PYG{p}{(}\PYG{l+m+mi+il}{1}\PYG{p}{)}
+\PYG{n+nv+vg}{EndIf}
+
+\PYG{n+nv+vg}{If}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nv+vg}{CycleCount}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nv+vg}{endOfMolasses}\PYG{o}{\PYGZhy{}}\PYG{n+nv+vg}{usToCC}\PYG{p}{(}\PYG{n+nv+vg}{RampCoilsToDipoleInterval}\PYG{p}{))}\PYG{+w}{ }\PYG{n+nv+vg}{Then}
+\PYG{+w}{  }\PYG{n+nv+vg}{startCoilsRamp}\PYG{p}{(}\PYG{n+nv+vg}{usToCC}\PYG{p}{(}\PYG{n+nv+vg}{RampCoilsToDipoleInterval}\PYG{p}{),}\PYG{+w}{ }\PYG{n+nv+vg}{HomogeneousMagneticFieldCurrent}\PYG{p}{,}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{n+nv+vg}{HomogeneousMagneticFieldCurrent}\PYG{p}{,}\PYG{+w}{ }\PYG{l+m+mi+il}{0}\PYG{o}{.}\PYG{p}{,}\PYG{+w}{ }\PYG{l+m+mi+il}{0}\PYG{o}{.}\PYG{p}{)}
+\PYG{n+nv+vg}{EndIf}
+
+\PYG{n+nv+vg}{If}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nv+vg}{CycleCount}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nv+vg}{endOfOP}\PYG{o}{\PYGZhy{}}\PYG{n+nv+vg}{msToCC}\PYG{p}{((}\PYG{l+m+mi+il}{2}\PYG{o}{.\PYGZhy{}}\PYG{n+nv+vg}{SafetyMargin}\PYG{p}{)}\PYG{o}{*}\PYG{n+nv+vg}{OP\PYGZus{}Shutter2OffDelay}\PYG{p}{))}\PYG{+w}{ }\PYG{n+nv+vg}{Then}
+\PYG{+w}{  }\PYG{n+nv+vg}{OP\PYGZus{}Shutter2}\PYG{p}{(}\PYG{l+m+mi+il}{0}\PYG{p}{)}
+\PYG{n+nv+vg}{EndIf}
+
+\PYG{n+nv+vg}{If}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nv+vg}{CycleCount}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nv+vg}{endOfOP}\PYG{p}{)}\PYG{+w}{ }\PYG{n+nv+vg}{Then}
+\PYG{+w}{  }\PYG{n+nv+vg}{OP\PYGZus{}AOM}\PYG{p}{(}\PYG{l+m+mi+il}{0}\PYG{p}{)}
+\PYG{+w}{  }\PYG{n+nv+vg}{repumpAOM}\PYG{p}{(}\PYG{l+m+mi+il}{0}\PYG{p}{)}\PYG{+w}{ }\PYG{o}{:}\PYG{+w}{ }\PYG{n+nv+vg}{repumpShutter}\PYG{p}{(}\PYG{l+m+mi+il}{0}\PYG{p}{)}
+\PYG{+w}{  }\PYG{n+nv+vg}{startCoilsRamp}\PYG{p}{(}\PYG{n+nv+vg}{usToCC}\PYG{p}{(}\PYG{n+nv+vg}{RampCoilsBackToQuadrupole}\PYG{p}{),}\PYG{+w}{ }\PYG{o}{...}\PYG{p}{)}
+\PYG{n+nv+vg}{EndIf}
+
+\PYG{c+c1}{\PYGZsq{}=== MOT\PYGZus{}full.bas, EVENT, some 150 lines further down =================}
+\PYG{n+nv+vg}{If}\PYG{+w}{ }\PYG{p}{((}\PYG{n+nv+vg}{CycleCount}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{n+nv+vg}{rampCoilsBeginCC}\PYG{p}{)}\PYG{+w}{ }\PYG{n+nv+vg}{And}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nv+vg}{CycleCount}\PYG{+w}{ }\PYG{o}{\PYGZlt{}=}\PYG{+w}{ }\PYG{n+nv+vg}{rampCoilsEndCC}\PYG{p}{))}\PYG{+w}{ }\PYG{n+nv+vg}{Then}
+\PYG{+w}{  }\PYG{n+nv+vg}{rampCoilsTemp}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nv+vg}{Tanh}\PYG{p}{(}\PYG{n+nv+vg}{TanhInterval}\PYG{o}{*}\PYG{p}{(}\PYG{l+m+mi+il}{2}\PYG{o}{.*}\PYG{p}{(}\PYG{n+nv+vg}{CycleCount}\PYG{o}{\PYGZhy{}}\PYG{n+nv+vg}{rampCoilsBeginCC}\PYG{p}{)}\PYG{o}{/}\PYG{p}{(}\PYG{n+nv+vg}{rampCoilsEndCC}\PYG{o}{\PYGZhy{}}\PYG{n+nv+vg}{rampCoilsBeginCC}\PYG{p}{)}\PYG{l+m+mi+il}{\PYGZhy{}1}\PYG{o}{.}\PYG{p}{))}\PYG{o}{/}\PYG{n+nv+vg}{TwoTimesTanhOfTheTanhInterval}
+\PYG{+w}{  }\PYG{o}{...}
+\PYG{n+nv+vg}{EndIf}
+
+\PYG{c+c1}{\PYGZsq{}=== tools.inc ========================================================}
+\PYG{n+nv+vg}{Sub}\PYG{+w}{ }\PYG{n+nv+vg}{startCoilsRamp}\PYG{p}{(}\PYG{n+nv+vg}{interval}\PYG{p}{,}\PYG{n+nv+vg}{lower}\PYG{p}{,}\PYG{n+nv+vg}{upper}\PYG{p}{,}\PYG{n+nv+vg}{lowerP}\PYG{p}{,}\PYG{n+nv+vg}{upperP}\PYG{p}{)}
+\PYG{+w}{  }\PYG{n+nv+vg}{If}\PYG{+w}{ }\PYG{p}{(}\PYG{n+nv+vg}{rampCoilsEndCC}\PYG{o}{\PYGZgt{}}\PYG{n+nv+vg}{CycleCount}\PYG{p}{)}\PYG{+w}{ }\PYG{n+nv+vg}{Then}\PYG{+w}{ }\PYG{n+nv+vg}{error}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}overlapping coils ramps\PYGZdq{}}\PYG{p}{)}
+\PYG{+w}{  }\PYG{n+nv+vg}{rampCoilsBeginCC}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nv+vg}{CycleCount}
+\PYG{+w}{  }\PYG{n+nv+vg}{rampCoilsEndCC}\PYG{+w}{   }\PYG{o}{=}\PYG{+w}{ }\PYG{n+nv+vg}{rampCoilsBeginCC}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{n+nv+vg}{interval}
+\PYG{+w}{  }\PYG{o}{...}
+\PYG{n+nv+vg}{EndSub}
+\end{Verbatim}

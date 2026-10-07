@@ -1,0 +1,7 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{n}{tl}\PYG{o}{.}\PYG{n}{ramp}\PYG{p}{(}
+    \PYG{n}{coil\PYGZus{}MOTlower\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{l+m+mf}{0.0}\PYG{p}{,}
+    \PYG{n}{coil\PYGZus{}MOTupper\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{l+m+mf}{0.0}\PYG{p}{,}
+    \PYG{n}{duration}\PYG{o}{=}\PYG{n}{duration}\PYG{p}{,}
+    \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}MOT\PYGZdq{}}\PYG{p}{)}
+\end{Verbatim}

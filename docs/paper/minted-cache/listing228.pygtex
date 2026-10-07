@@ -1,0 +1,364 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{An example implementation of a real experiment, using Wigner Time timelines.}
+
+\PYG{l+s+sd}{As well as providing conveniences, the functions can be used to document the intention and meaning of each stage.}
+\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+
+\PYG{k+kn}{from} \PYG{n+nn}{munch} \PYG{k+kn}{import} \PYG{n}{Munch}
+
+\PYG{k+kn}{from} \PYG{n+nn}{wignertime.adwin} \PYG{k+kn}{import} \PYG{n}{connection} \PYG{k}{as} \PYG{n}{adcon}
+\PYG{k+kn}{from} \PYG{n+nn}{wignertime.adwin} \PYG{k+kn}{import} \PYG{n}{core} \PYG{k}{as} \PYG{n}{adwin}
+\PYG{k+kn}{from} \PYG{n+nn}{wignertime} \PYG{k+kn}{import} \PYG{n}{file} \PYG{k}{as} \PYG{n}{wtfile}
+\PYG{k+kn}{from} \PYG{n+nn}{wignertime} \PYG{k+kn}{import} \PYG{n}{timeline} \PYG{k}{as} \PYG{n}{tl}
+\PYG{k+kn}{from} \PYG{n+nn}{wignertime} \PYG{k+kn}{import} \PYG{n}{device}
+\PYG{k+kn}{from} \PYG{n+nn}{wignertime} \PYG{k+kn}{import} \PYG{n}{conversion} \PYG{k}{as} \PYG{n}{conv}
+\PYG{k+kn}{from} \PYG{n+nn}{wignertime} \PYG{k+kn}{import} \PYG{n}{ramp\PYGZus{}function}
+
+\PYG{c+c1}{\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}}
+\PYG{c+c1}{\PYGZsh{}                       Constants and Helpers                             \PYGZsh{}}
+\PYG{c+c1}{\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}}
+
+\PYG{c+c1}{\PYGZsh{} Connections, devices and constants can be read from a separate file(s) (they won\PYGZsq{}t change much).}
+\PYG{c+c1}{\PYGZsh{} They are all collected together here for demonstration purposes only.}
+
+\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{`connections` allows us to label physical links (inputs and outputs) between devices and the timing system. By using labels that follow a particular regex, defined within the `variable` module, we can separate out the design and the implementation of our experiment.}
+\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{n}{connections} \PYG{o}{=} \PYG{n}{adcon}\PYG{o}{.}\PYG{n}{new}\PYG{p}{(}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}shutter\PYGZus{}MOT\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{l+m+mi}{11}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}shutter\PYGZus{}repump\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{l+m+mi}{12}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}shutter\PYGZus{}OP1\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{l+m+mi}{14}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}shutter\PYGZus{}OP2\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{l+m+mi}{15}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}shutter\PYGZus{}science\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{l+m+mi}{10}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}AOM\PYGZus{}MOT\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}AOM\PYGZus{}repump\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{l+m+mi}{2}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}AOM\PYGZus{}OP\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{l+m+mi}{31}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}AOM\PYGZus{}science\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{l+m+mi}{3}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}coil\PYGZus{}MOTlower\PYGZus{}\PYGZus{}A\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{4}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}coil\PYGZus{}MOTupper\PYGZus{}\PYGZus{}A\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{4}\PYG{p}{,} \PYG{l+m+mi}{3}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}lockbox\PYGZus{}MOT\PYGZus{}\PYGZus{}MHz\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{3}\PYG{p}{,} \PYG{l+m+mi}{8}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}AOM\PYGZus{}science\PYGZus{}\PYGZus{}trans\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{4}\PYG{p}{,} \PYG{l+m+mi}{8}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}dispenser\PYGZus{}Rb\PYGZus{}\PYGZus{}A\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{3}\PYG{p}{,} \PYG{l+m+mi}{3}\PYG{p}{],}
+\PYG{p}{)}
+
+\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{`devices` stores how to map our physical quantities to an implementation voltage, as well as specifying the range of values that should be allowed for this variable.}
+
+\PYG{l+s+sd}{These specifications are deliberately separated from `connection`s because they represent physical properties and conversions that are independent of the particular DAC wiring.}
+\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{n}{devices} \PYG{o}{=} \PYG{n}{device}\PYG{o}{.}\PYG{n}{new}\PYG{p}{(}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}coil\PYGZus{}MOTlower\PYGZus{}\PYGZus{}A\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1} \PYG{o}{/} \PYG{l+m+mf}{2.0}\PYG{p}{,} \PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{5}\PYG{p}{,} \PYG{l+m+mi}{5}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}coil\PYGZus{}MOTupper\PYGZus{}\PYGZus{}A\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1} \PYG{o}{/} \PYG{l+m+mf}{2.0}\PYG{p}{,} \PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{5}\PYG{p}{,} \PYG{l+m+mi}{5}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}lockbox\PYGZus{}MOT\PYGZus{}\PYGZus{}MHz\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mf}{0.05}\PYG{p}{,} \PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{200}\PYG{p}{,} \PYG{l+m+mi}{200}\PYG{p}{],}
+    \PYG{p}{[}
+        \PYG{l+s+s2}{\PYGZdq{}AOM\PYGZus{}science\PYGZus{}\PYGZus{}trans\PYGZdq{}}\PYG{p}{,}
+        \PYG{n}{conv}\PYG{o}{.}\PYG{n}{function\PYGZus{}from\PYGZus{}file}\PYG{p}{(}
+            \PYG{l+s+s2}{\PYGZdq{}resources/calibration/aom\PYGZus{}calibration.dat\PYGZdq{}}\PYG{p}{,}
+            \PYG{n}{sep}\PYG{o}{=}\PYG{l+s+sa}{r}\PYG{l+s+s2}{\PYGZdq{}\PYGZbs{}s+\PYGZdq{}}\PYG{p}{,}
+        \PYG{p}{),}
+        \PYG{l+m+mf}{0.0}\PYG{p}{,}
+        \PYG{l+m+mf}{1.0}\PYG{p}{,}
+    \PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}dispenser\PYGZus{}Rb\PYGZus{}\PYGZus{}A\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1} \PYG{o}{/} \PYG{l+m+mf}{3.0}\PYG{p}{,} \PYG{o}{\PYGZhy{}}\PYG{l+m+mi}{3}\PYG{p}{,} \PYG{l+m+mi}{3}\PYG{p}{],}
+\PYG{p}{)}
+
+
+\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{\PYGZsq{}constants\PYGZsq{} allow us to store site\PYGZhy{}specific details that help define our experiment.}
+\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{n}{constants} \PYG{o}{=} \PYG{n}{Munch}\PYG{p}{(}
+    \PYG{n}{safety\PYGZus{}factor}\PYG{o}{=}\PYG{l+m+mf}{1.1}\PYG{p}{,}
+    \PYG{n}{lag\PYGZus{}MOT\PYGZus{}shutter}\PYG{o}{=}\PYG{l+m+mf}{2.3e\PYGZhy{}3}\PYG{p}{,}
+    \PYG{n}{lag\PYGZus{}repump\PYGZus{}shutter}\PYG{o}{=}\PYG{l+m+mf}{2.3e\PYGZhy{}3}\PYG{p}{,}
+    \PYG{n}{Compensation}\PYG{o}{=}\PYG{n}{Munch}\PYG{p}{(}
+        \PYG{n}{Z\PYGZus{}\PYGZus{}A}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{0.1}\PYG{p}{,}
+        \PYG{n}{Y\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{l+m+mf}{1.5}\PYG{p}{,}
+        \PYG{n}{X\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{l+m+mf}{0.25}\PYG{p}{,}
+    \PYG{p}{),}
+    \PYG{n}{OP}\PYG{o}{=}\PYG{n}{Munch}\PYG{p}{(}
+        \PYG{n}{lag\PYGZus{}AOM\PYGZus{}on}\PYG{o}{=}\PYG{l+m+mf}{15e\PYGZhy{}6}\PYG{p}{,}
+        \PYG{n}{lag\PYGZus{}shutter\PYGZus{}on}\PYG{o}{=}\PYG{l+m+mf}{1.48e\PYGZhy{}3}\PYG{p}{,}
+        \PYG{n}{lag\PYGZus{}shutter\PYGZus{}off}\PYG{o}{=}\PYG{l+m+mf}{1.78e\PYGZhy{}3}\PYG{p}{,}
+        \PYG{n}{duration\PYGZus{}shutter\PYGZus{}on}\PYG{o}{=}\PYG{l+m+mf}{140e\PYGZhy{}6}\PYG{p}{,}
+    \PYG{p}{),}
+\PYG{p}{)}
+
+
+\PYG{c+c1}{\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}}
+\PYG{c+c1}{\PYGZsh{}                   Experimental stages                                   \PYGZsh{}}
+\PYG{c+c1}{\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}}
+\PYG{c+c1}{\PYGZsh{} NOTE: The idea behind the function wrapping is that we enclose what will rarely change and expose just those attributes that we are likely to want to vary.}
+
+
+\PYG{k}{def} \PYG{n+nf}{default\PYGZus{}state}\PYG{p}{(}\PYG{n}{f}\PYG{o}{=}\PYG{n}{tl}\PYG{o}{.}\PYG{n}{create}\PYG{p}{,} \PYG{n}{MOT\PYGZus{}ON}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,} \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{):}
+    \PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Starts/leaves the system in a sane state that is appropriate for creating a new timeline}
+
+\PYG{l+s+sd}{    As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. When needed, we turn them off before the opening of the shutter.}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k}{return} \PYG{n}{tl}\PYG{o}{.}\PYG{n}{stack}\PYG{p}{(}
+        \PYG{n}{f}\PYG{p}{(}
+            \PYG{n}{lockbox\PYGZus{}MOT\PYGZus{}\PYGZus{}MHz}\PYG{o}{=}\PYG{l+m+mf}{0.0}\PYG{p}{,}
+            \PYG{n}{AOM\PYGZus{}MOT}\PYG{o}{=}\PYG{l+m+mi}{1}\PYG{p}{,}
+            \PYG{n}{AOM\PYGZus{}repump}\PYG{o}{=}\PYG{l+m+mi}{1}\PYG{p}{,}
+            \PYG{n}{AOM\PYGZus{}OP}\PYG{o}{=}\PYG{l+m+mi}{1}\PYG{p}{,}
+            \PYG{n}{AOM\PYGZus{}science}\PYG{o}{=}\PYG{l+m+mi}{1}\PYG{p}{,}
+            \PYG{n}{shutter\PYGZus{}MOT}\PYG{o}{=}\PYG{n+nb}{int}\PYG{p}{(}\PYG{n}{MOT\PYGZus{}ON}\PYG{p}{),}
+            \PYG{n}{shutter\PYGZus{}repump}\PYG{o}{=}\PYG{n+nb}{int}\PYG{p}{(}\PYG{n}{MOT\PYGZus{}ON}\PYG{p}{),}
+            \PYG{n}{shutter\PYGZus{}OP1}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}
+            \PYG{n}{shutter\PYGZus{}OP2}\PYG{o}{=}\PYG{l+m+mi}{1}\PYG{p}{,}
+            \PYG{n}{shutter\PYGZus{}science}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}
+            \PYG{n}{shutter\PYGZus{}transverse\PYGZus{}pump}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}
+            \PYG{n}{AOM\PYGZus{}science\PYGZus{}\PYGZus{}trans}\PYG{o}{=}\PYG{l+m+mf}{1.0}\PYG{p}{,}
+            \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{,}
+        \PYG{p}{)}
+    \PYG{p}{)}
+
+
+\PYG{k}{def} \PYG{n+nf}{init}\PYG{p}{(}\PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{):}
+    \PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Time is simply a placeholder here as `ADwin\PYGZus{}LowInit` is a \PYGZsq{}special\PYGZsq{} context, that will be treated differently by the ADwin system.}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k}{return} \PYG{n}{default\PYGZus{}state}\PYG{p}{(}
+        \PYG{n}{t}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{1e\PYGZhy{}6}\PYG{p}{,}
+        \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}ADwin\PYGZus{}LowInit\PYGZdq{}}\PYG{p}{,}
+        \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{,}
+    \PYG{p}{)}
+
+
+\PYG{k}{def} \PYG{n+nf}{finish}\PYG{p}{(}\PYG{n}{wait}\PYG{o}{=}\PYG{l+m+mi}{1}\PYG{p}{,} \PYG{n}{lower\PYGZus{}current}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{1.0}\PYG{p}{,} \PYG{n}{upper\PYGZus{}current}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{0.98}\PYG{p}{,} \PYG{n}{MOT\PYGZus{}ON}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,} \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{):}
+    \PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Safely winds down the system, \PYGZsq{}ramping\PYGZsq{} the analog variables to the “default state” in a given duration by the default `ramp\PYGZus{}function`.}
+
+\PYG{l+s+sd}{    The `anchor` function is used to specify a key time instant, around which other times can be specified.}
+
+\PYG{l+s+sd}{    The `ADwin\PYGZus{}Finish` is again a special context. It means that the “default state” will be actuated even when the process is interrupted, and time is again just fictive in the `default\PYGZus{}state` call}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{n}{duration} \PYG{o}{=} \PYG{l+m+mf}{1e\PYGZhy{}2}
+
+    \PYG{k}{return} \PYG{n}{tl}\PYG{o}{.}\PYG{n}{stack}\PYG{p}{(}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{anchor}\PYG{p}{(}\PYG{n}{wait}\PYG{p}{,} \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}finalize\PYGZdq{}}\PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{ramp}\PYG{p}{(}
+            \PYG{n}{lockbox\PYGZus{}MOT\PYGZus{}\PYGZus{}MHz}\PYG{o}{=}\PYG{l+m+mf}{0.0}\PYG{p}{,}
+            \PYG{n}{coil\PYGZus{}MOTlower\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{n}{lower\PYGZus{}current}\PYG{p}{,}
+            \PYG{n}{coil\PYGZus{}MOTupper\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{n}{upper\PYGZus{}current}\PYG{p}{,}
+            \PYG{n}{duration}\PYG{o}{=}\PYG{n}{duration}\PYG{p}{,}
+            \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}finalize\PYGZdq{}}\PYG{p}{,}
+        \PYG{p}{),}
+        \PYG{n}{default\PYGZus{}state}\PYG{p}{(}
+            \PYG{n}{f}\PYG{o}{=}\PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{,}
+            \PYG{n}{t}\PYG{o}{=}\PYG{n}{duration}\PYG{o}{+}\PYG{l+m+mf}{1e\PYGZhy{}6}\PYG{p}{,}
+            \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}ADwin\PYGZus{}Finish\PYGZdq{}}\PYG{p}{,}
+            \PYG{n}{MOT\PYGZus{}ON}\PYG{o}{=}\PYG{n}{MOT\PYGZus{}ON}\PYG{p}{,}
+            \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{,}
+        \PYG{p}{),}
+    \PYG{p}{)}
+
+
+\PYG{k}{def} \PYG{n+nf}{MOT}\PYG{p}{(}\PYG{n}{duration}\PYG{o}{=}\PYG{l+m+mi}{15}\PYG{p}{,} \PYG{n}{lower\PYGZus{}current}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{1.0}\PYG{p}{,} \PYG{n}{upper\PYGZus{}current}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{0.98}\PYG{p}{,} \PYG{n}{origin}\PYG{o}{=}\PYG{l+m+mf}{0.0}\PYG{p}{,} \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{):}
+    \PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Creates a magneto\PYGZhy{}optical trap}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k}{return} \PYG{n}{tl}\PYG{o}{.}\PYG{n}{stack}\PYG{p}{(}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}
+            \PYG{n}{shutter\PYGZus{}MOT}\PYG{o}{=}\PYG{l+m+mi}{1}\PYG{p}{,}
+            \PYG{n}{shutter\PYGZus{}repump}\PYG{o}{=}\PYG{l+m+mi}{1}\PYG{p}{,}
+            \PYG{n}{coil\PYGZus{}MOTlower\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{n}{lower\PYGZus{}current}\PYG{p}{,}
+            \PYG{n}{coil\PYGZus{}MOTupper\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{n}{upper\PYGZus{}current}\PYG{p}{,}
+            \PYG{c+c1}{\PYGZsh{}}
+            \PYG{n}{origin}\PYG{o}{=}\PYG{n}{origin}\PYG{p}{,}
+            \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{,}
+        \PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{anchor}\PYG{p}{(}\PYG{n}{duration}\PYG{p}{,} \PYG{n}{origin}\PYG{o}{=}\PYG{n}{origin}\PYG{p}{),}
+        \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}MOT\PYGZdq{}}\PYG{p}{,}
+    \PYG{p}{)}
+
+
+\PYG{k}{def} \PYG{n+nf}{MOT\PYGZus{}detuned\PYGZus{}growth}\PYG{p}{(} \PYG{n}{duration}\PYG{o}{=}\PYG{l+m+mf}{100e\PYGZhy{}3}\PYG{p}{,} \PYG{n}{duration\PYGZus{}ramp}\PYG{o}{=}\PYG{l+m+mf}{10e\PYGZhy{}3}\PYG{p}{,} \PYG{n}{detuning\PYGZus{}\PYGZus{}MHz}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mi}{5}\PYG{p}{,} \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{)} \PYG{p}{:}
+    \PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Final stage of MOT collection with farther detuned MOT beams}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k}{return} \PYG{n}{tl}\PYG{o}{.}\PYG{n}{stack}\PYG{p}{(}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{ramp}\PYG{p}{(}
+            \PYG{n}{lockbox\PYGZus{}MOT\PYGZus{}\PYGZus{}MHz}\PYG{o}{=}\PYG{n}{detuning\PYGZus{}\PYGZus{}MHz}\PYG{p}{,}
+            \PYG{n}{duration}\PYG{o}{=}\PYG{n}{duration\PYGZus{}ramp}\PYG{p}{,}
+            \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{,}
+        \PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{anchor}\PYG{p}{(}\PYG{n}{duration}\PYG{p}{),}
+        \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}MOT\PYGZdq{}}\PYG{p}{,}
+    \PYG{p}{)}
+
+
+\PYG{k}{def} \PYG{n+nf}{MOT\PYGZus{}off}\PYG{p}{(}\PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{):}
+    \PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    respecting shutter lags}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k}{return} \PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}\PYG{n}{shutter\PYGZus{}MOT}\PYG{o}{=}\PYG{p}{[}\PYG{o}{\PYGZhy{}}\PYG{n}{constants}\PYG{o}{.}\PYG{n}{lag\PYGZus{}MOT\PYGZus{}shutter}\PYG{p}{,}\PYG{l+m+mi}{0}\PYG{p}{],} \PYG{n}{AOM\PYGZus{}MOT}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,} \PYG{n}{shutter\PYGZus{}repump}\PYG{o}{=}\PYG{p}{[}\PYG{o}{\PYGZhy{}}\PYG{n}{constants}\PYG{o}{.}\PYG{n}{lag\PYGZus{}repump\PYGZus{}shutter}\PYG{p}{,}\PYG{l+m+mi}{0}\PYG{p}{],} \PYG{n}{AOM\PYGZus{}repump}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,} \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{)}
+
+
+\PYG{k}{def} \PYG{n+nf}{molasses}\PYG{p}{(}
+    \PYG{n}{duration}\PYG{o}{=}\PYG{l+m+mf}{5e\PYGZhy{}3}\PYG{p}{,}
+    \PYG{n}{duration\PYGZus{}coil\PYGZus{}ramp}\PYG{o}{=}\PYG{l+m+mf}{9e\PYGZhy{}4}\PYG{p}{,}
+    \PYG{n}{duration\PYGZus{}lockbox\PYGZus{}ramp}\PYG{o}{=}\PYG{l+m+mf}{1e\PYGZhy{}3}\PYG{p}{,}
+    \PYG{n}{to\PYGZus{}\PYGZus{}MHz}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mi}{90}\PYG{p}{,}
+    \PYG{n}{delay}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}  \PYG{c+c1}{\PYGZsh{} arbitrary delay to shutter for ad hoc compensation of small drifts}
+    \PYG{o}{**}\PYG{n}{kwargs}
+\PYG{p}{):}
+    \PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Optical molasses cooling with zero magnetic field}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+
+    \PYG{k}{return} \PYG{n}{tl}\PYG{o}{.}\PYG{n}{stack}\PYG{p}{(}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{ramp}\PYG{p}{(}
+            \PYG{n}{coil\PYGZus{}MOTlower\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}
+            \PYG{n}{coil\PYGZus{}MOTupper\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}
+            \PYG{n}{duration}\PYG{o}{=}\PYG{n}{duration\PYGZus{}coil\PYGZus{}ramp}\PYG{p}{,}
+            \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{,}
+        \PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{ramp}\PYG{p}{(}
+            \PYG{n}{lockbox\PYGZus{}MOT\PYGZus{}\PYGZus{}MHz}\PYG{o}{=}\PYG{n}{to\PYGZus{}\PYGZus{}MHz}\PYG{p}{,}
+            \PYG{n}{duration}\PYG{o}{=}\PYG{n}{duration\PYGZus{}lockbox\PYGZus{}ramp}\PYG{p}{,}
+        \PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}
+            \PYG{n}{shutter\PYGZus{}MOT}\PYG{o}{=}\PYG{p}{[}\PYG{n}{duration}\PYG{o}{\PYGZhy{}}\PYG{n}{constants}\PYG{o}{.}\PYG{n}{lag\PYGZus{}MOT\PYGZus{}shutter} \PYG{o}{+} \PYG{n}{delay}\PYG{p}{,} \PYG{l+m+mi}{0}\PYG{p}{],}
+            \PYG{n}{AOM\PYGZus{}MOT}\PYG{o}{=}\PYG{p}{[}\PYG{n}{duration}\PYG{p}{,} \PYG{l+m+mi}{0}\PYG{p}{],}
+        \PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{anchor}\PYG{p}{(}\PYG{n}{duration}\PYG{p}{),}
+        \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}molasses\PYGZdq{}}\PYG{p}{,}
+    \PYG{p}{)}
+
+
+\PYG{k}{def} \PYG{n+nf}{optical\PYGZus{}pumping}\PYG{p}{(}
+    \PYG{n}{duration\PYGZus{}exposition}\PYG{o}{=}\PYG{l+m+mf}{80e\PYGZhy{}6}\PYG{p}{,}
+    \PYG{n}{duration\PYGZus{}coil\PYGZus{}ramp}\PYG{o}{=}\PYG{l+m+mf}{50e\PYGZhy{}6}\PYG{p}{,}
+    \PYG{n}{i}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{0.12}\PYG{p}{,}
+    \PYG{n}{delay1}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}
+    \PYG{n}{delay2}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}
+    \PYG{n}{delay\PYGZus{}repump}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}  \PYG{c+c1}{\PYGZsh{} arbitrary delays to shutters for ad hoc compensation of small drifts}
+    \PYG{n}{delay\PYGZus{}shutter\PYGZus{}reinitialization}\PYG{o}{=}\PYG{l+m+mf}{0.1}\PYG{p}{,}
+    \PYG{o}{**}\PYG{n}{kwargs}
+\PYG{p}{):}
+    \PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Creates an experimental timeline for optical pumping.}
+
+\PYG{l+s+sd}{    NOTE:}
+\PYG{l+s+sd}{    The AOM is switched off close to, but before, the opening of the first shutter}
+
+\PYG{l+s+sd}{    WARNING:}
+\PYG{l+s+sd}{    Shutters are reinitialized so that additional optical pumping stages can be added later.}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+
+    \PYG{n}{duration\PYGZus{}full} \PYG{o}{=} \PYG{n}{duration\PYGZus{}exposition} \PYG{o}{+} \PYG{n}{duration\PYGZus{}coil\PYGZus{}ramp}
+    \PYG{k}{return} \PYG{n}{tl}\PYG{o}{.}\PYG{n}{stack}\PYG{p}{(}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{ramp}\PYG{p}{(}
+            \PYG{n}{coil\PYGZus{}MOTlower\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{n}{i}\PYG{p}{,}
+            \PYG{n}{coil\PYGZus{}MOTupper\PYGZus{}\PYGZus{}A}\PYG{o}{=\PYGZhy{}}\PYG{n}{i}\PYG{p}{,}
+            \PYG{n}{duration}\PYG{o}{=}\PYG{n}{duration\PYGZus{}coil\PYGZus{}ramp}\PYG{p}{,}
+            \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{,}
+        \PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}\PYG{n}{AOM\PYGZus{}OP}\PYG{o}{=}\PYG{p}{[[}\PYG{o}{\PYGZhy{}}\PYG{l+m+mf}{0.1}\PYG{p}{,} \PYG{l+m+mi}{0}\PYG{p}{],} \PYG{p}{[}\PYG{n}{duration\PYGZus{}coil\PYGZus{}ramp}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{],} \PYG{p}{[}\PYG{n}{duration\PYGZus{}full}\PYG{p}{,} \PYG{l+m+mi}{0}\PYG{p}{]]),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}
+            \PYG{n}{shutter\PYGZus{}OP1}\PYG{o}{=}\PYG{p}{[}
+                \PYG{p}{[}\PYG{n}{duration\PYGZus{}coil\PYGZus{}ramp} \PYG{o}{\PYGZhy{}} \PYG{n}{constants}\PYG{o}{.}\PYG{n}{OP}\PYG{o}{.}\PYG{n}{lag\PYGZus{}shutter\PYGZus{}on} \PYG{o}{+} \PYG{n}{delay1}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{],}
+                \PYG{p}{[}\PYG{n}{delay\PYGZus{}shutter\PYGZus{}reinitialization}\PYG{p}{,} \PYG{l+m+mi}{0}\PYG{p}{],}
+            \PYG{p}{]}
+        \PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}
+            \PYG{n}{shutter\PYGZus{}OP2}\PYG{o}{=}\PYG{p}{[}
+                \PYG{p}{[}\PYG{n}{duration\PYGZus{}full} \PYG{o}{\PYGZhy{}} \PYG{n}{constants}\PYG{o}{.}\PYG{n}{OP}\PYG{o}{.}\PYG{n}{lag\PYGZus{}shutter\PYGZus{}off} \PYG{o}{+} \PYG{n}{delay2}\PYG{p}{,} \PYG{l+m+mi}{0}\PYG{p}{],}
+                \PYG{p}{[}\PYG{n}{delay\PYGZus{}shutter\PYGZus{}reinitialization}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{],}
+            \PYG{p}{]}
+        \PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}
+            \PYG{n}{shutter\PYGZus{}repump}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}
+            \PYG{n}{t}\PYG{o}{=}\PYG{n}{duration\PYGZus{}full} \PYG{o}{\PYGZhy{}} \PYG{n}{constants}\PYG{o}{.}\PYG{n}{lag\PYGZus{}repump\PYGZus{}shutter} \PYG{o}{+} \PYG{n}{delay\PYGZus{}repump}\PYG{p}{,}
+        \PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}\PYG{n}{AOM\PYGZus{}repump}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,} \PYG{n}{t}\PYG{o}{=}\PYG{n}{duration\PYGZus{}full}\PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{anchor}\PYG{p}{(}\PYG{n}{duration\PYGZus{}full}\PYG{p}{),}
+        \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}optical\PYGZus{}pumping\PYGZdq{}}\PYG{p}{,}
+    \PYG{p}{)}
+
+
+\PYG{k}{def} \PYG{n+nf}{pull\PYGZus{}coils}\PYG{p}{(}\PYG{n}{duration}\PYG{p}{,} \PYG{n}{lower\PYGZus{}current}\PYG{p}{,} \PYG{n}{upper\PYGZus{}current}\PYG{p}{,} \PYG{n}{pt}\PYG{o}{=}\PYG{l+m+mi}{3}\PYG{p}{,} \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{):}
+    \PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Pull the coil currents to a given value}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k}{return} \PYG{n}{tl}\PYG{o}{.}\PYG{n}{ramp}\PYG{p}{(}
+        \PYG{n}{coil\PYGZus{}MOTlower\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{n}{lower\PYGZus{}current}\PYG{p}{,}
+        \PYG{n}{coil\PYGZus{}MOTupper\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{n}{upper\PYGZus{}current}\PYG{p}{,}
+        \PYG{n}{function}\PYG{o}{=}\PYG{k}{lambda} \PYG{n}{origin}\PYG{p}{,} \PYG{n}{terminus}\PYG{p}{,} \PYG{n}{time\PYGZus{}resolution}\PYG{p}{:} \PYG{n}{ramp\PYGZus{}function}\PYG{o}{.}\PYG{n}{tanh}\PYG{p}{(}
+            \PYG{n}{origin}\PYG{p}{,} \PYG{n}{terminus}\PYG{p}{,} \PYG{n}{time\PYGZus{}resolution}\PYG{p}{,} \PYG{n}{pt}
+        \PYG{p}{),}
+        \PYG{n}{duration}\PYG{o}{=}\PYG{n}{duration}\PYG{p}{,}
+        \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{,}
+    \PYG{p}{)}
+
+
+\PYG{k}{def} \PYG{n+nf}{magnetic\PYGZus{}trapping}\PYG{p}{(}
+    \PYG{n}{duration\PYGZus{}initial}\PYG{o}{=}\PYG{l+m+mf}{50e\PYGZhy{}6}\PYG{p}{,}
+    \PYG{n}{lower\PYGZus{}current\PYGZus{}initial}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{1.8}\PYG{p}{,}
+    \PYG{n}{upper\PYGZus{}current\PYGZus{}initial}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{1.7}\PYG{p}{,}
+    \PYG{n}{duration\PYGZus{}strengthen}\PYG{o}{=}\PYG{l+m+mf}{3e\PYGZhy{}3}\PYG{p}{,}
+    \PYG{n}{lower\PYGZus{}current\PYGZus{}strengthen}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{4.8}\PYG{p}{,}
+    \PYG{n}{upper\PYGZus{}current\PYGZus{}strengthen}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{4.7}\PYG{p}{,}
+    \PYG{o}{**}\PYG{n}{kwargs}
+\PYG{p}{):}
+    \PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Pulls up the magnetic trap}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k}{return} \PYG{n}{tl}\PYG{o}{.}\PYG{n}{stack}\PYG{p}{(}
+        \PYG{n}{pull\PYGZus{}coils}\PYG{p}{(}\PYG{n}{duration\PYGZus{}initial}\PYG{p}{,} \PYG{n}{lower\PYGZus{}current\PYGZus{}initial}\PYG{p}{,} \PYG{n}{upper\PYGZus{}current\PYGZus{}initial}\PYG{p}{,} \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}magnetic\PYGZus{}trapping\PYGZdq{}}\PYG{p}{,} \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{),}
+        \PYG{n}{pull\PYGZus{}coils}\PYG{p}{(}\PYG{n}{duration\PYGZus{}strengthen}\PYG{p}{,} \PYG{n}{lower\PYGZus{}current\PYGZus{}strengthen}\PYG{p}{,} \PYG{n}{upper\PYGZus{}current\PYGZus{}strengthen}\PYG{p}{,} \PYG{n}{t}\PYG{o}{=}\PYG{n}{duration\PYGZus{}initial}\PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{anchor}\PYG{p}{(}\PYG{n}{duration\PYGZus{}initial} \PYG{o}{+} \PYG{n}{duration\PYGZus{}strengthen}\PYG{p}{,} \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}magnetic\PYGZus{}trapping\PYGZdq{}}\PYG{p}{)}
+    \PYG{p}{)}
+
+
+\PYG{c+c1}{\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}}
+\PYG{c+c1}{\PYGZsh{}                   Stage composition                                     \PYGZsh{}}
+\PYG{c+c1}{\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}}
+
+\PYG{n}{timeline\PYGZus{}\PYGZus{}demo} \PYG{o}{=} \PYG{n}{tl}\PYG{o}{.}\PYG{n}{cascade}\PYG{p}{(}
+    \PYG{n}{init}\PYG{p}{,}
+    \PYG{n}{MOT}\PYG{p}{,}
+    \PYG{n}{MOT\PYGZus{}detuned\PYGZus{}growth}\PYG{p}{,}
+    \PYG{n}{molasses}\PYG{p}{,}
+    \PYG{n}{optical\PYGZus{}pumping}\PYG{p}{,}
+    \PYG{n}{magnetic\PYGZus{}trapping}\PYG{p}{,}
+    \PYG{n}{finish}\PYG{p}{,}
+    \PYG{c+c1}{\PYGZsh{} KW args forwarded to above functions}
+    \PYG{n}{init\PYGZus{}MOT\PYGZus{}ON}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,}
+    \PYG{n}{finish\PYGZus{}MOT\PYGZus{}ON}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,}
+    \PYG{n}{MOT\PYGZus{}duration}\PYG{o}{=}\PYG{l+m+mi}{15}\PYG{p}{,}
+    \PYG{n}{MOT\PYGZus{}lower\PYGZus{}current}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{1.0}\PYG{p}{,}
+    \PYG{n}{MOT\PYGZus{}upper\PYGZus{}current}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{0.98}\PYG{p}{,}
+    \PYG{n}{MOT\PYGZus{}detuned\PYGZus{}growth\PYGZus{}duration}\PYG{o}{=}\PYG{l+m+mf}{0.1}\PYG{p}{,}
+    \PYG{n}{MOT\PYGZus{}detuned\PYGZus{}growth\PYGZus{}duration\PYGZus{}ramp}\PYG{o}{=}\PYG{l+m+mf}{1e\PYGZhy{}2}\PYG{p}{,}
+    \PYG{n}{MOT\PYGZus{}detuned\PYGZus{}growth\PYGZus{}detuning\PYGZus{}\PYGZus{}MHz}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mi}{5}\PYG{p}{,}
+    \PYG{n}{molasses\PYGZus{}duration}\PYG{o}{=}\PYG{l+m+mf}{4.5e\PYGZhy{}3}\PYG{p}{,}
+    \PYG{n}{molasses\PYGZus{}duration\PYGZus{}coil\PYGZus{}ramp}\PYG{o}{=}\PYG{l+m+mf}{9e\PYGZhy{}4}\PYG{p}{,}
+    \PYG{n}{molasses\PYGZus{}duration\PYGZus{}lockbox\PYGZus{}ramp}\PYG{o}{=}\PYG{l+m+mf}{1e\PYGZhy{}3}\PYG{p}{,}
+    \PYG{n}{molasses\PYGZus{}to\PYGZus{}\PYGZus{}MHz}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mi}{90}\PYG{p}{,}
+    \PYG{n}{molasses\PYGZus{}delay}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{200e\PYGZhy{}6}\PYG{p}{,}
+    \PYG{n}{optical\PYGZus{}pumping\PYGZus{}duration\PYGZus{}exposition}\PYG{o}{=}\PYG{l+m+mf}{80e\PYGZhy{}6}\PYG{p}{,}
+    \PYG{n}{optical\PYGZus{}pumping\PYGZus{}duration\PYGZus{}coil\PYGZus{}ramp}\PYG{o}{=}\PYG{l+m+mf}{500e\PYGZhy{}6}\PYG{p}{,}
+    \PYG{n}{optical\PYGZus{}pumping\PYGZus{}i}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{0.12}\PYG{p}{,}
+    \PYG{n}{optical\PYGZus{}pumping\PYGZus{}delay1}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{350e\PYGZhy{}6}\PYG{p}{,}
+    \PYG{n}{optical\PYGZus{}pumping\PYGZus{}delay2}\PYG{o}{=}\PYG{l+m+mf}{450e\PYGZhy{}6}\PYG{p}{,}
+    \PYG{n}{optical\PYGZus{}pumping\PYGZus{}delay\PYGZus{}repump}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}
+    \PYG{n}{magnetic\PYGZus{}trapping\PYGZus{}duration\PYGZus{}initial}\PYG{o}{=}\PYG{l+m+mf}{50e\PYGZhy{}6}\PYG{p}{,}
+    \PYG{n}{magnetic\PYGZus{}trapping\PYGZus{}lower\PYGZus{}current\PYGZus{}initial}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{1.8}\PYG{p}{,}
+    \PYG{n}{magnetic\PYGZus{}trapping\PYGZus{}upper\PYGZus{}current\PYGZus{}initial}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{1.7}\PYG{p}{,}
+    \PYG{n}{magnetic\PYGZus{}trapping\PYGZus{}duration\PYGZus{}strengthen}\PYG{o}{=}\PYG{l+m+mf}{3e\PYGZhy{}3}\PYG{p}{,}
+    \PYG{n}{magnetic\PYGZus{}trapping\PYGZus{}lower\PYGZus{}current\PYGZus{}strengthen}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{4.8}\PYG{p}{,}
+    \PYG{n}{magnetic\PYGZus{}trapping\PYGZus{}upper\PYGZus{}current\PYGZus{}strengthen}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{4.7}\PYG{p}{,}
+\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}}
+\PYG{c+c1}{\PYGZsh{}                   Running the experiment}
+\PYG{c+c1}{\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}\PYGZsh{}}
+
+\PYG{n}{wtfile}\PYG{o}{.}\PYG{n}{save}\PYG{p}{(}\PYG{n}{timeline\PYGZus{}\PYGZus{}demo}\PYG{p}{)}
+\PYG{n}{backend} \PYG{o}{=} \PYG{n}{adwin}\PYG{o}{.}\PYG{n}{create}\PYG{p}{(}\PYG{n}{timeline\PYGZus{}\PYGZus{}demo}\PYG{p}{,} \PYG{n}{connections}\PYG{p}{,} \PYG{n}{devices}\PYG{p}{)}
+\PYG{n}{backend}\PYG{o}{.}\PYG{n}{Start\PYGZus{}Process}\PYG{p}{(}\PYG{l+m+mi}{1}\PYG{p}{)} \PYG{c+c1}{\PYGZsh{} assuming that the ADwin backend program is loaded on slot 1 of ADwin}
+\end{Verbatim}

@@ -1,0 +1,8 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{n}{tline} \PYG{o}{=} \PYG{n}{tl}\PYG{o}{.}\PYG{n}{stack}\PYG{p}{(}
+    \PYG{n}{initial}\PYG{p}{,}
+    \PYG{n}{MOT}\PYG{p}{,}
+    \PYG{n}{detuned\PYGZus{}growth}\PYG{p}{,}
+    \PYG{n}{final}
+\PYG{p}{)}
+\end{Verbatim}

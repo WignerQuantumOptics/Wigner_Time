@@ -1,0 +1,12 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k+kn}{from} \PYG{n+nn}{wignertime.adwin} \PYG{k+kn}{import} \PYG{n}{connection} \PYG{k}{as} \PYG{n}{adcon}
+\PYG{k+kn}{from} \PYG{n+nn}{wignertime} \PYG{k+kn}{import} \PYG{n}{device}
+\PYG{k+kn}{from} \PYG{n+nn}{wignertime} \PYG{k+kn}{import} \PYG{n}{conversion} \PYG{k}{as} \PYG{n}{conv}
+
+\PYG{n}{connections} \PYG{o}{=} \PYG{n}{adcon}\PYG{o}{.}\PYG{n}{new}\PYG{p}{(}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}shutter\PYGZus{}MOT\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{l+m+mi}{11}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}AOM\PYGZus{}MOT\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}AOM\PYGZus{}MOT\PYGZus{}\PYGZus{}transmission\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{3}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{],}
+    \PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}lockbox\PYGZus{}MOT\PYGZus{}\PYGZus{}MHz\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mi}{3}\PYG{p}{,} \PYG{l+m+mi}{8}\PYG{p}{],}
+    \PYG{p}{)}
+\end{Verbatim}

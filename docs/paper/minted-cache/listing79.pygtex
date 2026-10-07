@@ -1,0 +1,14 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{def} \PYG{n+nf}{ramp}\PYG{p}{(}
+    \PYG{n}{timeline}\PYG{o}{=}\PYG{k+kc}{None}\PYG{p}{,}
+    \PYG{n}{duration}\PYG{o}{=}\PYG{k+kc}{None}\PYG{p}{,}
+    \PYG{n}{t}\PYG{o}{=}\PYG{k+kc}{None}\PYG{p}{,}
+    \PYG{n}{context}\PYG{o}{=}\PYG{k+kc}{None}\PYG{p}{,}
+    \PYG{n}{origin}\PYG{o}{=}\PYG{k+kc}{None}\PYG{p}{,}
+    \PYG{n}{t2}\PYG{o}{=}\PYG{k+kc}{None}\PYG{p}{,}
+    \PYG{n}{origin2}\PYG{o}{=}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}variable\PYGZdq{}}\PYG{p}{],}
+    \PYG{n}{function}\PYG{o}{=}
+      \PYG{n}{wt\PYGZus{}ramp\PYGZus{}function}\PYG{o}{.}\PYG{n}{tanh}\PYG{p}{,}
+    \PYG{o}{**}\PYG{n}{vtvc\PYGZus{}dict}
+\PYG{p}{)}
+\end{Verbatim}

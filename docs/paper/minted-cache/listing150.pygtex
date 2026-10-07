@@ -1,0 +1,4 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{def} \PYG{n+nf}{trigger\PYGZus{}camera}\PYG{p}{(}\PYG{n}{t}\PYG{p}{,} \PYG{n}{exposition}\PYG{p}{,} \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{)} \PYG{p}{:}
+    \PYG{k}{return} \PYG{n}{update}\PYG{p}{(}\PYG{n}{trigger\PYGZus{}camera}\PYG{o}{=}\PYG{p}{[[}\PYG{n}{t}\PYG{p}{,}\PYG{l+m+mi}{1}\PYG{p}{],[}\PYG{n}{t}\PYG{o}{+}\PYG{n}{exposure}\PYG{p}{,}\PYG{l+m+mi}{0}\PYG{p}{]],}\PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{)}
+\end{Verbatim}

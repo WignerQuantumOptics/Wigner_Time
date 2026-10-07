@@ -1,0 +1,8 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{n}{stack}\PYG{p}{(}
+    \PYG{n}{timeline}\PYG{p}{,}
+    \PYG{n}{update}\PYG{p}{(}\PYG{o}{...}\PYG{p}{),}
+    \PYG{n}{ramp}\PYG{p}{(}\PYG{o}{...}\PYG{p}{),}
+    \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}MOT\PYGZdq{}}
+    \PYG{p}{)}
+\end{Verbatim}

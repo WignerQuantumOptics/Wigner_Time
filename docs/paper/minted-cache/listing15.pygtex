@@ -1,0 +1,12 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k+kn}{import} \PYG{n+nn}{timeline} \PYG{k}{as} \PYG{n+nn}{tl}
+
+\PYG{n}{initial} \PYG{o}{=} \PYG{n}{tl}\PYG{o}{.}\PYG{n}{create}\PYG{p}{(}
+    \PYG{n}{t}\PYG{o}{=}\PYG{l+m+mf}{1e\PYGZhy{}6}\PYG{p}{,}
+    \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}ADwin\PYGZus{}LowInit\PYGZdq{}}\PYG{p}{,}
+    \PYG{n}{shutter\PYGZus{}MOT}\PYG{o}{=}\PYG{l+m+mi}{1}\PYG{p}{,}
+    \PYG{n}{AOM\PYGZus{}MOT}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}
+\PYG{p}{)}
+\PYG{n}{final} \PYG{o}{=} \PYG{n}{init}
+\PYG{n}{final}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}context\PYGZsq{}}\PYG{p}{]}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}ADwin\PYGZus{}Finish\PYGZdq{}}
+\end{Verbatim}

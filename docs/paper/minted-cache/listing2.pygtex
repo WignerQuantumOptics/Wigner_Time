@@ -1,0 +1,27 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{def} \PYG{n+nf}{optical\PYGZus{}pumping}\PYG{p}{(}
+    \PYG{n}{duration\PYGZus{}exposition}\PYG{o}{=}\PYG{l+m+mf}{80e\PYGZhy{}6}\PYG{p}{,}
+    \PYG{n}{duration\PYGZus{}coil\PYGZus{}ramp}\PYG{o}{=}\PYG{l+m+mf}{50e\PYGZhy{}6}\PYG{p}{,}
+    \PYG{n}{i}\PYG{o}{=\PYGZhy{}}\PYG{l+m+mf}{0.12}\PYG{p}{,}
+    \PYG{n}{delay1}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,} \PYG{n}{delay2}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,} \PYG{n}{delay\PYGZus{}repump}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}
+    \PYG{n}{delay\PYGZus{}shutter\PYGZus{}reinitialization}\PYG{o}{=}\PYG{l+m+mf}{0.1}\PYG{p}{,}
+    \PYG{o}{**}\PYG{n}{kwargs}
+\PYG{p}{):}
+    \PYG{n}{duration\PYGZus{}full} \PYG{o}{=} \PYG{n}{duration\PYGZus{}exposition} \PYG{o}{+} \PYG{n}{duration\PYGZus{}coil\PYGZus{}ramp}
+    \PYG{k}{return} \PYG{n}{tl}\PYG{o}{.}\PYG{n}{stack}\PYG{p}{(}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{ramp}\PYG{p}{(}\PYG{n}{coil\PYGZus{}MOTlower\PYGZus{}\PYGZus{}A}\PYG{o}{=}\PYG{n}{i}\PYG{p}{,} \PYG{n}{coil\PYGZus{}MOTupper\PYGZus{}\PYGZus{}A}\PYG{o}{=\PYGZhy{}}\PYG{n}{i}\PYG{p}{,}
+                \PYG{n}{duration}\PYG{o}{=}\PYG{n}{duration\PYGZus{}coil\PYGZus{}ramp}\PYG{p}{,} \PYG{o}{**}\PYG{n}{kwargs}\PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}\PYG{n}{AOM\PYGZus{}OP}\PYG{o}{=}\PYG{p}{[[}\PYG{o}{\PYGZhy{}}\PYG{l+m+mf}{0.1}\PYG{p}{,} \PYG{l+m+mi}{0}\PYG{p}{],} \PYG{p}{[}\PYG{n}{duration\PYGZus{}coil\PYGZus{}ramp}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{],} \PYG{p}{[}\PYG{n}{duration\PYGZus{}full}\PYG{p}{,} \PYG{l+m+mi}{0}\PYG{p}{]]),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}\PYG{n}{shutter\PYGZus{}OP1}\PYG{o}{=}\PYG{p}{[}
+            \PYG{p}{[}\PYG{n}{duration\PYGZus{}coil\PYGZus{}ramp} \PYG{o}{\PYGZhy{}} \PYG{n}{constants}\PYG{o}{.}\PYG{n}{OP}\PYG{o}{.}\PYG{n}{lag\PYGZus{}shutter\PYGZus{}on} \PYG{o}{+} \PYG{n}{delay1}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{],}
+            \PYG{p}{[}\PYG{n}{delay\PYGZus{}shutter\PYGZus{}reinitialization}\PYG{p}{,} \PYG{l+m+mi}{0}\PYG{p}{]]),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}\PYG{n}{shutter\PYGZus{}OP2}\PYG{o}{=}\PYG{p}{[}
+            \PYG{p}{[}\PYG{n}{duration\PYGZus{}full} \PYG{o}{\PYGZhy{}} \PYG{n}{constants}\PYG{o}{.}\PYG{n}{OP}\PYG{o}{.}\PYG{n}{lag\PYGZus{}shutter\PYGZus{}off} \PYG{o}{+} \PYG{n}{delay2}\PYG{p}{,} \PYG{l+m+mi}{0}\PYG{p}{],}
+            \PYG{p}{[}\PYG{n}{delay\PYGZus{}shutter\PYGZus{}reinitialization}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{]]),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}\PYG{n}{shutter\PYGZus{}repump}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,}
+                  \PYG{n}{t}\PYG{o}{=}\PYG{n}{duration\PYGZus{}full} \PYG{o}{\PYGZhy{}} \PYG{n}{constants}\PYG{o}{.}\PYG{n}{lag\PYGZus{}repump\PYGZus{}shutter} \PYG{o}{+} \PYG{n}{delay\PYGZus{}repump}\PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}\PYG{n}{AOM\PYGZus{}repump}\PYG{o}{=}\PYG{l+m+mi}{0}\PYG{p}{,} \PYG{n}{t}\PYG{o}{=}\PYG{n}{duration\PYGZus{}full}\PYG{p}{),}
+        \PYG{n}{tl}\PYG{o}{.}\PYG{n}{anchor}\PYG{p}{(}\PYG{n}{duration\PYGZus{}full}\PYG{p}{),}
+        \PYG{n}{context}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}optical\PYGZus{}pumping\PYGZdq{}}\PYG{p}{,}
+    \PYG{p}{)}
+\end{Verbatim}

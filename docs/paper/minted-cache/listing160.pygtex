@@ -1,0 +1,3 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{def} \PYG{n+nf}{cascade}\PYG{p}{(}\PYG{o}{*}\PYG{n}{fs}\PYG{p}{:} \PYG{n+nb}{list}\PYG{p}{[}\PYG{n}{Callable}\PYG{p}{],} \PYG{o}{**}\PYG{n}{kws}\PYG{p}{)} \PYG{o}{\PYGZhy{}\PYGZgt{}} \PYG{n}{Callable} \PYG{o}{|} \PYG{n}{wt\PYGZus{}frame}\PYG{o}{.}\PYG{n}{CLASS}\PYG{p}{:}
+\end{Verbatim}
