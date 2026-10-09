@@ -855,17 +855,7 @@ A first example of the resulting user experience is the exceptionally high signa
  
 Such chaining, as exploited by the \python{stack} function, is itself made possible by the general avoidance of statefulness: the output of each function is entirely dependent on its arguments and not on any side effects or global variables. This brings the added benefit that the software is much easier to test than its peers, and so can be made flexible without losing robustness.
  
-Flexibility is perhaps the stand-out feature of Wigner Time. By catering heavily for variable arguments, both fixed-order and keyword-based, the vast majority of code can be reduced to understanding and using only four functions: \python{update}, \python{ramp}, \python{stack} and \python{to_timeline}. The first three describe the experiment, and the last makes a timeline of the description. There is no practical limit to how many connections can be updated at a time, e.g.
-%
-\begin{minted}[frame=none]{python}
-tl.ramp(
-    duration=1e-3,
-    coil__MOT_lower__A=i,
-    coil__MOT_upper__A=-i,
-    )
-\end{minted}
-%
-Moreover, if parameters are kept in large dictionaries, the current functions can already accommodate this via unpacking, e.g. \python{tl.ramp(duration=1e-3, **my_dictionary)}. This is a further advantage of the Python keyword system.
+Flexibility is perhaps the stand-out feature of Wigner Time. By catering heavily for variable arguments, both fixed-order and keyword-based, the vast majority of code can be reduced to understanding and using only four functions: \python{update}, \python{ramp}, \python{stack} and \python{to_timeline}. The first three describe the experiment, and the last makes a timeline of the description. A single call can set any number of variables, and parameters kept in a dictionary can be passed whole by unpacking, e.g. \python{ramp(duration=1e-3, **my_dictionary)} – a further advantage of the Python keyword system. The limit lies in the hardware: every row due at a given cycle must be written within that cycle, and the arrays on the controller have a fixed capacity. \python{upload} refuses a timeline that exceeds the capacity before writing anything, and a run in which the controller fell behind its cycles is reported as an error once it has ended.
  
 Flexibility was also the driving force behind the \python{origin} functionality (\cref{sec:origin}). It became apparent that although absolute time is the desired end goal, relative time is the desired method. Wigner Time therefore combines both, allowing linear stacking with the default \python{origin}, interweaving when \python{origin} is a context, and even negative time around a reference point when using non-trivial origins. Furthermore, by deferring ramp expansion, time resolution only comes into play when passing the timeline to the hardware, or optionally when plotting. Because timeline construction is a pure function of its parameters, the same composition extends without modification from a single shot to a parameter scan, and from there to closed-loop operation: an optimizer that consumes the analysis of one shot and proposes the parameters of the next requires no new machinery, only a different source of parameters, where labscript provides a dedicated component for the purpose \cite{starkey2013labscript}. A worked example is given in \cref{sec:parameter_scan}.
  

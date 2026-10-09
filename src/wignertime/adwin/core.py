@@ -532,11 +532,8 @@ def wait(run):
     for. Then raises `LostEvents` if the run lost any.
 
     The count is ADwin's counter as the run ends, which the ADbasic manual (6.00, p. 79)
-    describes as the cycles lost "since process start": the run's own. UNVERIFIED on the rig. If the counter
-    instead accumulated from the moment the program was loaded, every run after one that lost
-    events would be refused as well, which is loud. The difference across the run, read
-    before this, was right only under that reading, and would have passed, without a word, a
-    run that lost as many events as the one before it.
+    describes as the cycles lost "since process start": the run's own. Confirmed on the rig: the
+    counter resets before each run.
     """
     machine, process = run.upload.machine, run.upload.process
     _wait_until_stopped(machine, process)
