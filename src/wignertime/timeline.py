@@ -3,9 +3,11 @@
 
 """
 Multiple layers of abstraction:
-- operational (time sequence: probe-on, probe-off etc.) – this should go to notebooks / experiment specific packages
-- variable (time sequence of independent degrees of freedom: AOM_probe_power 5V)
-- ADwin (ADwin-specific details)
+- operation (the experiment's stages: making a MOT, imaging) – client code, in notebooks and
+  experiment-specific packages
+- physics (the timeline, every value in physical units: coil__MOT_lower__A at 2 A) – this module
+- hardware (arrays for the controller: cycle, module, channel, digits) – produced by a backend's
+  conversion, `adwin.core.convert`
 
 It is a goal to be able to go up and down through the layers of abstraction.
 """
@@ -606,7 +608,7 @@ def _ramp(
     #   shortens the timeline and pulls everything after it forward. It is kept and
     #   expanded. The identical rows that produces are removed again by
     #   `adwin.validate.drop_repeats` before the hardware, which keeps the first and last
-    #   row of each channel -- so the redundancy is paid for in the device-layer table
+    #   row of each channel -- so the redundancy is paid for in the physics-layer table
     #   only, and that table is the thing the user is meant to be able to read.
     TOL = 1e-15
     duration__actual = new2__aligned["time"] - new1["time"]

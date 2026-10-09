@@ -177,7 +177,7 @@ def convert(
     """
     Convenience for converting a Wigner timeline (DataFrame) to an ADbasic-compatible list of tuples.
 
-    This takes an operation-layer timeline, adds the columns necessary for an ADwin conversion, based on the supplied or default specifications, and then converts the relevant columns according to `adwin.to_tuples`, i.e.  [[(cycle, module, channel, value), ...],
+    This takes a physics-layer timeline, adds the columns necessary for an ADwin conversion, based on the supplied or default specifications, and then converts the relevant columns according to `adwin.to_tuples`, i.e.  [[(cycle, module, channel, value), ...],
     [(cycle, module, channel, value), ...]].
 
     `cycle_period` is the period of the controller's event loop, in seconds, and has no
