@@ -841,6 +841,8 @@ every ramp in progress, an expression of the form
 
 The arrays uploaded to the controller are prepared in the same spirit. Ramps are expanded at the cycle period of the controller, unless a ramp fixes a coarser resolution of its own (\cref{sec:functions}), and converted to DAC codes, and every row that would leave a channel at the code it already holds is then removed. What remains is one row for each change of code, at the first cycle at which that change occurs. Kowalski \textit{et al.} \cite{kowalski2023entangleware} treat ramps in the same spirit, timing analog transitions at the instants when the DAC code changes rather than sampling the trajectory at a fixed rate. A ramp is therefore as smooth as the hardware allows, the controller receives no more rows than are needed to describe it, and no time resolution has to be chosen.
 
+The controller also acquires data. A variant of the sequencer plays the same arrays and, in addition, records one analog input over a window of the run, given in seconds of the timeline. \python{wignertime.adwin.adc.run} takes the record returned by \python{upload} together with the window, and returns the samples with their times on the timeline’s own axis, so that a recording can be read against the timeline that drove it.
+
 \medskip
 How the controller divides its outputs between a run and a manual console is described in \cref{sec:adwin_operation}. For further details, consult the API documentation \cite{wignertime_docs}.
  
