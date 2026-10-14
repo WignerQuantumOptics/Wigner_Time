@@ -8,13 +8,13 @@ argument for what replaced it, and each entry says what it became. Read **The se
 implemented** for the design as it now stands; read the tables when you want to know why.
 
 `fig:origin` was redrawn on 2026-09-19 (#123) and is now generated rather than drawn:
-`docs/paper/graphic/origin_resolution_figure.py` writes `origin-resolution.pdf`. It is vector, and
+`tools/paper_figures/origin_resolution_figure.py` writes `origin-resolution.pdf`. It is vector, and
 it is regenerable, so the next change to the mechanism does not leave the manuscript behind. The
 PNG it replaces is still in the tree; delete it once the new figure has been seen in a build.
 
 **Status.** Developer reference, not published documentation — it cites defects by their
 `KNOWN_ISSUES.md` identifiers and is deliberately absent from the `mkdocs.yml` nav. The user-facing
-account is `docs/paper/main.tex`, `sec:origin` and appendix `sec:origin_full`, and since
+account is the manuscript, `sec:origin` and appendix `sec:origin_full`, and since
 2026-09-18 the two agree.
 
 **Provenance.** Every row below was verified by direct experiment against branch `drop_repeats`
@@ -31,7 +31,7 @@ one fewer entry and one fewer defect. Every `NEW-n` identifier used here is trac
 issue — NEW-1 #123, NEW-2 #124, NEW-3 #115, NEW-4 #122, NEW-5 #107, NEW-6 #105, NEW-7 #114,
 NEW-8 #106, and NEW-9 inside #102 (A4) rather than as an item of its own.
 
-**The figure.** `docs/paper/graphic/origin-resolution.pdf` is the authoritative diagram
+**The figure.** `origin-resolution.pdf`, in the manuscript's `graphic/`, is the authoritative diagram
 (`fig:origin`), and its caption is the authoritative statement of which slots each option may
 serve. It is drawn per slot, which is the whole point of the redraw: the mind-map it replaced
 presented resolution as one flat tree serving both, which is exactly the over-generation that

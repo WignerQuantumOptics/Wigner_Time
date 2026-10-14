@@ -5,12 +5,14 @@ The figure it replaces existed only as a low-resolution PNG exported from a mind
 tool, and drew the mechanism as one flat tree serving both slots. Since 2026-09-18 the
 time and value slots admit different vocabularies, so the resolution is drawn per slot.
 
-Run from anywhere:
+Run from anywhere, naming the directory that holds the manuscript's figures, the
+`graphic/` of its Overleaf project:
 
-    poetry run python docs/paper/graphic/origin_resolution_figure.py
+    poetry run python tools/paper_figures/origin_resolution_figure.py ../Wigner_Time_Overleaf/graphic
 
-writing `origin-resolution.pdf` (for the manuscript) and `origin-resolution.png` (for
-looking at) beside this file. The content's source of truth is `internal/origin.py` --
+writing `origin-resolution.pdf` there, for the manuscript, and `origin-resolution.png` (for
+looking at) and `origin-resolution.svg` (for editing, text kept as text) beside this file,
+where a rerun shows as a diff. The content's source of truth is `internal/origin.py` --
 `_ORIGINS__TIME`, `_ORIGINS__VALUE` and `find`.
 
 Layout: vertical position is a cursor measured in rows, running downward from the top,
@@ -20,6 +22,7 @@ adding a branch or lengthening a phrase cannot make two things collide.
 """
 
 import pathlib
+import sys
 
 import matplotlib
 
@@ -27,6 +30,9 @@ matplotlib.use("Agg")
 # The SVG keeps its text as text, so that it can be edited (in Inkscape, say); its
 # fonts are then the viewer's, and DejaVu is what the PDF embeds.
 matplotlib.rcParams["svg.fonttype"] = "none"
+# Its clip-path ids are otherwise random, and a rerun that changed nothing would rewrite
+# every one of them.
+matplotlib.rcParams["svg.hashsalt"] = "wigner-time"
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
@@ -332,6 +338,13 @@ def check__fits(fig, ax):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        raise SystemExit(
+            "usage: python {} <directory of the manuscript's figures>".format(
+                sys.argv[0]
+            )
+        )
+    manuscript = pathlib.Path(sys.argv[1])
     here = pathlib.Path(__file__).resolve().parent
     fig = build()
 
@@ -342,7 +355,9 @@ if __name__ == "__main__":
             + "\n".join(offenders)
         )
 
-    fig.savefig(here / "origin-resolution.pdf", bbox_inches="tight", pad_inches=0.02)
+    fig.savefig(
+        manuscript / "origin-resolution.pdf", bbox_inches="tight", pad_inches=0.02
+    )
     fig.savefig(
         here / "origin-resolution.png", dpi=300, bbox_inches="tight", pad_inches=0.02
     )
@@ -352,4 +367,8 @@ if __name__ == "__main__":
         pad_inches=0.02,
         metadata={"Date": None},
     )
-    print("wrote origin-resolution.pdf, .png and .svg to {}".format(here))
+    print(
+        "wrote origin-resolution.pdf to {}, and its .png and .svg to {}".format(
+            manuscript, here
+        )
+    )

@@ -8,12 +8,14 @@ listing beside the figure prints, and the geometry is the rule of #142: the ramp
 its variable stands, at the instant `origin` resolves to; `origin2=[VARIABLE, 0.0]` refers the
 end time to that start and the end value to zero, so the end value is absolute.
 
-Run from anywhere:
+Run from anywhere, naming the directory that holds the manuscript's figures, the
+`graphic/` of its Overleaf project:
 
-    poetry run python docs/paper/graphic/ramp_options_figure.py
+    poetry run python tools/paper_figures/ramp_options_figure.py ../Wigner_Time_Overleaf/graphic
 
-writing `ramp-options.pdf` (for the manuscript), `ramp-options.svg` (for editing) and
-`ramp-options.png` (for looking at) beside this file.
+writing `ramp-options.pdf` there, for the manuscript, and `ramp-options.png` (for looking
+at) and `ramp-options.svg` (for editing, text kept as text) beside this file, where a rerun
+shows as a diff.
 
 Layout: positions are in data units of an invisible axes, time across and value up; text is
 checked against the edges of the figure before anything is written.
@@ -21,6 +23,7 @@ checked against the edges of the figure before anything is written.
 
 import math
 import pathlib
+import sys
 
 import matplotlib
 
@@ -28,6 +31,9 @@ matplotlib.use("Agg")
 # The SVG keeps its text as text, so that it can be edited (in Inkscape, say); its
 # fonts are then the viewer's, and DejaVu is what the PDF embeds.
 matplotlib.rcParams["svg.fonttype"] = "none"
+# Its clip-path ids are otherwise random, and a rerun that changed nothing would rewrite
+# every one of them.
+matplotlib.rcParams["svg.hashsalt"] = "wigner-time"
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch
@@ -248,6 +254,13 @@ def check__fits(fig, ax):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        raise SystemExit(
+            "usage: python {} <directory of the manuscript's figures>".format(
+                sys.argv[0]
+            )
+        )
+    manuscript = pathlib.Path(sys.argv[1])
     here = pathlib.Path(__file__).resolve().parent
     fig, ax = build()
 
@@ -264,6 +277,13 @@ if __name__ == "__main__":
         (".svg", dict(metadata={"Date": None})),
     ):
         fig.savefig(
-            here / ("ramp-options" + suffix), bbox_inches="tight", pad_inches=0.02, **kw
+            (manuscript if suffix == ".pdf" else here) / ("ramp-options" + suffix),
+            bbox_inches="tight",
+            pad_inches=0.02,
+            **kw,
         )
-    print("wrote ramp-options.pdf, .png and .svg to {}".format(here))
+    print(
+        "wrote ramp-options.pdf to {}, and its .png and .svg to {}".format(
+            manuscript, here
+        )
+    )

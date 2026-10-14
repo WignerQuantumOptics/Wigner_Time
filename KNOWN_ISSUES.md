@@ -32,7 +32,7 @@ The scheme below was agreed by both maintainers on 2026-10-02. **Each question i
 
 | milestone | what belongs in it |
 | --- | --- |
-| `1.0 — paper` | Must land before the SciPost paper is published: silent-failure defects, anything that falsifies `docs/paper/main.tex`, the decisions those depend on, and the release itself (#169). |
+| `1.0 — paper` | Must land before the paper is published (submitted to EPJ QT): silent-failure defects, anything that falsifies the manuscript, the decisions those depend on, and the release itself (#169). |
 | `1.x` | After the paper, and compatible with 1.0.0: nothing the paper prints changes, and no code written against 1.0.0 breaks. |
 | `2.0` | After the paper, and breaking: changes what the paper prints, or the 1.0.0 API. |
 | `ideas` | Worth considering, not committed to. Moves to a numbered milestone once someone takes it on. |

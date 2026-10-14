@@ -8,7 +8,7 @@ developer notes: too long, and hard for physicists to follow.
 
 | register | documents | written for |
 | --- | --- | --- |
-| **Reader-facing** | `docs/paper/main.tex`, `README.md`, `docs/index.md`, onboarding documents, the front pages of the documentation | a physicist who writes Python |
+| **Reader-facing** | the manuscript (`main.tex`, in its Overleaf project), `README.md`, `docs/index.md`, onboarding documents, the front pages of the documentation | a physicist who writes Python |
 | **API reference** | docstrings (rendered into `docs/api.md`), error messages | a user looking up one function |
 | **Developer notes** | `CLAUDE.md`, `KNOWN_ISSUES.md`, `docs/origin-resolution.md`, code comments, commit messages | ourselves |
 
@@ -114,7 +114,7 @@ case and fixes the ligature.
 Before committing reader-facing prose:
 
 ```bash
-grep -n -E ' -- |---|—|namespace|\bpositional|call site' docs/paper/main.tex
+grep -n -E ' -- |---|—|namespace|\bpositional|call site' ../Wigner_Time_Overleaf/main.tex
 grep -n -E ' -- |—|&[a-z]+;|namespace|\bpositional|call site' README.md docs/index.md
 ```
 

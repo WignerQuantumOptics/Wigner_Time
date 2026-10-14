@@ -1209,7 +1209,7 @@ One-character fix, no design question. Left unfixed only because it fell outside
 
 The demo, the lab and all 45 reference cases are identical under the name map, and the arrays at 5, 2 and 1 µs are unchanged. The manuscript follows in the same pass.
 
-`docs/paper/main.tex` is canonical. Where the code and the manuscript disagree, **the code changes.** This is the same direction as §G: the manuscript is not to be edited to match the code.
+The manuscript is canonical (it was `docs/paper/main.tex` then, and is in its Overleaf project since 2026-10-14). Where the code and the manuscript disagree, **the code changes.** This is the same direction as §G: the manuscript is not to be edited to match the code.
 
 **Renamed 2026-09-20, because the item turned out to be a naming decision with a reconciliation attached rather than the reverse.** Two questions have to be answered before anything is renamed; the full reasoning and measurements are in the comments on [#121](https://github.com/WignerQuantumOptics/Wigner_Time/issues/121).
 

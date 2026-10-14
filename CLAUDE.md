@@ -44,9 +44,10 @@ anything it covers; the full accounts of resolved items, with their measurements
 - **A green suite does not clear the ADwin backend.** Changes under `wignertime/adwin/` can only be
   checked for internal consistency; correctness must be verified on the rig. Say so explicitly rather
   than reporting such a change as done.
-- **The paper and the code are developed together.** If a change makes a claim in `docs/paper/main.tex`
-  inaccurate or hard to state, stop and report it. Do not edit the paper to match the code. If a
-  behaviour is awkward to describe in prose, that is a signal to change the code.
+- **The paper and the code are developed together.** If a change makes a claim in the manuscript
+  (`../Wigner_Time_Overleaf/main.tex`) inaccurate or hard to state, stop and report it. Do not edit
+  the paper to match the code. If a behaviour is awkward to describe in prose, that is a signal to
+  change the code.
 - **The records hold no git state** (maintainer, 2026-10-04): this file, `KNOWN_ISSUES.md` and
   `docs/design-record.md` record diagnosis, reasoning and decisions, never branch names, commit
   hashes or what is merged where, which go stale with the next merge. Refer to work by issue or
@@ -63,8 +64,9 @@ text against the arXiv version's voice.
 
 ## Primary reference
 
-`docs/paper/main.tex` is the most comprehensive description of the project: a SciPost Physics Codebases
-submission (Clark, Sárközi, … Vukics) that states the design rationale, not just the API. Read it
+The manuscript, `main.tex` in the paper's Overleaf project, is the most comprehensive description of
+the project: submitted to EPJ Quantum Technology (Clark, Sárközi, … Vukics), and on arXiv as
+2609.06230, it states the design rationale, not just the API. Read it
 before any non-trivial design decision. Useful section map: `sec:definitions` (the three layers),
 `sec:origin` + appendix `sec:origin_full` (the complete `origin` specification and resolution order),
 `sec:functions` (`update`/`ramp`/`anchor` and `to_timeline`, with input-format tables), `sec:context`,
@@ -73,41 +75,40 @@ appendix `sec:adwin_operation` (how the sequencer and the manual console share t
 high level: the period check, the final state, the hand-over, the jump warning),
 `sec:discussion` (comparison with labscript / ARTIQ / Cicero / Entangleware, and stated future work).
 
-The manuscript is now committed and self-contained under `docs/paper/`, imported from Overleaf:
-`main.tex`, `SciPost.cls`, `SciPost_bibstyle.bst`, `WignerTime.bib`, and all five figures under
-`docs/paper/graphic/`. Four of those figures are **generated, not drawn**: `fig:origin` comes from
-`graphic/origin_resolution_figure.py`, so a change to the origin mechanism should be carried into the
-manuscript by rerunning it; `fig:timeline_overview` (`wigner-time--basics.pdf`) comes from
-`graphic/timeline_anatomy_figure.py`, which takes its rows from the demo and its digits from the
-conversion, so a change to the naming, the demo or the conversion is carried in the same way;
-`fig:hardware_overview` (`hardware-overview.pdf`) comes from `graphic/hardware_overview_figure.py`,
-drawn in the text's own terms, so a renamed step or layer belongs in it too; and the drawing in
-`fig:ramp` (`ramp-options.pdf`) comes from `graphic/ramp_options_figure.py`, whose labels are the
-defaults of `ramp`'s signature, so a changed default is carried by a rerun. Its layout of the
-origin labels (diagonal, from beside each origin's point) is the maintainer's, made in Inkscape
-on the SVG and then written into the generator. Each checks its own text for overflow and refuses
-to write a figure that does not fit. Only `fig:timeline__example` is still a static image;
-`language-tree.png`, which the hardware overview replaced, is unreferenced. Every `\includegraphics` target and the
+**The manuscript lives in its Overleaf project, not in this repository** (maintainer, 2026-10-14).
+The project is cloned next door, in `../Wigner_Time_Overleaf/` (branch `master`, the only one
+Overleaf has), and the clone is where the paper is edited: pull first, since coauthors edit on
+Overleaf too, then commit and push there; the push is ours to do (maintainer, 2026-10-01). When an
+edit meets one made on Overleaf in the same passage, stop and show the maintainer both, rather than
+choosing. The project holds what the build needs and nothing else: `main.tex`, `SciPost.cls`,
+`SciPost_bibstyle.bst`, `WignerTime.bib`, the figures under `graphic/`, and `.latexmkrc`, which sets
+the `-shell-escape` that `minted` needs, with `pygmentize`. Every `\includegraphics` target and the
 `\bibliography{WignerTime.bib}` call resolve. No LaTeX toolchain is installed here, so the build is
-Overleaf's. `minted` requires `pygmentize` and `-shell-escape`, which `docs/paper/.latexmkrc` sets.
-Build from inside `docs/paper/`; the figure paths are relative to it.
+Overleaf's; the figure paths are relative to the project's root.
 
-**The committed manuscript is canonical, and Overleaf is kept in step with it from here.** The
-versions sent to arXiv (2609.06230) are tagged: `arxiv-v1` (sent 2026-09-05) holds arXiv's own
-source archive, byte for byte, since neither Overleaf nor this repository had kept that text; the
-import of 2026-09-15, long called "the arXiv version" here, is v1 plus the Claude Code
-acknowledgement. `arxiv-v2` (sent 2026-10-07) is `docs/paper/` as sent, in step with Overleaf's
-"ArXiv v2". Since 2026-10-01 the Overleaf project is
-cloned next door, in `../Wigner_Time_Overleaf/` (branch `master`, the only one Overleaf has), and
-syncing it is ours to do, push included (maintainer, 2026-10-01). A sync goes both ways, Overleaf
-first: pull the clone, and bring any edit made on Overleaf into `docs/paper/` as an ordinary commit
-on the working branch; then copy `docs/paper/` over the clone, commit there naming the repository
-commit it carries (`Sync with docs/paper/ of Wigner_Time at <hash>`), and push. When both sides
-changed the same passage, stop and show the maintainer both, rather than choosing. The last
-synced point is therefore the newest such message in the clone's `git log`. The clone carries what the build
-needs and nothing else: not the `graphic/*_figure.py` generators and their unused PNG previews and SVG copies (written for editing, text kept as text), nor
-`desktop.ini`. `.latexmkrc`, which sets `-shell-escape` for `minted`, came from Overleaf and lives
-in both.
+Until 2026-10-14 the manuscript was a subtree of this repository, `docs/paper/`, with Overleaf synced
+from it, and that history stays here. So do the tags of the versions sent out: `arxiv-v1` (sent
+2026-09-05) holds arXiv's own source archive, byte for byte, since neither Overleaf nor this
+repository had kept that text; `arxiv-v2` (sent 2026-10-07) is `docs/paper/` as sent; and
+`epjqt-v1` is the text submitted to EPJ QT, the last one the repository holds, landed by #178.
+
+Four of the figures are **generated, not drawn**, by scripts that stay in this repository, in
+`tools/paper_figures/`, because they read the package. Each writes its PDF into the directory it is
+given, the clone's `graphic/`, and its PNG (for looking at) and SVG (for editing, text kept as text)
+beside itself, where a rerun that changed something shows as a diff; a rerun therefore commits on
+both sides. `fig:origin` comes from `origin_resolution_figure.py`, so a change to the origin
+mechanism should be carried into the manuscript by rerunning it; `fig:timeline_overview`
+(`wigner-time--basics.pdf`) comes from `timeline_anatomy_figure.py`, which takes its rows from the
+demo and its digits from the conversion, so a change to the naming, the demo or the conversion is
+carried in the same way; `fig:hardware_overview` (`hardware-overview.pdf`) comes from
+`hardware_overview_figure.py`, drawn in the text's own terms, so a renamed step or layer belongs in
+it too; and the drawing in `fig:ramp` (`ramp-options.pdf`) comes from `ramp_options_figure.py`,
+whose labels are the defaults of `ramp`'s signature, so a changed default is carried by a rerun. Its
+layout of the origin labels (diagonal, from beside each origin's point) is the maintainer's, made in
+Inkscape on the SVG and then written into the generator. Each checks its own text for overflow and
+refuses to write a figure that does not fit. Only `fig:timeline__example` is still a static image;
+`language-tree.png`, which the hardware overview replaced, and `origin-decision-tree-highlighted.png`
+are unreferenced.
 
 **The paper describes version 1.0.0** (maintainer, 2026-10-01). `pyproject.toml` stays at 0.9.0 until
 the release: the bump is the last commit before the tag `v1.0.0` on `main`, so that 1.0.0 is exactly
@@ -255,7 +256,7 @@ quantity — `ANCHOR`, `LAST` and a context name each resolve to whichever varia
 the row at that instant, so they answered in the wrong units. They now raise. Nothing is lost: "the
 value `coil__A` held at the end of molasses" is `["molasses", VARIABLE]`. The `fig:origin` caption
 licensed the wider reading and was amended; the figure is generated
-(`docs/paper/graphic/origin_resolution_figure.py`) and was rerun for the tags (#85).
+(`tools/paper_figures/origin_resolution_figure.py`) and was rerun for the tags (#85).
 
 **`None` in a slot means "defer to the default for this slot"; `0.0` means "absolute".** Do not
 conflate them — that conflation was A6. `config.ORIGIN__DEFAULTS` (for `update`/`anchor`) and
@@ -513,8 +514,8 @@ real, which is what #154 was about.
   *why* a rule exists, not just what the function does — match that.
 - `internal/` is explicitly unstable API. `internal/doc/` and `doc/` are org-mode notes, not built
   documentation; `docs/` is the mkdocs source (`docs/index.md` duplicates the
-  README, so changes to the overview belong in both). The paper lives in its own self-contained
-  subtree, `docs/paper/`; neither it nor `docs/origin-resolution.md` is in `mkdocs.yml`'s nav.
+  README, so changes to the overview belong in both). The paper is not here but in its Overleaf
+  project (above), and `docs/origin-resolution.md` is not in `mkdocs.yml`'s nav.
 - Tests live under `test/wignertime/`, mirroring the package. (They sat under `test/wigner/time/`,
   the pre-rename name, until 2026-09-21.) `test/wignertime/fixtures/lab2/` freezes a **real**
   experiment — Dániel Varga's Lab2 atom-cavity run, taken off the rig on 2026-09-21 — as 13 KB of
@@ -553,7 +554,7 @@ Not covered by `KNOWN_ISSUES.md`:
   paper's names (`duration_coil_ramp`, `lower_current_initial`, `shutter__OP1`,
   `MOT_detuned_growth`, `delay_shutter_reinitialization`, `timeline_demo`), in the new variable
   grammar. What still differs is content: the paper's `MOT_off` respects the shutter lags, the
-  demo's does not, and the demo drives compensation coils the paper leaves out. **`docs/paper/main.tex`
+  demo's does not, and the demo drives compensation coils the paper leaves out. **The manuscript
   is canonical: when they disagree, the code changes** (maintainer decision, 2026-09-02).
 - `drop_repeats` times analog transitions at the cycles where
   the DAC code actually changes, per Kowalski *et al.* Its docstring argues the filtering is
