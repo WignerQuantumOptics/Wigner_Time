@@ -89,8 +89,8 @@ Overleaf's; the figure paths are relative to the project's root.
 Until 2026-10-14 the manuscript was a subtree of this repository, `docs/paper/`, with Overleaf synced
 from it, and that history stays here. So do the tags of the versions sent out: `arxiv-v1` (sent
 2026-09-05) holds arXiv's own source archive, byte for byte, since neither Overleaf nor this
-repository had kept that text, and `arxiv-v2` (sent 2026-10-07) is `docs/paper/` as sent. The text
-submitted to EPJ QT is the last one the repository holds, landed by #178.
+repository had kept that text; `arxiv-v2` (sent 2026-10-07) is `docs/paper/` as sent; and
+`epjqt-v1` is the text submitted to EPJ QT, the last one the repository holds, landed by #178.
 
 Four of the figures are **generated, not drawn**, by scripts that stay in this repository, in
 `tools/paper_figures/`, because they read the package. Each writes its PDF into the directory it is
