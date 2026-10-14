@@ -246,11 +246,11 @@ def build():
         within=(1.16, 1.84),
     )
 
-    # --- device layer: the timeline -----------------------------------------------------
+    # --- physics layer: the timeline ----------------------------------------------------
     x, w = 1.84, 0.76
     f.text(x + w / 2, 1.17, "timeline", fontsize=PT["title"], fontweight="bold")
     f.table(x, 1.33, w, 0.66, header=BLUE__DEEP, rows=4, marks=CONTEXTS + CONTEXTS[2:])
-    f.layer(x + w / 2, Y__LAYER, "device layer")
+    f.layer(x + w / 2, Y__LAYER, "physics layer")
     f.rate(
         x + w / 2,
         Y__LAYER + 0.26,
@@ -289,11 +289,11 @@ def build():
     f.arrow((2.60, Y__ROW), (3.20, Y__ROW))
     f.text(X__CONV, Y__ROW + 0.13, "conversion", fontsize=PT["small"])
 
-    # --- connection layer: the arrays ---------------------------------------------------
+    # --- hardware layer: the arrays -----------------------------------------------------
     x, w = 3.20, 0.60
     f.text(x + w / 2, 1.17, "arrays", fontsize=PT["title"], fontweight="bold")
     f.table(x, 1.33, w, 0.66, header=ORANGE, rows=4)
-    f.layer(x + w / 2, Y__LAYER, "connection layer", within=(2.96, X__API - 0.12))
+    f.layer(x + w / 2, Y__LAYER, "hardware layer", within=(2.96, X__API - 0.12))
 
     # --- the ADwin API ------------------------------------------------------------------
     # Whose it is -- the manufacturer's, or Wigner Time's wrapper of it -- is deliberately

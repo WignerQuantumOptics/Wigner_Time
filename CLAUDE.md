@@ -152,10 +152,15 @@ Three named layers, with movement in both directions as an explicit goal:
 
 - **operation** — experiment stages ("take a fluorescence image"). *Client code, deliberately not
   part of the package*; `demo/full_experiment.py` is an example of it, not an API.
-- **device** — the vtvc timeline in real physical units (MHz, A). The core abstraction, `timeline.py`.
-- **connection** — hardware-ready arrays ("send 5 V to connection 2"), produced solely by
+- **physics** — the vtvc timeline in real physical units (MHz, A). The core abstraction, `timeline.py`.
+- **hardware** — hardware-ready arrays ("send 5 V to connection 2"), produced solely by
   `adwin/core.py::convert`. Porting to other hardware means writing a new conversion here plus a
   consumer program on the controller; nothing above this layer should need to change.
+
+The last two were the *device* and *connection* layers until 2026-10-09, renamed on coauthors'
+feedback: the names promised a correspondence with the two tables that does not exist, since both
+tables are inputs to the one conversion from physics to hardware. The `connection` table translates
+a row's name (to module and channel), the `device` table its value (to volts, then digits).
 
 `device` and `connection` are two separate tables on purpose: recalibrating a device and rewiring
 the apparatus are independent operations, each touching one place. Never fold module/channel numbers
@@ -425,9 +430,8 @@ land in the previous shot's finish tail.
 Running what was uploaded is `start(log) -> Run` and `wait(run)`, bracketed by the context
 manager `running(log)`, with `run(log)` for a block with nothing in it. `wait` refuses a run that
 lost events (`LostEvents`, with the slip in µs). It reads ADwin's counter once, after the run: the
-manual counts lost events "since process start", so that count is the run's own. UNVERIFIED on the
-rig; if the counter accumulated from load instead, every run after a lossy one would raise, which is
-loud, whereas a difference across the run would pass a run that lost as many as the one before. Peripherals such as cameras and the time
+manual counts lost events "since process start", so that count is the run's own. Confirmed on the
+rig (maintainer, 2026-10-09): the counter resets before each run. Peripherals such as cameras and the time
 controller are **not** Wigner Time's: they are armed before `running` and serviced inside the
 block, in the lab's code (maintainer, 2026-09-24; L22 there records the longer-term direction of
 one thread per device). An error inside the block waits the run out but does not stop it: that a
@@ -560,4 +564,4 @@ Not covered by `KNOWN_ISSUES.md`:
   (maintainer), and the paper does not go into it. It has not been run on the rig.
 - The other stated gap is peripherals programmed over serial rather than driven by a voltage (DDS
   being the canonical case). The paper commits to implementing this as an `expand`-shaped conversion —
-  one device-layer row becoming several bit-level rows — rather than as a special case.
+  one physics-layer row becoming several bit-level rows — rather than as a special case.

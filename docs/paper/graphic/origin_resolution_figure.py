@@ -256,9 +256,9 @@ def build():
         [
             ("None", "the caller's chain:  ANCHOR → LAST → 0.0", hl),
             ("a number", "that number", plain),
-            ("tl.ANCHOR", "the most recent anchor — an error if there is none", code),
-            ("tl.LAST", "the highest time recorded so far, ±∞ excepted", code),
-            ("tl.VARIABLE", "per variable: its own most recent time", code),
+            ("ANCHOR", "the most recent anchor — an error if there is none", code),
+            ("LAST", "the highest time recorded so far, ±∞ excepted", code),
+            ("VARIABLE", "per variable: its own most recent time", code),
             ("a variable name", "that variable's most recent time", plain),
             ("a context name", "its anchor, or its last row if it has none", hl__plain),
             ("anything else", "an error", plain),
@@ -274,10 +274,10 @@ def build():
         [
             ("None", "the caller's default: absolute — VARIABLE for ramp", hl),
             ("a number", "that number", plain),
-            ("tl.VARIABLE", "per variable: its own last value  †", code),
+            ("VARIABLE", "per variable: its own last value  †", code),
             ("a variable name", "that variable's last value  †", plain),
             (
-                "tl.ANCHOR, tl.LAST,\na context name",
+                "ANCHOR, LAST,\na context name",
                 "refused — each names an instant, not a quantity",
                 dict(refuse=True),
             ),
