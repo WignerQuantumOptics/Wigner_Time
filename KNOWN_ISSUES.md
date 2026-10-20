@@ -39,16 +39,16 @@ The scheme below was agreed by both maintainers on 2026-10-02. **Each question i
 
 `10 — paper` was renamed to `1.0 — paper`; `20 — internal API` (a topic, now #163 and #167) and `30 — reach & polish` were retired on 2026-10-02.
 
-**Types** are org-level GitHub issue types, not labels – which is why a search for a "decision label" finds nothing: `Bug` (an unexpected problem or behavior), `Task` (a specific piece of work), `Feature` (a request, idea, or new functionality) and `Decision` (an open API or design decision that must be settled before dependent work can proceed). `Decision` carries "flag and ask, never settle unilaterally" onto GitHub; set it on anything whose entry here offers two options rather than a fix. For the ones open now, filter by the type on GitHub.
+**Types** are org-level GitHub issue types, not labels – which is why a search for a "decision label" finds nothing: `Bug` (an unexpected problem or behavior), `Task` (a specific piece of work), `Feature` (a request, idea, or new functionality), `Decision` (an open API or design decision that must be settled before dependent work can proceed), and, since 2026-10-20, `Refactor` (renames, moves or restructuring with no change in behavior), `Docs` (developer guide, README or API documentation) and `Physics` (wrong physical results: the code runs but violates the physics). `Physics` is the `Bug` whose wrong answer is a command to the apparatus, so it usually comes with `silent`; the label stays, because a `Decision` or a `Task` can be silent too. `Decision` carries "flag and ask, never settle unilaterally" onto GitHub; set it on anything whose entry here offers two options rather than a fix. For the ones open now, filter by the type on GitHub.
 
-**Labels**, thirteen:
+**Labels**, twelve:
 
 - **risk, at most one:** `silent` (a wrong answer with no error – outranks visible failures, and puts the item in `1.0 — paper` by default) or `potentially surprising` (not wrong as such, but likely to surprise a user). They exclude each other;
 - **`paper-affecting`:** any change falsifies a claim in `main.tex`, so §G applies and the *code* changes;
-- **area:** `api` (what users call), `origin`, `adwin`, `dataframe`, `display`, `docs`, `performance`, `hardware` (backends other than ADwin);
+- **area:** `api` (what users call), `origin`, `adwin`, `dataframe`, `display`, `performance`, `hardware` (backends other than ADwin);
 - **for contributors:** `good first issue`, `help wanted`.
 
-Retired on 2026-10-02: `ux` and `consistency` (too broad to filter on), `internal refactor` (a `Task` without `api` says it), `future` (now the `ideas` milestone), `extension` (renamed `hardware`), and `duplicate`, `invalid`, `wontfix` (GitHub's close reasons carry them). Deleting a label removed it from closed issues too.
+Retired on 2026-10-02: `ux` and `consistency` (too broad to filter on), `internal refactor` (now the `Refactor` type), `future` (now the `ideas` milestone), `extension` (renamed `hardware`), and `duplicate`, `invalid`, `wontfix` (GitHub's close reasons carry them). `docs` was retired on 2026-10-20, for the `Docs` type; it was on open issues only. Deleting a label removed it from closed issues too.
 
 **Topics** are parent issues: **#163** the public API (#166, #168, #138, #69), **#167** the dataframe library (#162), **#169** the 1.0.0 release (#10). #9, the old umbrella of both, was closed as superseded.
 
