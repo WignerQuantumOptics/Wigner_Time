@@ -42,7 +42,7 @@ def test_anchor__basic():
         (tl_check["variable"] == "lockbox__MOT__MHz") & (tl_check["time"] > 1.0),
         "function",
     ] = ramp_function.tanh
-    tl_check.sort_values(["time", "context"], inplace=True, ignore_index=True)
+    tl_check = tl_check.sort_values(["time", "context"], ignore_index=True)
 
     return wt_frame.assert_equal(tl_check, tl_anchor)
 

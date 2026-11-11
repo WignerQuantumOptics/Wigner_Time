@@ -76,6 +76,6 @@ def remove_unconnected_variables(timeline, connections):
     ]
 
     for v in _disconnections:
-        timeline.drop(timeline[timeline.variable == v].index, inplace=True)
+        timeline = timeline.drop(timeline[timeline.variable == v].index)
 
     return timeline
