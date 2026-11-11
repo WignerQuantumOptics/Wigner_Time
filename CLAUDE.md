@@ -43,7 +43,8 @@ anything it covers; the full accounts of resolved items, with their measurements
   zero value change is a hold and is kept.)
 - **A green suite does not clear the ADwin backend.** Changes under `wignertime/adwin/` can only be
   checked for internal consistency; correctness must be verified on the rig. Say so explicitly rather
-  than reporting such a change as done.
+  than reporting such a change as done. **That absence decides nothing** (maintainer, 2026-11-11): it
+  is no reason to hold back a change, to rank an item, or to qualify a claim of the paper.
 - **The paper and the code are developed together.** If a change makes a claim in the manuscript
   (`../Wigner_Time_Overleaf/main.tex`) inaccurate or hard to state, stop and report it. Do not edit
   the paper to match the code. If a behaviour is awkward to describe in prose, that is a signal to
@@ -65,8 +66,9 @@ text against the arXiv version's voice.
 ## Primary reference
 
 The manuscript, `main.tex` in the paper's Overleaf project, is the most comprehensive description of
-the project: submitted to EPJ Quantum Technology (Clark, Sárközi, … Vukics), and on arXiv as
-2609.06230, it states the design rationale, not just the API. Read it
+the project: submitted to SciPost Physics Codebases (Clark, Sárközi, … Vukics) after EPJ Quantum
+Technology desk-rejected it (2026-10-16), and on arXiv as 2609.06230, it states the design
+rationale, not just the API. Read it
 before any non-trivial design decision. Useful section map: `sec:definitions` (the three layers),
 `sec:origin` + appendix `sec:origin_full` (the complete `origin` specification and resolution order),
 `sec:functions` (`update`/`ramp`/`anchor` and `to_timeline`, with input-format tables), `sec:context`,
@@ -91,6 +93,8 @@ from it, and that history stays here. So do the tags of the versions sent out: `
 2026-09-05) holds arXiv's own source archive, byte for byte, since neither Overleaf nor this
 repository had kept that text; `arxiv-v2` (sent 2026-10-07) is `docs/paper/` as sent; and
 `epjqt-v1` is the text submitted to EPJ QT, the last one the repository holds, landed by #178.
+The SciPost text, sent to arXiv as v3 on 2026-10-19, is in the Overleaf project's history only,
+untagged.
 
 Four of the figures are **generated, not drawn**, by scripts that stay in this repository, in
 `tools/paper_figures/`, because they read the package. Each writes its PDF into the directory it is
@@ -110,7 +114,10 @@ refuses to write a figure that does not fit. Only `fig:timeline__example` is sti
 `language-tree.png`, which the hardware overview replaced, and `origin-decision-tree-highlighted.png`
 are unreferenced.
 
-**The paper describes version 1.0.0** (maintainer, 2026-10-01). `pyproject.toml` stays at 0.9.0 until
+**The paper describes version 1.0.0** (maintainer, 2026-10-01), by definition: 1.0.0 is the code
+that emerges from the paper's review (agreed repeatedly, restated 2026-11-11). So the paper need not
+name a version, and since the SciPost resubmission it names none; that absence reopens nothing.
+`pyproject.toml` stays at 0.9.0 until
 the release: the bump is the last commit before the tag `v1.0.0` on `main`, so that 1.0.0 is exactly
 the code the paper prints; the steps are #169. From then on that API is frozen, and the question
 about any change is whether it breaks it, which is what the milestones `1.x` and `2.0` encode
@@ -121,8 +128,10 @@ about any change is whether it breaks it, which is what the milestones `1.x` and
 `timeline/diagnostics.py` are the real counterparts of the demo and of the paper's `sec:forwarding`;
 `control/time_of_flight.py` is `sec:parameter_scan`; `console.py` re-exports the manual console of
 D22, which moved into this package on 2026-09-27 (`wignertime.adwin.console`); and
-`../notebooks/` holds the notebooks the experiments are run from (`diagnosticsStageByStage.ipynb`
-interweaves imaging into each preparation stage). It has its own `KNOWN_ISSUES.md` (items `L*`).
+`../notebooks/` holds copies of the lab's notebooks, all from before the port to the current package
+(design record, P5), so none of them runs against either repository; they still show how the
+experiments are driven (`diagnosticsStageByStage.ipynb` interweaves imaging into each preparation
+stage). The lab has its own `KNOWN_ISSUES.md` (items `L*`).
 `../Lab2TimelineTakeout_VargaDani_20260921/` is the source of the Lab2 regression fixture. Check
 real usage there before deciding what a demo should show or whether an API change breaks anyone.
 
@@ -282,7 +291,11 @@ independent now, and splitting would delete the normalisation layer whose string
 mechanism. What settles it is `ramp.origin2`, which places the *end* point and does not decompose into
 the same scheme — `ramp` would carry `t0`, `v0` and two more for the end, alongside the `time`, `time2` and
 `duration` it already has. A ramp's second reference is a different kind of thing from its first, and a
-flat `t0`/`v0` vocabulary would flatten that. The same issue's second half, a `default` sentinel in
+flat `t0`/`v0` vocabulary would flatten that. **`origin2` is resolved against the ramp's own start
+rows, not against the timeline**, by design (maintainer, 2026-11-11): a number is absolute;
+`VARIABLE`, or any variable of the same ramp, names that variable's start; `LAST` and the ramp's own
+context land on its start; and a name outside the ramp – another variable, another context,
+`ANCHOR` – raises. The same issue's second half, a `default` sentinel in
 place of `None`, was resolved rather than declined: `None` now carries one meaning, not two.
 
 Three properties of the mechanism that are easy to break:
@@ -390,7 +403,9 @@ each ramp's rows where the ramp was written** (A18); see the filtering note belo
 and the machine specifications may not carry one. Both labs run **T12** processors, at **1 ns per
 `Processdelay` tick** (maintainer, 2026-09-23): Lab1 at 5 µs (`Initial_Processdelay = 5000`, as
 committed), Lab2 at 2 µs. `adwin.PROCESSDELAY__RATE` is the one hardware constant the package
-keeps, and it knows only the T12; any other processor is refused by name.
+keeps, and it knows only the T12; any other processor is refused by name. The paper's 1 µs
+(`sec:intro`, `sec:adwin`) stands as written (maintainer, 2026-11-11): its difference from the
+labs' periods is known, and not to be raised again.
 
 `adwin/core.py::upload(timeline, connections, devices, machine, process)` is the only way to the
 machine. It reads the period off the machine on every call, as `Get_Processdelay(process)` over the

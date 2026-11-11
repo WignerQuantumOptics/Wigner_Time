@@ -28,27 +28,27 @@ The scheme below was agreed by both maintainers on 2026-10-02. **Each question i
 
 **Process.** Development happens on one branch per issue, made from `main` and named after its issue (`issue#<n>`), which is opened as a draft pull request once it is pushed, so that it is visible and CI runs on it. Pull requests are **squash-merged** into `main` (maintainer, 2026-10-04), and an issue is closed when its pull request is merged. Closing as work lands is also what makes a parent issue's sub-issue count show progress.
 
-**Milestones.** The paper describes version **1.0.0** (maintainer, 2026-10-01), which freezes the API it prints; after it, what matters about an issue is whether it breaks that API. The descriptions on GitHub are authoritative and reproduced here.
+**Milestones.** The paper describes version **1.0.0** (maintainer, 2026-10-01) by definition, since 1.0.0 is the code that emerges from the paper's review (restated 2026-11-11); it freezes the API the paper prints; after it, what matters about an issue is whether it breaks that API. The descriptions on GitHub are authoritative and reproduced here.
 
 | milestone | what belongs in it |
 | --- | --- |
-| `1.0 — paper` | Must land before the paper is published (submitted to EPJ QT): silent-failure defects, anything that falsifies the manuscript, the decisions those depend on, and the release itself (#169). |
+| `1.0 — paper` | Must land before the paper is published (submitted to SciPost Physics Codebases): silent-failure defects, anything that falsifies the manuscript, the decisions those depend on, and the release itself (#169). |
 | `1.x` | After the paper, and compatible with 1.0.0: nothing the paper prints changes, and no code written against 1.0.0 breaks. |
 | `2.0` | After the paper, and breaking: changes what the paper prints, or the 1.0.0 API. |
 | `ideas` | Worth considering, not committed to. Moves to a numbered milestone once someone takes it on. |
 
 `10 — paper` was renamed to `1.0 — paper`; `20 — internal API` (a topic, now #163 and #167) and `30 — reach & polish` were retired on 2026-10-02.
 
-**Types** are org-level GitHub issue types, not labels – which is why a search for a "decision label" finds nothing: `Bug` (an unexpected problem or behavior), `Task` (a specific piece of work), `Feature` (a request, idea, or new functionality) and `Decision` (an open API or design decision that must be settled before dependent work can proceed). `Decision` carries "flag and ask, never settle unilaterally" onto GitHub; set it on anything whose entry here offers two options rather than a fix. For the ones open now, filter by the type on GitHub.
+**Types** are org-level GitHub issue types, not labels – which is why a search for a "decision label" finds nothing: `Bug` (an unexpected problem or behavior), `Task` (a specific piece of work), `Feature` (a request, idea, or new functionality), `Decision` (an open API or design decision that must be settled before dependent work can proceed), and, since 2026-10-20, `Refactor` (renames, moves or restructuring with no change in behavior), `Docs` (developer guide, README or API documentation) and `Physics` (wrong physical results: the code runs but violates the physics). `Physics` is the `Bug` whose wrong answer is a command to the apparatus, so it usually comes with `silent`; the label stays, because a `Decision` or a `Task` can be silent too. `Decision` carries "flag and ask, never settle unilaterally" onto GitHub; set it on anything whose entry here offers two options rather than a fix. For the ones open now, filter by the type on GitHub.
 
-**Labels**, thirteen:
+**Labels**, twelve:
 
 - **risk, at most one:** `silent` (a wrong answer with no error – outranks visible failures, and puts the item in `1.0 — paper` by default) or `potentially surprising` (not wrong as such, but likely to surprise a user). They exclude each other;
 - **`paper-affecting`:** any change falsifies a claim in `main.tex`, so §G applies and the *code* changes;
-- **area:** `api` (what users call), `origin`, `adwin`, `dataframe`, `display`, `docs`, `performance`, `hardware` (backends other than ADwin);
+- **area:** `api` (what users call), `origin`, `adwin`, `dataframe`, `display`, `performance`, `hardware` (backends other than ADwin);
 - **for contributors:** `good first issue`, `help wanted`.
 
-Retired on 2026-10-02: `ux` and `consistency` (too broad to filter on), `internal refactor` (a `Task` without `api` says it), `future` (now the `ideas` milestone), `extension` (renamed `hardware`), and `duplicate`, `invalid`, `wontfix` (GitHub's close reasons carry them). Deleting a label removed it from closed issues too.
+Retired on 2026-10-02: `ux` and `consistency` (too broad to filter on), `internal refactor` (now the `Refactor` type), `future` (now the `ideas` milestone), `extension` (renamed `hardware`), and `duplicate`, `invalid`, `wontfix` (GitHub's close reasons carry them). `docs` was retired on 2026-10-20, for the `Docs` type; it was on open issues only. Deleting a label removed it from closed issues too.
 
 **Topics** are parent issues: **#163** the public API (#166, #168, #138, #69), **#167** the dataframe library (#162), **#169** the 1.0.0 release (#10). #9, the old umbrella of both, was closed as superseded.
 
@@ -143,7 +143,7 @@ C1–C7 are all settled (index below). An open API or design decision is flagged
 
 ## E. Testing constraints
 
-**A green test suite does not clear the ADwin backend.** Changes under `wignertime/adwin/`, and the ADbasic programs under `resources/ADwin/`, can only be checked for internal consistency; correctness must be verified on the rig. Flag any such change explicitly rather than reporting it as done.
+**A green test suite does not clear the ADwin backend.** Changes under `wignertime/adwin/`, and the ADbasic programs under `resources/ADwin/`, can only be checked for internal consistency; correctness must be verified on the rig. Flag any such change explicitly rather than reporting it as done. **That absence decides nothing** (maintainer, 2026-11-11): it is no reason to hold back a change, to rank an item, or to qualify a claim of the paper.
 
 The `ADwin` extra is a pure-Python wrapper that installs on a development machine, so `convert` and everything under `adwin.internal` and `adwin.validate` are genuinely exercised. What is not is anything that talks to a device (`link_device`, `upload`'s writes) and the ADbasic programs themselves; entries that rest on a line-for-line emulation of a `.bas` have evidence, not verification. The demo's calibration file is tracked, and the suite skips cleanly when an optional extra is absent (F).
 
