@@ -49,7 +49,7 @@ is applied (D).
 | `create` | **not applicable — it takes no `origin` and no `timeline`** (#45, 2026-09-16) |
 | `update`, `anchor` | `config.ORIGIN__DEFAULTS = [["anchor", None], ["last", None]]` |
 | `ramp` (start point) | its own `[["anchor", "variable"]]` — anchor-only, and value-relative. **Now `config.ORIGIN__DEFAULTS__RAMP = [["anchor", "variable"], ["last", "variable"]]`** |
-| `ramp` (`origin2`) | literal `["variable"]`; `auto` not called. **Now `["variable", 0.0]`** — the value slot stated rather than left to be read as `None`, since a ramp's end value is always absolute |
+| `ramp` (`origin2`) | literal `["variable"]`; `auto` not called. **Now `["variable", 0.0]`** — the value slot stated rather than left to be read as `None`, since a ramp's end value is always absolute. Resolved against the ramp's own start rows, not the timeline, by design (2026-11-11): a number is absolute, `VARIABLE` or a variable of the same ramp names that start, and a name outside the ramp raises |
 
 `auto` returned an explicitly supplied origin **untouched**; otherwise the first default entry whose
 anchor requirement was satisfiable, and running off the end of the list returned `None` implicitly.

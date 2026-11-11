@@ -28,11 +28,11 @@ The scheme below was agreed by both maintainers on 2026-10-02. **Each question i
 
 **Process.** Development happens on one branch per issue, made from `main` and named after its issue (`issue#<n>`), which is opened as a draft pull request once it is pushed, so that it is visible and CI runs on it. Pull requests are **squash-merged** into `main` (maintainer, 2026-10-04), and an issue is closed when its pull request is merged. Closing as work lands is also what makes a parent issue's sub-issue count show progress.
 
-**Milestones.** The paper describes version **1.0.0** (maintainer, 2026-10-01), which freezes the API it prints; after it, what matters about an issue is whether it breaks that API. The descriptions on GitHub are authoritative and reproduced here.
+**Milestones.** The paper describes version **1.0.0** (maintainer, 2026-10-01) by definition, since 1.0.0 is the code that emerges from the paper's review (restated 2026-11-11); it freezes the API the paper prints; after it, what matters about an issue is whether it breaks that API. The descriptions on GitHub are authoritative and reproduced here.
 
 | milestone | what belongs in it |
 | --- | --- |
-| `1.0 — paper` | Must land before the paper is published (submitted to EPJ QT): silent-failure defects, anything that falsifies the manuscript, the decisions those depend on, and the release itself (#169). |
+| `1.0 — paper` | Must land before the paper is published (submitted to SciPost Physics Codebases): silent-failure defects, anything that falsifies the manuscript, the decisions those depend on, and the release itself (#169). |
 | `1.x` | After the paper, and compatible with 1.0.0: nothing the paper prints changes, and no code written against 1.0.0 breaks. |
 | `2.0` | After the paper, and breaking: changes what the paper prints, or the 1.0.0 API. |
 | `ideas` | Worth considering, not committed to. Moves to a numbered milestone once someone takes it on. |
@@ -143,7 +143,7 @@ C1–C7 are all settled (index below). An open API or design decision is flagged
 
 ## E. Testing constraints
 
-**A green test suite does not clear the ADwin backend.** Changes under `wignertime/adwin/`, and the ADbasic programs under `resources/ADwin/`, can only be checked for internal consistency; correctness must be verified on the rig. Flag any such change explicitly rather than reporting it as done.
+**A green test suite does not clear the ADwin backend.** Changes under `wignertime/adwin/`, and the ADbasic programs under `resources/ADwin/`, can only be checked for internal consistency; correctness must be verified on the rig. Flag any such change explicitly rather than reporting it as done. **That absence decides nothing** (maintainer, 2026-11-11): it is no reason to hold back a change, to rank an item, or to qualify a claim of the paper.
 
 The `ADwin` extra is a pure-Python wrapper that installs on a development machine, so `convert` and everything under `adwin.internal` and `adwin.validate` are genuinely exercised. What is not is anything that talks to a device (`link_device`, `upload`'s writes) and the ADbasic programs themselves; entries that rest on a line-for-line emulation of a `.bas` have evidence, not verification. The demo's calibration file is tracked, and the suite skips cleanly when an optional extra is absent (F).
 
