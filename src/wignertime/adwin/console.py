@@ -57,8 +57,7 @@ from typing import NamedTuple
 import numpy as np
 
 import wignertime.adwin as wt_adwin
-from wignertime import conversion
-from wignertime import device
+from wignertime import conversion, device
 from wignertime import variable as wt_variable
 from wignertime.adwin import internal as wt_internal
 from wignertime.internal import dataframe as wt_frame
@@ -132,6 +131,7 @@ def panel(connections, devices, timeline__defaults, machine_specifications=None)
     runs, and building the console should not undo that.
     """
     device.check_correspondence(connections, devices)
+    wt_internal.check_unique(connections, devices)
     table = _conversions(wt_frame.join(connections, devices), machine_specifications)
 
     analogue = table["to_V"].notna()
@@ -271,7 +271,16 @@ def _digits(table, name, value):
             }
         )
     )
-    return index, to_digits(row, value)
+    # The module's own range, as the pipeline checks it (A22): device limits may be absent
+    # or wider, and digits outside the DAC's width would be written as they stand.
+    digits = to_digits(row, value)
+    if not 0 <= digits <= 2 ** int(row["bits"]) - 1:
+        raise ValueError(
+            "{} = {!r} is outside the range of its module, {:g} to {:g} V.".format(
+                name, value, row["voltage__min"], row["voltage__max"]
+            )
+        )
+    return index, digits
 
 
 def configure(machine, table):

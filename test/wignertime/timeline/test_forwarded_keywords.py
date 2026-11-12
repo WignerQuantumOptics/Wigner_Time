@@ -198,3 +198,38 @@ def test_a_keyword_nothing_accepts_raises_even_where_nothing_declares(base):
     """
     with pytest.raises(TypeError, match="could not place 1 keyword"):
         tl.to_timeline(tl.stack(lambda tline: tline, context="MOT"), onto=base)
+
+
+# A20
+
+
+def test_a_forwarded_keyword_reaches_only_the_stages_that_declare_it():
+    """
+    A20. The guard asked only whether some stage declares it, and the keyword then went to
+    every stage: `duration` meant for the `ramp` became a variable in each `update`.
+    """
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(shutter__X=1, coil__X__A=0.0, time=0.0, context="c"),
+            tl.update(shutter__X=0),
+            tl.ramp(coil__X__A=1.0),
+            duration=0.1,
+        )
+    )
+    assert "duration" not in set(timeline["variable"])
+    ramp = timeline[timeline["function"].notna()]
+    assert ramp["time"].tolist() == [0.0, 0.1]
+
+
+def test_an_anchor_beside_the_ramp_is_not_given_its_duration():
+    """A20. With an anchor in the stack it raised `TypeError` naming `_anchor`."""
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(coil__X__A=0.0, time=0.0, context="c"),
+            tl.anchor(0.5),
+            tl.ramp(coil__X__A=1.0),
+            duration=0.1,
+        )
+    )
+    ramp = timeline[timeline["function"].notna()]
+    assert ramp["time"].tolist() == [0.5, 0.6]

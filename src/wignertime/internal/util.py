@@ -270,13 +270,14 @@ ATTRIBUTE__KEYWORDS = "__wigner_time_keywords__"
 """
 Records which keywords a deferred timeline function's chain can actually consume.
 
-`stack` forwards every keyword it is given to every constituent, and the core functions
-read an unrecognised keyword as a *variable name* -- so a misspelt one does not go
-unused, it becomes a row (KNOWN_ISSUES A5). To refuse that, `stack` has to know what its
-constituents would do with a keyword, and it cannot: a constituent is an opaque closure
-by the time it arrives. So the information is recorded when the closure is built, by
-`stage` from the public function's signature and by `stack` as the union over
-its own constituents, which is what makes a nested stage answer for the stages inside it.
+The core functions read an unrecognised keyword as a *variable name*, so a keyword
+`stack` forwards to a stage that does not declare it does not go unused: it becomes a
+row (KNOWN_ISSUES A5, A20). To refuse a keyword no constituent declares, and to hand each
+one only to those that do, `stack` has to know what its constituents would do with a
+keyword, and it cannot: a constituent is an opaque closure by the time it arrives. So the
+information is recorded when the closure is built, by `stage` from the public function's
+signature and by `stack` as the union over its own constituents, which is what makes a
+nested stage answer for the stages inside it.
 
 Absence means *neutral*, not *permissive*: `noop` and a hand-written
 `lambda tline: ...` neither vouch for a keyword nor object to it.

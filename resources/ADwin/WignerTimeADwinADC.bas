@@ -74,8 +74,6 @@ lowinit:
     Data_1[i]=0
   Next i
 
-  P2_DigProg(1,1111b) ' set all the digital ports to output
-  
   ' configuring ADC burst mode
   ADC_DataAmount=1000000*ADC_Duration/ADC_TimeInterval
   If (ADC_DataAmount > ADC_MaxDataAmount) Then ADC_DataAmount = ADC_MaxDataAmount
@@ -102,7 +100,6 @@ event:
   if (cyclecount > endCC) then end
 
   processUpdates(cyclecount)
-  par_10=1
 
   If ( (cyclecount = startADC) ) Then P2_Burst_Start (ADC_ChannelPattern)
 

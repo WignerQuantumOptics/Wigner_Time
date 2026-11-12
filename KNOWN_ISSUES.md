@@ -56,7 +56,15 @@ Retired on 2026-10-02: `ux` and `consistency` (too broad to filter on), `interna
 
 ## Open items
 
-Three items with an ID are open, all in section D and in `1.x`: **D16** (#130), **D23** (#144) and **D24** (#173). Three open issues carry no ID and are recorded at the end of this section.
+Four items with an ID are open, all in section D: **D27** (#191) in `1.0 — paper`, and **D16** (#130), **D23** (#144) and **D24** (#173) in `1.x`. Three open issues carry no ID and are recorded at the end of this section.
+
+### D27 — saving a timeline to a text format loses its ramps **[new, found 2026-11-11]**
+
+Parquet, CSV and JSON cannot hold a function, so `file._stringify_callables_for_export` writes a ramp's `function` as a string: `module.qualname`, or for a `functools.partial` its `repr`, memory address included. A reloaded timeline cannot be expanded (`TypeError: '…' is not a callable object`), and nothing warns when it is saved, although #84, which asked for `save`, required a "warning if data will be lost". Pickle keeps the functions, but the demo timeline cannot be pickled at all: `pull_coils` ramps with a local lambda (`Can't get local object 'pull_coils.<locals>.<lambda>'`).
+
+The paper says three times that a timeline can be archived – the `fig:hardware_overview` caption, `sec:context`, and "the timeline actually delivered to the hardware can be archived alongside the data it produced" – so `paper-affecting`. An expanded timeline, and the `Upload` record, archive without loss; a timeline with its ramps does not. Silent at the point of saving, loud at the point of use, so `silent`.
+
+**No obvious fix yet** (maintainer, 2026-11-11), and the paper's sentences stay until there is one. Tracked as [#191](https://github.com/WignerQuantumOptics/Wigner_Time/issues/191).
 
 ### D16 — the anchor label cannot be printed on a legacy Windows code page **[new, found 2026-09-11]**
 
@@ -131,13 +139,13 @@ Tracked as [#173](https://github.com/WignerQuantumOptics/Wigner_Time/issues/173)
 
 - **#142** (`Decision`, `paper-affecting`, `1.0 — paper`) – reopened 2026-09-30, the most urgent open decision: whether `None` keeps, in 1.0.0, its meaning in `origin` and `context`, the same as `INFER`. A meaning of its own would change what every stage that forwards `origin=None` or `context=None` does – the lab's, though no longer the paper's or the demo's (2026-10-06, maintainer): `trigger_camera` in `sec:stacking` takes `origin` with no default, since a *placed* stage names its origin, and `pull_coils` in `sec:demonstration` takes no `context`, since it inherits that of `magnetic_trapping`, which states it once. History: A8's amendment and the paper items, in the design record; D23 is the same question from the configuration side.
 - **#160** (`1.0 — paper`) – `finish` should derive the final state from the initial state in the timeline rather than restate it through keywords (maintainer, 2026-09-02). It must keep the intended asymmetry (`MOT_ON` is `False` at `init`, `True` at `finish`: copy, then apply named overrides). **It carries the open remainder of B11**: a stopped run plays the final state only for the channels it names, and the lab's `ADwin_Finish` names neither the MOT coils, nor the dispenser, nor `AOM_science__V` (lab L9), so a run stopped in the magnetic trap leaves the coils at the trap's current, silently. Two directions, neither taken: name them in the lab's `finish()`, or have `upload` refuse or warn when the final state leaves a connected channel unnamed – a change to what `upload` accepts, so the maintainer's to decide. `sec:context`'s claim that every channel is then defined waits on it.
-- **#174** (`Decision`, `1.x`) – `config.ORIGIN__DEFAULTS` is a chain tried in order and can be rebound, but an entry that always resolves makes every later one unreachable: `LAST` resolves whenever `ANCHOR` would, so placed before it, it leaves `ANCHOR` dead without any error. The chain is only meaningful with entries that can be absent, such as a context name. Two directions, neither taken: refuse a chain with an always-resolving entry before the last, or stop presenting the chain as configuration. `ORIGIN__DEFAULTS__RAMP` has the same shape. Not paper-affecting: the paper does not mention that the order can be configured (maintainer, 2026-10-06).
+- **#174** (`Decision`, `1.x`) – `config.ORIGIN__DEFAULTS` is a chain tried in order and can be rebound, but an entry that always resolves makes every later one unreachable: `LAST` resolves whenever `ANCHOR` would, so placed before it, it leaves `ANCHOR` dead without any error. The chain is only meaningful with entries that can be absent, and fewer can be than the issue first said: a context name in the chain raises when the context is absent, rather than being passed over (measured 2026-11-11), so `ANCHOR` is the only entry that can ever be skipped. Two directions, neither taken: refuse a chain with an always-resolving entry before the last, or stop presenting the chain as configuration. `ORIGIN__DEFAULTS__RAMP` has the same shape. Not paper-affecting: the paper does not mention that the order can be configured (maintainer, 2026-10-06).
 
 ## C. API decisions – the rules in force
 
 C1–C7 are all settled (index below). An open API or design decision is flagged and asked, never settled unilaterally; D23 is such, and so is #142.
 
-**Keyword forwarding is a feature, not an accident** (maintainer, 2026-09-02). `default_state` is written once, and a keyword no intermediate stage consumes falls through to it and becomes a variable. Of the three layers, only the last stays permissive: `cascade` routes by stage-name prefix, strictly (C1); `stack` forwards a keyword only as a default, and only one some constituent declares (A5, C6); the core functions' `**vtvc_dict` is an open namespace. *Why:* strictness there would destroy the feature, and in the first two it costs the idiom nothing. Full text, with the known limits: design record, "Design intent — keyword forwarding is a feature".
+**Keyword forwarding is a feature, not an accident** (maintainer, 2026-09-02). `default_state` is written once, and a keyword no intermediate stage consumes falls through to it and becomes a variable. Of the three layers, only the last stays permissive: `cascade` routes by stage-name prefix, strictly (C1); `stack` forwards a keyword only as a default, only one some constituent declares, and only to the constituents that declare it (A5, A20, C6); the core functions' `**vtvc_dict` is an open namespace. *Why:* strictness there would destroy the feature, and in the first two it costs the idiom nothing. Full text, with the known limits: design record, "Design intent — keyword forwarding is a feature".
 
 **The open namespace is narrowed to one stage** (maintainer, 2026-09-02). Only `default_state`, and `init` and `finish` that wrap it, take `**kwargs`; every other stage declares its parameters, so `cascade`'s policy is derived from the target's signature (C1). *Why:* with every stage open, a misspelled argument became a variable and no signature check could tell. Its other half is #160. Full text: design record, "Decision — narrow the open namespace to one stage".
 
@@ -191,6 +199,11 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - A16 — an analogue variable on the digital module (#94) – `check_module_kinds` refuses either mismatch.
 - A17 — a ramp inside another ramp of its variable (#157) – overlaps raise, compared exactly.
 - A18 — an `update` at a ramp's end lost to it on the hardware (#153) – stable `wt_frame.sort`; `expand` keeps order.
+- A19 — a wait that ends the timeline was not played (#186) – the run ends at the last connected row or anchor.
+- A20 — `stack` gave a forwarded keyword to every constituent (#103) – only to those that declare it.
+- A21 — `expand` paired ramps that meet, written out of time order, across (#157) – written order; a backward pair raises.
+- A22 — values a port cannot hold reached the arrays (#187) – refused at conversion and on the console.
+- A23 — duplicate rows in the connection and device tables (#188) – refused.
 
 **B. Correctness** ([record](docs/design-record.md#b-correctness))
 
@@ -205,6 +218,8 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - B9 — a ramp's sampling depended on its position in time – the interval count is rounded first.
 - B10 — `stack` could not forward into a nested stage (#136) – one closure threads the keywords.
 - B11 — an interrupted run did not restore the default state (#148) – final-state arrays played by `finish:`; rig; remainder in #160.
+- B12 — `context_info` gave the first and last rows written (#189) – the earliest and latest.
+- B13 — `ramp_function.linear` stopped short of its target (#134) – sampled inclusively, as `tanh`.
 
 **C. API decisions** ([record](docs/design-record.md#c-api-decisions))
 
@@ -239,5 +254,7 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - D20 — ascending cycle order unenforced (#147) – `validate.ascending`.
 - D21 — the cycle period stated twice, read from neither (#94) – read off the machine; rig.
 - D22 — the console was a second apparatus description (#94) – `wignertime.adwin.console`; rig.
+- D25 — the ADC sequencer still named digital module 1 (#133) – removed, with an unread `par_10`; rig.
+- D26 — small fixes from the review of 2026-11-11 (#190, #143) – seven, listed in the record.
 
 **Paper items tracked by no issue** – all done or settled but #142 (above); listed at the end of the design record.

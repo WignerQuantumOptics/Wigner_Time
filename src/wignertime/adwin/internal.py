@@ -10,15 +10,15 @@ In general, the user shouldn't need to use these functions and there is no guara
 
 import numpy as np
 
-from wignertime.config import wtlog as wtl
-from wignertime import timeline as tl
+import wignertime.adwin as wt_adwin
 from wignertime import conversion as conv
 from wignertime import device
+from wignertime import timeline as tl
 from wignertime import variable as wt_variable
-from wignertime.internal import dataframe as wt_frame
-import wignertime.adwin as wt_adwin
 from wignertime.adwin import connection
 from wignertime.adwin import validate as wt_validate
+from wignertime.config import wtlog as wtl
+from wignertime.internal import dataframe as wt_frame
 
 """
 Represents the key ADwin settings for the given machine.
@@ -192,6 +192,100 @@ def check_module_kinds(connections, modules__digital):
         )
 
 
+def check_unique(connections, devices):
+    """
+    Checks that each table says one thing about each name, and the connections one thing
+    about each port.
+
+    Nothing did (A23), and each case passed without a word. A variable connected twice
+    drove only the channel listed last: the join gives it a row per connection, and
+    `drop_duplicates` keeps the last of each cycle. Two variables on one channel both
+    reached it, so the channel took whichever was written last at each cycle, even with
+    conflicting initial states. A device listed twice converted with its last entry.
+    """
+    variables = connections["variable"]
+    problems = [
+        "  {} is connected more than once".format(name)
+        for name in variables[variables.duplicated()].unique()
+    ]
+    shared = connections[connections.duplicated(["module", "channel"], keep=False)]
+    problems += [
+        "  module {}, channel {} is connected to {}".format(
+            module, channel, ", ".join(group["variable"])
+        )
+        for (module, channel), group in shared.groupby(["module", "channel"])
+    ]
+    names = devices["variable"]
+    problems += [
+        "  {} is listed more than once among the devices".format(name)
+        for name in names[names.duplicated()].unique()
+    ]
+    if problems:
+        raise ValueError(
+            "\n".join(
+                [
+                    "The connection and device tables must name each variable once, and"
+                    " connect each channel once:",
+                    "",
+                    *problems,
+                ]
+            )
+        )
+
+
+def check_codes(timeline, mask__digital, machine_specifications):
+    """
+    Checks that every value can be written to its port as it stands: 0 or 1 to a digital
+    line, and to an analogue channel only digits that its module's range can hold.
+
+    Neither was checked (A22). A device's own limits are checked, by
+    `device.check_within_range`, but they may be absent or wider than the module, and a
+    value beyond the module's range converted to digits outside `0..2**bits - 1`: 5 A at
+    3 V/A on a ±10 V module became 81919. A digital value was rounded and sent as whatever
+    it rounded to, so 1.5 became 2 and −1 stayed −1. The paper says that a digital variable
+    accepts only 0 or 1 and that other values are rounded (`sec:physicslayer`), so a value
+    is still rounded, as the conversion rounds it, and refused unless it rounds to 0 or 1.
+    """
+    problems = [
+        "  {} = {:g}: a digital line takes 0 or 1, and this rounds to {:g}".format(
+            variable, value, rounded
+        )
+        for variable, value, rounded in zip(
+            timeline.loc[mask__digital, "variable"],
+            timeline.loc[mask__digital, "value"],
+            round(timeline.loc[mask__digital, "value"]),
+        )
+        if rounded not in (0, 1)
+    ]
+    analogue = timeline[~mask__digital]
+    for module, rows in analogue.groupby("module", sort=True):
+        spec = conversion__module(machine_specifications, int(module))
+        top = 2 ** spec["num_bits"] - 1
+        outside = rows[(rows["value__digits"] < 0) | (rows["value__digits"] > top)]
+        for variable, group in outside.groupby("variable", sort=False):
+            problems.append(
+                "  {} = {:g} on module {}, which holds {:g} to {:g} V".format(
+                    variable,
+                    group["value"].iloc[np.argmax(abs(group["value"].to_numpy()))],
+                    module,
+                    *(np.asarray(spec["voltage_range"]) / spec["gain"]),
+                )
+            )
+    if problems:
+        raise ValueError(
+            "\n".join(
+                [
+                    "Some values cannot be written to their ports:",
+                    "",
+                    *problems,
+                    "",
+                    "Give the device limits that keep it within its module's range, or a"
+                    " value the line can take.",
+                ]
+            )
+        )
+
+
 def specifications(machine_specifications=None):
     """
     The machine specifications to convert against: those given, or else
@@ -301,6 +395,7 @@ def add(timeline, connections, devices, cycle_period, machine_specifications=Non
     # point at which hardware enters. Neither `connection.new` nor `device.new` can do it
     # alone: each sees only its own vocabulary (A14).
     device.check_correspondence(connections, devices)
+    check_unique(connections, devices)
     check_modules_described(connections, machine_specifications)
     check_module_kinds(connections, modules__digital(machine_specifications))
 
@@ -325,6 +420,7 @@ def add(timeline, connections, devices, cycle_period, machine_specifications=Non
     dff.loc[mask__digital, "value__digits"] = round(dff["value"])
 
     device.check_within_range(dff)
+    check_codes(dff, mask__digital, machine_specifications)
     dcycle = add_cycle(dff, cycle_period)
 
     return wt_validate.all(dcycle)
@@ -350,7 +446,7 @@ def to_tuples(timeline, machine_specifications=None):
     machine_specifications = specifications(machine_specifications)
 
     if not timeline["cycle"].is_monotonic_increasing:
-        timeline = timeline.sort_values(by=["cycle"], ignore_index=True)
+        timeline = wt_frame.sort(timeline, "cycle")
 
     if not ("module" in timeline.columns):
         raise ValueError(

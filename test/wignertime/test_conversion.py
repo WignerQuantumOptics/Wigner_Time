@@ -1,12 +1,12 @@
-import pytest
-import pandas as pd
-from munch import Munch
 import numpy as np
+import pandas as pd
+import pytest
+from munch import Munch
 
-from wignertime.internal import dataframe as wt_frame
-from wignertime import timeline as tl
-from wignertime import device
 from wignertime import conversion as conv
+from wignertime import device
+from wignertime import timeline as tl
+from wignertime.internal import dataframe as wt_frame
 
 
 @pytest.fixture
@@ -177,3 +177,18 @@ def test_addRealistic(df_simple):
     )
 
     return wt_frame.assert_equal(actual, expected)
+
+
+def test_a_calibration_function_is_evaluated_once_per_row():
+    """D26. It was evaluated twice, once into a variable nothing read."""
+    calls = []
+
+    def to_V(value):
+        calls.append(value)
+        return value / 2
+
+    timeline = pd.DataFrame(
+        {"variable": ["c__A"] * 3, "value": [1.0, 2.0, 3.0], "to_V": [to_V] * 3}
+    )
+    conv.add(timeline)
+    assert calls == [1.0, 2.0, 3.0]
