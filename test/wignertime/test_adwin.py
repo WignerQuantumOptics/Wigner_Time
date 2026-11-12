@@ -1488,17 +1488,22 @@ def test_a_value_beyond_its_modules_range_is_refused(value, message):
         )
 
 
-@pytest.mark.parametrize("value", [2, -1, 1.5])
-def test_a_digital_value_that_does_not_round_to_0_or_1_is_refused(value):
-    """A22. It was sent as whatever it rounded to: 1.5 became 2, 2 and -1 went as they were."""
+@pytest.mark.parametrize("value", [2, -1, 0.5, 1.5, 0.7])
+def test_a_digital_value_other_than_0_or_1_is_refused(value):
+    """
+    A22. It was sent as whatever it rounded to: 1.5 became 2, 2 and -1 went as they were.
+    It is refused rather than rounded (maintainer, 2026-11-12).
+    """
     timeline = tl.to_timeline(tl.update(shutter__MOT=value, time=0.0, context="run"))
     with pytest.raises(ValueError, match="a digital line takes 0 or 1"):
         adwin.convert(timeline, adcon.new(["shutter__MOT", 1, 11]), device.new(), 5e-6)
 
 
-@pytest.mark.parametrize("value, sent", [(0.7, 1), (0.3, 0), (True, 1)])
-def test_a_digital_value_is_rounded_as_the_paper_says(value, sent):
-    """A22 keeps `sec:physicslayer`'s rounding: only what rounds to 0 or 1 is accepted."""
+@pytest.mark.parametrize(
+    "value, sent", [(0, 0), (1, 1), (0.0, 0), (True, 1), (False, 0)]
+)
+def test_a_digital_value_of_0_or_1_is_sent(value, sent):
+    """A22: `True` and `False` are 1 and 0."""
     timeline = tl.to_timeline(tl.update(shutter__MOT=value, time=0.0, context="run"))
     _, digital = adwin.convert(
         timeline, adcon.new(["shutter__MOT", 1, 11]), device.new(), 5e-6

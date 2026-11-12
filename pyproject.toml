@@ -40,14 +40,10 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10"
+python = ">=3.11"
 munch = "^3.0.0"
 funcy = "^2.0"
-# pandas 3 needs Python 3.11, and the package still supports 3.10 on pandas 2.
-pandas = [
-    { version = ">=2.2,<3", python = "<3.11" },
-    { version = ">=2.2,<4", python = ">=3.11" },
-]
+pandas = ">=3,<4"
 scipy = "^1.14"
 
 ADwin = {version="^0.20", optional=true}
