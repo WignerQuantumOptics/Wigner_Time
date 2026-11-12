@@ -242,20 +242,18 @@ def check_codes(timeline, mask__digital, machine_specifications):
     `device.check_within_range`, but they may be absent or wider than the module, and a
     value beyond the module's range converted to digits outside `0..2**bits - 1`: 5 A at
     3 V/A on a ±10 V module became 81919. A digital value was rounded and sent as whatever
-    it rounded to, so 1.5 became 2 and −1 stayed −1. The paper says that a digital variable
-    accepts only 0 or 1 and that other values are rounded (`sec:physicslayer`), so a value
-    is still rounded, as the conversion rounds it, and refused unless it rounds to 0 or 1.
+    it rounded to, so 1.5 became 2 and −1 stayed −1. A digital variable accepts only 0 or 1
+    (`sec:physicslayer`), `True` and `False` being those, and anything else is refused
+    rather than rounded (maintainer, 2026-11-12): a 0.7 sent to a shutter is a mistake,
+    and the console refused it already.
     """
     problems = [
-        "  {} = {:g}: a digital line takes 0 or 1, and this rounds to {:g}".format(
-            variable, value, rounded
-        )
-        for variable, value, rounded in zip(
+        "  {} = {:g}: a digital line takes 0 or 1".format(variable, value)
+        for variable, value in zip(
             timeline.loc[mask__digital, "variable"],
             timeline.loc[mask__digital, "value"],
-            round(timeline.loc[mask__digital, "value"]),
         )
-        if rounded not in (0, 1)
+        if value not in (0, 1)
     ]
     analogue = timeline[~mask__digital]
     for module, rows in analogue.groupby("module", sort=True):
