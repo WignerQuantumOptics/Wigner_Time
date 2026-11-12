@@ -1,12 +1,11 @@
-import pytest
 from pathlib import Path
+
+import pytest
 
 from wignertime import file
 from wignertime import timeline as tl
-from wignertime.internal import dataframe as frame
-
-
 from wignertime.demo import full_experiment as demo
+from wignertime.internal import dataframe as frame
 
 
 @pytest.fixture(autouse=True)
@@ -138,3 +137,14 @@ def test_the_state_before_and_after_the_run_survives_a_round_trip(suffix):
     assert {float("-inf"), float("inf")} <= set(timeline["time"])
     # JSON and CSV round the finite times in their last digits, which is not at issue.
     assert list(back["time"]) == pytest.approx(list(timeline["time"]), rel=1e-12)
+
+
+def test_a_name_without_a_suffix_is_a_file(timeline_demo):
+    """D26. It made a directory, against the docstring's rule for a path without a suffix."""
+    written = file.save(timeline_demo, "run42")
+    assert written == Path("run42.parquet") and written.is_file()
+
+
+def test_a_name_ending_in_a_separator_is_a_directory(timeline_demo):
+    written = file.save(timeline_demo, "runs/")
+    assert written.parent == Path("runs") and written.suffix == ".parquet"

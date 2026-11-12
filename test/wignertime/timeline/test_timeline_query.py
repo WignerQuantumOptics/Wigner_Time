@@ -3,7 +3,6 @@ import pytest
 from wignertime.internal import dataframe as frame
 from wignertime.internal import origin
 
-
 df_previous1 = frame.new(
     [
         ["thing2", 7.0, 5.0, "init"],
@@ -52,3 +51,22 @@ def test_previousContext(input_value):
     return frame.assert_series_equal(
         origin.previous(input_value, variable="blah", column="context"), row
     )
+
+
+def test_context_info_gives_the_extent_of_each_context_in_time():
+    """
+    B12. It gave the times of the first and last rows written, and a stage that writes
+    past its closing anchor, as `optical_pumping` reinitializes its shutters, was reported
+    as ending at its anchor.
+    """
+    from wignertime import timeline as tl
+
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(shutter__A=0, time=0.0, context="prep"),
+            tl.anchor(1.0),
+            tl.update(shutter__A=1, time=0.5),
+            tl.update(shutter__A=0, time=-0.25),
+        )
+    )
+    assert tl.context_info(timeline)["prep"]["times"] == [0.0, 1.5]

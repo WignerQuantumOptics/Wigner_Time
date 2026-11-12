@@ -332,7 +332,8 @@ Three properties of the mechanism that are easy to break:
 
 *Anchors* are a non-physical variable named `⚓` (`config.LABEL__ANCHOR`), auto-numbered `⚓__001`, used
 as a time reference within a `context`. They deliberately have no `connection`, so
-`adwin.connection.remove_unconnected_variables` drops them at export. Their purpose is that the
+`adwin.connection.remove_unconnected_variables` drops them at export; `upload` still ends the run
+at the last anchor when it comes after every connected row, so a closing wait is played (A19). Their purpose is that the
 instants that matter physically are often ones where nothing is commanded — a MOT collection ends
 because enough time has passed, not because a device switched. **Every user-defined stage is
 recommended to end with an anchor** carrying that stage's context; the anchor-then-last default is
@@ -384,7 +385,8 @@ it states (any other default, including a value a `partial` binds) is not. That 
 cycle period reaches `ramp_function.tanh` and the demo's `lambda origin, terminus,
 time_resolution: ...`, but not a ramp that binds its own resolution. (It was
 `util.function__filtered_kws`, which handed every declaring function the value.) **`expand` keeps
-each ramp's rows where the ramp was written** (A18); see the filtering note below.
+each ramp's rows where the ramp was written** (A18), and pairs a variable's ramp rows in the order
+they were written, not in time order (A21); see the filtering note below.
 
 ### ADwin export pipeline
 
@@ -392,8 +394,10 @@ each ramp's rows where the ramp was written** (A18); see the filtering note belo
 
 1. `connection.remove_unconnected_variables` — anything without a physical port disappears (anchors).
 2. `timeline.expand` — ramps become rows at the machine's cycle period (or at `time_resolution`).
-3. `adwin/internal.py::add` — join `connections` + `devices`, `conversion.add` → `value__digits`,
-   `device.check_within_range` (raises, listing every offending variable), `add_cycle`.
+3. `adwin/internal.py::add` — check the tables (`check_correspondence`, and `check_unique`: no
+   name or channel twice, A23), join `connections` + `devices`, `conversion.add` → `value__digits`,
+   `device.check_within_range` and `check_codes` (digital 0 or 1, analogue digits within the
+   module's range, A22; each raises, listing every offending variable), `add_cycle`.
 4. `adwin/validate.py::all` — `cycles` → `types` → `special_contexts` → `drop_duplicates` →
    `drop_repeats`. `cycles` must precede `types`, which narrows the column to 32 bits.
 5. `internal.to_tuples` — `[[(cycle, module, channel, digits), ...analogue], [...digital]]`.
@@ -492,7 +496,8 @@ stable, and `expand` puts each ramp's rows back where the ramp was written — A
 at the instant a ramp ended lost to the ramp's end); `drop_repeats` removes *value* redundancy
 (a row commanding a channel to the value it already holds), grouped by physical channel rather than
 by variable, and always keeping the first and last row of each channel — `core.upload` derives the
-run length from the highest non-special cycle, and tanh ramp tails are flat.
+run length from the highest non-special cycle (or the last anchor, if later: A19), and tanh ramp
+tails are flat.
 
 `adwin/__init__.py::CONTEXTS__SPECIAL` (`ADwin_LowInit`, `ADwin_Init`, `ADwin_Finish`) map to sentinel
 cycle numbers. Rows in these contexts have **no meaningful time**, and are written at −∞ (the two

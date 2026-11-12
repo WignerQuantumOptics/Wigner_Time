@@ -18,14 +18,12 @@ import numpy as np
 
 from wignertime import config as wt_config
 from wignertime import ramp_function as wt_ramp_function
-from wignertime.internal.timeline import anchor as wt_anchor
-from wignertime.internal.timeline import input as wt_input
 from wignertime.internal import dataframe as wt_frame
 from wignertime.internal import origin as wt_origin
-from wignertime.internal.timeline import inherit
-
-
 from wignertime.internal import util as wt_util
+from wignertime.internal.timeline import anchor as wt_anchor
+from wignertime.internal.timeline import inherit
+from wignertime.internal.timeline import input as wt_input
 
 as_deferred = wt_util.mark_deferred
 """
@@ -95,7 +93,13 @@ def context_info(timeline):
     """
     Useful data (currently 'variables' and 'times') concerning every context. The result is a dictionary, indexed by context.
 
-    e.g. To get the start and end times of the 'MOT' context, call `context_info(timeline)['MOT']['times]`.
+    e.g. To get the start and end times of the 'MOT' context, call `context_info(timeline)['MOT']['times']`.
+
+    The times are the earliest and latest of the context's rows, its extent in time
+    (`sec:context`). They were the first and last rows *written*, and a timeline is in the
+    order it was written, not in time order: `optical_pumping`, which reinitializes its
+    shutters past its closing anchor, was reported as 15.1045..15.1051 s in the demo,
+    where its rows span 15.0045..15.2045 s (B12).
     """
     if {"context", "time", "variable"}.issubset(timeline.columns):
         tlg = timeline.groupby("context")
@@ -103,7 +107,7 @@ def context_info(timeline):
             k: {
                 "variables": tlg["variable"].agg(set).to_dict()[k],
                 "times": tlg["time"]
-                .agg(["first", "last"])
+                .agg(["min", "max"])
                 .apply(list, axis=1)
                 .to_dict()[k],
             }
@@ -496,6 +500,28 @@ def ramp(
     )
 
 
+def _check_origin2(origin2, starts):
+    """
+    Refuses, by name, what `origin2` cannot refer to.
+
+    `origin2` is resolved against the ramp's own start rows, `starts`, not against the
+    timeline (by design, maintainer, 2026-11-11). So a name outside the ramp -- another
+    variable, another context -- and `ANCHOR`, which a ramp's start never holds, cannot
+    resolve. They failed in the origin machinery, which spoke of `origin`, and for
+    `ANCHOR` said that the timeline held no anchor when it held several (D26).
+    """
+    names = set(starts["variable"]) | set(starts["context"])
+    for slot in origin2 if isinstance(origin2, (list, tuple)) else [origin2]:
+        if slot is wt_config.ANCHOR or (isinstance(slot, str) and slot not in names):
+            raise ValueError(
+                "`origin2={!r}`: `origin2` places the ramp's end, and is resolved against"
+                " the ramp's own start, not the timeline. It takes a number, `VARIABLE`,"
+                " `LAST`, or a name in the ramp: {}.".format(
+                    origin2, ", ".join(sorted(map(str, names)))
+                )
+            )
+
+
 def _ramp(
     timeline, duration, time, time2, context, origin, origin2, function, **vtvc_dict
 ):
@@ -547,6 +573,16 @@ def _ramp(
     if time2 is None and duration is not None:
         time2 = duration
 
+    # Said here, because the row builder can only ask for the `time=` it is given, and
+    # `time` is the ramp's start.
+    endless = sorted(k for k, v in vtvc_dict.items() if np.ndim(v) == 0)
+    if time2 is None and endless:
+        raise ValueError(
+            "A ramp needs its end, and none is given for {}. Give `duration=`, measured"
+            " from the ramp's start, or `time2=`, placed by `origin2`, or write the end"
+            " with its time, `v=[time, target]`.".format(", ".join(endless))
+        )
+
     df_2 = wt_frame.new(
         wt_input.rows_from_arguments(*[], time=time2, context=context, **vtvc_dict),
         columns=_SCHEMA.keys(),
@@ -567,6 +603,7 @@ def _ramp(
     inherit.context(new1, timeline, context=context)
     inherit.require(new1)
 
+    _check_origin2(origin2, new1)
     new2 = wt_origin.update(df_2, new1, origin=origin2)
     new2["function"] = function
     new2["context"] = new1["context"]
@@ -897,18 +934,36 @@ def stack(*stages: Callable, **kws) -> Callable:
     # naming a lambda (B10, #136). A constituent that takes no keywords, such as a
     # hand-written `lambda tline: ...`, is given none: the guard above has already made
     # sure that each keyword reaches something that uses it.
+    #
+    # Only to the constituents that declare it, where a constituent says what it declares
+    # (A20). Every stage's closure accepts any keyword, so the guard's question -- does
+    # some constituent declare it? -- left the delivery open: `duration` meant for a
+    # `ramp` reached an `update` beside it and became a variable there, and an `anchor`
+    # beside it raised a `TypeError` naming `_anchor`. A constituent that says nothing is
+    # neutral, as in the guard, and is given what it accepts.
     def composed(timeline, **kws__outer):
         kws__all = {**kws__outer, **kws}
         for f in constituents:
             timeline = f(
                 timeline,
-                **{k: v for k, v in kws__all.items() if wt_util.accepts_keyword(f, k)},
+                **{k: v for k, v in kws__all.items() if _delivered(f, k)},
             )
         return timeline
 
     return wt_util.mark_keywords(
         wt_util.mark_deferred(composed), keywords__available or ()
     )
+
+
+def _delivered(f, keyword):
+    """
+    Whether `stack` hands `keyword` to its constituent `f`: if `f` declares it, where `f`
+    says what it declares, and otherwise if `f` would accept it (A20).
+    """
+    declared = wt_util.keywords_declared(f)
+    if declared is not None:
+        return keyword in declared
+    return wt_util.accepts_keyword(f, keyword)
 
 
 def _keywords_available(constituents):
@@ -939,11 +994,12 @@ def _message__unplaced(unplaced, keywords__available):
                 len(unplaced), ", ".join(repr(k) for k in unplaced)
             ),
             "",
-            "A keyword given to `stack` is forwarded to every constituent, and the core",
-            "functions read an unrecognised keyword as a *variable name*. So an unplaced",
-            "keyword does not merely go unused: the parameter you meant to set stays at",
-            "its default, and a variable of that name enters the timeline, to be dropped",
-            "again without comment at export for having no connection.",
+            "A keyword given to `stack` is forwarded to the constituents that declare it,",
+            "and none does. The core functions read an unrecognised keyword as a",
+            "*variable name*, so letting it through would not merely leave it unused: the",
+            "parameter you meant to set would stay at its default, and a variable of that",
+            "name would enter the timeline, to be dropped again without comment at export",
+            "for having no connection.",
             "",
             "Placeable here: {}.".format(
                 ", ".join(sorted(keywords__available)) or "nothing"
@@ -1176,7 +1232,14 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
     # put back at, and what makes the label-based `drop` below exact.
     timeline = timeline.reset_index(drop=True)
     _mask_fs = timeline["function"].notna()
-    _dff = timeline[_mask_fs].sort_values(by=["variable", "time"])
+    # Each variable's ramp rows in the order they were written, which is ramp by ramp:
+    # start, then end (A21). They were sorted by time, and two ramps of one variable that
+    # meet, written in the opposite order to their times, were then paired across: a ramp
+    # over 1..2 s written before one over 0..1 s became a hold to 1 s, a jump, and a ramp
+    # from the second's end value -- a ramp nobody wrote. A timeline re-sorted by time
+    # before it reaches here has lost that order; the check on each pair below catches a
+    # pairing that then runs backwards, but not every wrong one.
+    _dff = wt_frame.sort(timeline[_mask_fs], "variable", ignore_index=False)
     _indices_drop = _dff.index
 
     # For adding back in the value of other columns, based on the first row, like `context` etc. Written this way to allow for more, unknown columns to continue.
@@ -1217,6 +1280,15 @@ def expand(timeline, **function_args) -> wt_frame.CLASS:
 
         for i in range(0, len(rows), points__required):
             group = rows.iloc[i : i + points__required]
+            if not (np.diff(group["time"].to_numpy(dtype=float)) > 0).all():
+                raise ValueError(
+                    "{}'s ramp rows at {} s do not run forward in time in the order they"
+                    " were written. A ramp writes its start, then its end; rows written"
+                    " by hand into the `function` column, or a timeline re-sorted before"
+                    " `expand`, are the usual causes.".format(
+                        variable, group["time"].tolist()
+                    )
+                )
             _inds__start.append(group.index[0])
 
             # A default, never an override: each keyword reaches only the functions that

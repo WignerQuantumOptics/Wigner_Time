@@ -81,9 +81,9 @@ class Samples(NamedTuple):
     run: core.Run
 
 
-def arm(upload, t, duration):
+def arm(upload, time, duration):
     """
-    Arms the next run of `upload` to record from `t` for `duration` seconds, and returns the
+    Arms the next run of `upload` to record from `time` for `duration` seconds, and returns the
     `Window` as written.
 
     `upload` must be one made for the ADC variant, process 4. The window must lie within the
@@ -101,13 +101,13 @@ def arm(upload, t, duration):
             "The duration of a recording must be a positive number of seconds, not"
             " {!r}.".format(duration)
         )
-    if t < 0:
+    if time < 0:
         raise ValueError(
-            "A recording cannot start before the run does, at {} s.".format(t)
+            "A recording cannot start before the run does, at {} s.".format(time)
         )
 
     period = upload.cycle_period
-    cycle__start = int(np.round(t / period))
+    cycle__start = int(np.round(time / period))
     # Rounded to a millionth of a cycle before the ceiling, so that float noise cannot add a
     # whole cycle: 10e-6 / 2e-6 is 5.000000000000001.
     cycle__end = cycle__start + math.ceil(round(duration / period, 6))
@@ -115,7 +115,9 @@ def arm(upload, t, duration):
         raise ValueError(
             "The recording from {:g} s for {:g} s ends after the run, which ends at {:g} s:"
             " the burst would still be under way when `finish:` reads it out. Shorten the"
-            " recording, or extend the timeline.".format(t, duration, upload.time__last)
+            " recording, or extend the timeline.".format(
+                time, duration, upload.time__last
+            )
         )
 
     machine = upload.machine
@@ -186,11 +188,11 @@ def read(window, run):
     return Samples(time, digits, window, run)
 
 
-def run(upload, t, duration):
+def run(upload, time, duration):
     """
-    Records from `t` for `duration` seconds in one run of `upload`, and returns the
+    Records from `time` for `duration` seconds in one run of `upload`, and returns the
     `Samples`: `arm`, then `core.run`, then `read`. Arms afresh each time, so it can be
     called repeatedly on the same upload, to average over runs.
     """
-    window = arm(upload, t, duration)
+    window = arm(upload, time, duration)
     return read(window, core.run(upload))

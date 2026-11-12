@@ -1,7 +1,8 @@
 import pathlib as pl
 import sys
-import pytest
+
 import pandas as pd
+import pytest
 
 import wignertime.adwin as wt_adwin
 
@@ -9,17 +10,16 @@ import wignertime.adwin as wt_adwin
 # the suite is green for the right reasons in an environment without it.
 pytest.importorskip("ADwin", reason="the `adwin` extra is not installed")
 
-from wignertime.adwin import core as adwin
-from wignertime.adwin import adc
-from wignertime.adwin import console
-from wignertime.adwin import connection as adcon
-from wignertime.adwin import validate as wt_validate
-from wignertime.adwin import internal as adi
-from wignertime import conversion
-from wignertime import device
+from wignertime import conversion, device
 from wignertime import timeline as tl
-from wignertime.internal import dataframe as frame
+from wignertime.adwin import adc
+from wignertime.adwin import connection as adcon
+from wignertime.adwin import console
+from wignertime.adwin import core as adwin
+from wignertime.adwin import internal as adi
+from wignertime.adwin import validate as wt_validate
 from wignertime.demo import full_experiment as demo
+from wignertime.internal import dataframe as frame
 
 sys.path.append(str(pl.Path.cwd() / "doc"))
 # import experimentDemo as ex
@@ -271,6 +271,7 @@ def test_to_tuples_separates_modules_despite_numpy_scalars():
     and nothing dropped.
     """
     import numpy as np
+
     from wignertime.internal import dataframe as frame
 
     digital = adi.modules__digital(adi.SPECIFICATIONS__DEFAULT)
@@ -656,7 +657,8 @@ def test_running_starts_before_the_block_and_waits_after_it(monkeypatch):
     with adwin.running(log) as run:
         inside = list(log.machine.calls)
 
-    assert _names(inside) == ["Process_Status", "Start_Process"]
+    # `Set_Par` clears the program's report, so that a replay is checked on its own (D26).
+    assert _names(inside) == ["Process_Status", "Set_Par", "Start_Process"]
     assert _names(log.machine.calls[len(inside) :]) == [
         "Process_Status",
         "Process_Status",
@@ -1434,3 +1436,142 @@ def test_more_digital_modules_than_the_sequencer_programs_are_refused():
             1,
             machine_specifications=specifications,
         )
+
+
+# The review of 2026-11-11
+
+
+def test_a_closing_wait_is_played():
+    """
+    A19. The run ended at the last connected row, since anchors have no connection and
+    `convert` drops them first. A last stage ending in a wait, the case `sec:anchor`
+    gives anchors for, had its wait cut off, and the final state followed at once.
+    """
+    conns = adcon.new(["shutter__MOT", 1, 11], ["coil__MOT__A", 3, 2])
+    devs = device.new(["coil__MOT__A", 2.0, -5.0, 5.0])
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(shutter__MOT=1, coil__MOT__A=0.0, time=0.0, context="run"),
+            tl.anchor(1.0),
+            tl.update(coil__MOT__A=1.0),
+            tl.anchor(2.0),
+        )
+    )
+    machine = _MachineRecording()  # 5 us
+    log = adwin.upload(timeline, conns, devs, machine, 1)
+    assert machine.par[1] == log.cycle__last == 600_000
+    assert log.time__last == pytest.approx(3.0)
+
+
+def test_without_a_closing_wait_the_run_ends_at_its_last_row():
+    machine = _MachineRecording()
+    log = adwin.upload(*_digital_only(), machine, 1)
+    assert machine.par[1] == log.cycle__last == 200_000
+
+
+@pytest.mark.parametrize(
+    "value, message",
+    [(5.0, "coil__MOT__A = 5 on module 3, which holds -10 to 10 V"), (-4.0, "= -4")],
+)
+def test_a_value_beyond_its_modules_range_is_refused(value, message):
+    """
+    A22. Only the device's own limits were checked, and they may be absent or wider than
+    the module: 5 A at 3 V/A on a ±10 V module was sent as the digits 81919.
+    """
+    timeline = tl.to_timeline(tl.update(coil__MOT__A=value, time=0.0, context="run"))
+    with pytest.raises(ValueError, match=message):
+        adwin.convert(
+            timeline,
+            adcon.new(["coil__MOT__A", 3, 2]),
+            device.new(["coil__MOT__A", 3.0]),
+            5e-6,
+        )
+
+
+@pytest.mark.parametrize("value", [2, -1, 1.5])
+def test_a_digital_value_that_does_not_round_to_0_or_1_is_refused(value):
+    """A22. It was sent as whatever it rounded to: 1.5 became 2, 2 and -1 went as they were."""
+    timeline = tl.to_timeline(tl.update(shutter__MOT=value, time=0.0, context="run"))
+    with pytest.raises(ValueError, match="a digital line takes 0 or 1"):
+        adwin.convert(timeline, adcon.new(["shutter__MOT", 1, 11]), device.new(), 5e-6)
+
+
+@pytest.mark.parametrize("value, sent", [(0.7, 1), (0.3, 0), (True, 1)])
+def test_a_digital_value_is_rounded_as_the_paper_says(value, sent):
+    """A22 keeps `sec:physicslayer`'s rounding: only what rounds to 0 or 1 is accepted."""
+    timeline = tl.to_timeline(tl.update(shutter__MOT=value, time=0.0, context="run"))
+    _, digital = adwin.convert(
+        timeline, adcon.new(["shutter__MOT", 1, 11]), device.new(), 5e-6
+    )
+    assert [row[3] for row in digital] == [sent]
+
+
+@pytest.mark.parametrize(
+    "connections, devices, message",
+    [
+        (
+            [["shutter__A", 1, 1], ["shutter__A", 1, 2]],
+            [],
+            "shutter__A is connected more than once",
+        ),
+        (
+            [["shutter__A", 1, 1], ["shutter__B", 1, 1]],
+            [],
+            "module 1, channel 1 is connected to shutter__A, shutter__B",
+        ),
+        (
+            [["coil__A__A", 3, 2]],
+            [["coil__A__A", 1.0, -5, 5], ["coil__A__A", 2.0, -5, 5]],
+            "coil__A__A is listed more than once among the devices",
+        ),
+    ],
+)
+def test_a_table_that_says_two_things_is_refused(connections, devices, message):
+    """
+    A23. A variable connected twice drove only its last channel, two variables on one
+    channel both reached it, and a device listed twice converted with its last entry.
+    """
+    timeline = tl.to_timeline(
+        tl.update(**{name: 0.0 for name, *_ in connections}, time=0.0, context="run")
+    )
+    with pytest.raises(ValueError, match=message):
+        adwin.convert(timeline, adcon.new(*connections), device.new(*devices), 5e-6)
+
+
+def test_a_replay_is_checked_on_its_own_report(monkeypatch):
+    """
+    D26. Only `upload` cleared `Par_14`, so a replay under a program that does not report
+    passed `wait` on the previous run's report.
+    """
+    monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
+    log = _uploaded()
+    adwin.run(log)
+    log.machine.reports = 0  # an older program is loaded, and reports nothing
+    with pytest.raises(RuntimeError, match="did not report the Processdelay"):
+        adwin.run(log)
+
+
+def test_no_sequencer_names_a_digital_module_by_number():
+    """
+    D25. Every digital module is programmed from the machine specifications (D18), but
+    the ADC variant kept one `P2_DigProg(1, ...)` of its own.
+    """
+    import re
+
+    root = pl.Path(wt_adwin.__file__).parents[3] / "resources" / "ADwin"
+    literal = re.compile(r"p2_dig(prog|out)\s*\(\s*1\s*,", re.IGNORECASE)
+    found = [
+        "{}:{}".format(path.name, number)
+        for path in sorted(root.glob("*.bas")) + sorted(root.glob("*.inc"))
+        for number, line in enumerate(path.read_text(errors="replace").splitlines(), 1)
+        if literal.search(line.split("'")[0])
+    ]
+    assert found == []
+
+
+def test_adc_takes_time_as_the_core_functions_do():
+    """D26: `t` became `time` in the core (#143), and `adc` followed after it."""
+    import inspect
+
+    for f in (adc.arm, adc.run):
+        assert list(inspect.signature(f).parameters) == ["upload", "time", "duration"]

@@ -1,19 +1,18 @@
+import pathlib as pl
+import sys
+
+import numpy as np
 import pytest
 from munch import Munch
-import numpy as np
 
-from wignertime import ramp_function, timeline as tl
-
+from wignertime import ramp_function
+from wignertime import timeline as tl
+from wignertime.demo import full_experiment as ex
 # NOTE: the commented-out `display` call below needs
 # `from wignertime.adwin import display`, and with it the optional `display`
 # extra. It is not imported at module scope so that these tests remain runnable
 # without that extra.
 from wignertime.internal import dataframe as wt_frame
-
-import pathlib as pl
-import sys
-
-from wignertime.demo import full_experiment as ex
 
 
 @pytest.fixture
@@ -792,3 +791,107 @@ def test_a_ramp_binding_no_resolution_expanded_with_none_is_refused(function):
 def test_a_ramp_function_called_without_a_resolution_says_where_one_comes_from():
     with pytest.raises(ValueError, match="`tanh` was given no `time_resolution`"):
         ramp_function.tanh([0.0, 0.0], [1.0, 1.0])
+
+
+# The review of 2026-11-11
+
+
+def test_touching_ramps_written_out_of_time_order_expand_as_written():
+    """
+    A21. `expand` paired a variable's ramp rows in time order, so a ramp over 1..2 s written
+    before one over 0..1 s became a hold to 1 s, a jump to 3 and a ramp 3 -> 5.
+    """
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(x__A=0.0, time=0.0, context="c"),
+            tl.ramp(x__A=5.0, time=1.0, duration=1.0, origin=0.0),
+            tl.ramp(x__A=3.0, time=0.0, duration=1.0, origin=0.0),
+        )
+    )
+    rows = tl.expand(timeline, time_resolution=0.5)
+    pairs = list(zip(rows["time"], rows["value"]))
+    # The second ramp as written, 0 -> 3 over 0..1 s, and the first, 0 -> 5 over 1..2 s:
+    # its start was resolved when it was written, before the second existed.
+    assert (0.5, 1.5) in pairs and (1.0, 3.0) in pairs
+    assert (1.0, 0.0) in pairs and (1.5, 2.5) in pairs and (2.0, 5.0) in pairs
+
+
+def test_ramp_rows_that_run_backwards_in_written_order_raise():
+    """A21: what `expand` can still see of a timeline re-sorted before it."""
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(x__A=0.0, time=0.0, context="c"),
+            tl.ramp(x__A=5.0, time=1.0, duration=1.0),
+        )
+    )
+    reversed_ramp = wt_frame.concat(
+        [
+            timeline[timeline["function"].isna()],
+            timeline[timeline["function"].notna()][::-1],
+        ]
+    )
+    with pytest.raises(ValueError, match="do not run forward in time"):
+        tl.expand(reversed_ramp, time_resolution=0.5)
+
+
+@pytest.mark.parametrize("start", [0.0, 0.3, 1.7])
+def test_linear_reaches_its_target_wherever_it_starts(start):
+    """B13. `np.arange` stopped one step short: a ramp to 10 at 0.1 ended at 9.0."""
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(x__A=0.0, time=0.0, context="c"),
+            tl.ramp(
+                x__A=10.0,
+                time=start,
+                duration=1.0,
+                origin=0.0,
+                function=ramp_function.linear,
+            ),
+        )
+    )
+    rows = tl.expand(timeline, time_resolution=0.1)
+    assert len(rows) == 1 + 11  # the update, and the ramp at both ends
+    assert rows["value"].iloc[-1] == pytest.approx(10.0)
+    assert rows["time"].iloc[-1] == pytest.approx(start + 1.0)
+
+
+def test_a_ramp_without_its_end_says_how_to_give_one():
+    """D26. It asked for `time=`, which is the ramp's start."""
+    with pytest.raises(
+        ValueError, match="A ramp needs its end, and none is given for x"
+    ):
+        tl.to_timeline(
+            tl.stack(tl.update(x=0.0, time=0.0, context="c"), tl.ramp(x=1.0))
+        )
+
+
+@pytest.mark.parametrize("origin2", ["MOT", tl.ANCHOR, "z__A", ["MOT", 0.0]])
+def test_origin2_outside_the_ramp_is_refused_by_name(origin2):
+    """
+    D26. `origin2` is resolved against the ramp's own start. A name outside it failed in
+    the origin machinery, which spoke of `origin`, and `ANCHOR` was said to be missing from
+    a timeline that held two.
+    """
+    base = tl.to_timeline(
+        tl.stack(
+            tl.update(x__A=0.0, time=0.0, context="MOT"),
+            tl.anchor(1.0),
+            tl.update(z__A=0.0, time=0.0, context="later"),
+            tl.anchor(1.0),
+        )
+    )
+    with pytest.raises(ValueError, match="resolved against the ramp's own start"):
+        tl.to_timeline(
+            tl.ramp(x__A=5.0, time=0.2, time2=0.5, origin2=origin2), onto=base
+        )
+
+
+@pytest.mark.parametrize("origin2", [tl.VARIABLE, tl.LAST, "later", 0.0, [0.0, 0.0]])
+def test_origin2_within_the_ramp_still_resolves(origin2):
+    base = tl.to_timeline(
+        tl.stack(tl.update(x__A=0.0, time=0.0, context="later"), tl.anchor(1.0))
+    )
+    timeline = tl.to_timeline(
+        tl.ramp(x__A=5.0, time=0.2, time2=3.0, origin2=origin2), onto=base
+    )
+    assert timeline[timeline["function"].notna()]["value"].tolist() == [0.0, 5.0]

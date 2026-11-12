@@ -66,10 +66,6 @@ def _add_function(
         else:
             dff = deepcopy(timeline)
 
-        s = dff.loc[mask].apply(
-            lambda row: row[column__conversion](row["value"]), axis=1
-        )
-
         dff.loc[mask, column__new] = to_digits(
             dff.loc[mask]
             .apply(lambda row: row[column__conversion](row["value"]), axis=1)

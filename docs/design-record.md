@@ -113,7 +113,7 @@ The subtlety worth keeping: a constituent that records nothing is **neutral**, n
 
 Where *no* constituent records a set there is nothing to check against and the guard stays off, which keeps a hand-written `lambda tline: ...` usable.
 
-Covered by `test/wigner/time/timeline/test_forwarded_keywords.py`. The diagnosis follows.
+Covered by `test/wigner/time/timeline/test_forwarded_keywords.py`. The diagnosis follows. Its remainder, a keyword delivered to constituents that do not declare it, is A20 (2026-11-12).
 
 `timeline.stack` forwards every keyword it is given to every constituent, which is the documented convenience for a shared `context`. But the core functions absorb unrecognised keywords into `**vtvc_dict`, where a keyword *is* a variable name. So a keyword that matches no parameter is not rejected — it becomes a row.
 
@@ -476,7 +476,7 @@ A variable's kind is stated twice. Its name states it, since a variable without 
 
 **Fixed as below**: `ramp` refuses a ramp that overlaps another of the same variable, naming the variable and both intervals; one ramp starting exactly as another ends is kept, as `magnetic_trapping`'s two `pull_coils` do. Nothing in the suite, the demo or the lab overlaps, and the references are unchanged. **The comparison is exact, with no tolerance for rounding, and that is the finding worth keeping.** Two ramps placed by different sums can meet 4e-17 s apart (`0.1 + 0.2` against `0.3`). When the second then starts that little *before* the first ends, its start value is looked up at an instant the first one's end row does not yet precede. The lookup was then still widened by `config.TIME_RESOLUTION` (1 µs; it admitted rows up to 1 µs after the instant), which covered it by luck; #94 removed that widening (D21), and with it gone the ramp would start from the first ramp's *start* value — #157 again, 4e-17 s deep. A tolerance in the overlap check would have let exactly that through; refused instead, the message says the two only touch to within rounding and to place the ramp from the other's end (`origin="last"` or the stage's anchor). Pinned in `test_timeline_ramp.py`; five of its new tests fail on the previous code.
 
-Numbered A17 because A15 and A16 had been taken meanwhile (#94). Found while checking the rule settled on #142 the same day, that a ramp always starts where its variable is. Measured before the fix:
+Numbered A17 because A15 and A16 had been taken meanwhile (#94). Its second failure survived for ramps that meet, written out of time order: A21 (2026-11-12). Found while checking the rule settled on #142 the same day, that a ramp always starts where its variable is. Measured before the fix:
 
 ```python
 base = tl.stack(tl.create(coil_X__A=0.0, t=0.0, context="s"), tl.anchor(5.0))
@@ -505,6 +505,69 @@ Among a variable's rows at one instant, the one written last is in effect. `drop
 This is #153's second defect, in the pipeline rather than the display. There it drew a superseded value; here it sent one. The demo and the lab have no `update` at the instant a ramp of the same variable ends, so none of the reference arrays moved. The two ties the sort did reorder in the demo held equal values, or values 2e-16 apart.
 
 **Fixed:** `wt_frame.sort` sorts stably and returns a copy. It is used in `internal.add`, in `display.quantities` (#153) and in `console.panel`'s defaults. `insert_dataframes` takes positions in the frame it is given. `expand` numbers the rows by where they were written, and puts each ramp's rows back where the ramp was written. Pinned by `test_an_update_at_the_instant_a_ramp_ends_is_what_is_sent` (test_adwin), `test_expand_puts_each_ramp_where_it_was_written` and `test_sort_keeps_tied_rows_in_written_order_and_leaves_its_argument`; each fails on the previous code. The change is in the Python side of the conversion and is checked against the arrays it produces. The rig has nothing to add, since what it plays is the arrays.
+
+### A19 — a wait that ends the timeline is not played **[new, found 2026-11-11; this is #186]** — **FIXED 2026-11-12 (#186)**
+
+Found, with A20–A23, B12, B13, D25 and D26, in an outside review of the package, the lab code and the paper (2026-11-11). `upload` sets `Par_1`, the cycle at which the sequencer ends the run, to the highest cycle among the rows that reach the arrays. Anchors have no connection, so `convert` has dropped them before any cycle is computed, and a timeline whose last stage ends in a wait ended at that stage's last command:
+
+```python
+stack(update(shutter__MOT=1, coil__MOT__A=0.0, time=0.0, context="run"),
+      anchor(1.0), update(coil__MOT__A=1.0), anchor(2.0))
+# last anchor at 3.0 s; the run ended at 1.0 s, and the final state followed one cycle later
+```
+
+That is the case `sec:anchor` gives anchors for, "a stage that ends in a waiting period". The mechanism was on record – `CLAUDE.md` gave it as the reason `drop_repeats` keeps each channel's last row – but not this consequence of it.
+
+**Fixed** as the maintainer settled it (2026-11-11): the run ends at the last connected row or the last anchor, whichever is later. Rows of variables without a connection still do not extend it, since a table may carry variables wired only in the other lab. The anchor's cycle is rounded as `add_cycle` rounds a row, and refused past the counter as `validate.cycles` refuses one. `convert` is unchanged, and so are the references; a run that ends in a wait is longer by that wait. Tests: `test_adwin.py::test_a_closing_wait_is_played` and `::test_without_a_closing_wait_the_run_ends_at_its_last_row`.
+
+### A20 — `stack` handed a forwarded keyword to every constituent, not only to those that declare it **[found 2026-11-11; this is #103, reopened]** — **FIXED 2026-11-12 (#103)**
+
+A5's remainder. A5's guard refuses a keyword that no constituent declares, but the keyword then went to every constituent whose closure *accepts* it, and the closure `util.stage` builds accepts any keyword. So a keyword one stage declares reached the others too, where a core function's `**vtvc_dict` read it as a variable:
+
+```python
+stack(update(shutter__X=1, coil__X__A=0.0, time=0.0, context="c"),
+      update(shutter__X=0), ramp(coil__X__A=1.0), duration=0.1)
+# a variable `duration` = 0.1, written by each update; nothing raised
+stack(update(...), anchor(0.5), ramp(coil__X__A=1.0), duration=0.1)
+# TypeError: _anchor() got an unexpected keyword argument 'duration'
+```
+
+The design intent of 2026-09-02 had described this layer as forwarding "every keyword to every constituent", and `stack`'s own message described the hazard exactly, for the keyword that no constituent declares.
+
+**Fixed:** a keyword reaches a constituent only if the constituent declares it, where it says what it declares. One that says nothing – `noop`, a hand-written `lambda tline: ...` – is neutral, as in the guard, and is given what it accepts. The demo and the lab give `stack` only `context`, which every core function declares, so the references are unchanged. Tests: `test_forwarded_keywords.py::test_a_forwarded_keyword_reaches_only_the_stages_that_declare_it` and `::test_an_anchor_beside_the_ramp_is_not_given_its_duration`.
+
+### A21 — `expand` paired two ramps that meet, written out of time order, across each other **[found 2026-11-11; this is #157, reopened]** — **FIXED 2026-11-12 (#157)**
+
+A17's second failure, by another route. A17 refused overlapping ramps and left `expand` pairing a variable's ramp rows in time order. Two ramps that meet, written in the opposite order to their times, pass A17's check, and were paired across:
+
+```python
+stack(update(x__A=0.0, time=0.0, context="c"),
+      ramp(x__A=5.0, time=1.0, duration=1.0, origin=0.0),   # written first: 0 -> 5 over 1..2 s
+      ramp(x__A=3.0, time=0.0, duration=1.0, origin=0.0))   # then: 0 -> 3 over 0..1 s
+# expanded: 0 held until 1 s, a jump to 3, a ramp 3 -> 5 -- a ramp nobody wrote
+```
+
+**Fixed:** `expand` pairs each variable's ramp rows in the order they were written, which is ramp by ramp, start then end (`wt_frame.sort` on `variable`, stable). A pair that does not run forward in time raises. That is what remains detectable of a timeline re-sorted by time before `expand`, not every wrong pairing of one. As written, the first ramp starts from the 0 the variable held when it was written, so the result has a step back to 0 at 1 s, which the order of writing implies; warning of that order is #181's. References unchanged. Tests: `test_timeline_ramp.py::test_touching_ramps_written_out_of_time_order_expand_as_written` and `::test_ramp_rows_that_run_backwards_in_written_order_raise`.
+
+### A22 — values a port cannot hold reached the arrays **[new, found 2026-11-11; this is #187]** — **FIXED 2026-11-12 (#187)**
+
+Only a device's limits were checked (`device.check_within_range`), and they may be absent – `device.new` fills in ±∞ – or wider than the module. Measured:
+
+```
+5 A at 3 V/A on a ±10 V, 16-bit module   -> digits 81919   (the module holds 0..65535)
+−12 V on the same module                 -> digits −6554
+digital 2, −1, 0.5, 1.5                   -> 2, −1, 0, 2
+```
+
+What the DAC does with such a code was not determined. The demo's nine devices all fit ±10 V; the Lab2 fixture's `lockbox_MOT__MHz` has no limits. `sec:physicslayer` says that a digital variable accepts only 0 or 1 and that other values are rounded; the pipeline rounded, and sent whatever came out.
+
+**Fixed:** `adwin.internal.check_codes`, after the device limits, refuses a digital value that does not round to 0 or 1 – the paper's rounding is kept, so 0.7 is sent as 1 – and analogue digits outside `0..2**bits − 1`, naming each variable, its value and its module's range in volts. The console's `set_value` refuses an analogue value outside its module's range too. References unchanged. Tests: `test_adwin.py::test_a_value_beyond_its_modules_range_is_refused`, `::test_a_digital_value_that_does_not_round_to_0_or_1_is_refused`, `::test_a_digital_value_is_rounded_as_the_paper_says` and `test_console.py::test_a_value_beyond_its_modules_range_is_refused_and_not_written`. Checked for internal consistency only (§E).
+
+### A23 — duplicate rows in the connection and device tables passed unchecked **[new, found 2026-11-11; this is #188]** — **FIXED 2026-11-12 (#188)**
+
+`check_correspondence` (A14) asks that each side be present, not that it be unique. Measured: a variable connected twice drove only the channel listed last, since the join gives it a row per connection and `drop_duplicates` keeps the last of each cycle; two variables on one channel both reached it, with conflicting initial states; a device listed twice converted with its last entry. None of it raised.
+
+**Fixed:** `adwin.internal.check_unique`, where the tables meet in `internal.add`, and in `console.panel`. The demo's and the Lab2 fixture's tables have no duplicates. Tests: `test_adwin.py::test_a_table_that_says_two_things_is_refused` (three cases) and `test_console.py::test_a_panel_from_tables_that_say_two_things_is_refused`.
 
 ---
 
@@ -696,6 +759,8 @@ Fix direction: guard in `previous`, and either raise naming the timeline as empt
 
 ### B9 — a ramp's sampling depends on where it sits on the time axis — **RESOLVED AND FIXED 2026-09-18**
 
+Its fix reached `tanh` only; `linear` is B13 (2026-11-12).
+
 `internal/util.range__inclusive` computed its point count as `math.ceil((stop - start) / step) + 1`. `stop - start` is a difference of *absolute* times, so it carries floating-point noise whose sign depends on the interval's position, and a bare `ceil` turns that noise into a different number of points.
 
 Measured, for a nominally 0.8 s ramp at `time_resolution=0.2`:
@@ -788,6 +853,18 @@ Fix direction from the review, **not approved, and a §C decision because it cha
 The cheaper alternative — have `Finish:` scan forward for the sentinel before dispatching — keeps the contract but adds an unbounded loop to the teardown path and leaves the sentinel load-bearing. Recorded as the fallback, not the recommendation.
 
 **Not verified on hardware** (§E). The reasoning is from the source and from the cycle numbers Python emits.
+
+### B12 — `context_info` reported the first and last rows written, not a context's extent in time **[new, found 2026-11-11; this is #189]** — **FIXED 2026-11-12 (#189)**
+
+`sec:context` says it reports, for each context, "its temporal extent". It took `groupby("context")["time"].agg(["first", "last"])`, the first and last rows *in table order*, and a timeline is in the order it was written. In the demo, `optical_pumping` came out as 15.1045–15.1051 s, where its rows span 15.0045–15.2045 s, since it reinitializes its shutters past its closing anchor. `display.quantities` draws its context bands from it, so #184 inherited the error.
+
+**Fixed:** `min` and `max`. Test: `test_timeline_query.py::test_context_info_gives_the_extent_of_each_context_in_time`.
+
+### B13 — `ramp_function.linear` stopped short of its target, depending on where it sat **[found 2026-11-11; this is #134, reopened]** — **FIXED 2026-11-12 (#134)**
+
+B9's fix reached `tanh` only. `linear` sampled with `np.arange(t1, t2, time_resolution)`, which excludes the end: a ramp to 10 at a resolution of 0.1 ended at 9.0 and stayed there when it started at 0.0 or 0.3 s, and reached 10.0 from 1.7 s, by floating-point accident. Nothing in the demo, the lab or the paper uses it, but it is public.
+
+**Fixed:** `util.range__inclusive`, as `tanh` samples. Test: `test_timeline_ramp.py::test_linear_reaches_its_target_wherever_it_starts`.
 
 ---
 
@@ -1424,7 +1501,7 @@ Two ways to settle it, and they are opposites:
 
 **Not verified on hardware** (§E): what ADwin does with a write to an undeclared `data_21` is untested here.
 
-**Settled 2026-10-04 as option 2 (maintainer), and done (#133).** The recommendation above was reversed by §G: option 1 would have made `sec:adwin`'s "which channel types are available is a question of which modules are installed, not of the control software" false, and when the code and the paper disagree, the code changes. Each digital row is now written to its own module, `p2_digout(data_21[digitalIdx], …)`, as an analogue row is, and `data_21` is declared. The final state carries its module (`data_41..43`). `upload` writes the digital modules, derived from the specifications as before, to `data_44` with their count in `Par_19` (at most `adwin.MODULES__DIGITAL__MAX`, 16), and every sequencer's `lowinit:` programs each as outputs. The console marks its digital entries in `data_56`, programs their modules in its `init:`, writes each to its own module, and adopts the final state by module and channel. `console.MODULE__DIGITAL` is gone, and no module-1 literal is left in the ADbasic. The price in the event loop is one array read per digital update, not per cycle. The `sec:adwin` listing changed with the program, and the sentence it supports stands. **Not run on the rig**: the maintainer judged the change too simple to need it (2026-10-04); a second digital module can be exercised only where one is installed.
+**Settled 2026-10-04 as option 2 (maintainer), and done (#133).** The recommendation above was reversed by §G: option 1 would have made `sec:adwin`'s "which channel types are available is a question of which modules are installed, not of the control software" false, and when the code and the paper disagree, the code changes. Each digital row is now written to its own module, `p2_digout(data_21[digitalIdx], …)`, as an analogue row is, and `data_21` is declared. The final state carries its module (`data_41..43`). `upload` writes the digital modules, derived from the specifications as before, to `data_44` with their count in `Par_19` (at most `adwin.MODULES__DIGITAL__MAX`, 16), and every sequencer's `lowinit:` programs each as outputs. The console marks its digital entries in `data_56`, programs their modules in its `init:`, writes each to its own module, and adopts the final state by module and channel. `console.MODULE__DIGITAL` is gone, and no module-1 literal is left in the ADbasic. The price in the event loop is one array read per digital update, not per cycle. The `sec:adwin` listing changed with the program, and the sentence it supports stands. **Not run on the rig**: the maintainer judged the change too simple to need it (2026-10-04); a second digital module can be exercised only where one is installed. One literal was left after all, in the ADC variant: D25 (2026-11-12).
 
 ### D19 — cycle-count sentinels share a namespace with the time axis, and `cyclecount` wraps into it **[new, found 2026-09-22; this is #146]** — **GUARDED 2026-09-23 (#146; the structural half rides on B11, #148)**
 
@@ -1534,6 +1611,22 @@ Cheap to close from Python, and it belongs there rather than in ADbasic: `adwin.
 **Not verified on hardware**: that re-running `p2_digprog(1, 1111b)` in the console's `init:` leaves the digital output levels alone, and the whole of step 11. The manual settles that `Start_Process` works from another process's `finish:` (p. 286; a process cannot start *itself* there) and that it does not wait for the process to be running. It does not say what `Start_Process` does to a process that is still being stopped. That can happen only when the run is too short for the console's stop to complete, as in a run refused by the period check (D14), and the console may then stay closed. That failure is visible, not silent.
 
 Bearing on this document: once the console is in the package its defects are ours, and the review lists several of the kind catalogued here — `pd.merge` padding with `NaN` so that an `is None` test sent every digital channel down the analogue branch (A-class, and it broke precisely the path that would derive console tables from ours); `int()` truncating a DAC code toward zero instead of rounding; and `safety_range` present in the schema and read nowhere, with `unit_range` doing both jobs.
+
+### D25 — the ADC sequencer still named a digital module by number **[found 2026-11-11; this is #133, reopened]** — **FIXED 2026-11-12 (#133)**
+
+D18's account noted on 2026-09-28 that the ADC variant programmed module 1 twice, and its settlement of 2026-10-04 that no module-1 literal was left. One was: `WignerTimeADwinADC.bas` kept a `P2_DigProg(1,1111b)` after its loop over the modules in `data_44`, harmless while module 1 is digital and wrong on an apparatus where it is not. Its event loop also wrote `par_10=1` on every cycle, which nothing reads, in the loop that is to stay free of anything but playback.
+
+**Fixed:** both removed. `test_adwin.py::test_no_sequencer_names_a_digital_module_by_number` reads every `.bas` and `.inc` under `resources/ADwin/` for a `p2_digprog(1,` or a `p2_digout(1,` outside a comment. Checked for internal consistency only (§E).
+
+### D26 — small fixes from the review of 2026-11-11 **[this is #190, and #143 reopened for `adc`]** — **FIXED 2026-11-12**
+
+- **`to_tuples` sorted with a bare `sort_values`**, against the rule that order among tied rows is meaning (A18). Now `wt_frame.sort`. It ran only when the rows were out of cycle order, and mattered only for two variables on one channel, which A23 now refuses.
+- **`conversion._add_function` evaluated a calibration function twice per row**, once into a variable nothing read. Test: `test_conversion.py::test_a_calibration_function_is_evaluated_once_per_row`.
+- **`file.save(t, "run42")` made a directory `run42/`**, where its docstring's rule for a path without a suffix says `run42.parquet`. Its test for a trailing separator also asked the path after `Path` had dropped the separator, so it never fired. A name without a suffix is now a file (maintainer, 2026-11-11), and a directory is one that exists or is written with a trailing separator. Tests: `test_file.py::test_a_name_without_a_suffix_is_a_file` and `::test_a_name_ending_in_a_separator_is_a_directory`. A duplicate `_has_module` went too.
+- **`ramp(x=1.0)` with no end asked for `time=`**, which is the ramp's start: the row builder can only ask for the time it is given. `_ramp` now asks for `duration`, `time2` or `v=[time, target]`. Test: `test_timeline_ramp.py::test_a_ramp_without_its_end_says_how_to_give_one`.
+- **`adc.arm` and `adc.run` took `t`**, from 2026-10-02, three days after #143 had settled on `time`. `sec:adwin` names `adc.run`, so 1.0.0 would have frozen it. Now `time`; the lab passes it positionally. Test: `test_adwin.py::test_adc_takes_time_as_the_core_functions_do`.
+- **An `origin2` naming something outside the ramp failed in the origin machinery**, whose message spoke of `origin`, and for `ANCHOR` said that the timeline held no anchor when it held several. `origin2` is resolved against the ramp's own start rows, by design (maintainer, 2026-11-11, in `CLAUDE.md`). `_check_origin2` now refuses such a name, or `ANCHOR`, saying so. Tests: `test_timeline_ramp.py::test_origin2_outside_the_ramp_is_refused_by_name` and `::test_origin2_within_the_ramp_still_resolves`.
+- **`start` did not clear `Par_14`**, as `upload` does. Every run of the current programs writes it at the end of `init:`, so a replay at a changed period was still refused; but under a program that does not report, a replay passed `wait` on the previous run's report. `start` now clears it. Test: `test_adwin.py::test_a_replay_is_checked_on_its_own_report`. Checked for internal consistency only (§E).
 
 ---
 

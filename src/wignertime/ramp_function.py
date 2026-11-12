@@ -5,7 +5,6 @@ import numpy as np
 
 from wignertime.internal import util as wt_util
 
-
 ATTRIBUTE__POINTS = "__wigner_time_points__"
 """
 How many time-value pairs a ramp function interpolates between.
@@ -80,7 +79,11 @@ def linear(
     t1, v1 = origin
     t2, v2 = terminus
     m = (v2 - v1) / (t2 - t1)
-    times = np.arange(t1, t2, time_resolution)
+    # Inclusive, and with the interval count rounded first, as `tanh` samples (B9). Its
+    # `np.arange` stopped one step short of the end, so a ramp to 10 at 0.1 ended at 9.0 and
+    # stayed there, and whether the end was reached depended on where the ramp sat in
+    # time (B13).
+    times = wt_util.range__inclusive(t1, t2, time_resolution)
 
     return np.array([times, m * (times - t1) + v1]).transpose()
 

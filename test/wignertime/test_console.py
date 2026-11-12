@@ -2,8 +2,7 @@ import numpy as np
 import pytest
 
 import wignertime.adwin as wt_adwin
-from wignertime import conversion
-from wignertime import device
+from wignertime import conversion, device
 from wignertime import timeline as tl
 from wignertime.adwin import connection as adcon
 from wignertime.adwin import console
@@ -554,3 +553,25 @@ def test_a_digital_entry_on_a_second_digital_module_is_marked_and_read_back():
         "shutter__MOT": 0,
         "shutter__trap": 1,
     }
+
+
+def test_a_value_beyond_its_modules_range_is_refused_and_not_written():
+    """
+    A22. Inside its device's limits but outside the module's range: 4 A at 3 V/A is 12 V on
+    a +-10 V module, whose digits the DAC cannot hold.
+    """
+    machine, panel = _configured(to_V=3.0)
+    with pytest.raises(ValueError, match="outside the range of its module"):
+        console.set_value(panel, "coil__MOT__A", 4.0)
+    assert machine.data[console.DATA__WANTED][1] == conversion.to_digits(4.5)
+
+
+def test_a_panel_from_tables_that_say_two_things_is_refused():
+    """A23, as the pipeline refuses them."""
+    connections, devices, defaults = _tables()
+    with pytest.raises(ValueError, match="connected more than once"):
+        console.panel(
+            adcon.new(["shutter__MOT", 1, 11], ["shutter__MOT", 1, 12]),
+            device.new(),
+            defaults,
+        )

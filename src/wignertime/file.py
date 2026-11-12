@@ -5,14 +5,12 @@
 For PC-level loading and saving of stored timelines. 
 """
 
-from pathlib import Path
-from typing import Callable
-from typing import Any
-
-import inspect
 import importlib.util
+import inspect
 import math
 import re
+from pathlib import Path
+from typing import Any, Callable
 
 from wignertime.internal import dataframe as wt_frame
 
@@ -114,10 +112,6 @@ def _sanitize_stem(name: str) -> str:
     return cleaned or "timeline"
 
 
-def _has_module(name: str) -> bool:
-    return importlib.util.find_spec(name) is not None
-
-
 def _stringify_callables_for_export(df: wt_frame.CLASS, suffix: str) -> wt_frame.CLASS:
     """
     Return a dataframe suitable for export.
@@ -159,8 +153,11 @@ def save(df: wt_frame.CLASS, path: str | Path | None = None) -> Path:
         - If `path` has no suffix:
             - save as parquet if possible
             - otherwise save as pickle
-        - If `path` is a directory (or looks like a directory), generate a filename
-          from the caller's variable name for `df`, falling back to "timeline".
+        - If `path` is an existing directory, or ends with a path separator, generate a
+          filename from the caller's variable name for `df`, falling back to "timeline".
+          A name without a suffix that does not exist yet is a file, by the rule above:
+          `save(t, "run42")` writes `run42.parquet`. (It used to make a directory,
+          `run42/`, against that rule, D26.)
         - If the target already exists, append __002, __003, ... before the suffix.
 
         Returns
@@ -174,14 +171,13 @@ def save(df: wt_frame.CLASS, path: str | Path | None = None) -> Path:
     """
     if path is None:
         path = Path.cwd()
+    # Asked of the argument as given: `Path` drops a trailing separator.
+    looks_like_dir = str(path).endswith(("/", "\\"))
     path = Path(path).expanduser()
 
     writers = _available_writers()
 
     is_existing_dir = path.exists() and path.is_dir()
-    looks_like_dir = str(path).endswith(("/", "\\")) or (
-        not path.suffix and not path.exists()
-    )
 
     if is_existing_dir or looks_like_dir:
         path.mkdir(parents=True, exist_ok=True)

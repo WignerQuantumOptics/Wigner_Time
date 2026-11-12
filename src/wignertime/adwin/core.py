@@ -1,27 +1,29 @@
 # SPDX-FileCopyrightText: 2024 Thomas W. Clark and András Vukics
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import funcy
-import numpy as np
 import contextlib
 import dataclasses
 import importlib.util
 import time
 from typing import NamedTuple
 
+import funcy
+import numpy as np
+
 if not importlib.util.find_spec("ADwin"):
     raise ImportError("Wigner Time's adwin modules require `ADwin` to be installed.")
 
 import ADwin
 
-from wignertime import timeline as tl
-from wignertime.config import wtlog as wtl
 import wignertime.adwin as wt_adwin
+from wignertime import timeline as tl
 from wignertime import variable as wt_variable
 from wignertime.adwin import connection
 from wignertime.adwin import console as wt_console
 from wignertime.adwin import internal as ad
 from wignertime.adwin import validate as wt_validate
+from wignertime.config import wtlog as wtl
+from wignertime.internal.timeline import anchor as wt_anchor
 
 
 class Upload(NamedTuple):
@@ -34,7 +36,8 @@ class Upload(NamedTuple):
     such a pair is expected.
 
     `cycle__last` is what `Par_1` was set to, the cycle of the last row outside the
-    special contexts, and `time__last` is the same instant in seconds. `analogue` and
+    special contexts or of the last anchor, whichever is later, and `time__last` is the
+    same instant in seconds. `analogue` and
     `digital` are the rows played, `(cycle, module, channel, digits)`; `analogue__finish` and
     `digital__finish` are the final state, `(module, channel, digits)`, which the sequencer
     applies however the run ends.
@@ -286,7 +289,9 @@ def upload(
             "dropped for want of a `connection`, or the timeline may describe only "
             "initial and final states.".format(list(wt_adwin.CONTEXTS__SPECIAL))
         )
-    cycle__last = int(cycles__run.max())
+    cycle__last = max(
+        int(cycles__run.max()), _cycle__last_anchor(timeline, cycle_period)
+    )
 
     # The final state leaves the playback arrays for arrays of its own, which `finish:`
     # plays from the start however the run ended (B11). Its rows need no cycle.
@@ -413,6 +418,32 @@ def _warn_of_jumps(jumps, cycle_period):
     )
 
 
+def _cycle__last_anchor(timeline, cycle_period):
+    """
+    The cycle of the timeline's last anchor, or 0 where it has none.
+
+    Anchors have no connection, so `convert` drops them before any cycle is computed, and
+    the run used to end at the last connected row (A19). A stage that ends in a waiting
+    period ends at its anchor, which is the case `sec:anchor` gives anchors for, and when
+    that stage came last its wait was cut off and the final state followed at once.
+
+    Rounded as `internal.add_cycle` rounds a row, and refused past the counter as
+    `validate.cycles` refuses one.
+    """
+    times = timeline.loc[wt_anchor.mask(timeline), "time"].to_numpy(dtype=float)
+    times = times[np.isfinite(times)]
+    if not len(times):
+        return 0
+    cycle = int(np.round(times.max() / cycle_period))
+    last = wt_adwin.CYCLES__RUN[1]
+    if cycle > last:
+        raise ValueError(
+            "The last anchor, at {} s, falls at cycle {}, past the last cycle the"
+            " controller's counter can reach, {}.".format(times.max(), cycle, last)
+        )
+    return cycle
+
+
 def _split_finish(rows):
     """`(played, final)`: the rows to play, and the final state's as `(module, channel, digits)`."""
     finish = wt_adwin.CONTEXTS__SPECIAL["ADwin_Finish"]
@@ -518,6 +549,9 @@ def start(upload):
         "starting process {process}, which would play the same arrays",
     )
 
+    # Cleared, as `upload` clears it: a replay does not go through `upload`, and a program
+    # that does not report would otherwise pass `wait` on the previous run's report.
+    machine.Set_Par(wt_adwin.PAR__PROCESSDELAY__REPORTED, 0)
     run = Run(upload=upload, time__start=time.time())
     machine.Start_Process(process)
     return run
