@@ -273,7 +273,7 @@ def upload(
     its value (`console.jumps`), once the previous run is over and the console has seen it. A
     jump from a value set by hand is often intended, so it is reported, not refused.
 
-    **A rehearsal** (`rehearsal=k`, a whole number of at least 2) plays the run in slow
+    **A rehearsal** (#196; `rehearsal=k`, a whole number of at least 2) plays the run in slow
     motion: k times slower, at the same values, so that every shutter, AOM and current
     source can be followed on its own display, and the run stopped if anything looks
     wrong, before it is ever played at speed. The arrays are made exactly as for the run
