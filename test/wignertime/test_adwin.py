@@ -49,9 +49,15 @@ def connections_simple():
     )
 
 
-def test_remove_unconnected_variables(df_simple, connections_simple):
-    return pd.testing.assert_frame_equal(
-        adcon.remove_unconnected_variables(df_simple, connections_simple),
+def test_an_anchor_is_removed(df_simple, connections_simple):
+    """An anchor has no connection by design, and is removed before conversion."""
+    df = df_simple[df_simple["variable"] != "virtual"]
+    anchored = pd.concat(
+        [df, pd.DataFrame([[1.0, "⚓__001", 0.0, "MOT"]], columns=df.columns)],
+        ignore_index=True,
+    )
+    pd.testing.assert_frame_equal(
+        adcon.remove_unconnected_variables(anchored, connections_simple),
         pd.DataFrame(
             {
                 "time": [0.0] * 3,
@@ -61,6 +67,15 @@ def test_remove_unconnected_variables(df_simple, connections_simple):
             }
         ),
     )
+
+
+def test_a_variable_without_a_connection_is_refused(df_simple, connections_simple):
+    """
+    Any other variable without a connection is refused, by name (A24). It used to be
+    removed without a word, so it vanished from what the machine played.
+    """
+    with pytest.raises(ValueError, match=r"\['virtual'\] have no connection"):
+        adcon.remove_unconnected_variables(df_simple, connections_simple)
 
 
 def test_add_cycle():
