@@ -451,7 +451,7 @@ the one deliberate exception** (`upload(..., rehearsal=k)`, #196, maintainer, 20
 are made at the period read off the machine, as for the run at speed, and `Par_9` is k times its
 Processdelay, which the operator sets before starting, so the run plays k times slower for each
 device to be watched on its own display. Forgotten, the period check refuses it. The log records
-k (`Upload.rehearsal`), and `adc.arm` refuses a rehearsal. `upload` waits for a running process before writing, and says
+k (`Upload.rehearsal`). `upload` waits for a running process before writing, and says
 so once (A15). The machine accepts writes mid-run, and a parameter scan's next upload used to
 land in the previous shot's finish tail.
 

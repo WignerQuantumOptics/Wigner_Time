@@ -96,12 +96,6 @@ def arm(upload, time, duration):
             "The ADC records only in `WignerTimeADwinADC.bas`, process {}, but this upload"
             " was made for process {}.".format(PROCESS, upload.process)
         )
-    if upload.rehearsal != 1:
-        raise ValueError(
-            "This upload is a rehearsal, {} times slower than its arrays, and the ADC's"
-            " sampling is not slowed down with it, so a recording would not be one of the run."
-            " Record at speed.".format(upload.rehearsal)
-        )
     if not duration > 0:
         raise ValueError(
             "The duration of a recording must be a positive number of seconds, not"

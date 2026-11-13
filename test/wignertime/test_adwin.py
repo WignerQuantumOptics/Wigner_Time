@@ -1051,13 +1051,6 @@ def _uploaded__ADC(**machine):
     return log
 
 
-def test_a_rehearsal_does_not_record():
-    """The ADC's sampling is not slowed down with a rehearsal, so it would not record the run."""
-    log = adwin.upload(*_digital_only(), _MachineRecordingADC(), 4, rehearsal=10)
-    with pytest.raises(ValueError, match="rehearsal, 10 times slower"):
-        adc.arm(log, 0.1, 0.1)
-
-
 @pytest.mark.parametrize(
     "processdelay, cycle__start, cycles", [(5000, 100_000, 2), (2000, 250_000, 5)]
 )

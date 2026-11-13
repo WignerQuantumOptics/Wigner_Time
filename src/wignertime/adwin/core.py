@@ -289,8 +289,8 @@ def upload(
     CAUTION. Every phase of a rehearsal lasts k times longer, at the same currents and
     powers: a few milliseconds at a magnetic trap's current become k times as long, and a
     MOT of seconds lasts minutes. Lower such values, or keep k modest, and shorten the long
-    waits. The ADC variant does not record in a rehearsal (`adc.arm` refuses it): its
-    sampling is not slowed down with the run.
+    waits. A rehearsal is the sequencer's: the ADC, which records asynchronously in burst
+    mode, at a sampling period of its own, takes no part in it.
 
     NOTE: Stateful. It writes `Par_1..3` and the data arrays, and starts nothing.
     """
