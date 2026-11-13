@@ -8,12 +8,13 @@ The choice made here is to model our ADwin connections as little more than table
 What follows are simply convenience functions to make the creation easier.
 """
 from copy import deepcopy
-import pandas as pd
-import numpy as np
 
-from wignertime.internal import dataframe as wt_frame
-from wignertime import config as wt_config
+import numpy as np
+import pandas as pd
+
 import wignertime.variable as variable
+from wignertime import config as wt_config
+from wignertime.internal import dataframe as wt_frame
 
 # ======================================================================
 _SCHEMA = {"variable": str, "module": int, "channel": int}
@@ -64,18 +65,30 @@ def new(*variable_module_channel) -> pd.DataFrame:
 
 def remove_unconnected_variables(timeline, connections):
     """
-    Purges the given timeline of any `variable`s that do not have a matching `connection`.
+    Removes the anchors from `timeline`, and refuses any other variable that has no
+    `connection` (A24).
+
+    An anchor is a time reference, not an output: it has no connection by design, and its
+    name begins with `config.LABEL__ANCHOR`, as `timeline.anchor` names it. Every other
+    variable is meant for an output. One without a connection used to be removed too,
+    without a word, so a misspelled name, a channel the apparatus lacks, or a name a port of
+    old code missed vanished from the arrays while the timeline still showed it. That is
+    the silent kind of failure, so such a variable is now refused, with every one named.
 
     NOTE: Assumes timeline and connections are both pd.DataFrame-like things
     """
     timeline = deepcopy(timeline)
-    _disconnections = [
-        v
-        for v in timeline["variable"].unique()
-        if v not in connections["variable"].unique()
-    ]
+    connected = set(connections["variable"])
+    unconnected = [v for v in timeline["variable"].unique() if v not in connected]
+    anchors = [v for v in unconnected if v.startswith(wt_config.LABEL__ANCHOR)]
+    outputs = sorted(set(unconnected) - set(anchors))
 
-    for v in _disconnections:
-        timeline = timeline.drop(timeline[timeline.variable == v].index)
+    if outputs:
+        raise ValueError(
+            "Variable(s) {} have no connection, so they cannot reach an output, and would"
+            " vanish from what the machine plays. Add a connection for each, correct the"
+            " name, or remove its rows. (An anchor, which has no connection by design, is a"
+            " name beginning with {!r}.)".format(outputs, wt_config.LABEL__ANCHOR)
+        )
 
-    return timeline
+    return timeline[~timeline["variable"].isin(anchors)]

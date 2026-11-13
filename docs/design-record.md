@@ -571,6 +571,16 @@ What the DAC does with such a code was not determined. The demo's nine devices a
 
 **Fixed:** `adwin.internal.check_unique`, where the tables meet in `internal.add`, and in `console.panel`. The demo's and the Lab2 fixture's tables have no duplicates. Tests: `test_adwin.py::test_a_table_that_says_two_things_is_refused` (three cases) and `test_console.py::test_a_panel_from_tables_that_say_two_things_is_refused`.
 
+### A24 — a variable without a connection vanished from the arrays **[new, found 2026-11-13, in Lab2's port; its issue is to be opened with the pull request]** — **FIXED 2026-11-13**
+
+`connection.remove_unconnected_variables`, the first step of `convert`, removed every variable that had no connection. That is right for the anchors, which have none by design, and was applied to every other variable as well, without a word. A misspelled name, a channel the apparatus lacks, or a name that a port of old code missed vanished from what the machine played, while the timeline, and its display, still showed it.
+
+Measured while porting Lab2's lab code to the D7 names: the lab's `create_Li_store_timeline` sets `shutter__transverse_pump`, which Lab2 does not have. On Lab2's tables the row disappeared and the conversion succeeded. The same would have happened to any notebook variable left in its old spelling, `shutter_MOT` for `shutter__MOT`, so the port's own completeness could not be checked by converting.
+
+**Fixed (maintainer's decision, 2026-11-13):** anchors, the names beginning with `config.LABEL__ANCHOR` as `timeline.anchor` writes them, are still removed. Any other variable without a connection raises a `ValueError` naming every one. Nothing in the suite relied on the removal: the demo, the Lab2 fixture and the lab's reference cases all convert unchanged. Tests: `test_adwin.py::test_an_anchor_is_removed` and `test_a_variable_without_a_connection_is_refused`.
+
+**The paper:** checked against the text submitted to EPJ QT, the last one this repository holds. `sec:anchor` defines an anchor as a row whose variable does not correspond to a connection and carries the anchor symbol, and `sec:hardwarelayer` has the connection table translate each row's name; both statements hold, and now hold of every row. The SciPost text was not available where this was checked.
+
 ---
 
 ## B. Correctness
