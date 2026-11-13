@@ -447,7 +447,12 @@ it by page.
 Besides `Par_1..3` it writes `Par_9`, the Processdelay it built
 for, and clears `Par_14`. Both sequencer programs report their own Processdelay into `Par_14` at
 the end of `init:`, and play nothing past the initial state if it differs from `Par_9` (#128). `wait`
-then raises `PeriodRefused`, and refuses a program that did not report at all. `upload` waits for a running process before writing, and says
+then raises `PeriodRefused`, and refuses a program that did not report at all. **A rehearsal is
+the one deliberate exception** (`upload(..., rehearsal=k)`, #196, maintainer, 2026-11-13): the arrays
+are made at the period read off the machine, as for the run at speed, and `Par_9` is k times its
+Processdelay, which the operator sets before starting, so the run plays k times slower for each
+device to be watched on its own display. Forgotten, the period check refuses it. The log records
+k (`Upload.rehearsal`). `upload` waits for a running process before writing, and says
 so once (A15). The machine accepts writes mid-run, and a parameter scan's next upload used to
 land in the previous shot's finish tail.
 
