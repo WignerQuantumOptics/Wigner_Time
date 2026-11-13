@@ -571,7 +571,7 @@ What the DAC does with such a code was not determined. The demo's nine devices a
 
 **Fixed:** `adwin.internal.check_unique`, where the tables meet in `internal.add`, and in `console.panel`. The demo's and the Lab2 fixture's tables have no duplicates. Tests: `test_adwin.py::test_a_table_that_says_two_things_is_refused` (three cases) and `test_console.py::test_a_panel_from_tables_that_say_two_things_is_refused`.
 
-### A24 — a variable without a connection vanished from the arrays **[new, found 2026-11-13, in Lab2's port; its issue is to be opened with the pull request]** — **FIXED 2026-11-13**
+### A24 — a variable without a connection vanished from the arrays **[new, found 2026-11-13, in Lab2's port; this is #195]** — **FIXED 2026-11-13 (#195)**
 
 `connection.remove_unconnected_variables`, the first step of `convert`, removed every variable that had no connection. That is right for the anchors, which have none by design, and was applied to every other variable as well, without a word. A misspelled name, a channel the apparatus lacks, or a name that a port of old code missed vanished from what the machine played, while the timeline, and its display, still showed it.
 
