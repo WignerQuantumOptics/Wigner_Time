@@ -41,6 +41,12 @@ class Upload(NamedTuple):
     `digital` are the rows played, `(cycle, module, channel, digits)`; `analogue__finish` and
     `digital__finish` are the final state, `(module, channel, digits)`, which the sequencer
     applies however the run ends.
+
+    `processdelay` is the Processdelay the run must be played at, which the sequencer checks
+    (#128), and `cycle_period` the period the arrays were made at. They agree, except in a
+    rehearsal (`upload`'s `rehearsal`), where `rehearsal` is the factor k by which the run is
+    slowed down: the machine plays at k times `cycle_period`, so every instant of the run,
+    `time__last` included, comes k times later than stated. `rehearsal` is 1 otherwise.
     """
 
     machine: ADwin.ADwin
@@ -53,6 +59,7 @@ class Upload(NamedTuple):
     digital: list
     analogue__finish: list
     digital__finish: list
+    rehearsal: int = 1
 
     @property
     def time__last(self):
@@ -63,7 +70,7 @@ class Upload(NamedTuple):
         return (
             "Upload(process={}, processor={!r}, processdelay={}, cycle_period={!r},"
             " cycle__last={}, time__last={!r}, rows={} analogue + {} digital,"
-            " finish={} analogue + {} digital)".format(
+            " finish={} analogue + {} digital{})".format(
                 self.process,
                 self.processor,
                 self.processdelay,
@@ -74,6 +81,11 @@ class Upload(NamedTuple):
                 len(self.digital),
                 len(self.analogue__finish),
                 len(self.digital__finish),
+                (
+                    ", rehearsal: {} times slower".format(self.rehearsal)
+                    if self.rehearsal != 1
+                    else ""
+                ),
             )
         )
 
@@ -105,6 +117,9 @@ def _timing(machine, process):
 
 POLL__PERIOD = 0.1
 """How often a process is asked whether it has stopped, in seconds: the lab's own rate."""
+
+PROCESSDELAY__MAX = 2**31 - 1
+"""The largest Processdelay a parameter holds, `Par_9` among them: ADbasic's `Long`."""
 
 
 def _wait_until_stopped(machine, process, reason=None):
@@ -233,6 +248,7 @@ def upload(
     process: int,
     machine_specifications=None,
     time_resolution=None,
+    rehearsal=None,
 ) -> Upload:
     """
     Converts a timeline for `process` on `machine` and writes it into the machine's memory,
@@ -257,9 +273,45 @@ def upload(
     its value (`console.jumps`), once the previous run is over and the console has seen it. A
     jump from a value set by hand is often intended, so it is reported, not refused.
 
+    **A rehearsal** (`rehearsal=k`, a whole number of at least 2) plays the run in slow
+    motion: k times slower, at the same values, so that every shutter, AOM and current
+    source can be followed on its own display, and the run stopped if anything looks
+    wrong, before it is ever played at speed. The arrays are made exactly as for the run
+    at speed, at the period the machine reports now, which is therefore to be its usual
+    one. What changes is the Processdelay the run must be played at: k times the present
+    one, which is what the period check is told to expect, and what the log records.
+    Before starting the run, set the process's Processdelay to that value
+    (`machine.Set_Processdelay(process, log.processdelay)`). If that is forgotten, the
+    period check refuses the run (`PeriodRefused`), as it would any run at a Processdelay
+    other than the one expected; a rehearsal is only ever played on purpose. Afterwards,
+    set the Processdelay back, or the next upload reads the slow one.
+
+    CAUTION. Every phase of a rehearsal lasts k times longer, at the same currents and
+    powers: a few milliseconds at a magnetic trap's current become k times as long, and a
+    MOT of seconds lasts minutes. Lower such values, or keep k modest, and shorten the long
+    waits. The ADC variant does not record in a rehearsal (`adc.arm` refuses it): its
+    sampling is not slowed down with the run.
+
     NOTE: Stateful. It writes `Par_1..3` and the data arrays, and starts nothing.
     """
     processor, processdelay, cycle_period = _timing(machine, process)
+    if rehearsal is not None:
+        if (
+            isinstance(rehearsal, bool)
+            or not isinstance(rehearsal, int)
+            or rehearsal < 2
+        ):
+            raise ValueError(
+                "`rehearsal` is the factor by which the run is slowed down, a whole number"
+                " of at least 2, not {!r}.".format(rehearsal)
+            )
+        if processdelay * rehearsal > PROCESSDELAY__MAX:
+            raise ValueError(
+                "A rehearsal {} times slower than the present Processdelay of {} would need"
+                " a Processdelay of {}, beyond the {} a parameter holds.".format(
+                    rehearsal, processdelay, processdelay * rehearsal, PROCESSDELAY__MAX
+                )
+            )
 
     output = convert(
         timeline,
@@ -337,7 +389,9 @@ def upload(
 
     # The period check (#128): the sequencer compares its own Processdelay with this at the
     # end of `init:`, and plays nothing past the initial state if they differ. The report is
-    # cleared so that a program which does not make one cannot pass off an old one.
+    # cleared so that a program which does not make one cannot pass off an old one. In a
+    # rehearsal, what is expected is the slowed-down Processdelay.
+    processdelay = processdelay if rehearsal is None else processdelay * rehearsal
     machine.Set_Par(wt_adwin.PAR__PROCESSDELAY__EXPECTED, processdelay)
     machine.Set_Par(wt_adwin.PAR__PROCESSDELAY__REPORTED, 0)
 
@@ -390,6 +444,7 @@ def upload(
         digital=digital,
         analogue__finish=analogue__finish,
         digital__finish=digital__finish,
+        rehearsal=1 if rehearsal is None else rehearsal,
     )
 
 
@@ -497,12 +552,20 @@ class PeriodRefused(RuntimeError):
         super().__init__(
             "Process {} refused to play the run: it runs at a Processdelay of {} ({:g} us),"
             " but the arrays were built for {} ({:g} us). Nothing after the initial state"
-            " was played.".format(
+            " was played.{}".format(
                 run.upload.process,
                 run.processdelay__reported,
                 run.processdelay__reported / rate * 1e6,
                 run.upload.processdelay,
-                run.upload.cycle_period * 1e6,
+                run.upload.processdelay / rate * 1e6,
+                (
+                    " This was a rehearsal, {} times slower than its arrays: set the"
+                    " process's Processdelay to {} before starting it.".format(
+                        run.upload.rehearsal, run.upload.processdelay
+                    )
+                    if run.upload.rehearsal != 1
+                    else ""
+                ),
             )
         )
 

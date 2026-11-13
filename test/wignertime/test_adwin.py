@@ -742,6 +742,65 @@ def test_a_program_that_does_not_report_is_refused():
         adwin.run(_uploaded(reports=0))
 
 
+###############################################################################
+#   A rehearsal plays the run in slow motion (maintainer, 2026-11-13)
+###############################################################################
+
+
+def _rehearsed(factor=100, **machine):
+    machine.setdefault("processdelay", {1: 2000})
+    return adwin.upload(
+        *_digital_only(), _MachineRecording(**machine), 1, rehearsal=factor
+    )
+
+
+def test_a_rehearsal_writes_the_arrays_of_the_run_at_speed():
+    """
+    The point of a rehearsal: what is watched in slow motion is what will play at speed.
+    Only the Processdelay the run is to be played at differs, k times the present one.
+    """
+    at_speed = _MachineRecording(processdelay={1: 2000})
+    log__at_speed = adwin.upload(*_digital_only(), at_speed, 1)
+    log = _rehearsed()
+    slow = log.machine
+
+    assert slow.data == at_speed.data
+    assert [slow.par[n] for n in (1, 2, 3)] == [at_speed.par[n] for n in (1, 2, 3)]
+    assert slow.par[wt_adwin.PAR__PROCESSDELAY__EXPECTED] == 200_000
+    assert (log.processdelay, log.cycle_period, log.rehearsal) == (
+        200_000,
+        log__at_speed.cycle_period,
+        100,
+    )
+    assert log__at_speed.rehearsal == 1
+    assert "100 times slower" in repr(log)
+
+
+def test_a_rehearsal_plays_once_the_processdelay_is_raised(monkeypatch):
+    monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
+    adwin.run(_rehearsed(reports=200_000))
+
+
+def test_a_rehearsal_left_at_the_speed_of_its_arrays_is_refused(monkeypatch):
+    """Forgetting to slow the machine down is refused by the period check, saying what to do."""
+    monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
+    with pytest.raises(
+        adwin.PeriodRefused, match=r"rehearsal, 100 times slower.* 200000"
+    ):
+        adwin.run(_rehearsed())
+
+
+@pytest.mark.parametrize("factor", [1, 0, 2.5, True, "100"])
+def test_a_rehearsal_factor_is_a_whole_number_of_at_least_2(factor):
+    with pytest.raises(ValueError, match="whole number of at least 2"):
+        _rehearsed(factor)
+
+
+def test_a_rehearsal_beyond_what_a_parameter_holds_is_refused():
+    with pytest.raises(ValueError, match="beyond"):
+        _rehearsed(2_000_000)
+
+
 def test_an_agreeing_run_records_what_it_ran_at():
     assert adwin.run(_uploaded()).processdelay__reported == 5000
 
@@ -990,6 +1049,13 @@ def _uploaded__ADC(**machine):
     log = adwin.upload(*_digital_only(), _MachineRecordingADC(**machine), 4)
     log.machine.calls.clear()
     return log
+
+
+def test_a_rehearsal_does_not_record():
+    """The ADC's sampling is not slowed down with a rehearsal, so it would not record the run."""
+    log = adwin.upload(*_digital_only(), _MachineRecordingADC(), 4, rehearsal=10)
+    with pytest.raises(ValueError, match="rehearsal, 10 times slower"):
+        adc.arm(log, 0.1, 0.1)
 
 
 @pytest.mark.parametrize(
