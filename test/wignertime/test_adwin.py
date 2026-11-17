@@ -746,7 +746,7 @@ def test_the_count_is_read_once_after_the_run():
 
 
 def test_an_error_inside_the_block_waits_the_run_out_and_goes_on(monkeypatch):
-    """Not stopped: that a stop from the PC plays the final state (B11) awaits the rig."""
+    """Not stopped, though a stop from the PC would play the final state (B11, on the rig)."""
     monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
     log = _uploaded(lost_events=[7])
     log.machine.status = [0, 1, 0]
@@ -1748,6 +1748,35 @@ def test_a_replay_is_checked_on_its_own_report(monkeypatch):
         adwin.run(log)
 
 
+def test_a_replay_after_another_upload_is_refused(monkeypatch):
+    """
+    A25. The arrays on the machine are the last upload's, whichever log starts them, so a
+    replay of an earlier log played them under the wrong record.
+    """
+    monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
+    earlier = _uploaded()
+    later = adwin.upload(*_digital_only(), earlier.machine, 1)
+    assert earlier.token != later.token
+    with pytest.raises(RuntimeError, match="no longer this upload's"):
+        adwin.start(earlier)
+    adwin.run(later)
+    adwin.run(later)  # a replay of the last upload needs nothing more
+
+
+def test_an_interrupted_upload_leaves_no_log_its_arrays(monkeypatch):
+    """A25. Half-written arrays belong to no upload."""
+    log = _uploaded()
+
+    def lost(*arguments):
+        raise OSError("the link was lost")
+
+    monkeypatch.setattr(log.machine, "SetData_Long", lost)
+    with pytest.raises(OSError):
+        adwin.upload(*_digital_only(), log.machine, 1)
+    with pytest.raises(RuntimeError, match="no longer this upload's"):
+        adwin.start(log)
+
+
 def test_no_sequencer_names_a_digital_module_by_number():
     """
     D25. Every digital module is programmed from the machine specifications (D18), but
@@ -1762,6 +1791,46 @@ def test_no_sequencer_names_a_digital_module_by_number():
         for path in sorted(root.glob("*.bas")) + sorted(root.glob("*.inc"))
         for number, line in enumerate(path.read_text(errors="replace").splitlines(), 1)
         if literal.search(line.split("'")[0])
+    ]
+    assert found == []
+
+
+def _logical_operators_per_bracket(line):
+    """
+    The largest number of `And`, `Or` or `Xor` joined within one pair of round brackets of
+    `line`, or outside every pair, its comment left out.
+    """
+    import re
+
+    code = line.split("'")[0]
+    counts, largest = [0], 0
+    for token in re.findall(r"[()]|\b(?:and|or|xor)\b", code, re.IGNORECASE):
+        if token == "(":
+            counts.append(0)
+        elif token == ")":
+            largest = max(largest, counts.pop())
+        else:
+            counts[-1] += 1
+    return max([largest, *counts])
+
+
+def test_no_program_joins_three_terms_in_one_pair_of_brackets():
+    """
+    #199. ADbasic refuses a condition that joins three terms within one pair of brackets, so
+    the console and the ADC sequencer did not compile on the rig. No ADbasic compiler runs
+    with the suite, so the sources are read for the pattern instead.
+    """
+    root = pl.Path(wt_adwin.__file__).parents[3] / "resources" / "ADwin"
+    assert _logical_operators_per_bracket("if ((a > 0) and (b > 0) or (c)) then") == 2
+    assert (
+        _logical_operators_per_bracket("if (((a) and (b)) or (c)) then ' x or y or z")
+        == 1
+    )
+    found = [
+        "{}:{}".format(path.name, number)
+        for path in sorted(root.glob("*.bas")) + sorted(root.glob("*.inc"))
+        for number, line in enumerate(path.read_text(errors="replace").splitlines(), 1)
+        if _logical_operators_per_bracket(line) > 1
     ]
     assert found == []
 

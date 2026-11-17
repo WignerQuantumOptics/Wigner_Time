@@ -153,7 +153,9 @@ C1–C7 are all settled (index below). An open API or design decision is flagged
 
 **A green test suite does not clear the ADwin backend.** Changes under `wignertime/adwin/`, and the ADbasic programs under `resources/ADwin/`, can only be checked for internal consistency; correctness must be verified on the rig. Flag any such change explicitly rather than reporting it as done. **That absence decides nothing** (maintainer, 2026-11-11): it is no reason to hold back a change, to rank an item, or to qualify a claim of the paper.
 
-The `ADwin` extra is a pure-Python wrapper that installs on a development machine, so `convert` and everything under `adwin.internal` and `adwin.validate` are genuinely exercised. What is not is anything that talks to a device (`link_device`, `upload`'s writes) and the ADbasic programs themselves; entries that rest on a line-for-line emulation of a `.bas` have evidence, not verification. The demo's calibration file is tracked, and the suite skips cleanly when an optional extra is absent (F).
+The `ADwin` extra is a pure-Python wrapper that installs on a development machine, so `convert` and everything under `adwin.internal` and `adwin.validate` are genuinely exercised. What is not is anything that talks to a device (`link_device`, `upload`'s writes) and the ADbasic programs themselves; entries that rest on a line-for-line emulation of a `.bas` have evidence, not verification. The demo's calibration file is tracked, and the suite skips cleanly when an optional extra is absent (F). Nor can the suite compile ADbasic: two programs that had never been compiled failed to on the rig (B14), so the sources are read for the pattern the compiler refuses.
+
+**The rig has run the current stack**: Lab2's first thirteen runs, on 2026-11-16, checked B11, D14, D21, D22 and A19, and found B14. Still to come are the sequence at speed, an ADC run (D25) and the jump warning. The account is in the design record's §E.
 
 **A real experiment is frozen in the suite.** `test/wignertime/fixtures/lab2/` holds Dániel Varga's Lab2 timeline, taken off the rig on 2026-09-21 and not written to suit the package; `test_lab2_regression.py` runs it end to end and checksums the result. **The checksums pin today's output, not the rig's**: when one moves, the pipeline changed. `drop_repeats` and B9's sample grid account for every difference from what the machine was given. See the fixture's `README.md`, and the design record's §E.
 
@@ -177,7 +179,7 @@ Corollary for code work: if a change makes an existing claim in the manuscript i
 
 ## Index of resolved items
 
-What each was, its issue, and what replaced it. Every full account is in [`docs/design-record.md`](docs/design-record.md), under a heading that starts with its ID (`### A6 — …`). "Rig" marks an ADwin change that awaits the hardware (§E).
+What each was, its issue, and what replaced it. Every full account is in [`docs/design-record.md`](docs/design-record.md), under a heading that starts with its ID (`### A6 — …`). "Rig" marks an ADwin change that awaits the hardware (§E); "checked on the rig", one that Lab2's first runs exercised (2026-11-16, design record §E).
 
 **A. Silent failures** ([record](docs/design-record.md#a-silent-failures))
 
@@ -205,6 +207,7 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - A22 — values a port cannot hold reached the arrays (#187) – refused at conversion and on the console.
 - A23 — duplicate rows in the connection and device tables (#188) – refused.
 - A24 — a variable without a connection vanished from the arrays (#195) – refused, anchors excepted.
+- A25 — a replay of an earlier upload played a later one's arrays (#203) – a token in `Par_79`, checked by `start`.
 - A26 — a stopped run left a channel its final state did not name where the run had it (#205) – refused at conversion; closes B11's remainder.
 
 **B. Correctness** ([record](docs/design-record.md#b-correctness))
@@ -219,9 +222,10 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - B8 — `LAST` on an empty timeline raised an opaque error – guarded.
 - B9 — a ramp's sampling depended on its position in time – the interval count is rounded first.
 - B10 — `stack` could not forward into a nested stage (#136) – one closure threads the keywords.
-- B11 — an interrupted run did not restore the default state (#148) – final-state arrays played by `finish:`; rig; remainder closed by A26.
+- B11 — an interrupted run did not restore the default state (#148) – final-state arrays played by `finish:`; checked on the rig; remainder closed by A26.
 - B12 — `context_info` gave the first and last rows written (#189) – the earliest and latest.
 - B13 — `ramp_function.linear` stopped short of its target (#134) – sampled inclusively, as `tanh`.
+- B14 — the console and the ADC sequencer did not compile (#199) – two terms to a pair of brackets; found on the rig.
 
 **C. API decisions** ([record](docs/design-record.md#c-api-decisions))
 
@@ -248,14 +252,14 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - D11 — every analogue module converted as ±10 V / 16 bits (#125) – each with its own range, width and gain.
 - D12 — digital modules found by `bits == True` (#126) – `bits == 1`; no width raises.
 - D13 — `cycle_period__normal__us` held seconds (#127) – `cycle_period`, later an argument (D15).
-- D14 — `Initial_Processdelay` unchecked (#128) – `Par_9`/`Par_14`, `PeriodRefused`; rig.
+- D14 — `Initial_Processdelay` unchecked (#128) – `Par_9`/`Par_14`, `PeriodRefused`; checked on the rig.
 - D15 — `adwin.core.create` ignored two arguments (#129) – `upload` reads the period off the machine.
 - D17 — an uncalled `stack` constituent bound the timeline (#131) – tagged stages; tables refused (C7).
 - D18 — every digital row went to module 1 (#133) – each to its own module; every digital module programmed.
 - D19 — cycle sentinels shared the time axis (#146) – `validate.cycles`; sentinel relieved by B11.
 - D20 — ascending cycle order unenforced (#147) – `validate.ascending`.
-- D21 — the cycle period stated twice, read from neither (#94) – read off the machine; rig.
-- D22 — the console was a second apparatus description (#94) – `wignertime.adwin.console`; rig.
+- D21 — the cycle period stated twice, read from neither (#94) – read off the machine; checked on the rig, but for the ADC window.
+- D22 — the console was a second apparatus description (#94) – `wignertime.adwin.console`; checked on the rig, but for the jump warning.
 - D25 — the ADC sequencer still named digital module 1 (#133) – removed, with an unread `par_10`; rig.
 - D26 — small fixes from the review of 2026-11-11 (#190, #143) – seven, listed in the record.
 

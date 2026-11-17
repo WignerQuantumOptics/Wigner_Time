@@ -47,6 +47,15 @@ booted, incremented at the end of every `finish:`. The console uses it to tell a
 run, when the apparatus holds the run's final state, from a restart by hand.
 """
 
+PAR__UPLOAD__TOKEN = 79
+"""
+A token for the arrays on the machine (A25, #203): `upload` clears it before it writes
+anything, and sets a new one, kept in its `Upload` log, once everything is written. `start`
+refuses a log whose token is not the one here, since the arrays are then another upload's,
+and a replay would play them under this log. No program reads it; it sits beside the console's
+token for its panel, `Par_78`.
+"""
+
 PAR__FINISH__ANALOGUE = 15
 PAR__FINISH__DIGITAL = 16
 DATA__FINISH__ANALOGUE = 31

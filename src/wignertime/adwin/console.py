@@ -509,12 +509,29 @@ def health(machine):
     )
 
 
+class UI(NamedTuple):
+    """
+    What `create_UI` returns: the `widget` that shows the panel, and the `Console` it writes
+    through, for `set_value` and `readback` by name beside it (#201). It unpacks, as in
+    `ui, c = create_UI(machine, table)`, and in a notebook it shows its widget.
+    """
+
+    widget: object
+    console: Console
+
+    def _ipython_display_(self):
+        from IPython.display import display
+
+        display(self.widget)
+
+
 def create_UI(machine, table, continuous_update=True):
     """
-    Configures the console with the `panel` and returns its widgets: a vertical slider per
-    analogue variable, a toggle per digital line, a button that shows what the program holds,
-    and a line for messages. Configuring writes every default to the apparatus; a variable
-    without one is marked as unknown and left as it is.
+    Configures the console with the `panel` and returns its `UI`: the widgets, and the
+    `Console` they write through. The widgets are a vertical slider per analogue variable, a
+    toggle per digital line, a button that shows what the program holds, and a line for
+    messages. Configuring writes every default to the apparatus; a variable without one is
+    marked as unknown and left as it is.
 
     A slider sends its value while it is dragged, since a write costs one driver call and
     repeated values coalesce in the program. `continuous_update=False` sends it on release.
@@ -620,6 +637,14 @@ def create_UI(machine, table, continuous_update=True):
     button = widgets.Button(description="Refresh")
     button.on_click(refresh)
 
-    return widgets.VBox(
-        [widgets.HBox(sliders), *[widgets.HBox(t) for t in toggles], button, messages]
+    return UI(
+        widgets.VBox(
+            [
+                widgets.HBox(sliders),
+                *[widgets.HBox(t) for t in toggles],
+                button,
+                messages,
+            ]
+        ),
+        console,
     )
