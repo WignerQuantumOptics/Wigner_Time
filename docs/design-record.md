@@ -581,15 +581,30 @@ Measured while porting Lab2's lab code to the D7 names: the lab's `create_Li_sto
 
 **The paper:** checked against the text submitted to EPJ QT, the last one this repository holds. `sec:anchor` defines an anchor as a row whose variable does not correspond to a connection and carries the anchor symbol, and `sec:hardwarelayer` has the connection table translate each row's name; both statements hold, and now hold of every row. The SciPost text was not available where this was checked.
 
----
-
-## B. Correctness
-
 ### A25 — a replay of an earlier upload played a later one's arrays **[new, found 2026-11-17; this is #203]** — **FIXED 2026-11-17 (#203)**
 
 `start(log)` replays an upload by starting its process again, with nothing converted or written, which is how a repeated run is meant to go (maintainer, 2026-11-17). Nothing checked that the arrays on the machine were still that log's. After `upload(A)` and `upload(B)`, `start(log_A)` played B's arrays; `wait` passed, the Processdelay being the same, and the `Run` named A's upload. A shot filed with its log then recorded the wrong timeline. The arrays are shared by every process on the machine, so the same held across processes 1 and 4, and for an upload made from another notebook.
 
 **Fixed (maintainer's decision, 2026-11-17)** with a token, as the console has for its panel (`Par_78`). `upload` clears `Par_79` (`adwin.PAR__UPLOAD__TOKEN`) before it writes anything, and once everything is written draws a token, writes it there and keeps it in the `Upload` log; `start` refuses a log whose token is not the one on the machine. An upload interrupted midway leaves 0, which no log holds. No program reads the Par, so nothing changes on the machine side. `Par_79` is used by no Wigner Time program and by none in Lab2's inventory (lab software's GitLab #22); Lab1's programs are still to be checked. Tests: `test_adwin.py::test_a_replay_after_another_upload_is_refused` and `::test_an_interrupted_upload_leaves_no_log_its_arrays`, both failing on the previous code. Checked for internal consistency only (§E).
+
+### A26 — a stopped run left a channel its final state did not name where the run had it **[B11's remainder, found 2026-09-28; this is #205]** — **FIXED 2026-11-17 (#205)**
+
+Since B11 a run that ends, or is stopped, plays its final state, and Lab2's rig showed it on 2026-11-16. It plays it only for the channels the final state names; any other channel the run commanded was left wherever the timeline last put it, and nothing said so. The lab's final state names neither the MOT coils, nor the transfer coils, nor the dispenser, so a run stopped in the magnetic trap left the coils at the trap's current. Until now this was carried by #160, with two directions open (B11's entry): name the channels in the lab's `finish()`, or check here.
+
+**Fixed (maintainer's decision, 2026-11-17): the final state must name every channel the run touches, and the conversion refuses a timeline whose final state does not.** `validate.final_state` runs in `convert` right after the unconnected variables are refused (A24), before `expand`, and names every variable that has a row the run plays, before the run or during it, and none in `ADwin_Finish`. Anchors have no channel and are not counted. It also makes the console's adoption rule exact: a channel the final state does not name is one the run did not touch.
+
+What it found, measured on the day:
+- **The demo** missed the two MOT coils, which `finish` ramps in its final ramps but did not name at +∞. They are named now, at the currents the ramps end at. Its frozen arrays (`test/wignertime/fixtures/reference/`) were regenerated for the demo only, with `reference_cases.py`'s own functions, since the lab half of that script needs the lab's code next door: at 5, 2 and 1 µs the analogue arrays gain exactly two rows at the finish sentinel, module 4, channels 1 and 3, and lose none; the digital arrays are identical; with the check bypassed, the previous demo converts to the previous digests exactly. Each demo case gains the same two rows at +∞.
+- **Lab2's frozen run** missed nine channels: the four coils, `dispenser__A`, `Sci_light_intensity__V`, `AOM_imaging`, `shutter_imaging` and `trigger_camera`. `test_lab2_regression.py` pins the refusal, and converts the run with a final-state row added for each at the value of its last row, so that a completed run ends as it did. The description is unchanged; the arrays gain 6 analogue and 3 digital rows at the finish sentinel, none removed, and with the check bypassed the previous checksums reproduce exactly. The fixture's `README.md` has the account.
+- **The suite's own timelines**, most of which had no final state at all: each now names what it touches, at the value of its last row (`test_adwin.py::_finished`), and the expectations that counted arrays or rows count the final state's too.
+
+Tests: `test_adwin.py::test_a_variable_the_final_state_does_not_name_is_refused_by_name`, `::test_a_variable_set_only_before_the_run_must_be_named_too`, `::test_the_anchors_need_no_final_state`, and `test_lab2_regression.py::test_the_takeout_leaves_these_out_of_its_final_state`; each fails without the check.
+
+**The paper:** the `finish` listing in `sec:demonstration` ramps the MOT coils and does not name them in its final state, so the code now refuses it; it is to name them as the demo does. `sec:context`'s claim that the reserved contexts leave the apparatus "in a defined state however the run ends" now holds by a check. **The labs:** each lab's `finish()` must name every channel its sequences touch, at values that are the lab's to choose, before it runs on a Wigner Time with this check. Checked for internal consistency only (§E).
+
+---
+
+## B. Correctness
 
 ### B1 — `ramp`'s degenerate-row check aligns on index, not on variable — **RESOLVED AND FIXED 2026-09-18; moot since 2026-09-29**
 
@@ -833,7 +848,7 @@ Note that `funcy.compose` cannot do this on its own: it passes one value between
 
 ### B11 — an interrupted run does not restore the default state **[new, found 2026-09-22; this is #148]** — **FIXED 2026-09-25 (#148); CHECKED ON THE RIG 2026-11-16 (#199)**
 
-**On the rig, 2026-11-16** (§E): a run stopped from the PC 3.5 s in, during a hold, ran `finish:` to its end, and the coils stepped back to the final state. So a stop from the PC takes the path the manual describes for `Stop_Process` from another process, the premise left to check below. What the final state does not name is still #160's.
+**On the rig, 2026-11-16** (§E): a run stopped from the PC 3.5 s in, during a hold, ran `finish:` to its end, and the coils stepped back to the final state. So a stop from the PC takes the path the manual describes for `Stop_Process` from another process, the premise left to check below. What the final state did not name is closed by A26 (#205): the conversion refuses it.
 
 **Fixed as recommended** (option 1, roadmap step 8 at #94; the maintainer's go-ahead 2026-09-25), in both `WignerTimeADwin.bas` and `WignerTimeADwinADC.bas`.
 - **The final state has arrays of its own.** They are the playback numbers plus 20, without the cycle: analogue module, channel and digits in `data_31..33`, digital channel and value in `data_42..43`. The counts are in `Par_15` and `Par_16`, and each array holds `finishMaxArrayDim = 256` rows.
@@ -845,7 +860,7 @@ Note that `funcy.compose` cannot do this on its own: it passes one value between
 
 **Not verified on hardware.** The ADbasic manual (6.00, Feb. 2017) settles two of the three points this rested on. `finish:` runs after `Stop_Process` and after `End` in `event:` (p. 289), though not after `Exit`, which neither program uses. On the T12, a `for` loop tests its condition before the first pass (p. 7), so a count of 0 plays nothing, as `finish:` needs. The third point is moot: whether `Stop_Process` returns before or after `finish:` does not matter, because Python polls `Process_Status` rather than trusting the return. The premise still to check is the first. The manual describes `Stop_Process` issued from another process, and that a stop from the PC takes the same path is believed but unchecked. Recompile both programs and load them, then stop a run midway and look at the outputs.
 
-**The guarantee covers only what the final state names** [found 2026-09-28, while emulating the console through a lab run; open, and the fix is a decision – carried by #160, see `KNOWN_ISSUES.md`]. A stopped run now plays the final state, but a channel the final state does not name is left wherever the timeline had it. The lab's `finish()` ramps the MOT coils to −1.5 A and the dispenser to 3.8 A in `finalRamps`, but its `ADwin_Finish` rows are `default_state`, which names neither. `AOM_science__V` is left out as well. So a run stopped in the magnetic trap leaves the coils at the trap's current, which is the case this entry exists for, and nothing reports it. These are the same four channels that L9 in the lab finds missing from `init()`. Two directions, neither taken:
+**The guarantee covers only what the final state names** [found 2026-09-28, while emulating the console through a lab run; **closed by A26 (#205), 2026-11-17**: the second direction below was taken, as a refusal at conversion]. A stopped run now plays the final state, but a channel the final state does not name is left wherever the timeline had it. The lab's `finish()` ramps the MOT coils to −1.5 A and the dispenser to 3.8 A in `finalRamps`, but its `ADwin_Finish` rows are `default_state`, which names neither. `AOM_science__V` is left out as well. So a run stopped in the magnetic trap leaves the coils at the trap's current, which is the case this entry exists for, and nothing reports it. These are the same four channels that L9 in the lab finds missing from `init()`. Two directions, neither taken:
 - **In the lab:** name the four in `finish()`'s `ADwin_Finish` rows, as the values `finalRamps` ends at. After a completed run the rows then change nothing; after a stop they bring the channels there at once.
 - **Here:** have `upload` refuse, or warn, when the final state leaves a connected channel unnamed. That turns the promise into a check, but it is a change to what `upload` accepts, so it is the maintainer's to decide (§C).
 
@@ -1705,7 +1720,7 @@ Thirteen runs: a digital-only timeline five times (the repump shutter opened for
 | A19 | each run lasted until its closing anchor |
 | `drop_repeats` | its arrays played as written; this shows that they play, not the equivalence its docstring argues |
 
-**Found:** the console and the ADC sequencer did not compile (B14). **Still to come:** the sequence at speed; an ADC run, for D25 and for a window placed at both periods (D21); and the warning about a channel set on the console that the run jumps from. **Raised by the rig:** the console marked unknown after every run the channels only it drives, since the final state did not name them (D28, #206); and the final state of the lab's `finish()` does not name the coils, so a real run stopped in the magnetic trap would leave them at its current (#160).
+**Found:** the console and the ADC sequencer did not compile (B14). **Still to come:** the sequence at speed; an ADC run, for D25 and for a window placed at both periods (D21); and the warning about a channel set on the console that the run jumps from. **Raised by the rig:** the console marked unknown after every run the channels only it drives, since the final state did not name them (D28, #206); and the final state of the lab's `finish()` did not name the coils, so a real run stopped in the magnetic trap would have left them at its current, which A26 (#205) now refuses.
 
 ---
 
