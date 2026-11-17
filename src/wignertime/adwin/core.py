@@ -236,6 +236,7 @@ def convert(
             tline,
             time_resolution=time_resolution,
         ),
+        wt_validate.final_state,
         lambda tline: connection.remove_unconnected_variables(tline, connections),
     )(timeline)
 

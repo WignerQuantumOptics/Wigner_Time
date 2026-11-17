@@ -1,3 +1,4 @@
+import math
 import pathlib as pl
 import sys
 
@@ -10,7 +11,7 @@ import wignertime.adwin as wt_adwin
 # the suite is green for the right reasons in an environment without it.
 pytest.importorskip("ADwin", reason="the `adwin` extra is not installed")
 
-from wignertime import conversion, device
+from wignertime import config, conversion, device
 from wignertime import timeline as tl
 from wignertime.adwin import adc
 from wignertime.adwin import connection as adcon
@@ -243,6 +244,12 @@ def test_convert():
                     context="MOT",
                 ),
                 tl.anchor(100e-3),
+                tl.update(
+                    lockbox__MOT__MHz=-5,
+                    shutter__MOT=1,
+                    time=math.inf,
+                    context="ADwin_Finish",
+                ),
             ),
             onto=tl.to_timeline(
                 tl.update(
@@ -257,16 +264,19 @@ def test_convert():
         5e-6,
         time_resolution=5e-3,
     )
+    finish = wt_adwin.CONTEXTS__SPECIAL["ADwin_Finish"]
     tuples__guess = [
         [
             (-2, 3, 8, 32768),
             (3000000, 3, 8, 32768),
             (3001000, 3, 8, 32358),
             (3002000, 3, 8, 31948),
+            (finish, 3, 8, 31948),
         ],
         [
             (-2, 1, 11, 0),
             (0, 1, 11, 1),
+            (finish, 1, 11, 1),
         ],
     ]
 
@@ -385,6 +395,22 @@ class _MachineRecording:
         return array[startindex - 1 : startindex - 1 + count]
 
 
+def _finished(timeline):
+    """
+    `timeline` with a final state naming each variable it touches and does not name there,
+    at the value of its last row, so that a completed run ends as it did (A26). For the
+    tests about something other than the final state.
+    """
+    after = frame.sort(timeline, "time")
+    after = after[~after["variable"].str.startswith(config.LABEL__ANCHOR)]
+    named = set(after.loc[after["context"] == "ADwin_Finish", "variable"])
+    last = after[~after["variable"].isin(named)].groupby("variable", sort=False).last()
+    return tl.to_timeline(
+        tl.update(time=math.inf, context="ADwin_Finish", **last["value"].to_dict()),
+        onto=timeline,
+    )
+
+
 def _digital_only():
     conns = adcon.new(["shutter__MOT", 1, 11], ["AOM__MOT", 1, 1])
     devs = (
@@ -393,6 +419,11 @@ def _digital_only():
     timeline = tl.to_timeline(
         tl.stack(
             tl.update(shutter__MOT=0, time=1.0),
+            # The final state names every variable the run touches (A26), here at the
+            # values the run ends at.
+            tl.update(
+                shutter__MOT=0, AOM__MOT=1, time=math.inf, context="ADwin_Finish"
+            ),
         ),
         onto=tl.to_timeline(
             tl.update(shutter__MOT=1, AOM__MOT=1, time=0.0, context="run")
@@ -416,12 +447,11 @@ def test_upload_transfers_an_empty_analogue_set_as_a_count_of_zero():
     assert machine.par[2] == 0, "analogue count must be transferred as zero"
     assert machine.par[3] == 3, "digital count unaffected"
     assert sorted(machine.data) == [
-        20,
-        21,
-        22,
-        23,
+        *(20, 21, 22, 23),
+        *(41, 42, 43),
         44,
-    ], "only the digital arrays written"
+    ], "only the digital arrays written, the final state's among them"
+    assert machine.par[15] == 0, "nor an analogue final state"
 
 
 def test_upload_transfers_both_sets_when_both_are_populated():
@@ -513,7 +543,10 @@ def test_upload_refuses_a_timeline_with_no_run():
     with pytest.raises(ValueError, match="nothing to run"):
         adwin.upload(
             tl.to_timeline(
-                tl.update(shutter__MOT=1, time=-1e-6, context="ADwin_LowInit")
+                tl.stack(
+                    tl.update(shutter__MOT=1, time=-1e-6, context="ADwin_LowInit"),
+                    tl.update(shutter__MOT=0, time=math.inf, context="ADwin_Finish"),
+                )
             ),
             conns,
             devs,
@@ -587,8 +620,9 @@ def test_upload_converts_against_the_specification_it_is_given():
         timeline, conns, devs, machine, 1, machine_specifications=specifications
     )
 
-    assert sorted(machine.data) == [20, 21, 22, 23, 44]
+    assert sorted(machine.data) == [20, 21, 22, 23, 41, 42, 43, 44]
     assert machine.data[21][0] == [2, 2, 2], "module 2 is the digital one here"
+    assert machine.data[41][0] == [2, 2], "and so in the final state"
     assert (machine.par[19], machine.data[44][0]) == (1, [2])
 
 
@@ -922,7 +956,7 @@ def test_an_update_at_the_instant_a_ramp_ends_is_what_is_sent():
             *steps,
         )
     )
-    analogue, _ = adwin.convert(timeline, conns, devs, 5e-6)
+    analogue, _ = adwin.convert(_finished(timeline), conns, devs, 5e-6)
     sent = {cycle: digits for cycle, _, _, digits in analogue}
     assert [sent[200 * i] for i in range(1, 21)] == [
         conversion.to_digits(-0.2 * i * 2.0) for i in range(1, 21)
@@ -934,7 +968,9 @@ def test_an_analogue_variable_on_the_digital_module_is_refused():
     A16. It was rounded and switched as a digital line: 1.5 A on a coil became a 2 written
     to a digital output, without a word.
     """
-    timeline = tl.to_timeline(tl.update(coil__MOT__A=1.5, time=0.0, context="run"))
+    timeline = _finished(
+        tl.to_timeline(tl.update(coil__MOT__A=1.5, time=0.0, context="run"))
+    )
     with pytest.raises(
         ValueError, match="coil__MOT__A on module 1: analogue by its name"
     ):
@@ -948,7 +984,9 @@ def test_an_analogue_variable_on_the_digital_module_is_refused():
 
 def test_a_digital_line_on_an_analogue_module_is_refused_by_name():
     """A16. It used to fail in a cast, naming neither the variable nor the cause."""
-    timeline = tl.to_timeline(tl.update(shutter__MOT=1, time=0.0, context="run"))
+    timeline = _finished(
+        tl.to_timeline(tl.update(shutter__MOT=1, time=0.0, context="run"))
+    )
     with pytest.raises(
         ValueError, match="shutter__MOT on module 3: digital by its name"
     ):
@@ -973,6 +1011,7 @@ def _coil_run():
         tl.stack(
             tl.update(coil__MOT__A=-1.5, time=0.0, context="run"),
             tl.update(coil__MOT__A=-1.0, time=1.0),
+            tl.update(coil__MOT__A=-1.0, time=math.inf, context="ADwin_Finish"),
         )
     )
     return timeline, connections, devices
@@ -1208,14 +1247,18 @@ def test_the_run_reaches_both_of_its_ends(time):
 def test_the_special_contexts_are_not_held_to_the_run():
     """Their times are nominal; `init` in the lab places them at t = -1 us."""
     _, conns, devs = _digital_only()
-    timeline = tl.to_timeline(
-        tl.stack(
-            tl.update(shutter__MOT=0, AOM__MOT=0, time=-1e-3, context="ADwin_LowInit"),
-            tl.update(shutter__MOT=1, time=1.0, origin=0.0, context="run"),
+    timeline = _finished(
+        tl.to_timeline(
+            tl.stack(
+                tl.update(
+                    shutter__MOT=0, AOM__MOT=0, time=-1e-3, context="ADwin_LowInit"
+                ),
+                tl.update(shutter__MOT=1, time=1.0, origin=0.0, context="run"),
+            )
         )
     )
     analogue, digital = adwin.convert(timeline, conns, devs, 5e-6)
-    assert [row[0] for row in digital] == [-2, -2, 200_000]
+    assert [row[0] for row in digital] == [-2, -2, 200_000, 2**31 - 1, 2**31 - 1]
 
 
 def test_arrays_out_of_order_are_refused():
@@ -1288,9 +1331,9 @@ def test_a_ramp_keeps_its_own_resolution_through_conversion():
             ),
         )
     )
-    analogue, _ = adwin.convert(timeline, conns, devs, 5e-6)
+    analogue, _ = adwin.convert(_finished(timeline), conns, devs, 5e-6)
     cycles = [cycle for cycle, _, _, _ in analogue]
-    assert cycles == list(range(0, 201, 20))
+    assert cycles == [*range(0, 201, 20), 2**31 - 1]
 
 
 ###############################################################################
@@ -1327,12 +1370,13 @@ def test_the_state_before_and_after_the_run_converts_at_the_sentinels():
     import warnings
 
     timeline, conns, devs = _before_and_after(
-        [("ADwin_LowInit", dict(shutter__MOT=0, AOM__MOT=1))], dict(shutter__MOT=0)
+        [("ADwin_LowInit", dict(shutter__MOT=0, AOM__MOT=1))],
+        dict(shutter__MOT=0, AOM__MOT=1),
     )
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         _, digital = adwin.convert(timeline, conns, devs, 5e-6)
-    assert [row[0] for row in digital] == [-2, -2, 0, 2**31 - 1]
+    assert [row[0] for row in digital] == [-2, -2, 0, 2**31 - 1, 2**31 - 1]
 
 
 def test_a_row_at_infinity_outside_the_special_contexts_is_refused():
@@ -1362,10 +1406,10 @@ def test_a_variable_set_in_both_lowinit_and_init_is_refused():
 def test_lowinit_and_init_may_set_different_variables():
     timeline, conns, devs = _before_and_after(
         [("ADwin_LowInit", dict(shutter__MOT=0)), ("ADwin_Init", dict(AOM__MOT=1))],
-        dict(shutter__MOT=0),
+        dict(shutter__MOT=0, AOM__MOT=1),
     )
     _, digital = adwin.convert(timeline, conns, devs, 5e-6)
-    assert [row[0] for row in digital] == [-2, -1, 0, 2**31 - 1]
+    assert [row[0] for row in digital] == [-2, -1, 0, 2**31 - 1, 2**31 - 1]
 
 
 ###############################################################################
@@ -1387,8 +1431,10 @@ def _specifications(*analogue, digital=(1,)):
 def _coil(module=2):
     conns = adcon.new(["shutter__MOT", 1, 11], ["coil__MOT__A", module, 1])
     devs = device.new(["coil__MOT__A", 1.0, -10.0, 10.0])
-    timeline = tl.to_timeline(
-        tl.update(shutter__MOT=1, coil__MOT__A=2.5, time=0.0, context="run")
+    timeline = _finished(
+        tl.to_timeline(
+            tl.update(shutter__MOT=1, coil__MOT__A=2.5, time=0.0, context="run")
+        )
     )
     return timeline, conns, devs
 
@@ -1429,13 +1475,18 @@ def test_modules_convert_independently():
     devs = device.new(
         ["coil__MOT__A", 1.0, -10.0, 10.0], ["coil__trap__A", 1.0, -10.0, 10.0]
     )
-    timeline = tl.to_timeline(
-        tl.update(coil__MOT__A=2.5, coil__trap__A=2.5, time=0.0, context="run")
+    timeline = _finished(
+        tl.to_timeline(
+            tl.update(coil__MOT__A=2.5, coil__trap__A=2.5, time=0.0, context="run")
+        )
     )
     analogue, _ = adwin.convert(
         timeline, conns, devs, 5e-6, machine_specifications=specifications
     )
-    assert sorted((row[1], row[3]) for row in analogue) == [(2, 40959), (3, 49151)]
+    assert sorted((row[1], row[3]) for row in analogue) == [
+        *[(2, 40959)] * 2,
+        *[(3, 49151)] * 2,
+    ], "in the run and in the final state alike"
 
 
 def test_a_module_the_specifications_do_not_describe_is_refused():
@@ -1531,6 +1582,7 @@ def test_a_closing_wait_is_played():
             tl.anchor(2.0),
         )
     )
+    timeline = _finished(timeline)
     machine = _MachineRecording()  # 5 us
     log = adwin.upload(timeline, conns, devs, machine, 1)
     assert machine.par[1] == log.cycle__last == 600_000
@@ -1552,7 +1604,9 @@ def test_a_value_beyond_its_modules_range_is_refused(value, message):
     A22. Only the device's own limits were checked, and they may be absent or wider than
     the module: 5 A at 3 V/A on a ±10 V module was sent as the digits 81919.
     """
-    timeline = tl.to_timeline(tl.update(coil__MOT__A=value, time=0.0, context="run"))
+    timeline = _finished(
+        tl.to_timeline(tl.update(coil__MOT__A=value, time=0.0, context="run"))
+    )
     with pytest.raises(ValueError, match=message):
         adwin.convert(
             timeline,
@@ -1568,7 +1622,9 @@ def test_a_digital_value_other_than_0_or_1_is_refused(value):
     A22. It was sent as whatever it rounded to: 1.5 became 2, 2 and -1 went as they were.
     It is refused rather than rounded (maintainer, 2026-11-12).
     """
-    timeline = tl.to_timeline(tl.update(shutter__MOT=value, time=0.0, context="run"))
+    timeline = _finished(
+        tl.to_timeline(tl.update(shutter__MOT=value, time=0.0, context="run"))
+    )
     with pytest.raises(ValueError, match="a digital line takes 0 or 1"):
         adwin.convert(timeline, adcon.new(["shutter__MOT", 1, 11]), device.new(), 5e-6)
 
@@ -1578,11 +1634,13 @@ def test_a_digital_value_other_than_0_or_1_is_refused(value):
 )
 def test_a_digital_value_of_0_or_1_is_sent(value, sent):
     """A22: `True` and `False` are 1 and 0."""
-    timeline = tl.to_timeline(tl.update(shutter__MOT=value, time=0.0, context="run"))
+    timeline = _finished(
+        tl.to_timeline(tl.update(shutter__MOT=value, time=0.0, context="run"))
+    )
     _, digital = adwin.convert(
         timeline, adcon.new(["shutter__MOT", 1, 11]), device.new(), 5e-6
     )
-    assert [row[3] for row in digital] == [sent]
+    assert [row[3] for row in digital] == [sent, sent], "in the run and at its end"
 
 
 @pytest.mark.parametrize(
@@ -1610,11 +1668,71 @@ def test_a_table_that_says_two_things_is_refused(connections, devices, message):
     A23. A variable connected twice drove only its last channel, two variables on one
     channel both reached it, and a device listed twice converted with its last entry.
     """
-    timeline = tl.to_timeline(
-        tl.update(**{name: 0.0 for name, *_ in connections}, time=0.0, context="run")
+    timeline = _finished(
+        tl.to_timeline(
+            tl.update(
+                **{name: 0.0 for name, *_ in connections}, time=0.0, context="run"
+            )
+        )
     )
     with pytest.raises(ValueError, match=message):
         adwin.convert(timeline, adcon.new(*connections), device.new(*devices), 5e-6)
+
+
+###############################################################################
+#   A26 / #205 -- the final state names every variable the run touches
+###############################################################################
+
+
+def _coil_and_shutter(**final):
+    conns = adcon.new(["shutter__MOT", 1, 11], ["coil__MOT__A", 3, 2])
+    devs = device.new(["coil__MOT__A", 2.0, -5.0, 5.0])
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(shutter__MOT=0, context="ADwin_LowInit"),
+            tl.update(coil__MOT__A=1.0, shutter__MOT=1, time=0.0, context="run"),
+            tl.anchor(1.0),
+            tl.update(time=math.inf, context="ADwin_Finish", **final),
+        )
+    )
+    return timeline, conns, devs
+
+
+def test_a_variable_the_final_state_does_not_name_is_refused_by_name():
+    """
+    A26. A run that ends, or is stopped, plays its final state only for what it names, so
+    the coil was left at 1 A, and nothing said so. Named, the same run converts, and the
+    final state carries it.
+    """
+    with pytest.raises(ValueError, match=r"does not name \['coil__MOT__A'\]"):
+        adwin.convert(*_coil_and_shutter(shutter__MOT=0), 5e-6)
+
+    analogue, _ = adwin.convert(
+        *_coil_and_shutter(shutter__MOT=0, coil__MOT__A=0.0), 5e-6
+    )
+    assert analogue[-1] == (2**31 - 1, 3, 2, conversion.to_digits(0.0))
+
+
+def test_a_variable_set_only_before_the_run_must_be_named_too():
+    """A26. The run plays the initial state, so a variable set there is touched by it."""
+    conns = adcon.new(["shutter__MOT", 1, 11], ["AOM__MOT", 1, 1])
+    timeline = tl.to_timeline(
+        tl.stack(
+            tl.update(AOM__MOT=1, context="ADwin_LowInit"),
+            tl.update(shutter__MOT=1, time=0.0, context="run"),
+            tl.update(shutter__MOT=0, time=math.inf, context="ADwin_Finish"),
+        )
+    )
+    with pytest.raises(ValueError, match=r"does not name \['AOM__MOT'\]"):
+        adwin.convert(timeline, conns, device.new(), 5e-6)
+
+
+def test_the_anchors_need_no_final_state():
+    """A26. An anchor drives nothing, so only the unnamed coil is named in the refusal."""
+    timeline, conns, devs = _coil_and_shutter(shutter__MOT=0)
+    with pytest.raises(ValueError) as refusal:
+        adwin.convert(timeline, conns, devs, 5e-6)
+    assert "does not name ['coil__MOT__A']," in str(refusal.value)
 
 
 def test_a_replay_is_checked_on_its_own_report(monkeypatch):

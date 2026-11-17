@@ -393,7 +393,9 @@ they were written, not in time order (A21); see the filtering note below.
 `adwin/core.py::convert(timeline, connections, devices, cycle_period, ...)` composes, in order:
 
 1. `connection.remove_unconnected_variables` — the anchors, which have no physical port, are removed;
-   any other variable without a connection is refused, by name (A24).
+   any other variable without a connection is refused, by name (A24). Then `validate.final_state`
+   refuses a final state that leaves unnamed a variable the run touches, before it or during it,
+   since `finish:` plays only what the final state names (A26, maintainer, 2026-11-17).
 2. `timeline.expand` — ramps become rows at the machine's cycle period (or at `time_resolution`).
 3. `adwin/internal.py::add` — check the tables (`check_correspondence`, and `check_unique`: no
    name or channel twice, A23), join `connections` + `devices`, `conversion.add` → `value__digits`,
