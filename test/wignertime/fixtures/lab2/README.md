@@ -68,6 +68,22 @@ given differ, and every difference is accounted for:
 
 Digital output is identical, value for value.
 
+## The final state is completed for the conversion (A26, 2026-11-17)
+
+Since A26 (#205) the conversion refuses a run whose final state leaves unnamed a channel the
+run touches, since a run that ends or is stopped plays its final state only for what it
+names. The takeout's names neither the four coils nor `dispenser__A`,
+`Sci_light_intensity__V`, `AOM_imaging`, `shutter_imaging` or `trigger_camera`, so a run of
+it stopped in the magnetic trap would have left the coils at the trap's current.
+`test_the_takeout_leaves_these_out_of_its_final_state` pins the refusal.
+
+The test therefore converts the run with a final-state row added for each of the nine, at the
+value of its last row, so that a completed run ends exactly as it did; the description in
+`timeline.parquet` is unchanged, and so are the tests that pin it. Measured: the arrays gain
+6 analogue rows (153 463 becomes 153 469) and 3 digital ones (43 becomes 46), all at the
+finish sentinel. No row is removed or changed, and with the check bypassed the conversion
+reproduces the previous checksums exactly.
+
 So: when a checksum here changes, it means the pipeline changed. Whether that is a
 regression or an improvement is for the reader — but it will not pass unnoticed, which is
 the whole point of freezing a run.

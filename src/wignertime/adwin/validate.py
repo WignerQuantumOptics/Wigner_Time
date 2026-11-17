@@ -115,6 +115,33 @@ def special_contexts(timeline, special_contexts=wt_adwin.CONTEXTS__SPECIAL):
         )
 
 
+def final_state(timeline, special_contexts=None):
+    """
+    Refuses a timeline whose final state leaves unnamed a variable the run touches (A26,
+    #205): one with any row the run plays, before it or during it. The final state is what
+    the sequencer plays however the run ends, completed or stopped (B11), and only for the
+    variables it names, so any other would be left wherever the timeline last put it. A run
+    stopped in a magnetic trap left its coils at the trap's current.
+
+    Expects the anchors removed, as `connection.remove_unconnected_variables` leaves the
+    timeline. The contexts after the run are those with a positive sentinel.
+    """
+    if special_contexts is None:
+        special_contexts = wt_adwin.CONTEXTS__SPECIAL
+    after = [c for c, sentinel in special_contexts.items() if sentinel > 0]
+    mask__after = timeline["context"].isin(after)
+    named = set(timeline.loc[mask__after, "variable"])
+    unnamed = sorted(set(timeline.loc[~mask__after, "variable"]) - named)
+    if unnamed:
+        raise ValueError(
+            "The final state ({}) does not name {}, which the run touches. It is played"
+            " however the run ends, completed or stopped, and only for what it names, so"
+            " these would be left wherever the timeline last put them. Give each the value"
+            " the apparatus is to be left at.".format(" or ".join(after), unnamed)
+        )
+    return timeline
+
+
 def types(timeline, schema=wt_adwin.SCHEMA):
     return timeline.astype(schema)
 

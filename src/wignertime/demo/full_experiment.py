@@ -11,12 +11,12 @@ import math
 
 from munch import Munch
 
-from wignertime.adwin import connection as adcon
-from wignertime import file as wtfile
-from wignertime import timeline as tl
-from wignertime import device
 from wignertime import conversion as conv
+from wignertime import device
+from wignertime import file as wtfile
 from wignertime import ramp_function
+from wignertime import timeline as tl
+from wignertime.adwin import connection as adcon
 
 ###########################################################################
 #                       Constants and Helpers                             #
@@ -155,6 +155,8 @@ def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwarg
     The `anchor` function is used to specify a key time instant, around which other times can be specified.
 
     The ADwin_Finish environment means that the “default state” will be actuated even when the process is interrupted.
+    It must name every channel the run touches (A26, #205), so the MOT coils, which the
+    default state leaves alone, are named here at the currents the final ramps end at.
     """
     duration = 1e-2
     return tl.stack(
@@ -174,6 +176,8 @@ def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwarg
             time=math.inf,  # after the run: no instant, and 'ADwin_Finish' is played when it ends, or is stopped (#154)
             context="ADwin_Finish",
             MOT_ON=MOT_ON,
+            coil__MOT_lower__A=lower_current,
+            coil__MOT_upper__A=upper_current,
             **kwargs,
         ),
     )

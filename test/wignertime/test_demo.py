@@ -1,14 +1,13 @@
 import math
 from copy import deepcopy
 
-import pytest
 import pandas as pd
+import pytest
 
 from wignertime import timeline as tl
-from wignertime.internal.timeline import anchor as anchor
-from wignertime.internal import dataframe as frame
-
 from wignertime.demo import full_experiment as ex
+from wignertime.internal import dataframe as frame
+from wignertime.internal.timeline import anchor as anchor
 
 # NOTE: the commented-out `adwin_display` calls below need
 # `from wignertime.adwin import display as adwin_display`, and with it the
@@ -433,6 +432,8 @@ def test_fullDemo():
                 math.inf,
                 math.inf,
                 math.inf,
+                math.inf,  # the MOT coils, named in the final state (A26)
+                math.inf,
             ],
             "variable": [
                 "lockbox__MOT__MHz",
@@ -542,6 +543,8 @@ def test_fullDemo():
                 "shutter__transverse_pump",
                 "AOM__science__trans",
                 "trigger__TC__V",
+                "coil__MOT_lower__A",
+                "coil__MOT_upper__A",
             ],
             "value": [
                 0.0,
@@ -651,6 +654,8 @@ def test_fullDemo():
                 0.0,
                 1.0,
                 0.0,
+                -1.0,
+                -0.98,
             ],
             "context": [
                 "ADwin_LowInit",
@@ -742,6 +747,8 @@ def test_fullDemo():
                 "finalRamps",
                 "finalRamps",
                 "finalRamps",
+                "ADwin_Finish",
+                "ADwin_Finish",
                 "ADwin_Finish",
                 "ADwin_Finish",
                 "ADwin_Finish",

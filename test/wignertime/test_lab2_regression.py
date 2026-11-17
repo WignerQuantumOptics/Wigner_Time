@@ -23,6 +23,10 @@ for every difference, both measured rather than assumed:
   matches on `(cycle, module, channel)`; the digits differ by at most 20 parts in 65 536,
   and only on the five channels B9 touched.
 
+And the conversion is given a completed final state (A26, #205), which adds a final-state
+row for each of the nine channels the takeout's left unnamed: 6 analogue and 3 digital rows
+at the finish sentinel, and nothing else.
+
 `converted/README.md` beside the takeout has the full reconciliation.
 """
 
@@ -37,6 +41,7 @@ import pytest
 from wignertime import config, device, ramp_function
 from wignertime import timeline as tl
 from wignertime.adwin import core
+from wignertime.internal import dataframe as wt_frame
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "lab2"
 
@@ -45,10 +50,10 @@ CYCLE_PERIOD = 2e-6
 
 EXPANDED__ROWS = 885601
 EXPANDED__DIGEST = "7a8d2e753a12ca40643a72e289c1c570a87074d7731dac1c650ac5210b4c6eac"
-ANALOGUE__ROWS = 153463
-ANALOGUE__DIGEST = "b1bf336f9d55e0c33513cfd1ea3361d7bcb539adc274c2194d08743a75817e65"
-DIGITAL__ROWS = 43
-DIGITAL__DIGEST = "53f50dbb25ae6a78cbaa2458f7147811db78eb29fd4753c06a6054e6b6a6ba06"
+ANALOGUE__ROWS = 153469
+ANALOGUE__DIGEST = "3bdfc6df2d52f7945b45233445da5bc54b27ea98d4efe072d65955a84b96c4d4"
+DIGITAL__ROWS = 46
+DIGITAL__DIGEST = "949955f110199f2b41a759557cb47d2f058d1b336b0d9034bcc92f5e5e94f873"
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -113,6 +118,60 @@ def devices():
     ]
 
 
+FINAL__UNNAMED = [
+    "AOM_imaging",
+    "Sci_light_intensity__V",
+    "coil_MOTlower__A",
+    "coil_MOTupper__A",
+    "coil_transfer_lower__A",
+    "coil_transfer_upper__A",
+    "dispenser__A",
+    "shutter_imaging",
+    "trigger_camera",
+]
+"""
+The variables the run touches and its final state does not name, which the conversion has
+refused since A26 (#205): played however a run ends, the final state left these wherever
+the timeline last put them, the coils at the magnetic trap's current after a stop.
+"""
+
+
+def _finished(timeline):
+    """
+    The run with a final state for each of `FINAL__UNNAMED`, at the value of its last row,
+    so that a completed run ends exactly as it did. The adaptation is the test's, like the
+    rebinding of the naming convention: the description stays as it was taken, and pins
+    the takeout. The rows go where the takeout put its final state, at its time.
+    """
+    finish = timeline[timeline["context"] == "ADwin_Finish"]
+    rows = wt_frame.sort(timeline[timeline["context"] != "ADwin_Finish"], "time")
+    last = rows[rows["variable"].isin(FINAL__UNNAMED)].groupby("variable").last()
+    assert sorted(last.index) == FINAL__UNNAMED
+    added = pd.DataFrame(
+        {
+            "time": finish["time"].iloc[0],
+            "variable": last.index,
+            "value": last["value"].to_numpy(),
+            "context": "ADwin_Finish",
+        }
+    )
+    return pd.concat([timeline, added], ignore_index=True)
+
+
+def test_the_takeout_leaves_these_out_of_its_final_state(timeline, connections):
+    """A26, against the real experiment: the conversion refuses the takeout as it stands."""
+    with pytest.raises(ValueError, match="does not name") as refusal:
+        core.convert(
+            timeline,
+            connections[connections["variable"] != "imaging_beam_intensity__V"],
+            pd.read_parquet(FIXTURES / "devices.parquet")[
+                ["variable", "to_V", "value__min", "value__max"]
+            ],
+            CYCLE_PERIOD,
+        )
+    assert str(FINAL__UNNAMED) in str(refusal.value)
+
+
 @pytest.fixture(scope="module")
 def converted(timeline, connections, devices):
     """
@@ -121,10 +180,10 @@ def converted(timeline, connections, devices):
     Lab2's modules are those of `SPECIFICATIONS__DEFAULT`; only the period differs, and
     it is an argument rather than an entry in the specifications (#94). The ramps are
     sampled at it too, as `time_resolution` defaults to it -- this used to be stated
-    twice, once for each.
+    twice, once for each. The final state is completed by `_finished` (A26).
     """
     return core.convert(
-        timeline,
+        _finished(timeline),
         connections[connections["variable"] != "imaging_beam_intensity__V"],
         devices,
         CYCLE_PERIOD,
