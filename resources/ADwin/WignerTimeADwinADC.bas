@@ -82,7 +82,8 @@ lowinit:
   ' burst is never started, and finish: records nothing.
   startADC=ADC_StartCycle
   endADC=ADC_EndCycle
-  If ((startADC < 0) Or (endADC <= startADC) Or (endADC > endCC)) Then startADC=-1
+  ' Two terms to a pair of brackets: ADbasic refuses three (#199).
+  If (((startADC < 0) Or (endADC <= startADC)) Or (endADC > endCC)) Then startADC=-1
   ADC_ChannelPattern=Shift_Left(1,ADC_Card-1)
   
   P2_Set_Average_Filter(ADC_Card,0) 'sets the module, where the data  is happening, and also how many values does it use for the average

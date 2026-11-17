@@ -667,8 +667,8 @@ def running(upload):
         # here the run is over, and lost no events
 
     If the block raises, the run is still waited out before the error goes on, but not
-    checked, and not stopped. A stop plays the final state since B11 was fixed, but that a
-    stop from the PC reaches `finish:` is not yet confirmed on the rig.
+    checked, and not stopped. A stop, from the PC as from another process, plays the final
+    state (B11), as Lab2's rig showed on 2026-11-16.
     """
     run = start(upload)
     try:

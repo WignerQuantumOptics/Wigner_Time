@@ -78,9 +78,9 @@
 ' low-priority process at level 1 or below. High-priority sections, the sequencers' init: and
 ' event: among them, still interrupt it at any time, and so does communication with the PC.
 '
-' Not yet checked on the rig: open this file in the ADbasic IDE, confirm that Process Options
-' shows level 2, then compile and load. Recorded as D22 in Wigner Time's KNOWN_ISSUES.md, and as
-' L23 in the lab's.
+' On Lab2's rig (2026-11-16), the IDE read level 2 from the header above, and the program
+' compiled, loaded, and handed the outputs to thirteen runs and took them back. The race itself
+' was not provoked. Recorded as D22 in Wigner Time's KNOWN_ISSUES.md, and as L23 in the lab's.
 
 #include ADwinPro_All.Inc
 
@@ -149,7 +149,8 @@ event:
     writes = 0
     for i = 1 to entryCount
       digits = data_51[i]
-      if ((digits >= 0) and (digits <> data_52[i]) and (writes < maxWritesPerSweep)) then
+      ' Two terms to a pair of brackets: ADbasic refuses three (#199).
+      if (((digits >= 0) and (digits <> data_52[i])) and (writes < maxWritesPerSweep)) then
         if (data_56[i] = 1) then
           if (digits = 0) then
             p2_digout(data_53[i],data_54[i],0)
