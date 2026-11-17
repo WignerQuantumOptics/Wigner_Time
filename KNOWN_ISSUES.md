@@ -205,6 +205,7 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - A22 — values a port cannot hold reached the arrays (#187) – refused at conversion and on the console.
 - A23 — duplicate rows in the connection and device tables (#188) – refused.
 - A24 — a variable without a connection vanished from the arrays (#195) – refused, anchors excepted.
+- A25 — a replay of an earlier upload played a later one's arrays (#203) – a token in `Par_79`, checked by `start`.
 
 **B. Correctness** ([record](docs/design-record.md#b-correctness))
 

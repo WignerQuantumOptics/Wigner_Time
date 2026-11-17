@@ -457,7 +457,10 @@ so once (A15). The machine accepts writes mid-run, and a parameter scan's next u
 land in the previous shot's finish tail.
 
 Running what was uploaded is `start(log) -> Run` and `wait(run)`, bracketed by the context
-manager `running(log)`, with `run(log)` for a block with nothing in it. `wait` refuses a run that
+manager `running(log)`, with `run(log)` for a block with nothing in it. A repeated run is a
+replay: `start(log)` again, with nothing converted or uploaded. `upload` leaves a token in
+`Par_79` and keeps it in the log, and `start` refuses a log whose arrays another upload has
+replaced since (A25). `wait` refuses a run that
 lost events (`LostEvents`, with the slip in µs). It reads ADwin's counter once, after the run: the
 manual counts lost events "since process start", so that count is the run's own. Confirmed on the
 rig (maintainer, 2026-10-09): the counter resets before each run. Peripherals such as cameras and the time
