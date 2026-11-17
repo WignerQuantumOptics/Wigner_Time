@@ -461,7 +461,7 @@ def test_health():
 
 def _ui(machine):
     widgets = pytest.importorskip("ipywidgets")
-    ui = console.create_UI(machine, _panel())
+    ui, _ = console.create_UI(machine, _panel())
     sliders = [w for w in ui.children[0].children if isinstance(w, widgets.FloatSlider)]
     toggles = [w for box in ui.children[1:4] for w in box.children]
     return ui, dict(zip(["coil__MOT__A", "lockbox__MOT__MHz"], sliders)), toggles
@@ -506,6 +506,30 @@ def test_the_UI_catches_up_with_a_run_at_the_next_move():
         sliders["lockbox__MOT__MHz"].style.handle_color is None
     ), "known again once set"
     assert machine.data[console.DATA__WANTED][2] == conversion.to_digits(10.0 * 0.05)
+
+
+def test_the_UI_returns_the_console_its_widgets_write_through(monkeypatch):
+    """
+    #201. `set_value` by name reaches the entries the widgets drive, and the `UI` shows its
+    widget in a notebook, as the bare widget did.
+    """
+    pytest.importorskip("ipywidgets")
+    display = pytest.importorskip("IPython.display")
+    machine = _Machine()
+    machine.start()
+    ui = console.create_UI(machine, _panel())
+    widget, panel = ui
+
+    assert panel.token == machine.par[console.PAR__TOKEN]
+    console.set_value(panel, "coil__MOT__A", 2.0)
+    machine.sweep()
+    held = console.readback(panel).set_index("variable")["value"]
+    assert held["coil__MOT__A"] == pytest.approx(2.0, abs=0.01)
+
+    shown = []
+    monkeypatch.setattr(display, "display", shown.append)
+    ui._ipython_display_()
+    assert shown == [widget]
 
 
 # The machine specifications (D11, D18)
