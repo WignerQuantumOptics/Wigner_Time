@@ -487,7 +487,8 @@ from `panel(connections, devices, defaults, machine_specifications)`, so a chann
 and bounded exactly as
 the pipeline does it. Values are refused while a sequence owns the outputs. When a sequence has
 finished since the program last looked (`Par_18`, counted by every `finish:`), it adopts the
-run's final state on starting, and marks unknown what the final state does not name. A start
+run's final state on starting; a channel the final state does not name keeps the console's
+value, since the final state names every channel the run touches (A26, D28). A start
 by hand writes everything again. A variable the defaults do not name is left alone, since the lab
 keeps the MOT coils steady between runs. `upload` warns, after its wait and before writing, about
 each analogue channel the console itself wrote since it last started (`data_55`) that the run will

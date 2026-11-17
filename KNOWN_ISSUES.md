@@ -262,5 +262,6 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - D22 — the console was a second apparatus description (#94) – `wignertime.adwin.console`; checked on the rig, but for the jump warning.
 - D25 — the ADC sequencer still named digital module 1 (#133) – removed, with an unread `par_10`; rig.
 - D26 — small fixes from the review of 2026-11-11 (#190, #143) – seven, listed in the record.
+- D28 — after a run the console marked unknown the channels the run never touched (#206) – an unnamed one keeps the console's value, by A26.
 
 **Paper items tracked by no issue** – all done or settled but #142 (above); listed at the end of the design record.

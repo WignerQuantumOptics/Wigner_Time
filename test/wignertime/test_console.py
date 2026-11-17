@@ -63,7 +63,9 @@ class _Machine:
             analogue = [self._array(31 + k) for k in range(3)]
             digital = [self._array(41 + k) for k in range(3)]
             for i in range(par.get(75, 0)):
-                wanted[i] = written[i] = -2
+                if written[i] < 0:
+                    written[i] = -2
+                wanted[i] = written[i]
                 if digital__entry[i] == 1:
                     for f in range(par.get(16, 0)):
                         if (digital[0][f], digital[1][f]) == (modules[i], channels[i]):
@@ -331,8 +333,40 @@ def test_after_a_run_the_console_adopts_the_final_state_and_writes_nothing():
     assert values["shutter__MOT"] == 0
     assert np.isnan(
         values["lockbox__MOT__MHz"]
-    ), "not named by the final state: unknown"
+    ), "never written, and not named by the final state: unknown"
     assert not held["pending"].any()
+
+
+def test_a_channel_the_final_state_does_not_name_keeps_the_consoles_value():
+    """
+    #206. The final state names every channel the run touches (A26), so one it does not
+    name was left alone, and still holds what the console wrote. It used to turn unknown
+    after every run.
+    """
+    machine, panel = _configured()
+    machine.sweep()
+    hardware = list(machine.hardware)
+
+    machine.sequence(digital__finish=[(1, 11, 0)])  # the shutter only
+    machine.sweep()
+
+    assert machine.hardware == hardware + [(1, 11, 0)], "nothing written by the console"
+    held = console.readback(panel).set_index("variable")
+    assert held.loc["coil__MOT__A", "value"] == pytest.approx(1.5, abs=1e-3)
+    assert held.loc["shutter__MOT", "value"] == 0
+    assert not held["pending"].any()
+
+
+def test_a_request_for_a_channel_the_final_state_does_not_name_is_discarded():
+    """#206. Wanted just before the run and not yet written: the value written stands."""
+    machine, panel = _configured()
+    machine.sweep()
+    console.set_value(panel, "coil__MOT__A", 4.0)
+    machine.sequence(digital__finish=[(1, 11, 0)])
+    machine.sweep()
+    assert (4, 1, conversion.to_digits(8.0)) not in machine.hardware
+    held = console.readback(panel).set_index("variable")
+    assert held.loc["coil__MOT__A", "value"] == pytest.approx(1.5, abs=1e-3)
 
 
 def test_a_value_wanted_just_before_the_run_is_discarded():

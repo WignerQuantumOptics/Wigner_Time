@@ -38,9 +38,10 @@ The contract with the program, whose `#define`s must agree with the numbers belo
 
 **After a run.** A sequence stops the console for its run, and starts it again afterwards if it
 was running. The program then adopts the run's final state (maintainer's policy, 2026-09-27):
-an entry the final state names takes its digits, and one it does not name becomes unknown,
-because it holds whatever the run left it at. Nothing is written to either, and anything wanted
-before or during the run is discarded. `set_value` refuses while a sequence owns the outputs. A
+an entry the final state names takes its digits. One it does not name keeps what the console
+last wrote, since the final state must name every channel the run touches (A26), so the run
+left that channel alone (#206). Nothing is written to either, and anything wanted before or
+during the run is discarded. An entry the console had not yet written is unknown. `set_value` refuses while a sequence owns the outputs. A
 start by hand, with no run since, writes every entry again from what was wanted.
 
 **Before a run.** `adwin.core.upload` warns about each analogue channel set on the console that
@@ -361,8 +362,8 @@ def readback(console):
     `value` (NaN where unknown), and `pending`, true where the value wanted has not yet been
     written to the hardware. That should last a sweep or two at most.
 
-    After a run, this is the final state the program adopted, and NaN for the variables the
-    final state does not name.
+    After a run, this is the final state the program adopted, and what the console last wrote
+    for the variables the final state does not name, which the run left alone (#206).
     """
     machine, table = console.machine, console.table
     count = len(table)
@@ -539,8 +540,8 @@ def create_UI(machine, table, continuous_update=True):
     A value that is refused, because a sequence owns the outputs or the console is not
     running, puts the widget back and says why, so that the widgets show what was asked for.
     After a run the widgets are brought up to the adopted final state at the next move, or
-    with the button. A variable the final state does not name is marked, since what it
-    holds is unknown until it is set.
+    with the button. A variable the final state does not name keeps its value, since the run
+    left it alone (#206). A variable whose value is unknown is marked until it is set.
     """
     if not importlib.util.find_spec("ipywidgets"):
         raise ImportError("The console's widgets require `ipywidgets` to be installed.")
