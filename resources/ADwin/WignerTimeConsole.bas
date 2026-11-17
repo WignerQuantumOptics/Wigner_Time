@@ -116,9 +116,13 @@ init:
   next i
 
   if (sequencesFinished <> sequencesSeen) then
-    ' A sequence has finished since this process last looked: adopt its final state.
+    ' A sequence has finished since this process last looked: adopt its final state. The final
+    ' state names every channel the run touched (Wigner Time A26), so an entry it does not name
+    ' keeps what this program last wrote, and a request made meanwhile is discarded. An entry
+    ' not yet written holds nothing known (#206).
     for i = 1 to entryCount
-      data_51[i] = unknownDigits : data_52[i] = unknownDigits
+      if (data_52[i] < 0) then data_52[i] = unknownDigits
+      data_51[i] = data_52[i]
       if (data_56[i] = 1) then
         for f = 1 to digitalFinishDim
           if ((data_41[f] = data_53[i]) and (data_42[f] = data_54[i])) then

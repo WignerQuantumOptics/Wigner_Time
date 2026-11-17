@@ -1652,6 +1652,12 @@ D18's account noted on 2026-09-28 that the ADC variant programmed module 1 twice
 - **An `origin2` naming something outside the ramp failed in the origin machinery**, whose message spoke of `origin`, and for `ANCHOR` said that the timeline held no anchor when it held several. `origin2` is resolved against the ramp's own start rows, by design (maintainer, 2026-11-11, in `CLAUDE.md`). `_check_origin2` now refuses such a name, or `ANCHOR`, saying so. Tests: `test_timeline_ramp.py::test_origin2_outside_the_ramp_is_refused_by_name` and `::test_origin2_within_the_ramp_still_resolves`.
 - **`start` did not clear `Par_14`**, as `upload` does. Every run of the current programs writes it at the end of `init:`, so a replay at a changed period was still refused; but under a program that does not report, a replay passed `wait` on the previous run's report. `start` now clears it. Test: `test_adwin.py::test_a_replay_is_checked_on_its_own_report`. Checked for internal consistency only (§E).
 
+### D28 — after a run the console marked unknown the channels the run never touched **[found on the rig 2026-11-16, raised by the maintainer 2026-11-17; this is #206]** — **FIXED 2026-11-17 (#206)**
+
+On starting after a run, the console adopts the final state (D22; maintainer's policy, 2026-09-27). Its `init:` set every entry to unknown, then gave the final state's digits to the entries it names, since it could not tell a channel the run had left at some value from one the run never touched. So on Lab2's rig the channels only the console drives, the imaging intensity and the quantization coils, turned unknown after every run, their values unchanged; after a digital-only test run every analogue channel did.
+
+**Fixed (maintainer, 2026-11-17)** on the strength of A26: the final state names every channel the run touches, so one it does not name was left alone, and the sequencer writes channel by channel (`p2_dac`, `p2_digout`), never a whole module. An entry the final state does not name now keeps what the console last wrote (`data_52`), and its request, if one was pending, is discarded (`data_51 = data_52`), as a named entry's is. An entry the console had not yet written stays unknown, since nothing says what its port holds. Unknown is then left only for a variable configured without a default, until it is set. No array or Par was added. The test machine's emulation of `init:` follows the program line for line; `test_console.py::test_a_channel_the_final_state_does_not_name_keeps_the_consoles_value` and `::test_a_request_for_a_channel_the_final_state_does_not_name_is_discarded` fail under the previous rule. Machine side: recompile and reload the console; checked for internal consistency only (§E). **Paper:** `sec:adwin_operation`'s "marking as unknown any channel the final state does not name" changed with it.
+
 ---
 
 ## E. Testing constraints, in full
@@ -1699,7 +1705,7 @@ Thirteen runs: a digital-only timeline five times (the repump shutter opened for
 | A19 | each run lasted until its closing anchor |
 | `drop_repeats` | its arrays played as written; this shows that they play, not the equivalence its docstring argues |
 
-**Found:** the console and the ADC sequencer did not compile (B14). **Still to come:** the sequence at speed; an ADC run, for D25 and for a window placed at both periods (D21); and the warning about a channel set on the console that the run jumps from. **Raised by the rig, open:** the console marks unknown after every run the channels only it drives, since the final state does not name them; and the final state of the lab's `finish()` does not name the coils, so a real run stopped in the magnetic trap would leave them at its current (#160).
+**Found:** the console and the ADC sequencer did not compile (B14). **Still to come:** the sequence at speed; an ADC run, for D25 and for a window placed at both periods (D21); and the warning about a channel set on the console that the run jumps from. **Raised by the rig:** the console marked unknown after every run the channels only it drives, since the final state did not name them (D28, #206); and the final state of the lab's `finish()` does not name the coils, so a real run stopped in the magnetic trap would leave them at its current (#160).
 
 ---
 
