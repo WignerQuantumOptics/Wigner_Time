@@ -452,7 +452,8 @@ the one deliberate exception** (`upload(..., rehearsal=k)`, #196, maintainer, 20
 are made at the period read off the machine, as for the run at speed, and `Par_9` is k times its
 Processdelay, which the operator sets before starting, so the run plays k times slower for each
 device to be watched on its own display. Forgotten, the period check refuses it. The log records
-k (`Upload.rehearsal`). `upload` waits for a running process before writing, and says
+k (`Upload.rehearsal`). **The paper does not describe it** (maintainer, 2026-11-17, reversing #196's
+plan to): it may not apply in other labs. `upload` waits for a running process before writing, and says
 so once (A15). The machine accepts writes mid-run, and a parameter scan's next upload used to
 land in the previous shot's finish tail.
 
@@ -463,8 +464,8 @@ manual counts lost events "since process start", so that count is the run's own.
 rig (maintainer, 2026-10-09): the counter resets before each run. Peripherals such as cameras and the time
 controller are **not** Wigner Time's: they are armed before `running` and serviced inside the
 block, in the lab's code (maintainer, 2026-09-24; L22 there records the longer-term direction of
-one thread per device). An error inside the block waits the run out but does not stop it: that a
-stop from the PC reaches `finish:` and plays the final state (B11) awaits the rig. The consumer is `resources/ADwin/WignerTimeADwin.bas` (ADbasic,
+one thread per device). An error inside the block waits the run out but does not stop it. A stop
+from the PC reaches `finish:` and plays the final state (B11; Lab2's rig, 2026-11-16). The consumer is `resources/ADwin/WignerTimeADwin.bas` (ADbasic,
 real-time side). Its Par `#define`s, its arrays and `processUpdates` live in
 `resources/ADwin/WignerTimeSequencer.inc`, included by a path relative to the program, and must stay
 in sync with `core.upload`. Par, FPar and Data numbers are shared by every process on the machine,
