@@ -4,6 +4,7 @@
 import contextlib
 import dataclasses
 import importlib.util
+import random
 import time
 from typing import NamedTuple
 
@@ -47,6 +48,9 @@ class Upload(NamedTuple):
     rehearsal (`upload`'s `rehearsal`), where `rehearsal` is the factor k by which the run is
     slowed down: the machine plays at k times `cycle_period`, so every instant of the run,
     `time__last` included, comes k times later than stated. `rehearsal` is 1 otherwise.
+
+    `token` is the one `upload` left on the machine with the arrays (A25), which `start`
+    checks before it plays them again.
     """
 
     machine: ADwin.ADwin
@@ -60,6 +64,7 @@ class Upload(NamedTuple):
     analogue__finish: list
     digital__finish: list
     rehearsal: int = 1
+    token: int = 0
 
     @property
     def time__last(self):
@@ -378,6 +383,9 @@ def upload(
         cycle_period,
     )
 
+    # Whatever upload the arrays belonged to, they are no longer its own from here (A25).
+    machine.Set_Par(wt_adwin.PAR__UPLOAD__TOKEN, 0)
+
     # `endCC`, `analogArrayDim` and `digitalArrayDim` in `WignerTimeADwin.bas`: the event
     # loop ends after the last cycle, and the counts say how far into each array to read.
     # `analogFinishDim` and `digitalFinishDim` do the same for the final state.
@@ -433,6 +441,10 @@ def upload(
                     [row[column] for row in rows__set], number, 1, len(rows__set)
                 )
 
+    # Last, so that an upload interrupted before this point leaves no log a token to match.
+    token = random.randrange(1, 2**31 - 1)
+    machine.Set_Par(wt_adwin.PAR__UPLOAD__TOKEN, token)
+
     return Upload(
         machine=machine,
         process=process,
@@ -445,6 +457,7 @@ def upload(
         analogue__finish=analogue__finish,
         digital__finish=digital__finish,
         rehearsal=1 if rehearsal is None else rehearsal,
+        token=token,
     )
 
 
@@ -603,6 +616,10 @@ def start(upload):
     through `upload` and its wait -- this waits for it first, saying so once. Everything
     that must be ready before the sequence begins, such as a camera waiting for its
     trigger, has to be armed before this is called.
+
+    A replay needs no conversion and no upload: the arrays stay on the machine. Refuses
+    once another upload has replaced them (A25), from here or elsewhere, since the run
+    would then play that upload's timeline under this one's log.
     """
     machine, process = upload.machine, upload.process
     _wait_for_the_arrays(
@@ -611,6 +628,12 @@ def start(upload):
         "starting it again",
         "starting process {process}, which would play the same arrays",
     )
+    if machine.Get_Par(wt_adwin.PAR__UPLOAD__TOKEN) != upload.token:
+        raise RuntimeError(
+            "The arrays on the machine are no longer this upload's: another upload has been"
+            " made since, or one was interrupted. Starting would play that timeline under"
+            " this log. Upload this timeline again."
+        )
 
     # Cleared, as `upload` clears it: a replay does not go through `upload`, and a program
     # that does not report would otherwise pass `wait` on the previous run's report.

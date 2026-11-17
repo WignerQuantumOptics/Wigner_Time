@@ -585,6 +585,12 @@ Measured while porting Lab2's lab code to the D7 names: the lab's `create_Li_sto
 
 ## B. Correctness
 
+### A25 — a replay of an earlier upload played a later one's arrays **[new, found 2026-11-17; this is #203]** — **FIXED 2026-11-17 (#203)**
+
+`start(log)` replays an upload by starting its process again, with nothing converted or written, which is how a repeated run is meant to go (maintainer, 2026-11-17). Nothing checked that the arrays on the machine were still that log's. After `upload(A)` and `upload(B)`, `start(log_A)` played B's arrays; `wait` passed, the Processdelay being the same, and the `Run` named A's upload. A shot filed with its log then recorded the wrong timeline. The arrays are shared by every process on the machine, so the same held across processes 1 and 4, and for an upload made from another notebook.
+
+**Fixed (maintainer's decision, 2026-11-17)** with a token, as the console has for its panel (`Par_78`). `upload` clears `Par_79` (`adwin.PAR__UPLOAD__TOKEN`) before it writes anything, and once everything is written draws a token, writes it there and keeps it in the `Upload` log; `start` refuses a log whose token is not the one on the machine. An upload interrupted midway leaves 0, which no log holds. No program reads the Par, so nothing changes on the machine side. `Par_79` is used by no Wigner Time program and by none in Lab2's inventory (lab software's GitLab #22); Lab1's programs are still to be checked. Tests: `test_adwin.py::test_a_replay_after_another_upload_is_refused` and `::test_an_interrupted_upload_leaves_no_log_its_arrays`, both failing on the previous code. Checked for internal consistency only (§E).
+
 ### B1 — `ramp`'s degenerate-row check aligns on index, not on variable — **RESOLVED AND FIXED 2026-09-18; moot since 2026-09-29**
 
 **Moot since 2026-09-29:** with one input form left (C7 item 9), a ramp's start rows are a copy of its end rows, so the two frames hold the same variables in the same order by construction. `test_boundary_frames_are_compared_variable_by_variable`, which needed the two forms mixed in one call, is gone with them.

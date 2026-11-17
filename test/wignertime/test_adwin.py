@@ -1630,6 +1630,35 @@ def test_a_replay_is_checked_on_its_own_report(monkeypatch):
         adwin.run(log)
 
 
+def test_a_replay_after_another_upload_is_refused(monkeypatch):
+    """
+    A25. The arrays on the machine are the last upload's, whichever log starts them, so a
+    replay of an earlier log played them under the wrong record.
+    """
+    monkeypatch.setattr(adwin, "POLL__PERIOD", 0.0)
+    earlier = _uploaded()
+    later = adwin.upload(*_digital_only(), earlier.machine, 1)
+    assert earlier.token != later.token
+    with pytest.raises(RuntimeError, match="no longer this upload's"):
+        adwin.start(earlier)
+    adwin.run(later)
+    adwin.run(later)  # a replay of the last upload needs nothing more
+
+
+def test_an_interrupted_upload_leaves_no_log_its_arrays(monkeypatch):
+    """A25. Half-written arrays belong to no upload."""
+    log = _uploaded()
+
+    def lost(*arguments):
+        raise OSError("the link was lost")
+
+    monkeypatch.setattr(log.machine, "SetData_Long", lost)
+    with pytest.raises(OSError):
+        adwin.upload(*_digital_only(), log.machine, 1)
+    with pytest.raises(RuntimeError, match="no longer this upload's"):
+        adwin.start(log)
+
+
 def test_no_sequencer_names_a_digital_module_by_number():
     """
     D25. Every digital module is programmed from the machine specifications (D18), but
