@@ -95,6 +95,7 @@ constants = Munch(
         lag_shutter_off=1.78e-3,
         duration_shutter_on=140e-6,
         duration_shutter_off=600e-6,
+        delay_reopening=5e-3,  # shutter 2 reopens this long after shutter 1 is told to close
     ),
 )
 
@@ -267,6 +268,8 @@ def optical_pumping(
 
     WARNING:
     Shutters are reinitialized so that additional optical pumping stages can be added later.
+    The two are in series on the beam, so the first is closed before the second reopens,
+    and the beam stays blocked throughout.
     """
 
     duration_full = duration_exposition + duration_coil_ramp
@@ -287,7 +290,7 @@ def optical_pumping(
         tl.update(
             shutter__OP2=[
                 [duration_full - constants.OP.lag_shutter_off + delay2, 0],
-                [delay_shutter_reinitialization, 1],
+                [delay_shutter_reinitialization + constants.OP.delay_reopening, 1],
             ]
         ),
         tl.update(

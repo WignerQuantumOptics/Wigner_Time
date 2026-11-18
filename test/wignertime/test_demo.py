@@ -370,7 +370,7 @@ def test_fullDemo():
                 1.10357,
                 1.205,
                 1.10335,
-                1.205,
+                1.21,  # OP2 reopens 5 ms after OP1 is told to close (#182)
                 1.10513,
                 1.10513,
                 1.10513,

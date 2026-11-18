@@ -4,19 +4,19 @@
       "analogue__rows": 8263,
       "analogue__digest": "a8c424d1eecdda04565669b1f0203c3e9da3f417eb86ff5e28ae97045b79fc07",
       "digital__rows": 35,
-      "digital__digest": "1d790e4b7c4a035677708d883ec9dace18db7c532771129a5eefb3d6d9b8ad07"
+      "digital__digest": "62e7e14242896a8d73f1c46f6e7ef7ee0702dbbb904d61d5cda95dd2519d66d8"
     },
     "2e-06": {
       "analogue__rows": 17379,
       "analogue__digest": "2548305e4ddcca2c96ec4c1e7bb4cd85967ae6a071f80d0fdc56e3bf38d158e9",
       "digital__rows": 35,
-      "digital__digest": "c138111df0e69a0eedb79ff15de501ed45ee113fc2734d932b70260f82b11a54"
+      "digital__digest": "a1d5ff74fa9ba6a855b87fd331da3a6884ede1871bec5416fed7e33e50bb0a92"
     },
     "1e-06": {
       "analogue__rows": 29843,
       "analogue__digest": "fdd44b48f7b2d13d75ea1c44369a07e4c679e2cdbaabdd60b89eb242727ee3f0",
       "digital__rows": 35,
-      "digital__digest": "aa6aa0273a64d697e59824d5d8a42621f776e16d684cfdf3eeb3144faad1c486"
+      "digital__digest": "ce1f55f897ba01487c655b0cb2096ea0d6f3a28f8127b7ab482a81d390b1f81d"
     }
   },
   "imaging at MT": {

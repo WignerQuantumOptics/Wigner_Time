@@ -1804,6 +1804,14 @@ The old §F with its accounts; `KNOWN_ISSUES.md` keeps the one-line list.
 
   Two notes for whoever revisits this. First, guarding is the wrong instrument for a dead import — an early attempt used `importorskip` on all three modules and needlessly skipped ~120 tests that never touch matplotlib; check whether the import is *used* before guarding it. Second, `pip install wigner-time` without the `adwin` extra could not import `wignertime.demo.full_experiment` at all, so this was a packaging bug as well as a test-hygiene one; worth confirming as part of the pre-publication checks alongside C1.
 
+- **The demo's `optical_pumping` reopened its second shutter at the instant it closed the first** (#182, found by the maintainer 2026-10-14) – **fixed 2026-11-18**.
+
+  The two shutters are in series on the optical-pumping beam, and the reinitialization has to keep the beam blocked throughout. The stage gave both one shared time, so which shutter moved first depended on their lags, which the timeline does not carry; with both in transit together the beam could reach the atoms in the magnetic trap. `AOM__OP` is off at that instant in the demo, so what could leak was bounded by the AOM's extinction, but the shutters exist because that is not enough, and the reinitialization is there for further optical-pumping stages, which turn the AOM on.
+
+  Fix: the second shutter reopens `constants.OP.delay_reopening`, 5 ms, after the first is told to close. A fixed separation, as the lab's `OP_reinitialize` has always had, was preferred to adding two more lags to the constants, since it keeps the listing short. In `timeline_demo` one row moved, `shutter__OP2 = 1` from 15.2045 s to 15.2095 s; no other row did, and in the ADwin arrays only that row's cycle changed, at 5, 2 and 1 µs (checked before regenerating the references). The paper's two listings of the stage, in `fig:before_after` and in `sec:demonstration`, changed with the demo; `sec:anchor`'s remark that the last entry then lies about 0.1 s after the most recent anchor still holds. None of the generated figures moved.
+
+  The lab's stage was already in order, but nothing calls it. In a lab run the two shutters are reset by the final state, in one cycle, as the final state must. That comes after the closing wait, when no atoms are left, so it was left as it is; a second optical-pumping stage in one run needs `OP_reinitialize` between the two.
+
 ---
 
 ## Paper items tracked by no issue
