@@ -18,9 +18,20 @@ default. `arrays.json` did not change: the arrays are identical at 5, 2 and 1 µ
 regenerating: every case of both tables is identical once the old names are mapped to
 the new, and the digests in `arrays.json` are unchanged (only its key moved).
 
+**A third time, on 2026-11-17, for #205:** the final state must name every channel the run
+sets, so the demo's names its two MOT coils (two rows more in each case) and the lab's its
+MOT coils and its dispenser (three rows more in each of the 18 cases that end with
+`finish`). No row was removed or moved, and the arrays took the added final-state rows.
+
+**And a fourth, on 2026-11-18, for #182:** the demo's `optical_pumping` reopens its second
+shutter 5 ms after it closes the first, where it had done both at once. One row moved in
+each demo case, `shutter__OP2 = 1` from 15.2045 s to 15.2095 s, and in `arrays.json` only
+the digital digests of `timeline_demo` changed: that row's cycle, at each period. The lab's
+table was not regenerated.
+
 | file | what it is |
 | --- | --- |
-| `demo.parquet` | `timeline_demo` (99 rows), and the same with the camera trigger of `sec:interweaving` placed at molasses |
+| `demo.parquet` | `timeline_demo` (101 rows), and the same with the camera trigger of `sec:interweaving` placed at molasses |
 | `quantum_optics_lab.parquet` | the lab's `prepare_sample` at all five stages × finish on/off × dispenser switch-off on/off; absorption imaging interwoven into each stage; three time-of-flight delays placed onto one base (28 cases) |
 | `arrays.json` | row counts and digests of the ADwin arrays of `timeline_demo` and of one whole lab shot (`imaging at MT`), at 5, 2 and 1 µs |
 

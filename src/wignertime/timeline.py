@@ -99,7 +99,7 @@ def context_info(timeline):
     (`sec:context`). They were the first and last rows *written*, and a timeline is in the
     order it was written, not in time order: `optical_pumping`, which reinitializes its
     shutters past its closing anchor, was reported as 15.1045..15.1051 s in the demo,
-    where its rows span 15.0045..15.2045 s (B12).
+    where its rows span 15.0045..15.2095 s (B12).
     """
     if {"context", "time", "variable"}.issubset(timeline.columns):
         tlg = timeline.groupby("context")

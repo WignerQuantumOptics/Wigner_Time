@@ -156,6 +156,7 @@ The `ADwin` extra is a pure-Python wrapper that installs on a development machin
 - **`drop_repeats`'s pandas downcasting `FutureWarning`** on every real export – fixed 2026-09-01; the null-like comparison warning left in the suite was answered with the pandas 3 upgrade (#88, 2026-09-30).
 - **Nesting one deferred core call inside another** raises at the point of the mistake – fixed 2026-09-01, broadened as C4.
 - **E, the suite aborting when an optional extra is absent** – fixed 2026-09-01.
+- **The demo's `optical_pumping` reopening its second shutter as it closed the first** (#182) – reopened 5 ms later, in the demo and in the paper's two listings, 2026-11-18.
 
 The full accounts are in the design record's §F.
 
