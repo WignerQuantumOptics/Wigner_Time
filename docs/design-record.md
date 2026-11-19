@@ -1818,6 +1818,8 @@ The old §F with its accounts; `KNOWN_ISSUES.md` keeps the one-line list.
 
   What they cost, at 2 µs, as measured on 2026-11-17: 11 917 of the demo's 17 377 analogue rows, and 12 014 of the 153 463 of Lab2's run of 2026-09-21. With the change the demo's analogue array goes from 17 379 rows to 5 472 at 2 µs (8 263 to 2 762 at 5 µs, 29 843 to 9 279 at 1 µs), and that of the lab's pinned shot from 17 191 to 5 496.
 
+  The load was not only a matter of rows. On 2026-11-18 a run of a long scan on Lab2, at 2 µs, lost three events and was refused, and Lab2 went back to 5 µs. Without the final ramps 2 µs would not be a problem either (maintainer, 2026-11-19); that has not been tried on the rig.
+
   `finish` is now the closing wait, an anchor in the context `finish`, and the final state. It still takes `wait`, and the wait is played, since a run lasts to its last anchor (A19).
 
   **The lockbox is brought back earlier, by a coarse ramp** (maintainer, the same day: at some point after molasses, which is useful to whatever needs the MOT light again, such as a fluorescence image of the trap). It sits in the magnetic-trap stage, in the demo and in the lab: the trap needs no light, and it comes after optical pumping, whose light may depend on the same lock. The ramp lasts 10 ms and fixes a resolution of its own, `functools.partial(ramp_function.tanh, time_resolution=1e-3)`, so it is eleven rows at any cycle; the listing of `sec:demonstration` thereby shows what `sec:functions` says about a ramp's own resolution. It outlasts the stage's anchor, as the shutter reinitialization of `optical_pumping` does.
