@@ -96,7 +96,7 @@ repository had kept that text; `arxiv-v2` (sent 2026-10-07) is `docs/paper/` as 
 The SciPost text, sent to arXiv as v3 on 2026-10-19, is in the Overleaf project's history only,
 untagged.
 
-Four of the figures are **generated, not drawn**, by scripts that stay in this repository, in
+Five of the figures are **generated, not drawn**, by scripts that stay in this repository, in
 `tools/paper_figures/`, because they read the package. Each writes its PDF into the directory it is
 given, the clone's `graphic/`, and its PNG (for looking at) and SVG (for editing, text kept as text)
 beside itself, where a rerun that changed something shows as a diff; a rerun therefore commits on
@@ -110,9 +110,14 @@ it too; and the drawing in `fig:ramp` (`ramp-options.pdf`) comes from `ramp_opti
 whose labels are the defaults of `ramp`'s signature, so a changed default is carried by a rerun. Its
 layout of the origin labels (diagonal, from beside each origin's point) is the maintainer's, made in
 Inkscape on the SVG and then written into the generator. Each checks its own text for overflow and
-refuses to write a figure that does not fit. Only `fig:timeline__example` is still a static image;
-`language-tree.png`, which the hardware overview replaced, and `origin-decision-tree-highlighted.png`
-are unreferenced.
+refuses to write a figure that does not fit. `fig:timeline__example` (`timeline__example.pdf`) comes
+from `timeline_example_figure.py` (2026-11-20), which reads the listing of `sec:demonstration` out of
+the clone's `main.tex`, runs it up to the part that links to a machine, and draws it with
+`display.quantities` over a fixed window; so a change to that listing or to the display is carried
+by a rerun, and it shows what the printed code produces, not what the demo does. No figure is a
+static image any more. `language-tree.png`, which the hardware overview replaced,
+`origin-decision-tree-highlighted.png` and the old screenshot `timeline__example.png` are
+unreferenced.
 
 **The paper describes version 1.0.0** (maintainer, 2026-10-01), by definition: 1.0.0 is the code
 that emerges from the paper's review (agreed repeatedly, restated 2026-11-11). So the paper need not
