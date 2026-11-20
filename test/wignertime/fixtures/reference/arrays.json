@@ -1,40 +1,40 @@
 {
   "timeline_demo": {
     "5e-06": {
-      "analogue__rows": 8263,
-      "analogue__digest": "a8c424d1eecdda04565669b1f0203c3e9da3f417eb86ff5e28ae97045b79fc07",
+      "analogue__rows": 2762,
+      "analogue__digest": "efb5e27f606872f2dea4125c7c810a2cd51e607eb329143055ff26c7edd9ac3d",
       "digital__rows": 35,
       "digital__digest": "62e7e14242896a8d73f1c46f6e7ef7ee0702dbbb904d61d5cda95dd2519d66d8"
     },
     "2e-06": {
-      "analogue__rows": 17379,
-      "analogue__digest": "2548305e4ddcca2c96ec4c1e7bb4cd85967ae6a071f80d0fdc56e3bf38d158e9",
+      "analogue__rows": 5472,
+      "analogue__digest": "236c93f399bc48d194bf269849057c8dfd72343b6d30e703021181fb6446fec5",
       "digital__rows": 35,
       "digital__digest": "a1d5ff74fa9ba6a855b87fd331da3a6884ede1871bec5416fed7e33e50bb0a92"
     },
     "1e-06": {
-      "analogue__rows": 29843,
-      "analogue__digest": "fdd44b48f7b2d13d75ea1c44369a07e4c679e2cdbaabdd60b89eb242727ee3f0",
+      "analogue__rows": 9279,
+      "analogue__digest": "b408ecd7114d43e2a2b8bcc74930a079c9535b6e1150ade4f17eaf660c44ab65",
       "digital__rows": 35,
       "digital__digest": "ce1f55f897ba01487c655b0cb2096ea0d6f3a28f8127b7ab482a81d390b1f81d"
     }
   },
   "imaging at MT": {
     "5e-06": {
-      "analogue__rows": 8191,
-      "analogue__digest": "52e64e307ba3e913efc946faa5733b1d03b9919962b944cf06c4b375a75c0a9f",
+      "analogue__rows": 2758,
+      "analogue__digest": "87d517d2fafdb8874b740758b7fada099e2918b065a768079b5079ea4bd0601f",
       "digital__rows": 60,
       "digital__digest": "ee495345e210c3482a2590e5bd1d0ffd69c1b1dd459cb46ed739000e3549b1aa"
     },
     "2e-06": {
-      "analogue__rows": 17191,
-      "analogue__digest": "6db36a9968d7649c205c59d85ed74888f11ad1e4edf486966a88e8e3ddbb7ce0",
+      "analogue__rows": 5496,
+      "analogue__digest": "ca5368a5eb424954fd95607d071600ec41c92bb9480fa44ff2f30c92c79c2fc6",
       "digital__rows": 60,
       "digital__digest": "c7cbe19b3d63e235afb53361243886434fd1cb61915a1dbff988bd74c01c04a6"
     },
     "1e-06": {
-      "analogue__rows": 29462,
-      "analogue__digest": "2d25dcb4530ab8bd5c0638af45eacceeeb3b5781087830337db5484e35825191",
+      "analogue__rows": 9370,
+      "analogue__digest": "3ec6fa6e100ccca3269a985c5ddf3e0aadff6835b6c2b3a14349d267b0caf0d6",
       "digital__rows": 60,
       "digital__digest": "0ef5e3c23cb39de544c179d58f8db2db484f5ae15863a54a5d7067422873e44e"
     }

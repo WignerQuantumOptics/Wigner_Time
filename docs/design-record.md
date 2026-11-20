@@ -1812,6 +1812,24 @@ The old §F with its accounts; `KNOWN_ISSUES.md` keeps the one-line list.
 
   The lab's stage was already in order, but nothing calls it. In a lab run the two shutters are reset by the final state, in one cycle, as the final state must. That comes after the closing wait, when no atoms are left, so it was left as it is; a second optical-pumping stage in one run needs `OP_reinitialize` between the two.
 
+- **The final ramps are retired** (#160, and #183 closed with them; maintainer, 2026-11-19).
+
+  Every sequence ended by ramping its analogue channels back over 10 ms before the final state: in the demo the MOT lockbox, the MOT coils and the compensation coils, in Lab2 the lockbox, the MOT coils and the transfer coils. The reasons to drop the step: the current drivers and the lockbox smooth out a sudden jump themselves; a stopped run skips the ramps and steps every named channel to its final value, so that path existed already and is now the one every run takes; and the ramps moved many channels in the same cycles, each one more write in that cycle of the event loop.
+
+  What they cost, at 2 µs, as measured on 2026-11-17: 11 917 of the demo's 17 377 analogue rows, and 12 014 of the 153 463 of Lab2's run of 2026-09-21. With the change the demo's analogue array goes from 17 379 rows to 5 472 at 2 µs (8 263 to 2 762 at 5 µs, 29 843 to 9 279 at 1 µs), and that of the lab's pinned shot from 17 191 to 5 496.
+
+  The load was not only a matter of rows. On 2026-11-18 a run of a long scan on Lab2, at 2 µs, lost three events and was refused, and Lab2 went back to 5 µs. Without the final ramps 2 µs would not be a problem either (maintainer, 2026-11-19); that has not been tried on the rig.
+
+  `finish` is now the closing wait, an anchor in the context `finish`, and the final state. It still takes `wait`, and the wait is played, since a run lasts to its last anchor (A19).
+
+  **The lockbox is brought back earlier, by a coarse ramp** (maintainer, the same day: at some point after molasses, which is useful to whatever needs the MOT light again, such as a fluorescence image of the trap). It sits in the magnetic-trap stage, in the demo and in the lab: the trap needs no light, and it comes after optical pumping, whose light may depend on the same lock. The ramp lasts 10 ms and fixes a resolution of its own, `functools.partial(ramp_function.tanh, time_resolution=1e-3)`, so it is eleven rows at any cycle; the listing of `sec:demonstration` thereby shows what `sec:functions` says about a ramp's own resolution. It outlasts the stage's anchor, as the shutter reinitialization of `optical_pumping` does.
+
+  Where it sits was decided by two measurements. A context name used as an origin resolves to that context's anchor, so rows of the stage past its anchor move no stage placed by its name: in the lab's references every imaging row is where it was. Context inheritance, on the other hand, follows the latest row in time: tried between the lab's `OP_wait` anchor and `MT`, under a context of its own, the ramp handed that context to the second half of the trap's ramps, which state none. Inside the stage, written after those and under the stage's context, it changes no other row.
+
+  The references were compared case by case before they were regenerated (2 demo cases, 28 of the lab): every row that went was a final ramp's, every row that came is the lockbox's or the closing anchor under its new context, and the rows that stayed are identical and in the same order. `reference_cases` names a `functools.partial` by the function it binds and what it binds, since its `repr` carries a memory address.
+
+  The paper's `finish` and `magnetic_trapping` listings change with this, and one sentence of `sec:interweaving` that mentions the final ramps.
+
 ---
 
 ## Paper items tracked by no issue

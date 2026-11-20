@@ -409,7 +409,9 @@ they were written, not in time order (A21); see the filtering note below.
 **The cycle period belongs to the machine, not to the package**, so `convert` has no default for it
 and the machine specifications may not carry one. Both labs run **T12** processors, at **1 ns per
 `Processdelay` tick** (maintainer, 2026-09-23): Lab1 at 5 µs (`Initial_Processdelay = 5000`, as
-committed), Lab2 at 2 µs. `adwin.PROCESSDELAY__RATE` is the one hardware constant the package
+committed), and Lab2 at 5 µs too since 2026-11-18: it ran at 2 µs until a run of a long scan
+lost three events there, and 2 µs is more than it needs at present (maintainer, 2026-11-19).
+`adwin.PROCESSDELAY__RATE` is the one hardware constant the package
 keeps, and it knows only the T12; any other processor is refused by name. The paper's 1 µs
 (`sec:intro`, `sec:adwin`) stands as written (maintainer, 2026-11-11): its difference from the
 labs' periods is known, and not to be raised again.

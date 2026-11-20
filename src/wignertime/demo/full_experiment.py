@@ -7,6 +7,7 @@ An example implementation of a real experiment, using 'Wigner Time' timelines.
 As well as providing conveniences, the functions can be used to document the intention and meaning of each stage.
 """
 
+import functools
 import math
 
 from munch import Munch
@@ -151,28 +152,19 @@ def init(MOT_ON=False, **kwargs):
 
 def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwargs):
     """
-    Safely winds down the system, 'ramping' the analog variables to the “default state” in a given duration by the default `ramp_function`.
+    Ends the run: the last stage is held for `wait`, and then the “default state” is restored.
 
-    The `anchor` function is used to specify a key time instant, around which other times can be specified.
+    The anchor is the last instant of the run, so the wait before it is played.
 
     The ADwin_Finish environment means that the “default state” will be actuated even when the process is interrupted.
     It must name every channel the run touches (A26, #205), so the MOT coils, which the
-    default state leaves alone, are named here at the currents the final ramps end at.
+    default state leaves alone, are named here, at the MOT's currents.
+
+    Every channel steps to its final value, whether the run completes or is stopped: there
+    are no ramps back (#160). The current drivers and the lockbox smooth out a step themselves.
     """
-    duration = 1e-2
     return tl.stack(
-        tl.anchor(wait, context="finalRamps"),
-        tl.ramp(
-            lockbox__MOT__MHz=0.0,
-            coil__MOT_lower__A=lower_current,
-            coil__MOT_upper__A=upper_current,
-            coil__compensation_X__A=constants.Compensation.X__A,
-            coil__compensation_Y__A=constants.Compensation.Y__A,
-            coil__MOT_lower_plus__A=-constants.Compensation.Z__A,
-            coil__MOT_upper_plus__A=constants.Compensation.Z__A,
-            duration=duration,
-            context="finalRamps",
-        ),
+        tl.anchor(wait, context="finish"),
         default_state(
             time=math.inf,  # after the run: no instant, and 'ADwin_Finish' is played when it ends, or is stopped (#154)
             context="ADwin_Finish",
@@ -338,9 +330,14 @@ def magnetic_trapping(
     duration_strengthen=3e-3,
     lower_current_strengthen=-4.8,
     upper_current_strengthen=-4.7,
+    duration_lockbox_return=10e-3,
 ):
     """
     Does what it says on the tin.
+
+    The trap needs no light, so the MOT laser is brought back to the MOT's detuning
+    meanwhile, for whatever uses it next. The ramp fixes a coarse resolution of its own,
+    about ten points, since the lockbox follows no faster. It outlasts the stage's anchor.
     """
     return tl.stack(
         pull_coils(
@@ -353,6 +350,11 @@ def magnetic_trapping(
             lower_current_strengthen,
             upper_current_strengthen,
             time=duration_initial,
+        ),
+        tl.ramp(
+            lockbox__MOT__MHz=0.0,
+            duration=duration_lockbox_return,
+            function=functools.partial(ramp_function.tanh, time_resolution=1e-3),
         ),
         tl.anchor(duration_initial + duration_strengthen),
         context="magnetic_trapping",
@@ -373,7 +375,7 @@ def trigger_camera(time, exposure, context, origin):
     a call that forgot it would fall back on the latest anchor and land wherever the
     timeline happened to end, without an error (maintainer, 2026-10-06).
 
-    `context` is required rather than inherited: a trigger placed into a finished timeline would otherwise adopt the context of its last row at an instant, `finalRamps`, and a camera trigger is not part of the final ramps.
+    `context` is required rather than inherited: a trigger placed into a finished timeline would otherwise adopt the context of its last row at an instant, `finish`, and a camera trigger is not part of the end of the run.
 
     The camera is not part of the default state, so the timeline it is placed into should set it initially and finally, e.g. `init(trigger__camera=0)` and `finish(trigger__camera=0)`.
     """

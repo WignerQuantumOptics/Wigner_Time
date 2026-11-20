@@ -29,9 +29,18 @@ each demo case, `shutter__OP2 = 1` from 15.2045 s to 15.2095 s, and in `arrays.j
 the digital digests of `timeline_demo` changed: that row's cycle, at each period. The lab's
 table was not regenerated.
 
+**And a fifth, on 2026-11-19, for #160:** the final ramps are retired, in the demo and in the
+lab, and the lockbox returns by a coarse ramp during magnetic trapping. Checked case by case
+before regenerating: every row that went was a final ramp's (15 in each demo case, 13 in
+each lab case with `finish`), every row that came is the lockbox's pair, in the cases that
+reach the magnetic trap, or the closing anchor under its new context, `finish`, and the rows
+that stayed are identical and in the same order. The arrays shrank accordingly: the demo's
+analogue array from 17 379 rows to 5 472 at 2 µs. A `functools.partial` is now named by the
+function it binds and what it binds.
+
 | file | what it is |
 | --- | --- |
-| `demo.parquet` | `timeline_demo` (101 rows), and the same with the camera trigger of `sec:interweaving` placed at molasses |
+| `demo.parquet` | `timeline_demo` (89 rows), and the same with the camera trigger of `sec:interweaving` placed at molasses |
 | `quantum_optics_lab.parquet` | the lab's `prepare_sample` at all five stages × finish on/off × dispenser switch-off on/off; absorption imaging interwoven into each stage; three time-of-flight delays placed onto one base (28 cases) |
 | `arrays.json` | row counts and digests of the ADwin arrays of `timeline_demo` and of one whole lab shot (`imaging at MT`), at 5, 2 and 1 µs |
 

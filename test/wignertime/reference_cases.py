@@ -10,6 +10,7 @@ a change of output is intended, and say so in the commit:
 `PYTHONPATH=..` makes the lab's package next door importable; regeneration needs it.
 """
 
+import functools
 import hashlib
 import json
 import pathlib
@@ -44,6 +45,15 @@ LAB__SHOT = "imaging at MT"
 
 
 def _function__name(f):
+    """
+    A `functools.partial` is named by the function it binds and by what it binds, e.g.
+    `wignertime.ramp_function.tanh(time_resolution=0.001)`: its own `repr` carries a memory
+    address, which differs from run to run, and what it binds is part of what the ramp is.
+    """
+    if isinstance(f, functools.partial):
+        bound = [repr(a) for a in f.args]
+        bound += ["{}={!r}".format(k, v) for k, v in sorted(f.keywords.items())]
+        return "{}({})".format(_function__name(f.func), ", ".join(bound))
     return "{}.{}".format(
         getattr(f, "__module__", "?"), getattr(f, "__qualname__", repr(f))
     )
