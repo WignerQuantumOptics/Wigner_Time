@@ -144,7 +144,7 @@ C1–C7 are all settled (index below). An open API or design decision is flagged
 
 The `ADwin` extra is a pure-Python wrapper that installs on a development machine, so `convert` and everything under `adwin.internal` and `adwin.validate` are genuinely exercised. What is not is anything that talks to a device (`link_device`, `upload`'s writes) and the ADbasic programs themselves; entries that rest on a line-for-line emulation of a `.bas` have evidence, not verification. The demo's calibration file is tracked, and the suite skips cleanly when an optional extra is absent (F). Nor can the suite compile ADbasic: two programs that had never been compiled failed to on the rig (B14), so the sources are read for the pattern the compiler refuses.
 
-**The rig has run the current stack**: Lab2's first thirteen runs, on 2026-11-16, checked B11, D14, D21, D22 and A19, and found B14. Still to come are the sequence at speed, an ADC run (D25) and the jump warning. The account is in the design record's §E.
+**The rig has run the current stack**: Lab2's first thirteen runs, on 2026-11-16, checked B11, D14, D21, D22 and A19, and found B14. Since 2026-11-17 Lab2 takes data on it at speed, and its update of 2026-11-19 checked B14's fix, A25, A26 and D28, and the period check at 5 µs, the cycle Lab2 went back to after a run at 2 µs lost events and was refused. Still to come are a stop from the PC under D28, an ADC run (D25) and the jump warning, and the end of a run without final ramps (#160) has not reached the rig. The accounts are in the design record's §E.
 
 **A real experiment is frozen in the suite.** `test/wignertime/fixtures/lab2/` holds Dániel Varga's Lab2 timeline, taken off the rig on 2026-09-21 and not written to suit the package; `test_lab2_regression.py` runs it end to end and checksums the result. **The checksums pin today's output, not the rig's**: when one moves, the pipeline changed. `drop_repeats` and B9's sample grid account for every difference from what the machine was given. See the fixture's `README.md`, and the design record's §E.
 
@@ -198,8 +198,8 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - A22 — values a port cannot hold reached the arrays (#187) – refused at conversion and on the console.
 - A23 — duplicate rows in the connection and device tables (#188) – refused.
 - A24 — a variable without a connection vanished from the arrays (#195) – refused, anchors excepted.
-- A25 — a replay of an earlier upload played a later one's arrays (#203) – a token in `Par_79`, checked by `start`.
-- A26 — a stopped run left a channel its final state did not name where the run had it (#205) – refused at conversion; closes B11's remainder.
+- A25 — a replay of an earlier upload played a later one's arrays (#203) – a token in `Par_79`, checked by `start`; checked on the rig.
+- A26 — a stopped run left a channel its final state did not name where the run had it (#205) – refused at conversion; closes B11's remainder; it refused both of Lab2's live notebooks.
 
 **B. Correctness** ([record](docs/design-record.md#b-correctness))
 
@@ -216,7 +216,7 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - B11 — an interrupted run did not restore the default state (#148) – final-state arrays played by `finish:`; checked on the rig; remainder closed by A26.
 - B12 — `context_info` gave the first and last rows written (#189) – the earliest and latest.
 - B13 — `ramp_function.linear` stopped short of its target (#134) – sampled inclusively, as `tanh`.
-- B14 — the console and the ADC sequencer did not compile (#199) – two terms to a pair of brackets; found on the rig.
+- B14 — the console and the ADC sequencer did not compile (#199) – two terms to a pair of brackets; found on the rig, and the fix compiled there.
 
 **C. API decisions** ([record](docs/design-record.md#c-api-decisions))
 
@@ -254,6 +254,6 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - D24 — `display.quantities` drew a ramp as a jump, and a zoomed figure wrongly (#173) – drawn from an expanded copy, ~20 samples a ramp; names placed for the view.
 - D25 — the ADC sequencer still named digital module 1 (#133) – removed, with an unread `par_10`; rig.
 - D26 — small fixes from the review of 2026-11-11 (#190, #143) – seven, listed in the record.
-- D28 — after a run the console marked unknown the channels the run never touched (#206) – an unnamed one keeps the console's value, by A26.
+- D28 — after a run the console marked unknown the channels the run never touched (#206) – an unnamed one keeps the console's value, by A26; checked on the rig, but for a stopped run.
 
 **Paper items tracked by no issue** – all done or settled but #142 (above); listed at the end of the design record.
