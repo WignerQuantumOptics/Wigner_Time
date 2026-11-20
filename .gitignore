@@ -5,3 +5,6 @@ poetry.lock
 jupyter.log
 desktop.ini
 Thumbs.db
+
+# built distributions (poetry build)
+dist/
