@@ -746,7 +746,7 @@ def test_trigger_camera_interweaves_into_a_finished_timeline():
             ex.molasses(),
             ex.optical_pumping(),
             ex.magnetic_trapping(),
-            ex.finish(trigger__camera=0),
+            ex.finish(),  # the camera's final value is the one `init` gave it (#160)
         )
     )
     woven = tl.to_timeline(
@@ -769,3 +769,79 @@ def test_trigger_camera_interweaves_into_a_finished_timeline():
     assert imaging["time"].max() < time__finish
     # ... and nothing that was already there moves.
     frame.assert_equal(woven[woven["context"] != "imaging"], full)
+
+
+def _final(timeline):
+    rows = timeline[timeline["time"] == math.inf]
+    return dict(zip(rows["variable"], rows["value"]))
+
+
+def _initial(timeline):
+    rows = timeline[timeline["time"] == -math.inf]
+    return dict(zip(rows["variable"], rows["value"]))
+
+
+def test_finish_reads_the_initial_state_off_the_timeline():
+    """
+    The final state is the initial one written again, with what differs named (#160). A
+    channel a module adds is therefore named once, in `init`, where it used to be handed to
+    `finish` as well, and nothing but care kept the two in step.
+    """
+    timeline = tl.to_timeline(
+        tl.stack(
+            ex.init(MOT_ON=False, trigger__camera=0),
+            ex.MOT(duration=1),
+            ex.finish(wait=0.5, lower_current=-1.1),
+        )
+    )
+    initial, final = _initial(timeline), _final(timeline)
+
+    # every channel of the initial state, the added one included ...
+    assert set(initial) <= set(final)
+    assert final["trigger__camera"] == 0
+    # ... at its initial value, but for what `finish` names: the MOT is left on, at the
+    # currents given, and the coils are channels the initial state leaves alone.
+    named = {
+        "shutter__MOT": True,
+        "shutter__repump": True,
+        "coil__MOT_lower__A": -1.1,
+        "coil__MOT_upper__A": -0.98,
+    }
+    assert {v: final[v] for v in named} == named
+    assert initial["shutter__MOT"] == False  # noqa: E712
+    assert {v: x for v, x in final.items() if v not in named} == {
+        v: x for v, x in initial.items() if v not in named
+    }
+    # The rows after the run are in `ADwin_Finish`, and the wait before them is played.
+    rows = timeline[timeline["time"] == math.inf]
+    assert set(rows["context"]) == {"ADwin_Finish"}
+    closing = timeline[anchor.mask(timeline) & (timeline["context"] == "finish")]
+    assert closing["time"].tolist() == [1.5]
+
+
+def test_finish_takes_any_other_final_value_by_name():
+    timeline = tl.to_timeline(
+        tl.stack(ex.init(), ex.MOT(duration=1), ex.finish(AOM__science=0))
+    )
+    assert _initial(timeline)["AOM__science"] == 1
+    assert _final(timeline)["AOM__science"] == 0
+
+
+def test_a_channel_the_initial_state_leaves_out_is_still_refused_at_the_end():
+    """
+    Reading the final state off the initial one names no channel the initial state does
+    not. One the run sets, and neither names, is refused at the conversion as before (A26).
+    """
+    pytest.importorskip("ADwin")
+    from wignertime.adwin import core
+
+    timeline = tl.to_timeline(
+        tl.stack(
+            ex.init(),
+            ex.MOT(duration=1),
+            tl.update(trigger__camera=1, time=0.1, context="imaging"),
+            ex.finish(),
+        )
+    )
+    with pytest.raises(ValueError, match="trigger__camera"):
+        core.convert(timeline, ex.connections, ex.devices, 5e-6)

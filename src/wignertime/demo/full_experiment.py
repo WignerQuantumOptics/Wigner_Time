@@ -113,8 +113,8 @@ def default_state(MOT_ON=True, **kwargs):
 
     As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. When needed, we turn them off before the opening of the shutter. The same holds for the coils.
 
-    The same stage at both ends of the experiment: `init` and `finish` differ only in the
-    time, the context and `MOT_ON`.
+    It is stated once, here, and placed before the run by `init`. `finish` reads it back
+    off the timeline, so it is not stated again for the end (#160).
     """
     return tl.stack(
         tl.update(
@@ -152,28 +152,41 @@ def init(MOT_ON=False, **kwargs):
 
 def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwargs):
     """
-    Ends the run: the last stage is held for `wait`, and then the “default state” is restored.
+    Ends the run: the last stage is held for `wait`, and then the apparatus is put back as the run found it.
 
-    The anchor is the last instant of the run, so the wait before it is played.
+    The final state is not written out a second time. It is read off the timeline this stage is applied to: the rows before the run, at minus infinity, are written again after it, at plus infinity, with what is to differ named here (#160). So a module that adds hardware names it in `init` only.
 
-    The ADwin_Finish environment means that the “default state” will be actuated even when the process is interrupted.
+    The ADwin_Finish environment means that this state will be actuated even when the process is interrupted.
     It must name every channel the run touches (A26, #205), so the MOT coils, which the
-    default state leaves alone, are named here, at the MOT's currents.
+    initial state leaves alone, are named here, at the MOT's currents.
 
     Every channel steps to its final value, whether the run completes or is stopped: there
-    are no ramps back (#160). The current drivers and the lockbox smooth out a step themselves.
+    are no ramps back. The current drivers and the lockbox smooth out a step themselves.
     """
-    return tl.stack(
-        tl.anchor(wait, context="finish"),
-        default_state(
-            time=math.inf,  # after the run: no instant, and 'ADwin_Finish' is played when it ends, or is stopped (#154)
-            context="ADwin_Finish",
-            MOT_ON=MOT_ON,
+
+    def stage(timeline):
+        initial = timeline[timeline["time"] == -math.inf]
+        final = dict(zip(initial["variable"], initial["value"]))
+        final.update(
+            shutter__MOT=MOT_ON,
+            shutter__repump=MOT_ON,
             coil__MOT_lower__A=lower_current,
             coil__MOT_upper__A=upper_current,
             **kwargs,
-        ),
-    )
+        )
+        return tl.to_timeline(
+            tl.stack(
+                tl.anchor(wait, context="finish"),  # the last instant of the run
+                tl.update(
+                    **final,
+                    time=math.inf,  # after the run: no instant, and 'ADwin_Finish' is played when it ends, or is stopped (#154)
+                    context="ADwin_Finish",
+                ),
+            ),
+            onto=timeline,
+        )
+
+    return stage
 
 
 def MOT(duration=15, lower_current=-1.0, upper_current=-0.98):
@@ -377,7 +390,7 @@ def trigger_camera(time, exposure, context, origin):
 
     `context` is required rather than inherited: a trigger placed into a finished timeline would otherwise adopt the context of its last row at an instant, `finish`, and a camera trigger is not part of the end of the run.
 
-    The camera is not part of the default state, so the timeline it is placed into should set it initially and finally, e.g. `init(trigger__camera=0)` and `finish(trigger__camera=0)`.
+    The camera is not part of the default state, so the timeline it is placed into should set it initially, e.g. `init(trigger__camera=0)`; `finish` then leaves it as `init` set it.
     """
     return tl.update(
         trigger__camera=[[time, 1], [time + exposure, 0]],

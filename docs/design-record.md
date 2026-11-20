@@ -1846,6 +1846,20 @@ The old §F with its accounts; `KNOWN_ISSUES.md` keeps the one-line list.
 
   The paper's `finish` and `magnetic_trapping` listings change with this, and one sentence of `sec:interweaving` that mentions the final ramps.
 
+- **`finish` reads the final state off the initial one** (#160; decided by the maintainer on 2026-09-02, done on 2026-11-20).
+
+  `init` and `finish` each called `default_state`, so the state was written once but placed by two calls, and a module that added hardware had to hand its channels to both (`diagnostics.init` and `diagnostics.finish`, `sec:forwarding`). Since A26 a channel missed at the end is refused at the conversion, so the two could no longer drift apart silently; what was left was the repetition.
+
+  A stage is a function of the timeline it is applied to (#85), so `finish` now is one written by hand: it takes the rows at −∞, the initial state since #154, and writes them again at +∞ in `ADwin_Finish`, after the closing anchor, with what is to differ on top. In the demo that is the MOT's two shutters (`MOT_ON`), the MOT coils, which the initial state leaves alone and A26 wants named, and any keyword given: a final value by name. Nothing in the library changed: `stack` and `cascade` take the function `finish` returns as they take any stage.
+
+  **Measured:** the demo's final state is the same twenty rows in the same order, and every reference of the demo and its ADwin arrays are unchanged without regenerating. In the lab's 28 cases every final state names the same channels at the same values, in the initial state's order where it had been `default_state`'s.
+
+  What the rule means in use: a channel a module adds is named in `init` and nowhere else (`diagnostics.finish` is `experiment.finish`); a channel `init` names and the run moves is put back where `init` had it; a channel the run sets and neither names is refused, as before.
+
+  **The dispenser, in the lab's `finish`** (maintainer, 2026-11-20). It ends where `init` put it. When the sequence has moved it, `finish` brings it back by a ramp of about twenty points over the closing wait, or over a duration given, to which the run then lasts; a sequence that leaves it alone gets no ramp. A ramp written unconditionally was measured first, on the demo: it costs two rows when nothing changes, and lengthens the run when it is longer than the closing wait, by 4 s for a 5 s ramp after a 1 s wait. Hence the condition, which `finish` can state because it reads the timeline. The switch-off inside the lab's `prepare_sample` is still a step, and a stop still steps the dispenser to its final value: #212.
+
+  The paper's `finish` listing and `sec:forwarding` change with this: the appendix's module names its channels in `init` only. The opening listing of `sec:definitions`, where one `default_state` is placed twice, is left as the simple case it is.
+
 ---
 
 ## Paper items tracked by no issue
