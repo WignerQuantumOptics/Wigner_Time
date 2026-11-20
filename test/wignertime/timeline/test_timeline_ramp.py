@@ -8,6 +8,7 @@ from munch import Munch
 from wignertime import ramp_function
 from wignertime import timeline as tl
 from wignertime.demo import full_experiment as ex
+
 # NOTE: the commented-out `display` call below needs
 # `from wignertime.adwin import display`, and with it the optional `display`
 # extra. It is not imported at module scope so that these tests remain runnable
