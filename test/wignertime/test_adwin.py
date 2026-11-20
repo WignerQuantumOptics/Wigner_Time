@@ -1702,7 +1702,8 @@ def test_a_variable_the_final_state_does_not_name_is_refused_by_name():
     """
     A26. A run that ends, or is stopped, plays its final state only for what it names, so
     the coil was left at 1 A, and nothing said so. Named, the same run converts, and the
-    final state carries it.
+    final state carries it. The coil has no value before the run either, so there is
+    nothing the conversion could return it to (#160).
     """
     with pytest.raises(ValueError, match=r"does not name \['coil__MOT__A'\]"):
         adwin.convert(*_coil_and_shutter(shutter__MOT=0), 5e-6)
@@ -1713,18 +1714,91 @@ def test_a_variable_the_final_state_does_not_name_is_refused_by_name():
     assert analogue[-1] == (2**31 - 1, 3, 2, conversion.to_digits(0.0))
 
 
-def test_a_variable_set_only_before_the_run_must_be_named_too():
-    """A26. The run plays the initial state, so a variable set there is touched by it."""
-    conns = adcon.new(["shutter__MOT", 1, 11], ["AOM__MOT", 1, 1])
-    timeline = tl.to_timeline(
-        tl.stack(
-            tl.update(AOM__MOT=1, context="ADwin_LowInit"),
-            tl.update(shutter__MOT=1, time=0.0, context="run"),
-            tl.update(shutter__MOT=0, time=math.inf, context="ADwin_Finish"),
-        )
+def _initial_and_final(**final):
+    conns = adcon.new(
+        ["shutter__MOT", 1, 11], ["AOM__MOT", 1, 1], ["lockbox__MOT__V", 3, 1]
     )
-    with pytest.raises(ValueError, match=r"does not name \['AOM__MOT'\]"):
-        adwin.convert(timeline, conns, device.new(), 5e-6)
+    devs = device.new(["lockbox__MOT__V", 1.0, -10.0, 10.0])
+    stages = [
+        tl.update(
+            AOM__MOT=1, lockbox__MOT__V=2.0, shutter__MOT=0, context="ADwin_LowInit"
+        ),
+        tl.update(
+            shutter__MOT=1, lockbox__MOT__V=-3.0, AOM__MOT=0, time=0.0, context="run"
+        ),
+        tl.anchor(1.0),
+    ]
+    if final:
+        stages.append(tl.update(time=math.inf, context="ADwin_Finish", **final))
+    return tl.to_timeline(tl.stack(*stages)), conns, devs
+
+
+def test_a_variable_the_final_state_does_not_name_ends_where_it_began():
+    """
+    #160. The final state need state only what is to end differently: every other
+    variable is written again after the run at its value from before it, whatever the
+    run did with it in between. Here the shutter is stated, and stays as stated.
+    """
+    analogue, digital = adwin.convert(*_initial_and_final(shutter__MOT=1), 5e-6)
+    finish = 2**31 - 1
+    assert [row for row in analogue if row[0] == finish] == [
+        (finish, 3, 1, conversion.to_digits(2.0))
+    ]
+    assert sorted(row for row in digital if row[0] == finish) == [
+        (finish, 1, 1, 1),  # the AOM, as before the run
+        (finish, 1, 11, 1),  # the shutter, as stated
+    ]
+
+
+def test_a_timeline_with_no_final_state_ends_in_its_initial_one():
+    """#160. With nothing stated after the run, the final state is the initial one."""
+    analogue, digital = adwin.convert(*_initial_and_final(), 5e-6)
+    finish = 2**31 - 1
+    assert [row for row in analogue if row[0] == finish] == [
+        (finish, 3, 1, conversion.to_digits(2.0))
+    ]
+    assert sorted(row for row in digital if row[0] == finish) == [
+        (finish, 1, 1, 1),
+        (finish, 1, 11, 0),
+    ]
+
+
+def test_completing_the_final_state_leaves_the_timeline_alone_and_can_be_looked_at():
+    """
+    #160. The completion returns a new table, with the rows it adds at the end, at plus
+    infinity in the final state's context, so what a conversion will play can be seen
+    before it is converted.
+    """
+    timeline, conns, _ = _initial_and_final(shutter__MOT=1)
+    connected = adcon.remove_unconnected_variables(timeline, conns)
+    completed = wt_validate.final_state(connected)
+    added = completed.iloc[len(connected) :]
+    assert added[["time", "variable", "value", "context"]].values.tolist() == [
+        [math.inf, "AOM__MOT", 1.0, "ADwin_Finish"],
+        [math.inf, "lockbox__MOT__V", 2.0, "ADwin_Finish"],
+    ]
+    assert len(timeline[timeline["context"] == "ADwin_Finish"]) == 1
+
+
+def test_a_channel_added_to_the_initial_state_afterwards_is_completed_too():
+    """
+    #160. Why the rule is the conversion's and not a stage's: it reads the table as it
+    reaches the machine. A module that adds a channel to the initial state of a timeline
+    already finished, as an imaging module does, needs to say nothing about its end.
+    """
+    timeline, _, devs = _initial_and_final(shutter__MOT=1)
+    later = tl.to_timeline(
+        tl.update(trigger__camera=0, time=-math.inf, context="ADwin_LowInit"),
+        onto=timeline,
+    )
+    conns = adcon.new(
+        ["shutter__MOT", 1, 11],
+        ["AOM__MOT", 1, 1],
+        ["lockbox__MOT__V", 3, 1],
+        ["trigger__camera", 1, 5],
+    )
+    _, digital = adwin.convert(later, conns, devs, 5e-6)
+    assert (2**31 - 1, 1, 5, 0) in digital
 
 
 def test_the_anchors_need_no_final_state():

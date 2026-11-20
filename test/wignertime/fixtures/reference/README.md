@@ -38,6 +38,12 @@ that stayed are identical and in the same order. The arrays shrank accordingly: 
 analogue array from 17 379 rows to 5 472 at 2 µs. A `functools.partial` is now named by the
 function it binds and what it binds.
 
+**Once more on 2026-11-20, for #160, the demo's table only:** the conversion completes the final
+state from the initial one, so the demo's `finish` states four rows after the run, not twenty.
+Checked before regenerating: in both cases that reach `finish`, the sixteen rows that went
+were each at the variable's initial value, and the rows that stayed are identical. `arrays.json`
+did not change, which is the point: the same arrays from a shorter description.
+
 | file | what it is |
 | --- | --- |
 | `demo.parquet` | `timeline_demo` (89 rows), and the same with the camera trigger of `sec:interweaving` placed at molasses |

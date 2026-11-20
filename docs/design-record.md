@@ -1846,6 +1846,22 @@ The old §F with its accounts; `KNOWN_ISSUES.md` keeps the one-line list.
 
   The paper's `finish` and `magnetic_trapping` listings change with this, and one sentence of `sec:interweaving` that mentions the final ramps.
 
+- **The conversion completes the final state from the initial one** (#160; decided by the maintainer on 2026-09-02, done on 2026-11-20, at the conversion at the maintainer's wish).
+
+  `init` and `finish` each called `default_state`, so the state was written once but placed by two calls, and a module that added hardware had to hand its channels to both (`diagnostics.init` and `diagnostics.finish`, `sec:forwarding`). Since A26 a channel missed at the end is refused at the conversion, so the two could no longer drift apart silently; what was left was the repetition.
+
+  **The rule.** A variable the final state does not name ends where it began: `validate.final_state`, which had only refused, writes its row from before the run again after it, at +∞ in the final state's context. A variable with no row before the run and none after it is refused as before, by name: there is nothing to return it to. So A26's guarantee stands, every variable the run touches is in the final state that is played, and a timeline states after the run only what is to end differently.
+
+  **Why at the conversion and not in a stage.** The issue first proposed a stage: `finish` as a function of the timeline, reading the rows at −∞ and writing them at +∞. That was the place for it while `finish` also had to ramp each analogue variable back, which only a stage can write. With the final ramps retired (2026-11-19) nothing of the rule needs to be in the timeline, and the stage form was tried and set aside: it made `finish` a function inside a function, where the aim was for it to shrink, and it saw only the initial state as it stood when `finish` was applied. The conversion reads the table as it reaches the machine, so a channel added to the initial state of a finished timeline, as an imaging module does, is completed too. It is also where A26's check already was: the refusal and the completion are one rule, one function.
+
+  **No option.** The rule is unconditional. What a table means should not depend on a keyword given at upload, and a way to have the old refusal back can be added after 1.0.0 without breaking anyone.
+
+  **What a timeline no longer shows.** The completing rows are not in the table: the display's margin after the run and an archived timeline hold what was stated. `validate.final_state` returns the completed table, so what will be played can be looked at, and the upload log holds it.
+
+  **Measured.** The demo's `finish` is the closing anchor and one `update` of four rows, the MOT's shutters and coils. Its timeline has 16 rows fewer, each of them at its initial value before; the rows of the run are identical; and its ADwin arrays are unchanged at 5, 2 and 1 µs, without regenerating. The lab's code, which still states its final state in full, converts to the same arrays: the completion adds nothing where everything is named. In Lab2's takeout of 2026-09-21 four of the nine variables A26 refused are now returned to their initial values, the dispenser and the three channels the imaging module had added at the beginning only, and five are still refused, having none.
+
+  The paper's `finish` listing, `sec:forwarding` and one sentence of `sec:context` change with this.
+
 ---
 
 ## Paper items tracked by no issue

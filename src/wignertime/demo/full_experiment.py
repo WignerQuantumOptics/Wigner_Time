@@ -152,26 +152,31 @@ def init(MOT_ON=False, **kwargs):
 
 def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwargs):
     """
-    Ends the run: the last stage is held for `wait`, and then the “default state” is restored.
+    Ends the run: the last stage is held for `wait`, and then the apparatus is put back
+    as the run found it, but for what is stated here.
 
     The anchor is the last instant of the run, so the wait before it is played.
 
-    The ADwin_Finish environment means that the “default state” will be actuated even when the process is interrupted.
-    It must name every channel the run touches (A26, #205), so the MOT coils, which the
-    default state leaves alone, are named here, at the MOT's currents.
+    The rows in 'ADwin_Finish' are the final state, actuated when the run ends, even when
+    it is interrupted. It need not be written out: a variable it does not name ends at
+    its value from before the run (#160), which the conversion sees to. So only what is
+    to end differently is stated: the MOT's shutters, open again to load the next
+    sample, and the MOT coils, which the initial state leaves alone, at the MOT's
+    currents. A keyword is one more final value, by name.
 
     Every channel steps to its final value, whether the run completes or is stopped: there
-    are no ramps back (#160). The current drivers and the lockbox smooth out a step themselves.
+    are no ramps back. The current drivers and the lockbox smooth out a step themselves.
     """
     return tl.stack(
         tl.anchor(wait, context="finish"),
-        default_state(
-            time=math.inf,  # after the run: no instant, and 'ADwin_Finish' is played when it ends, or is stopped (#154)
-            context="ADwin_Finish",
-            MOT_ON=MOT_ON,
+        tl.update(
+            shutter__MOT=MOT_ON,
+            shutter__repump=MOT_ON,
             coil__MOT_lower__A=lower_current,
             coil__MOT_upper__A=upper_current,
             **kwargs,
+            time=math.inf,  # after the run: no instant, and 'ADwin_Finish' is played when it ends, or is stopped (#154)
+            context="ADwin_Finish",
         ),
     )
 
