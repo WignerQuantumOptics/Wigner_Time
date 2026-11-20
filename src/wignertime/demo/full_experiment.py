@@ -113,12 +113,18 @@ def default_state(MOT_ON=True, **kwargs):
 
     As a general rule, AOMs are kept on as long as possible to keep them in thermal equilibrium. When needed, we turn them off before the opening of the shutter. The same holds for the coils.
 
-    The same stage at both ends of the experiment: `init` and `finish` differ only in the
-    time, the context and `MOT_ON`.
+    It names every channel, the MOT coils at the MOT's currents: between runs the MOT is
+    in its steady state, so writing them before a run changes nothing.
+
+    Placed before the run by `init`. Nothing places it after the run: a variable ends
+    where it began unless the final state says otherwise (#160), so `finish` states only
+    the MOT's shutters.
     """
     return tl.stack(
         tl.update(
             lockbox__MOT__MHz=0.0,
+            coil__MOT_lower__A=-1.0,
+            coil__MOT_upper__A=-0.98,
             coil__compensation_X__A=constants.Compensation.X__A,
             coil__compensation_Y__A=constants.Compensation.Y__A,
             coil__MOT_lower_plus__A=-constants.Compensation.Z__A,
@@ -150,19 +156,18 @@ def init(MOT_ON=False, **kwargs):
     )
 
 
-def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwargs):
+def finish(wait=1, MOT_ON=True, **kwargs):
     """
     Ends the run: the last stage is held for `wait`, and then the apparatus is put back
-    as the run found it, but for what is stated here.
+    as the run found it.
 
     The anchor is the last instant of the run, so the wait before it is played.
 
     The rows in 'ADwin_Finish' are the final state, actuated when the run ends, even when
-    it is interrupted. It need not be written out: a variable it does not name ends at
-    its value from before the run (#160), which the conversion sees to. So only what is
-    to end differently is stated: the MOT's shutters, open again to load the next
-    sample, and the MOT coils, which the initial state leaves alone, at the MOT's
-    currents. A keyword is one more final value, by name.
+    it is interrupted. It is not written out: a variable it does not name ends at its
+    value from before the run (#160), which the conversion sees to. Only what is to end
+    differently is stated, here the MOT's shutters, open again to load the next sample.
+    A keyword is one more final value, by name.
 
     Every channel steps to its final value, whether the run completes or is stopped: there
     are no ramps back. The current drivers and the lockbox smooth out a step themselves.
@@ -172,8 +177,6 @@ def finish(wait=1, lower_current=-1.0, upper_current=-0.98, MOT_ON=True, **kwarg
         tl.update(
             shutter__MOT=MOT_ON,
             shutter__repump=MOT_ON,
-            coil__MOT_lower__A=lower_current,
-            coil__MOT_upper__A=upper_current,
             **kwargs,
             time=math.inf,  # after the run: no instant, and 'ADwin_Finish' is played when it ends, or is stopped (#154)
             context="ADwin_Finish",

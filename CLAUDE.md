@@ -499,8 +499,8 @@ the pipeline does it. Values are refused while a sequence owns the outputs. When
 finished since the program last looked (`Par_18`, counted by every `finish:`), it adopts the
 run's final state on starting; a channel the final state does not name keeps the console's
 value, since the final state names every channel the run touches (A26, D28). A start
-by hand writes everything again. A variable the defaults do not name is left alone, since the lab
-keeps the MOT coils steady between runs. `upload` warns, after its wait and before writing, about
+by hand writes everything again. A variable the defaults do not name is left alone, since a lab
+may keep a channel out of its initial state. `upload` warns, after its wait and before writing, about
 each analogue channel the console itself wrote since it last started (`data_55`) that the run will
 jump from its value, in the initial state or at the first row that sets it (`console.jumps`).
 
