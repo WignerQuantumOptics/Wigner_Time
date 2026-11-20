@@ -1759,6 +1759,22 @@ Thirteen runs: a digital-only timeline five times (the repump shutter opened for
 
 **Found:** the console and the ADC sequencer did not compile (B14). **Still to come:** the sequence at speed; an ADC run, for D25 and for a window placed at both periods (D21); and the warning about a channel set on the console that the run jumps from. **Raised by the rig:** the console marked unknown after every run the channels only it drives, since the final state did not name them (D28, #206); and the final state of the lab's `finish()` did not name the coils, so a real run stopped in the magnetic trap would have left them at its current, which A26 (#205) now refuses.
 
+### The rig, 2026-11-17 to 2026-11-19: data at speed, and the week's fixes **[lab GitLab #22, the report of 2026-11-19]**
+
+Lab2 took data on the current stack from 2026-11-17: fluorescence images of the magnetic trap, at speed. On 2026-11-19 both clones on its PC were brought to this week's state, the fixes up to #209, and the three programs were compiled again from `resources/ADwin/` as `main` has them, after a reboot of the ADwin. Each action had the maintainer's go.
+
+| item | what the rig showed |
+| --- | --- |
+| the sequence at speed | real measurements since 2026-11-17, first at 2 µs |
+| `LostEvents` | on 2026-11-18, at 2 µs, one run of a long scan lost three events and was refused. Lab2 went back to 5 µs (maintainer) |
+| D14, D21 | at 5 µs: built for Processdelay 5000 and reported 5000, in four runs, with no event lost |
+| B14 (#199) | the sequencer, the console and the ADC sequencer compiled from `main`'s sources as they are |
+| A25 (#203) | `run(log)` a second time played with no new conversion; after a second `upload`, `start` with the first log was refused, process 1 stayed stopped, and the newer log then played. `Par_79` read 0 after the reboot and a new token after each upload |
+| A26 (#205) | the conversion refused sequences of both live notebooks, whose final states left out `intensity__science__V` and, in one, `AOM__science`. They were named, and all four sequences then converted, at 5 µs and at 2 µs |
+| D28 (#206) | the imaging intensity and a quantization coil, set on the console before a run, kept their values through it, and nothing was unknown afterwards. The same with the run stopped from the PC was not tried |
+
+**Still to come:** the stop from the PC under D28; an ADC run, for D25 and for a window placed at both periods (D21), with process 4 still to be loaded; and the jump warning. **Not on the rig at all yet:** the end of a run without final ramps and the lockbox's return (#160), which reach Lab2 with its next update. **Seen in the lab's own code, not the package's:** in a scan, about one shot in fifty counted its trigger twice; the cause is unknown.
+
 ---
 
 ## F. Resolved — do not re-report, in full
