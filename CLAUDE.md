@@ -387,11 +387,18 @@ to produce one row per point and drops the `function` column — a one-way opera
 before hardware export. `expand`'s `**function_args` reach each function as defaults, by
 `util.function__defaults`: a keyword a function leaves unstated (no default, or `None`) is given, one
 it states (any other default, including a value a `partial` binds) is not. That is how `convert`'s
-cycle period reaches `ramp_function.tanh` and the demo's `lambda origin, terminus,
-time_resolution: ...`, but not a ramp that binds its own resolution. (It was
+cycle period reaches `ramp_function.tanh` and `functools.partial(ramp_function.tanh, sharpness=pt)`,
+but not a ramp that binds its own resolution. (It was
 `util.function__filtered_kws`, which handed every declaring function the value.) **`expand` keeps
 each ramp's rows where the ramp was written** (A18), and pairs a variable's ramp rows in the order
 they were written, not in time order (A21); see the filtering note below.
+
+**A ramp's function is saved as data** (D27, #191, 2026-11-20): `file.save` writes it to a text
+format as its name and, in a column of the file's own, the keyword arguments it binds, and
+`file.load` rebuilds it. That holds for a function defined at the top of a module and for a
+`functools.partial` of one, which is how the paper, the demo and the lab write their ramps. A lambda
+or a closure is written as text with a warning that names the ramp. `load` knows the functions of
+`wignertime.ramp_function` and takes any other in `functions=`; it imports nothing a file names.
 
 ### ADwin export pipeline
 
