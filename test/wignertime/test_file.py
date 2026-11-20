@@ -1,8 +1,11 @@
+import functools
+import warnings
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
-from wignertime import file
+from wignertime import file, ramp_function
 from wignertime import timeline as tl
 from wignertime.demo import full_experiment as demo
 from wignertime.internal import dataframe as frame
@@ -73,20 +76,15 @@ def test_save_load__types(fname, timeline_demo):
     ],
 )
 def test_save_load__types_with_functions(fname, timeline_demo_function):
+    """
+    A ramp comes back with its function, in every format (D27, #191). A text format used to
+    return the function's name where the function had been, so the timeline could be read
+    and not expanded, and this test expected the name.
+    """
     file.save(timeline_demo_function, fname)
     actual = file.load(fname)
 
-    mask = actual["function"].notna()
-
-    if bool(actual.loc[mask, "function"].map(lambda x: isinstance(x, str)).all()):
-        output = timeline_demo_function.copy(deep=True)
-        output.loc[mask, "function"] = "wignertime.ramp_function.tanh"
-        # A column of names is typed as one, `str`.
-        output["function"] = output["function"].infer_objects()
-    else:
-        output = timeline_demo_function
-
-    return frame.assert_equal(actual, output)
+    return frame.assert_equal(actual, timeline_demo_function)
 
 
 def test_save_load__increment_name(timeline_demo):
@@ -148,3 +146,163 @@ def test_a_name_without_a_suffix_is_a_file(timeline_demo):
 def test_a_name_ending_in_a_separator_is_a_directory(timeline_demo):
     written = file.save(timeline_demo, "runs/")
     assert written.parent == Path("runs") and written.suffix == ".parquet"
+
+
+# --- a ramp's function is saved as data (D27, #191) -----------------------------------
+
+FORMATS__TEXT = [".parquet", ".csv", ".json", ".feather"]
+"""The formats that cannot hold a function, and so hold its name and what it binds."""
+
+
+def ramp_of_this_module(origin, terminus, time_resolution=None, option=None):
+    """A ramp function that is not Wigner Time's, so `load` cannot know it by itself."""
+    return ramp_function.linear(origin, terminus, time_resolution)
+
+
+def _ramped(function):
+    return tl.to_timeline(
+        tl.stack(
+            tl.update(coil__test__A=0.0, time=0.0, context="start"),
+            tl.ramp(coil__test__A=1.0, duration=1e-2, function=function),
+        )
+    )
+
+
+def _functions(timeline):
+    return [f for f in timeline["function"] if callable(f) or isinstance(f, str)]
+
+
+@pytest.mark.parametrize("suffix", FORMATS__TEXT)
+def test_a_function_that_binds_keywords_comes_back_bound(suffix):
+    """
+    `functools.partial(tanh, sharpness=..., time_resolution=...)` is how a ramp states its
+    shape and its own resolution (#65). Its `repr`, memory address included, was what a
+    text format kept of it.
+    """
+    bound = functools.partial(ramp_function.tanh, sharpness=1.5, time_resolution=1e-3)
+    timeline = _ramped(bound)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        back = file.load(file.save(timeline, "bound" + suffix))
+
+    functions = _functions(back)
+    assert len(functions) == 2
+    for f in functions:
+        assert isinstance(f, functools.partial)
+        assert f.func is ramp_function.tanh
+        assert f.keywords == {"sharpness": 1.5, "time_resolution": 1e-3}
+    assert file.COLUMN__KEYWORDS not in back.columns
+    # ... and so the reloaded timeline is the same experiment.
+    frame.assert_equal(tl.expand(back), tl.expand(timeline))
+
+
+def test_the_keywords_have_a_column_of_their_own_in_the_file():
+    """Only when some ramp binds any: a file without one is as it always was."""
+    plain = file.save(_ramped(ramp_function.tanh), "plain.csv")
+    bound = file.save(
+        _ramped(functools.partial(ramp_function.tanh, sharpness=2)), "bound.csv"
+    )
+
+    assert file.COLUMN__KEYWORDS not in pd.read_csv(plain).columns
+    written = pd.read_csv(bound)
+    assert (
+        written["function"].dropna().tolist() == ["wignertime.ramp_function.tanh"] * 2
+    )
+    assert written[file.COLUMN__KEYWORDS].dropna().tolist() == ['{"sharpness": 2}'] * 2
+
+
+@pytest.mark.parametrize("suffix", FORMATS__TEXT)
+def test_a_lambda_is_kept_as_text_and_both_ends_say_so(suffix):
+    """
+    A lambda has no name a later session could find it by. It is still written, as text,
+    so that the file can be read, but `save` names the ramp it cannot keep, `load` says
+    what it could not put back, and expanding raises as it did. Silent at the point of
+    saving was the defect.
+    """
+    timeline = _ramped(
+        lambda origin, terminus, time_resolution: ramp_function.tanh(
+            origin, terminus, time_resolution, 1.5
+        )
+    )
+
+    with pytest.warns(UserWarning, match=r"coil__test__A \(start\)"):
+        written = file.save(timeline, "lambda" + suffix)
+    with pytest.warns(UserWarning, match="not known here"):
+        back = file.load(written)
+
+    assert all(isinstance(f, str) and "<lambda>" in f for f in _functions(back))
+    with pytest.raises(TypeError):
+        tl.expand(back, time_resolution=1e-3)
+
+
+@pytest.mark.parametrize(
+    "function",
+    [
+        functools.partial(ramp_of_this_module, option=(1, 2)),  # a tuple returns a list
+        functools.partial(ramp_of_this_module, option=float("inf")),  # not JSON
+        functools.partial(ramp_of_this_module, [0.0, 0.0]),  # a positional argument
+    ],
+    ids=["tuple", "infinity", "positional"],
+)
+def test_what_a_file_could_not_give_back_as_it_was_is_not_saved_as_data(function):
+    timeline = _ramped(ramp_function.tanh)
+    # Set as a list: `assign` would call the function.
+    timeline["function"] = [
+        function if callable(f) else f for f in timeline["function"]
+    ]
+
+    with pytest.warns(UserWarning, match="as text only"):
+        file.save(timeline, "t.csv")
+
+
+def test_a_function_of_ones_own_is_handed_to_load():
+    """
+    `load` puts back Wigner Time's ramp functions by itself and imports nothing a file
+    names: which code runs is for the caller to say. Any other function is handed over.
+    """
+    timeline = _ramped(functools.partial(ramp_of_this_module, option=3))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        written = file.save(timeline, "own.parquet")
+
+    with pytest.warns(UserWarning, match="ramp_of_this_module"):
+        unknown = file.load(written)
+    assert all(isinstance(f, str) for f in _functions(unknown))
+
+    name = "{}.ramp_of_this_module".format(ramp_of_this_module.__module__)
+    for functions in ([ramp_of_this_module], {name: ramp_of_this_module}):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            back = file.load(written, functions=functions)
+        for f in _functions(back):
+            assert f.func is ramp_of_this_module and f.keywords == {"option": 3}
+        frame.assert_equal(
+            tl.expand(back, time_resolution=1e-3),
+            tl.expand(timeline, time_resolution=1e-3),
+        )
+
+
+def test_a_function_without_a_name_cannot_be_handed_over_in_a_list():
+    file.save(_ramped(ramp_function.tanh), "t.csv")
+    with pytest.raises(ValueError, match="no name a file could refer to it by"):
+        file.load("t.csv", functions=[lambda origin, terminus: None])
+
+
+@pytest.mark.parametrize("suffix", FORMATS__TEXT + [".pickle"])
+def test_the_demonstration_is_archived_without_loss(suffix):
+    """
+    The paper says a timeline can be archived beside the data it produced. Its
+    demonstration, with ramps of three kinds (the default, one of a given sharpness, one
+    of a resolution of its own), comes back from every format as the same experiment. It
+    could not be pickled either, while `pull_coils` ramped with a lambda.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        back = file.load(file.save(demo.timeline_demo, "demonstration" + suffix))
+
+    assert all(callable(f) for f in _functions(back))
+    frame.assert_equal(
+        tl.expand(back, time_resolution=1e-4),
+        tl.expand(demo.timeline_demo, time_resolution=1e-4),
+    )

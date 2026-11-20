@@ -315,9 +315,7 @@ def pull_coils(
         coil__MOT_upper__A=upper_current,
         coil__MOT_lower_plus__A=lower_plus_current - constants.Compensation.Z__A,
         coil__MOT_upper_plus__A=upper_plus_current + constants.Compensation.Z__A,
-        function=lambda origin, terminus, time_resolution: ramp_function.tanh(
-            origin, terminus, time_resolution, pt
-        ),
+        function=functools.partial(ramp_function.tanh, sharpness=pt),
         duration=duration,
         time=time,
     )

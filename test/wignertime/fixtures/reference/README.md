@@ -38,6 +38,12 @@ that stayed are identical and in the same order. The arrays shrank accordingly: 
 analogue array from 17 379 rows to 5 472 at 2 µs. A `functools.partial` is now named by the
 function it binds and what it binds.
 
+**And a sixth, on 2026-11-20, for #191:** `pull_coils`, in the demo and in the lab, ramps with
+`functools.partial(ramp_function.tanh, sharpness=pt)` where it had a lambda. Checked before
+regenerating: nothing but the function's recorded name differs, on 32 rows of the demo's
+cases and 128 of the lab's; the curves and every other column are identical, and
+`arrays.json` did not change.
+
 | file | what it is |
 | --- | --- |
 | `demo.parquet` | `timeline_demo` (89 rows), and the same with the camera trigger of `sec:interweaving` placed at molasses |

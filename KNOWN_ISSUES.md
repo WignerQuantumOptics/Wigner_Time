@@ -56,15 +56,7 @@ Retired on 2026-10-02: `ux` and `consistency` (too broad to filter on), `interna
 
 ## Open items
 
-Three items with an ID are open, all in section D: **D27** (#191) in `1.0 — paper`, and **D16** (#130) and **D23** (#144) in `1.x`. Four open issues carry no ID and are recorded at the end of this section.
-
-### D27 — saving a timeline to a text format loses its ramps **[new, found 2026-11-11]**
-
-Parquet, CSV and JSON cannot hold a function, so `file._stringify_callables_for_export` writes a ramp's `function` as a string: `module.qualname`, or for a `functools.partial` its `repr`, memory address included. A reloaded timeline cannot be expanded (`TypeError: '…' is not a callable object`), and nothing warns when it is saved, although #84, which asked for `save`, required a "warning if data will be lost". Pickle keeps the functions, but the demo timeline cannot be pickled at all: `pull_coils` ramps with a local lambda (`Can't get local object 'pull_coils.<locals>.<lambda>'`).
-
-The paper says three times that a timeline can be archived – the `fig:hardware_overview` caption, `sec:context`, and "the timeline actually delivered to the hardware can be archived alongside the data it produced" – so `paper-affecting`. An expanded timeline, and the `Upload` record, archive without loss; a timeline with its ramps does not. Silent at the point of saving, loud at the point of use, so `silent`.
-
-**No obvious fix yet** (maintainer, 2026-11-11), and the paper's sentences stay until there is one. Tracked as [#191](https://github.com/WignerQuantumOptics/Wigner_Time/issues/191).
+Two items with an ID are open, both in section D and in `1.x`: **D16** (#130) and **D23** (#144). Four open issues carry no ID and are recorded at the end of this section.
 
 ### D16 — the anchor label cannot be printed on a legacy Windows code page **[new, found 2026-09-11]**
 
@@ -254,6 +246,7 @@ What each was, its issue, and what replaced it. Every full account is in [`docs/
 - D24 — `display.quantities` drew a ramp as a jump, and a zoomed figure wrongly (#173) – drawn from an expanded copy, ~20 samples a ramp; names placed for the view.
 - D25 — the ADC sequencer still named digital module 1 (#133) – removed, with an unread `par_10`; rig.
 - D26 — small fixes from the review of 2026-11-11 (#190, #143) – seven, listed in the record.
+- D27 — saving a timeline to a text format lost its ramps (#191) – a function is saved as its name and the keywords it binds, and `load` rebuilds it; a lambda is named in a warning.
 - D28 — after a run the console marked unknown the channels the run never touched (#206) – an unnamed one keeps the console's value, by A26; checked on the rig, but for a stopped run.
 
 **Paper items tracked by no issue** – all done or settled but #142 (above); listed at the end of the design record.
