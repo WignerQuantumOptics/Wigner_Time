@@ -1846,6 +1846,20 @@ The old §F with its accounts; `KNOWN_ISSUES.md` keeps the one-line list.
 
   The paper's `finish` and `magnetic_trapping` listings change with this, and one sentence of `sec:interweaving` that mentions the final ramps.
 
+- **`None` is refused for `origin` and `context`** (#142; settled by both maintainers on 2026-11-20).
+
+  The issue had two halves. The first, a visible default, landed on 2026-09-28: the signatures name `INFER`. The second stayed open from 2026-09-30: `None` was still accepted and read as `INFER`, as the whole argument and in a slot, which the coauthor who opened the issue did not want, and which the maintainer had kept because a stage that takes `origin=None` and passes it on is the ordinary way to write "no opinion of my own".
+
+  The two read `None` differently: as "nothing here", hence a way to switch the mechanism off, and as "the default". Neither reading was taken. An input two people read differently is ambiguous, and the rule here is to raise where intent is ambiguous. The freeze made the choices unequal as well: a refusal can be relaxed in 1.x without breaking anyone, while either meaning, once accepted, could not be changed before 2.0. And the signatures already drew the distinction: `ramp` prints `duration=None, time=None` for "not given" beside `origin=INFER` for "inferred from the timeline", which accepting `None` as `INFER` erased. `None` as "absolute" was the one option ruled out on its own demerits: it would have moved every stage that forwards `origin=None` to time zero without a word. "Off" is a number, `origin=0.0`, and context has no "off" (#156).
+
+  **What is refused, and where.** `update`, `ramp` and `anchor` raise a `ValueError` when called with `context=None`, `origin=None`, or an origin with `None` in a slot, and so does `stack` for the same keywords, which it forwards. The message names `tl.INFER` and, for an origin, a number. It is raised when the stage is written, not when it is applied. `INFER` is exported as `tl.INFER`, which it was not, so that a stage of one's own can default to it; inside the origin module an unstated slot is still written `None`.
+
+  **What it cost.** The paper and the demo wrote `None` for neither. The lab had five signatures (four `origin=None` in `diagnostics.py`, `context=None` in `pull_coils`), now `tl.INFER`. Seventeen tests wrote `None` on purpose and were moved: the ones asserting the equivalence now assert the refusal. Every reference case of the demo and of the lab is unchanged.
+
+  **Not touched:** `origin2`, which never read `None` as a default, and the context of a single row, where `[time, value, None]` was already refused as a row without a context. A row written `[time, value, INFER]` puts the marker itself into the `context` column: found while measuring this, and not fixed here.
+
+  The paper's one sentence on it, in `sec:origin_full`, said that `None` means the same as `INFER`; it changes with the code.
+
 ---
 
 ## Paper items tracked by no issue

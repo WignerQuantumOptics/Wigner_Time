@@ -206,12 +206,32 @@ def test_update_inherits_context_by_default(df__mixed):
     )
 
 
-@pytest.mark.parametrize("context", [None, wt_config.INFER])
-def test_update_context_none_and_infer_match_the_default(df__mixed, context):
+@pytest.mark.parametrize("call", [tl.update, tl.ramp, tl.stack])
+def test_none_is_not_a_context(call):
     """
-    Writing `None` or the marker is indistinguishable from leaving `context` unstated,
-    so a stage that takes `context=None` and passes it on inherits as if it had passed
-    nothing (#142).
+    #142, settled by both maintainers on 2026-11-20: `None` meant "inherit", as `INFER`
+    does, and is refused where it is written. The message names `tl.INFER`.
+    """
+    arguments = (tl.update(AOM__imaging__V=1.0),) if call is tl.stack else ()
+    keywords = (
+        {}
+        if call is tl.stack
+        else dict(AOM__imaging__V=1.0, **({"duration": 1.0} if call is tl.ramp else {}))
+    )
+    with pytest.raises(ValueError, match="`None` is not a context") as refusal:
+        call(*arguments, **keywords, context=None)
+    assert "tl.INFER" in str(refusal.value)
+
+    with pytest.raises(ValueError, match="`None` is not a context"):
+        tl.anchor(1.0, context=None)
+
+
+@pytest.mark.parametrize("context", [tl.INFER, wt_config.INFER])
+def test_update_context_infer_matches_the_default(df__mixed, context):
+    """
+    Writing the marker is indistinguishable from leaving `context` unstated, so a stage
+    that takes `context=tl.INFER` and passes it on inherits as if it had passed nothing
+    (#142).
     """
     return wt_frame.assert_equal(
         tl.to_timeline(
