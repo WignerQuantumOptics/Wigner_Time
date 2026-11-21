@@ -555,8 +555,9 @@ real, which is what #154 was about.
 - Standard aliases: `tl` (timeline), `wt_frame`, `wt_origin`, `wt_util`, `wt_config`, `wt_adwin`.
 - Numpy-style docstrings (mkdocstrings is configured for them). Prose in docstrings tends to explain
   *why* a rule exists, not just what the function does — match that.
-- `internal/` is explicitly unstable API. `internal/doc/` and `doc/` are org-mode notes, not built
-  documentation; `docs/` is the mkdocs source (`docs/index.md` duplicates the
+- `internal/` is explicitly unstable API. `doc/` holds org-mode notes, not built
+  documentation (`internal/doc/`, more notes and 12 MB of graphics that every wheel carried, was
+  removed on 2026-11-20, #177); `docs/` is the mkdocs source (`docs/index.md` duplicates the
   README, so changes to the overview belong in both). The paper is not here but in its Overleaf
   project (above), and `docs/origin-resolution.md` is not in `mkdocs.yml`'s nav.
 - Tests live under `test/wignertime/`, mirroring the package. (They sat under `test/wigner/time/`,
