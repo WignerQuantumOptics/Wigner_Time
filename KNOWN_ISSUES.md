@@ -35,9 +35,8 @@ The scheme below was agreed by both maintainers on 2026-10-02. **Each question i
 | `1.0 — paper` | Must land before the paper is published (submitted to SciPost Physics Codebases): silent-failure defects, anything that falsifies the manuscript, the decisions those depend on, and the release itself (#169). |
 | `1.x` | After the paper, and compatible with 1.0.0: nothing the paper prints changes, and no code written against 1.0.0 breaks. |
 | `2.0` | After the paper, and breaking: changes what the paper prints, or the 1.0.0 API. |
-| `ideas` | Worth considering, not committed to. Moves to a numbered milestone once someone takes it on. |
 
-`10 — paper` was renamed to `1.0 — paper`; `20 — internal API` (a topic, now #163 and #167) and `30 — reach & polish` were retired on 2026-10-02.
+`ideas`, for what is worth considering and not committed to, was a milestone until 2026-11-21, when the maintainer retired it: an idea is not a time or a compatibility class. Its two issues, the ARTIQ and National Instruments backends (#164, #165), are `Feature`s in `1.x`, which is where a new backend belongs, and the `Feature` type already says "idea". `10 — paper` was renamed to `1.0 — paper`; `20 — internal API` (a topic, now #163 and #167) and `30 — reach & polish` were retired on 2026-10-02.
 
 **Types** are org-level GitHub issue types, not labels – which is why a search for a "decision label" finds nothing: `Bug` (an unexpected problem or behavior), `Task` (a specific piece of work), `Feature` (a request, idea, or new functionality), `Decision` (an open API or design decision that must be settled before dependent work can proceed), and, since 2026-10-20, `Refactor` (renames, moves or restructuring with no change in behavior), `Docs` (developer guide, README or API documentation) and `Physics` (wrong physical results: the code runs but violates the physics). `Physics` is the `Bug` whose wrong answer is a command to the apparatus, so it usually comes with `silent`; the label stays, because a `Decision` or a `Task` can be silent too. `Decision` carries "flag and ask, never settle unilaterally" onto GitHub; set it on anything whose entry here offers two options rather than a fix. For the ones open now, filter by the type on GitHub.
 
@@ -48,7 +47,7 @@ The scheme below was agreed by both maintainers on 2026-10-02. **Each question i
 - **area:** `api` (what users call), `origin`, `adwin`, `dataframe`, `display`, `performance`, `hardware` (backends other than ADwin);
 - **for contributors:** `good first issue`, `help wanted`.
 
-Retired on 2026-10-02: `ux` and `consistency` (too broad to filter on), `internal refactor` (now the `Refactor` type), `future` (now the `ideas` milestone), `extension` (renamed `hardware`), and `duplicate`, `invalid`, `wontfix` (GitHub's close reasons carry them). `docs` was retired on 2026-10-20, for the `Docs` type; it was on open issues only. Deleting a label removed it from closed issues too.
+Retired on 2026-10-02: `ux` and `consistency` (too broad to filter on), `internal refactor` (now the `Refactor` type), `future` (which became the `ideas` milestone, itself retired on 2026-11-21), `extension` (renamed `hardware`), and `duplicate`, `invalid`, `wontfix` (GitHub's close reasons carry them). `docs` was retired on 2026-10-20, for the `Docs` type; it was on open issues only. Deleting a label removed it from closed issues too.
 
 **Topics** are parent issues: **#163** the public API (#166, #168, #138, #69), **#167** the dataframe library (#162), **#169** the 1.0.0 release (#10). #9, the old umbrella of both, was closed as superseded.
 
@@ -93,7 +92,7 @@ Each is bound at import, so **rebinding the global would silently fail to reach 
 
 **Not settled here.** Making these `None`-defaulted and read at call time is a consistent policy and touches twelve signatures, so it is an API decision rather than a fix. The natural place is the single ADwin pass that D21 describes, where five of the twelve are being opened anyway.
 
-**Interacts directly with [#142](https://github.com/WignerQuantumOptics/Wigner_Time/issues/142), which pulls the other way.** That issue asks for `origin=ORIGIN_DEFAULT` in place of `origin=None`, so that a signature shows when a default is effective. Read literally it would introduce *this* defect on the three most-used signatures in the package, and would break what the Lab2 fixture relies on — that rebinding a `config` attribute takes effect.
+**#142 did not introduce it** (settled 2026-11-20). That issue asked for a default that shows in the signature, and read literally, `origin=ORIGIN_DEFAULT`, it would have bound the chain itself at import, on the three most-used signatures in the package. What the signatures name is a marker, `INFER`, recognised with `is`; the chain it stands for, `config.ORIGIN__DEFAULTS`, is still read at every call, so rebinding it takes effect, which the Lab2 fixture relies on.
 
 **Both are satisfied by one design**: the signature names an immutable **sentinel**, not the config value, and the body reads the config at call time.
 
