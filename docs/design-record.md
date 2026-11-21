@@ -1880,7 +1880,9 @@ The old §F with its accounts; `KNOWN_ISSUES.md` keeps the one-line list.
 
   **Measured.** The demo's `finish` is the closing anchor and one `update` of two rows, the MOT's shutters, closed before the run and open after it. Its timeline has 16 rows fewer, each of them at its initial value before, and the rows of the run are identical. Its ADwin arrays differ from before by two rows at 5, 2 and 1 µs alike, the MOT coils in the initial state, and by nothing else. The lab's code, which still states its final state in full, converts to the same arrays: the completion adds nothing where everything is named. In Lab2's takeout of 2026-09-21 four of the nine variables A26 refused are now returned to their initial values, the dispenser and the three channels the imaging module had added at the beginning only, and five are still refused, having none.
 
-  The paper's `finish` listing, `sec:forwarding` and one sentence of `sec:context` change with this.
+  The paper changed with this on 2026-11-21: one sentence of `sec:context` states the rule; in `sec:demonstration` the default state names the MOT coils and `finish` names the MOT's shutters only; in `sec:forwarding` the diagnostics module has no `finish` of its own; and `sec:adwin_operation` says that the initial state sets the MOT coils where it had said that it leaves them alone. The opening listing of `sec:definitions`, which places one `default_state` at both ends, is left as it is: it is still correct, though no longer needed.
+
+  **The figures.** `fig:timeline__example` was rerun from the listing: nothing in its window changes, and the rows at +∞ that lay outside it are gone from the file. `fig:timeline_overview` shows the first row of `coil__MOT_upper__A`, which is now its row in the initial state; the generator takes its first row of the run instead, the MOT's, and the figure is unchanged.
 
 ---
 
