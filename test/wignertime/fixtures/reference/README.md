@@ -52,6 +52,12 @@ before regenerating: the rows of every run are identical, and the arrays of the 
 cases gain two rows, the MOT coils in the initial state, at 5 and 1 µs alike. The final state
 that is played is the one it was.
 
+**And for the dispenser's return, the same day, the lab's table and arrays:** the lab's
+`prepare_sample` ramps the dispenser back over the closing wait, in twenty steps. Checked
+before regenerating: every row that was there is there, in the same order; each case with a
+`finish` gains the ramp's two rows, and its arrays two rows where the dispenser was left alone
+and twenty where it was switched off. The run ends where it did.
+
 | file | what it is |
 | --- | --- |
 | `demo.parquet` | `timeline_demo` (89 rows), and the same with the camera trigger of `sec:interweaving` placed at molasses |
