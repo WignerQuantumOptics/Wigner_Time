@@ -3,8 +3,9 @@ Generates `fig:timeline_overview` -- the anatomy of a timeline -- as vector PDF.
 
 The figure it replaces was drawn by hand, with rows that no code had produced and a variable
 named in the grammar that D7 retired (`coil_MOTupper__A`). Here the rows are the demo's own:
-the first row of `coil__MOT_upper__A`, then its ramps in the molasses and optical-pumping
-stages, as `demo/full_experiment.py` writes them, with `value__digits` computed from the demo's
+the first row of `coil__MOT_upper__A` in the run, the MOT's, then its ramps in the molasses
+and optical-pumping stages, as `demo/full_experiment.py` writes them (its row in the initial
+state, before the run, is left out: the figure is about composing stages), with `value__digits` computed from the demo's
 `devices` by the conversion the pipeline uses. A change to the naming, to the demo or to the
 conversion is therefore carried into the manuscript by a rerun, not a redraw.
 
@@ -106,9 +107,9 @@ def rows():
     timeline = timeline[timeline["variable"] == VARIABLE]
     timeline = conversion.add(device.add(timeline, demo.devices))
 
-    first = timeline.iloc[:1]
+    first = timeline[timeline["context"] == "MOT"].iloc[:1]
     appended = timeline[timeline["context"].isin(CONTEXTS__APPENDED)]
-    if first["context"].iloc[0] != "MOT" or len(appended) != 4:
+    if len(first) != 1 or first["time"].iloc[0] != 0.0 or len(appended) != 4:
         raise SystemExit(
             "The demo's {} no longer starts in MOT with two ramps after it; "
             "choose the rows again.".format(VARIABLE)

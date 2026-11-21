@@ -1860,6 +1860,30 @@ The old §F with its accounts; `KNOWN_ISSUES.md` keeps the one-line list.
 
   The paper's one sentence on it, in `sec:origin_full`, said that `None` means the same as `INFER`; it changes with the code.
 
+- **The conversion completes the final state from the initial one** (#160; decided by the maintainer on 2026-09-02, done on 2026-11-20, at the conversion at the maintainer's wish).
+
+  `init` and `finish` each called `default_state`, so the state was written once but placed by two calls, and a module that added hardware had to hand its channels to both (`diagnostics.init` and `diagnostics.finish`, `sec:forwarding`). Since A26 a channel missed at the end is refused at the conversion, so the two could no longer drift apart silently; what was left was the repetition.
+
+  **The rule.** A variable the final state does not name ends where it began: `validate.final_state`, which had only refused, writes its row from before the run again after it, at +∞ in the final state's context. A variable with no row before the run and none after it is refused as before, by name: there is nothing to return it to. So A26's guarantee stands, every variable the run touches is in the final state that is played, and a timeline states after the run only what is to end differently.
+
+  **Why at the conversion and not in a stage.** The issue first proposed a stage: `finish` as a function of the timeline, reading the rows at −∞ and writing them at +∞. That was the place for it while `finish` also had to ramp each analogue variable back, which only a stage can write. With the final ramps retired (2026-11-19) nothing of the rule needs to be in the timeline, and the stage form was tried and set aside: it made `finish` a function inside a function, where the aim was for it to shrink, and it saw only the initial state as it stood when `finish` was applied. The conversion reads the table as it reaches the machine, so a channel added to the initial state of a finished timeline, as an imaging module does, is completed too. It is also where A26's check already was: the refusal and the completion are one rule, one function.
+
+  **No option.** The rule is unconditional. What a table means should not depend on a keyword given at upload, and a way to have the old refusal back can be added after 1.0.0 without breaking anyone. Confirmed by the maintainer on 2026-11-21.
+
+  **What a timeline no longer shows.** The completing rows are not in the table: the display's margin after the run and an archived timeline hold what was stated. `validate.final_state` returns the completed table, so what will be played can be looked at, and the upload log holds it.
+
+  **The initial state names every channel** (maintainer, 2026-11-20). The demo's `init` had left the MOT coils alone, so that `finish` had to name them. They are now in the default state at the MOT's currents: between runs the MOT is in its steady state, those are its equilibrium values, and writing them before a run changes nothing. With that the check asks nothing of `finish`, and catches only a channel forgotten at both ends.
+
+  **The refusal that is left stays** (maintainer, 2026-11-21), because the manual console needs it. On starting after a run the console adopts the run's final state, and keeps its own value for a channel the final state does not name; that is right only while the final state names every channel the run touches (D28). A channel with a value at neither end would be left where the run had it, with the console showing another.
+
+  **`MOT_ON` stays** (maintainer, 2026-11-21): the MOT's shutters are closed before a run and open after it, so that the MOT loads between runs, and that is what the demo's `finish` states.
+
+  **Measured.** The demo's `finish` is the closing anchor and one `update` of two rows, the MOT's shutters, closed before the run and open after it. Its timeline has 16 rows fewer, each of them at its initial value before, and the rows of the run are identical. Its ADwin arrays differ from before by two rows at 5, 2 and 1 µs alike, the MOT coils in the initial state, and by nothing else. The lab's code, which still states its final state in full, converts to the same arrays: the completion adds nothing where everything is named. In Lab2's takeout of 2026-09-21 four of the nine variables A26 refused are now returned to their initial values, the dispenser and the three channels the imaging module had added at the beginning only, and five are still refused, having none.
+
+  The paper changed with this on 2026-11-21: one sentence of `sec:context` states the rule; in `sec:demonstration` the default state names the MOT coils and `finish` names the MOT's shutters only; in `sec:forwarding` the diagnostics module has no `finish` of its own; and `sec:adwin_operation` says that the initial state sets the MOT coils where it had said that it leaves them alone. The opening listing of `sec:definitions`, which places one `default_state` at both ends, is left as it is: it is still correct, though no longer needed.
+
+  **The figures.** `fig:timeline__example` was rerun from the listing: nothing in its window changes, and the rows at +∞ that lay outside it are gone from the file. `fig:timeline_overview` shows the first row of `coil__MOT_upper__A`, which is now its row in the initial state; the generator takes its first row of the run instead, the MOT's, and the figure is unchanged.
+
 ---
 
 ## Paper items tracked by no issue
