@@ -272,21 +272,22 @@ value `coil__A` held at the end of molasses" is `["molasses", VARIABLE]`. The `f
 licensed the wider reading and was amended; the figure is generated
 (`tools/paper_figures/origin_resolution_figure.py`) and was rerun for the tags (#85).
 
-**`None` in a slot means "defer to the default for this slot"; `0.0` means "absolute".** Do not
-conflate them — that conflation was A6. `config.ORIGIN__DEFAULTS` (for `update`/`anchor`) and
+**`INFER` in a slot means "defer to the default for this slot"; `0.0` means "absolute".** Do not
+conflate them — that conflation was A6, when `None` stood for both. Inside `internal/origin.py` an
+unstated slot is still written `None`; a user writes `INFER`, or leaves the slot out. `config.ORIGIN__DEFAULTS` (for `update`/`anchor`) and
 `config.ORIGIN__DEFAULTS__RAMP` are **terminal chains**: each entry's time reference is tried in turn,
 and if none is satisfiable the origin is `0.0` with a warning. A partially stated origin keeps the
 default for the slot it omits.
 
 **The signatures name that default `INFER`** (`wt_config.INFER`, #142, 2026-09-28), so that `help()`
 shows the default does something, and `context` defaults to it too. It is an object, recognised with
-`is`, and **`None` means exactly the same**, as the whole argument and in a slot. **That equivalence
-is disputed, not settled** (2026-10-14): the coauthor who opened #142 does not want `None` accepted
-and resolved as `INFER`, and the maintainer knows the answer reaches deep into the API. Until it is
-decided, keep the code as it is but do not defend it as a decision. The case for it: a stage that
-takes `origin=None` or `context=None` and forwards it is the ordinary way to pass "no opinion" on,
-and giving `None` a meaning of its own would change what every such stage does (A8's amendment in
-`KNOWN_ISSUES.md`). Absolute placement is a number. There is no "off" for context:
+`is`, and exported as `tl.INFER`. **`None` is refused** for `origin` and for `context`, as the whole
+argument and in a slot, by `update`, `ramp`, `anchor` and `stack` (#142, settled by both maintainers
+on 2026-11-20). It had meant the same as `INFER`, and reads as "no origin" to one reader and as "the
+default" to another; an input two people read differently is refused rather than given either
+meaning, and a refusal can be relaxed after 1.0.0 where a meaning could not be taken back. A stage of
+one's own that passes `origin` or `context` on defaults it to `tl.INFER`, so its signature shows what
+the core's do. Absolute placement is a number. There is no "off" for context:
 **every row has a context**, stated or inherited (#156, 2026-09-29), so the first rows of a timeline
 must name theirs, `context=""` is refused, and so is a table handed in with a row lacking one.
 
@@ -558,8 +559,9 @@ real, which is what #154 was about.
 - Standard aliases: `tl` (timeline), `wt_frame`, `wt_origin`, `wt_util`, `wt_config`, `wt_adwin`.
 - Numpy-style docstrings (mkdocstrings is configured for them). Prose in docstrings tends to explain
   *why* a rule exists, not just what the function does — match that.
-- `internal/` is explicitly unstable API. `internal/doc/` and `doc/` are org-mode notes, not built
-  documentation; `docs/` is the mkdocs source (`docs/index.md` duplicates the
+- `internal/` is explicitly unstable API. `doc/` holds org-mode notes, not built
+  documentation (`internal/doc/`, more notes and 12 MB of graphics that every wheel carried, was
+  removed on 2026-11-20, #177); `docs/` is the mkdocs source (`docs/index.md` duplicates the
   README, so changes to the overview belong in both). The paper is not here but in its Overleaf
   project (above), and `docs/origin-resolution.md` is not in `mkdocs.yml`'s nav.
 - Tests live under `test/wignertime/`, mirroring the package. (They sat under `test/wigner/time/`,

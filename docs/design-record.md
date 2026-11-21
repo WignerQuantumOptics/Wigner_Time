@@ -1846,6 +1846,20 @@ The old §F with its accounts; `KNOWN_ISSUES.md` keeps the one-line list.
 
   The paper's `finish` and `magnetic_trapping` listings change with this, and one sentence of `sec:interweaving` that mentions the final ramps.
 
+- **`None` is refused for `origin` and `context`** (#142; settled by both maintainers on 2026-11-20).
+
+  The issue had two halves. The first, a visible default, landed on 2026-09-28: the signatures name `INFER`. The second stayed open from 2026-09-30: `None` was still accepted and read as `INFER`, as the whole argument and in a slot, which the coauthor who opened the issue did not want, and which the maintainer had kept because a stage that takes `origin=None` and passes it on is the ordinary way to write "no opinion of my own".
+
+  The two read `None` differently: as "nothing here", hence a way to switch the mechanism off, and as "the default". Neither reading was taken. An input two people read differently is ambiguous, and the rule here is to raise where intent is ambiguous. The freeze made the choices unequal as well: a refusal can be relaxed in 1.x without breaking anyone, while either meaning, once accepted, could not be changed before 2.0. And the signatures already drew the distinction: `ramp` prints `duration=None, time=None` for "not given" beside `origin=INFER` for "inferred from the timeline", which accepting `None` as `INFER` erased. `None` as "absolute" was the one option ruled out on its own demerits: it would have moved every stage that forwards `origin=None` to time zero without a word. "Off" is a number, `origin=0.0`, and context has no "off" (#156).
+
+  **What is refused, and where.** `update`, `ramp` and `anchor` raise a `ValueError` when called with `context=None`, `origin=None`, or an origin with `None` in a slot, and so does `stack` for the same keywords, which it forwards. The message names `tl.INFER` and, for an origin, a number. It is raised when the stage is written, not when it is applied. `INFER` is exported as `tl.INFER`, which it was not, so that a stage of one's own can default to it; inside the origin module an unstated slot is still written `None`.
+
+  **What it cost.** The paper and the demo wrote `None` for neither. The lab had five signatures (four `origin=None` in `diagnostics.py`, `context=None` in `pull_coils`), now `tl.INFER`. Seventeen tests wrote `None` on purpose and were moved: the ones asserting the equivalence now assert the refusal. Every reference case of the demo and of the lab is unchanged.
+
+  **Not touched:** `origin2`, which never read `None` as a default, and the context of a single row, where `[time, value, None]` was already refused as a row without a context. A row written `[time, value, INFER]` puts the marker itself into the `context` column: found while measuring this, and not fixed here.
+
+  The paper's one sentence on it, in `sec:origin_full`, said that `None` means the same as `INFER`; it changes with the code.
+
 - **The conversion completes the final state from the initial one** (#160; decided by the maintainer on 2026-09-02, done on 2026-11-20, at the conversion at the maintainer's wish).
 
   `init` and `finish` each called `default_state`, so the state was written once but placed by two calls, and a module that added hardware had to hand its channels to both (`diagnostics.init` and `diagnostics.finish`, `sec:forwarding`). Since A26 a channel missed at the end is refused at the conversion, so the two could no longer drift apart silently; what was left was the repetition.
@@ -1854,11 +1868,15 @@ The old §F with its accounts; `KNOWN_ISSUES.md` keeps the one-line list.
 
   **Why at the conversion and not in a stage.** The issue first proposed a stage: `finish` as a function of the timeline, reading the rows at −∞ and writing them at +∞. That was the place for it while `finish` also had to ramp each analogue variable back, which only a stage can write. With the final ramps retired (2026-11-19) nothing of the rule needs to be in the timeline, and the stage form was tried and set aside: it made `finish` a function inside a function, where the aim was for it to shrink, and it saw only the initial state as it stood when `finish` was applied. The conversion reads the table as it reaches the machine, so a channel added to the initial state of a finished timeline, as an imaging module does, is completed too. It is also where A26's check already was: the refusal and the completion are one rule, one function.
 
-  **No option.** The rule is unconditional. What a table means should not depend on a keyword given at upload, and a way to have the old refusal back can be added after 1.0.0 without breaking anyone.
+  **No option.** The rule is unconditional. What a table means should not depend on a keyword given at upload, and a way to have the old refusal back can be added after 1.0.0 without breaking anyone. Confirmed by the maintainer on 2026-11-21.
 
   **What a timeline no longer shows.** The completing rows are not in the table: the display's margin after the run and an archived timeline hold what was stated. `validate.final_state` returns the completed table, so what will be played can be looked at, and the upload log holds it.
 
   **The initial state names every channel** (maintainer, 2026-11-20). The demo's `init` had left the MOT coils alone, so that `finish` had to name them. They are now in the default state at the MOT's currents: between runs the MOT is in its steady state, those are its equilibrium values, and writing them before a run changes nothing. With that the check asks nothing of `finish`, and catches only a channel forgotten at both ends.
+
+  **The refusal that is left stays** (maintainer, 2026-11-21), because the manual console needs it. On starting after a run the console adopts the run's final state, and keeps its own value for a channel the final state does not name; that is right only while the final state names every channel the run touches (D28). A channel with a value at neither end would be left where the run had it, with the console showing another.
+
+  **`MOT_ON` stays** (maintainer, 2026-11-21): the MOT's shutters are closed before a run and open after it, so that the MOT loads between runs, and that is what the demo's `finish` states.
 
   **Measured.** The demo's `finish` is the closing anchor and one `update` of two rows, the MOT's shutters, closed before the run and open after it. Its timeline has 16 rows fewer, each of them at its initial value before, and the rows of the run are identical. Its ADwin arrays differ from before by two rows at 5, 2 and 1 µs alike, the MOT coils in the initial state, and by nothing else. The lab's code, which still states its final state in full, converts to the same arrays: the completion adds nothing where everything is named. In Lab2's takeout of 2026-09-21 four of the nine variables A26 refused are now returned to their initial values, the dispenser and the three channels the imaging module had added at the beginning only, and five are still refused, having none.
 

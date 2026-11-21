@@ -103,7 +103,7 @@ def test_a_number_remains_a_value_origin(tline):
 )
 def test_the_time_slot_still_admits_everything(tline, label, time__expected):
     new = tl.to_timeline(
-        tl.update(coil__A=1.0, time=0.0, origin=[label, None]), onto=tline
+        tl.update(coil__A=1.0, time=0.0, origin=[label, tl.INFER]), onto=tline
     )
     assert new.iloc[-1]["time"] == pytest.approx(time__expected)
 

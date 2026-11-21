@@ -14,8 +14,8 @@ def resolve(context):
     to happen before the rows are built, or the marker itself would land in the
     `context` column.
 
-    `None` and `INFER` therefore mean the same: an unstated row inherits the context of
-    the timeline it joins.
+    An unstated row inherits the context of the timeline it joins. `None` is this
+    module's own word for "unstated"; from a user the public functions refuse it (#142).
 
     There is no way to switch inheritance off. Every row has a context, stated or
     inherited (#156), so `context=""` -- which used to be the spelling of "no
