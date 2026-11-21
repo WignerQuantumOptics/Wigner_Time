@@ -8,6 +8,7 @@ from munch import Munch
 from wignertime import ramp_function
 from wignertime import timeline as tl
 from wignertime.demo import full_experiment as ex
+
 # NOTE: the commented-out `display` call below needs
 # `from wignertime.adwin import display`, and with it the optional `display`
 # extra. It is not imported at module scope so that these tests remain runnable
@@ -188,14 +189,15 @@ def test_ramp_inherits_context_by_default(tl_anchor):
     assert sorted(set(result["context"])) == ["init"]
 
 
-def test_ramp_context_none_inherits_too(tl_anchor):
+def test_ramp_context_infer_inherits_too(tl_anchor):
     """
-    `context=None` means the same as the default, so a stage that takes `context=None`
-    and passes it on to `ramp` inherits as if it had passed nothing (#142).
+    `context=tl.INFER` is the default written out, so a stage that takes it and passes
+    it on to `ramp` inherits as if it had passed nothing (#142).
     """
     wt_frame.assert_equal(
         tl.to_timeline(
-            tl.ramp(lockbox__MOT__V=5, duration=100e-3, context=None), onto=tl_anchor
+            tl.ramp(lockbox__MOT__V=5, duration=100e-3, context=tl.INFER),
+            onto=tl_anchor,
         ),
         tl.to_timeline(tl.ramp(lockbox__MOT__V=5, duration=100e-3), onto=tl_anchor),
     )
@@ -671,7 +673,7 @@ def test_every_kind_of_overlap_raises(coil_at_zero, t, duration):
     first = tl.to_timeline(tl.ramp(coil__X__A=10.0, duration=1.0), onto=coil_at_zero)
     with pytest.raises(ValueError, match="at most one ramp"):
         tl.to_timeline(
-            tl.ramp(coil__X__A=20.0, duration=duration, time=t, origin=[5.0, None]),
+            tl.ramp(coil__X__A=20.0, duration=duration, time=t, origin=5.0),
             onto=first,
         )
 
@@ -703,7 +705,7 @@ def test_meeting_by_rounding_is_refused_and_said_to_be_rounding():
     assert first["time"].max() > 0.3
     with pytest.raises(ValueError, match="within rounding"):
         tl.to_timeline(
-            tl.ramp(coil__X__A=20.0, duration=0.2, time=0.3, origin=[0.0, None]),
+            tl.ramp(coil__X__A=20.0, duration=0.2, time=0.3, origin=0.0),
             onto=first,
         )
 

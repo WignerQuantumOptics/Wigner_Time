@@ -507,8 +507,8 @@ def _unstated(f, arguments):
     The parameters of `f` that `arguments` leaves at their defaults.
 
     A default and a value written equal to it are not told apart. That is exact for the
-    parameters that default to `INFER` -- `origin` and `context` -- where writing `None`
-    or `INFER` *means* "use the default", and those are the ones forwarding exists for
+    parameters that default to `INFER` -- `origin` and `context` -- where writing `INFER`
+    *means* "use the default", and those are the ones forwarding exists for
     (`sec:context`). Elsewhere a value written equal to the default counts as unstated.
     """
     out = set()
@@ -516,7 +516,7 @@ def _unstated(f, arguments):
         if parameter.default is parameter.empty or name not in arguments:
             continue
         value, default = arguments[name], parameter.default
-        if value is default or (default is wt_config.INFER and value is None):
+        if value is default:
             out.add(name)
         elif (
             not callable(default)

@@ -248,8 +248,8 @@ def auto(timeline, origin, origin__defaults):
     Pass `None` to complete nothing and take the origin as given.
 
     `wt_config.INFER`, the signature default of the public functions, is read as `None`
-    wherever it appears -- as the whole origin or in one slot -- so that the marker is a
-    visible name for the default and not a second meaning beside it (#142).
+    wherever it appears -- as the whole origin or in one slot. `None` is how this module
+    writes "unstated" for itself; the public functions refuse it from a user (#142).
 
     NOTE: Assumes that origin__defaults is a list of pairs.
     """

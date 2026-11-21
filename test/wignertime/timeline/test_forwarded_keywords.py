@@ -171,10 +171,10 @@ def test_a_forwarded_context_does_not_override_a_stated_one(base):
     assert contexts[result["variable"].iloc[-1]] == "finalRamps"
 
 
-def test_a_stage_passing_on_context_none_still_takes_the_stacks(base):
-    """`None` means the default, so a stage forwarding it has stated nothing."""
+def test_a_stage_passing_on_the_default_context_still_takes_the_stacks(base):
+    """`INFER` is the default written out, so a stage forwarding it has stated nothing."""
 
-    def stage(context=None):
+    def stage(context=tl.INFER):
         return tl.update(b__A=1.0, context=context)
 
     assert (

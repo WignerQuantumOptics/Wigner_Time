@@ -31,6 +31,9 @@ Mark a user-written function as a deferred timeline function, so that `stack` wi
 accept it as a constituent. See `stack`.
 """
 
+INFER = wt_config.INFER
+"""The default of `origin` and of `context`: taken from the timeline the stage is applied to. See `config.INFER`."""
+
 ANCHOR = wt_config.ANCHOR
 """An origin at the most recent anchor. See `config.Origin`."""
 
@@ -218,7 +221,7 @@ def update(
     ------------------
     `origin` defaults to `wt_config.INFER`: the anchor-then-last chain
     (`config.ORIGIN__DEFAULTS`) fills whichever slots are left unstated, so `time` is a
-    duration from the end of the preceding stage. `None` means the same. For absolute
+    duration from the end of the preceding stage. `None` is refused (#142). For absolute
     time, write `origin=0.0`. On an empty timeline there is nothing to be relative to,
     and the origin is absolute zero.
 
@@ -228,13 +231,14 @@ def update(
     until something is written at an instant the origin is absolute zero.
 
     `context` defaults to `wt_config.INFER` too: an unstated row inherits the latest
-    context of the timeline it joins, from a row at an instant. `None` means the same.
+    context of the timeline it joins, from a row at an instant. `None` is refused (#142).
     Every row has a context (#156): on an empty timeline, or one holding only the state
     before the run, there is nothing to inherit, so the rows must name theirs, and
     `context=""` is refused. A row added to a finished timeline inherits from the last
     stage of the run, not from the final state at +∞.
     """
     _refuse_timeline("update", vtvc_dict)
+    _refuse_None("update", context, origin)
     inherit.resolve(context)  # refused where it is written, not where it is applied
 
     return wt_util.stage(
@@ -294,10 +298,58 @@ def _refuse_infinite_ends(**times):
         )
 
 
+def _refuse_None(function, context=wt_config.INFER, origin=wt_config.INFER):
+    """
+    `None` is not a value of `origin` or of `context` (#142, settled by both maintainers on
+    2026-11-20).
+
+    It used to mean the same as `INFER`, as the whole argument and in a slot of an origin.
+    But `None` reads as "nothing here" to one reader and as "the default" to another, and
+    the default does a good deal: it places rows by the timeline they join. An input two
+    people read differently is ambiguous, so it is refused where it is written, and the
+    two things it could have meant each have a spelling of their own: `INFER`, and a
+    number.
+
+    Refusing can be relaxed later without breaking anyone. Giving `None` either meaning
+    could not have been taken back before 2.0.
+    """
+    if context is None:
+        raise ValueError(
+            "\n".join(
+                [
+                    "`{}` was given `context=None`, and `None` is not a context"
+                    " (#142).".format(function),
+                    "",
+                    "Every row has a context, stated or inherited (#156). To inherit the"
+                    " context of the timeline, leave `context` out or write"
+                    " `context=tl.INFER`, which is also what a stage of your own should"
+                    " default to when it passes `context` on. Otherwise name it:"
+                    ' `context="MOT"`.',
+                ]
+            )
+        )
+    slots = origin if isinstance(origin, (list, tuple)) else [origin]
+    if any(slot is None for slot in slots):
+        raise ValueError(
+            "\n".join(
+                [
+                    "`{}` was given `origin={!r}`, and `None` is not an origin"
+                    " (#142).".format(function, origin),
+                    "",
+                    "For the default -- the latest anchor, or else the latest row --"
+                    " leave `origin` out or write `tl.INFER`, in a slot too:"
+                    ' `origin=["MOT", tl.INFER]`. That is also what a stage of your own'
+                    " should default to when it passes `origin` on. For absolute time"
+                    " write a number: `origin=0.0`.",
+                ]
+            )
+        )
+
+
 def _refuse_value_origin(origin):
     """
     A ramp starts where its variable is (#142), so the value slot of its `origin` has
-    nothing to set: only `INFER`, `None` or `VARIABLE`, which all say the same. A value
+    nothing to set: only `INFER` or `VARIABLE`, which say the same. A value
     written there -- a number, or another variable's name -- is refused rather than
     added to the start, which is what made a stated `1.0` come out as `8.0` (A8).
     """
@@ -393,6 +445,7 @@ def anchor(
             " (#154).".format(time)
         )
 
+    _refuse_None("anchor", context, origin)
     inherit.resolve(context)  # refused where it is written, not where it is applied
 
     return wt_util.stage(
@@ -470,16 +523,16 @@ def ramp(
     Nor may a ramp start or end inside another ramp of the same variable (#157).
 
     `origin` places the start in time. It defaults to `wt_config.INFER`, the
-    anchor-then-last chain, and `None` means the same; `origin=0.0` is absolute time, as
-    for `update`.
+    anchor-then-last chain; `origin=0.0` is absolute time, as for `update`.
 
-    `context` defaults to `wt_config.INFER`, and `None` means the same: an unstated row
-    inherits the latest context of `timeline`. Every row has a context (#156), so
+    `context` defaults to `wt_config.INFER`: an unstated row inherits the latest
+    context of `timeline`. `None` is refused for either (#142). Every row has a context (#156), so
     `context=""` is refused.
 
     NOTE: `duration` is a human-readable convenience for normal API usage. This is because the temporal origin of the second point is almost always in reference to the first point. Where there is a conflict, `time2` will have supremacy. It is `time2` because `origin2` places the same point, the end.
     """
     _refuse_timeline("ramp", vtvc_dict)
+    _refuse_None("ramp", context, origin)
     inherit.resolve(context)  # refused where it is written, not where it is applied
     _refuse_value_origin(origin)
     _refuse_infinite_ends(time=time, time2=time2, duration=duration)
@@ -911,6 +964,12 @@ def stack(*stages: Callable, **kws) -> Callable:
 
     for f in stages:
         _ensure_stackable(f)
+    # A keyword of the stack is a default for its constituents, and refused as theirs is.
+    _refuse_None(
+        "stack",
+        kws.get("context", wt_config.INFER),
+        kws.get("origin", wt_config.INFER),
+    )
 
     constituents = list(stages)
 

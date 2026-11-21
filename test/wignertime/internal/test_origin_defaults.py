@@ -64,13 +64,14 @@ def test_the_shorthand_agrees_with_the_explicit_pair(tline):
 
 def test_a_deferred_time_slot_takes_the_chain(tline):
     """
-    `[None, "variable"]` is the honest spelling of `ramp`'s own default: it asks for the
+    `[INFER, VARIABLE]` is the honest spelling of `ramp`'s own default: it asks for the
     caller's time reference rather than naming one it cannot guarantee. It used to be a
-    raw `TypeError` (B7).
+    raw `TypeError` (B7), and was spelled with `None` until #142 refused that.
     """
     assert points(
         tl.to_timeline(
-            tl.ramp(coil__A=9.0, duration=0.5, origin=[None, tl.VARIABLE]), onto=tline
+            tl.ramp(coil__A=9.0, duration=0.5, origin=[tl.INFER, tl.VARIABLE]),
+            onto=tline,
         )
     ) == points(
         tl.to_timeline(
@@ -238,18 +239,18 @@ def test_an_unset_variable_has_to_be_set_first(tline):
     """
     A ramp starts where its variable is (#142, 2026-09-29), so there is no start to state
     for one that has never been set. The two escapes this replaces -- an absolute value
-    origin, `origin=[None, 0.0]`, and the 2-D form stating both ends -- are refused, and
+    origin, `origin=[INFER, 0.0]`, and the 2-D form stating both ends -- are refused, and
     the message says what to write.
     """
     for stage in (
         tl.ramp(fresh__A=5.0, duration=0.5),
-        tl.ramp(fresh__A=5.0, duration=0.5, origin=[None, tl.VARIABLE]),
+        tl.ramp(fresh__A=5.0, duration=0.5, origin=[tl.INFER, tl.VARIABLE]),
     ):
         with pytest.raises(ValueError, match="update` it first"):
             tl.to_timeline(stage, onto=tline)
 
     with pytest.raises(ValueError, match="value slot of its `origin`"):
-        tl.ramp(fresh__A=5.0, duration=0.5, origin=[None, 0.0])
+        tl.ramp(fresh__A=5.0, duration=0.5, origin=[tl.INFER, 0.0])
     with pytest.raises(ValueError, match="its start is not written: fresh__A"):
         tl.to_timeline(tl.ramp(fresh__A=[[0.0, 0.0], [0.5, 5.0]]), onto=tline)
 
@@ -335,12 +336,12 @@ def test_auto_requires_its_defaults():
 
 
 @pytest.mark.parametrize(
-    "origin", [None, wt_config.INFER, [None, None], [wt_config.INFER, None]]
+    "origin", [wt_config.INFER, tl.INFER, [tl.INFER, tl.INFER], [tl.ANCHOR, tl.INFER]]
 )
-def test_none_and_infer_are_the_same_default(tline, origin):
+def test_infer_is_the_default_written_out(tline, origin):
     """
-    The marker only makes the default visible in a signature. As the whole argument or
-    in a slot, `None` and `INFER` both mean "use the default", for all three functions.
+    The marker makes the default visible in a signature, and writing it is the same as
+    leaving `origin` out: as the whole argument or in a slot, for all three functions.
     """
     wt_frame.assert_equal(
         tl.to_timeline(tl.update(x=[[0.5, 1]], origin=origin), onto=tline),
@@ -356,20 +357,51 @@ def test_none_and_infer_are_the_same_default(tline, origin):
     )
 
 
-def test_a_stage_forwarding_none_keeps_the_default(tline):
+def test_a_stage_passing_the_default_on_names_it(tline):
     """
-    The usual way of writing a stage with no opinion of its own about `origin` is to
-    take `origin=None` and pass it on. That must place it where leaving `origin` out
-    would, `t` after the most recent anchor (3.5), not in absolute time.
+    A stage with no opinion of its own about `origin` takes `origin=tl.INFER` and passes
+    it on, and its signature then shows what the core's do. That places it where leaving
+    `origin` out would, `t` after the most recent anchor (3.5), not in absolute time.
     """
 
-    def trigger_camera(t, exposure, context, origin=None):
+    def trigger_camera(t, exposure, context, origin=tl.INFER):
         return tl.update(
             trigger__camera=[[t, 1], [t + exposure, 0]], context=context, origin=origin
         )
 
     new = tl.to_timeline(trigger_camera(0.5, 0.1, "imaging"), onto=tline)
     assert new[new["variable"] == "trigger__camera"]["time"].tolist() == [4.0, 4.1]
+
+
+@pytest.mark.parametrize("origin", [None, [None, None], [tl.ANCHOR, None], [None, 0.0]])
+def test_none_is_not_an_origin(origin):
+    """
+    #142, settled by both maintainers on 2026-11-20. `None` meant the same as `INFER`,
+    and reads as "no origin" to one reader and as "the default" to another, so it is
+    refused where it is written, whole or in a slot, and the message names both things
+    it could have meant: `tl.INFER`, and a number for absolute time.
+    """
+    for call in (
+        lambda: tl.update(x=[[0.5, 1]], origin=origin),
+        lambda: tl.anchor(0.5, origin=origin),
+        lambda: tl.ramp(coil__A=9.0, duration=0.5, origin=origin),
+        lambda: tl.stack(tl.update(x=[[0.5, 1]]), origin=origin),
+    ):
+        with pytest.raises(ValueError, match="`None` is not an origin") as refusal:
+            call()
+        assert "tl.INFER" in str(refusal.value) and "origin=0.0" in str(refusal.value)
+
+
+def test_a_stage_that_still_passes_none_on_is_told_at_its_core_call():
+    """The old idiom, `origin=None` in a stage of one's own, is refused where it lands."""
+
+    def trigger_camera(t, exposure, context, origin=None):
+        return tl.update(
+            trigger__camera=[[t, 1], [t + exposure, 0]], context=context, origin=origin
+        )
+
+    with pytest.raises(ValueError, match="`update` was given `origin=None`"):
+        trigger_camera(0.5, 0.1, "imaging")
 
 
 def test_absolute_placement_is_a_number(tline):

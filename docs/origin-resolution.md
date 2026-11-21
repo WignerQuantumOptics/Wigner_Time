@@ -88,6 +88,10 @@ Defects:
 
 `ensure_pair(ensure_iterable_with_None(origin))`, both in `internal/util.py`.
 
+Since 2026-11-20 (#142) the public functions refuse `None` from a user, whole or in a slot, and
+`INFER` is what a user writes for an unstated slot. The tables below describe the normalisation
+inside, where `INFER` has become `None` and `None` is how an unstated slot is written.
+
 | input | result | note |
 | --- | --- | --- |
 | `None` | `[None, None]` | |

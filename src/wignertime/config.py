@@ -56,15 +56,17 @@ default *does* something: the origin is inferred from the timeline being extende
 `ORIGIN__DEFAULTS` and `ORIGIN__DEFAULTS__RAMP`), and an unstated context is inherited
 from it, and `help(tl.update)` reads `origin=INFER`.
 
-`None` means exactly the same, both as the whole argument and in either slot of an
-origin pair. That is deliberate. A stage that takes `origin=None` or `context=None` and
-passes it on -- the usual way of writing "no opinion of my own" -- then gets the
-library's default without having to know that this object exists, and a pair such as
-`[None, 0.0]` reads the same as `[INFER, 0.0]`. Absolute placement is a number,
-`origin=0.0`, and reads the same in `update`, `anchor` and `ramp`: a ramp always starts
-where its variable is (#142), so its value slot is never an origin question. There is
-no way to switch context inheritance off: every row has a context, stated or inherited
-(#156).
+`None` does not mean the same: it is refused, as the whole argument and in either slot
+of an origin pair (#142, settled by both maintainers on 2026-11-20). It did mean the
+same until then, so that a stage taking `origin=None` or `context=None` and passing it
+on got the library's default. But `None` reads as "nothing here" to one reader and as
+"the default" to another, and what two people read differently is refused rather than
+given either meaning. A stage of one's own that passes `origin` or `context` on
+defaults them to this object, `tl.INFER`, and its signature then shows what the core's
+do. Absolute placement is a number, `origin=0.0`, and reads the same in `update`,
+`anchor` and `ramp`: a ramp always starts where its variable is, so its value slot is
+never an origin question. There is no way to switch context inheritance off: every row
+has a context, stated or inherited (#156).
 
 It is an object rather than a string so that it cannot be mistaken for a name:
 `context="INFER"` is an ordinary context.
