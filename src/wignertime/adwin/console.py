@@ -46,9 +46,8 @@ start by hand, with no run since, writes every entry again from what was wanted.
 
 **Before a run.** `adwin.core.upload` warns about each analogue channel set on the console that
 the run will jump from its value, whether in the initial state or at the first row that commands
-it (`jumps`). The MOT coils are the case in point: the lab leaves them out of the initial state,
-so that the MOT stays in its steady state between runs, and the jump from a value set by hand
-comes with the first stage that sets them.
+it (`jumps`). The MOT coils are the case in point: the lab adjusts them by hand between runs,
+and without the warning the run would move them from that value without comment.
 """
 
 import importlib.util
@@ -127,9 +126,9 @@ def panel(connections, devices, timeline__defaults, machine_specifications=None)
     slider's range.
 
     A variable the defaults do not mention keeps NaN as its `default_value`, is reported, and is
-    left as it is: `configure` writes nothing to it until it is set. The lab leaves the MOT coils
-    and the dispenser out of its initial state so that the MOT stays in its steady state between
-    runs, and building the console should not undo that.
+    left as it is: `configure` writes nothing to it until it is set. A lab may leave a channel
+    out of its initial state so that it keeps its value between runs, and building the console
+    should not undo that.
     """
     device.check_correspondence(connections, devices)
     wt_internal.check_unique(connections, devices)

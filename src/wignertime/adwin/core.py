@@ -218,6 +218,11 @@ def convert(
 
     `machine_specifications` describes the installed modules, and is
     `internal.SPECIFICATIONS__DEFAULT` when not given, read at call time.
+
+    **The final state is completed from the initial one** (#160): a variable that the
+    rows after the run do not name ends at its value from before the run, so a timeline
+    states after the run only what is to end differently. A variable the run sets that
+    has a value at neither end is refused (`validate.final_state`, A26).
     """
     if time_resolution is None:
         time_resolution = cycle_period

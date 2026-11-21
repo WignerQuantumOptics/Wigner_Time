@@ -130,9 +130,16 @@ FINAL__UNNAMED = [
     "trigger_camera",
 ]
 """
-The variables the run touches and its final state does not name, which the conversion has
-refused since A26 (#205): played however a run ends, the final state left these wherever
-the timeline last put them, the coils at the magnetic trap's current after a stop.
+The variables the run touches and its final state does not name: played however a run
+ends, the final state left these wherever the timeline last put them, the coils at the
+magnetic trap's current after a stop.
+"""
+
+FINAL__RETURNED = ["AOM_imaging", "dispenser__A", "shutter_imaging", "trigger_camera"]
+"""
+Those of them that the initial state names: the dispenser, and the channels the imaging module added, at the
+beginning only. Since #160 the conversion returns them to their initial values. The rest
+have no value before the run, and are refused (A26, #205).
 """
 
 
@@ -159,7 +166,10 @@ def _finished(timeline):
 
 
 def test_the_takeout_leaves_these_out_of_its_final_state(timeline, connections):
-    """A26, against the real experiment: the conversion refuses the takeout as it stands."""
+    """
+    A26, against the real experiment: the conversion refuses the takeout as it stands, for
+    the five variables that have no value before the run to be returned to (#160).
+    """
     with pytest.raises(ValueError, match="does not name") as refusal:
         core.convert(
             timeline,
@@ -169,7 +179,8 @@ def test_the_takeout_leaves_these_out_of_its_final_state(timeline, connections):
             ],
             CYCLE_PERIOD,
         )
-    assert str(FINAL__UNNAMED) in str(refusal.value)
+    refused = [v for v in FINAL__UNNAMED if v not in FINAL__RETURNED]
+    assert "does not name {},".format(refused) in str(refusal.value)
 
 
 @pytest.fixture(scope="module")

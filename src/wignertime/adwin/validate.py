@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2024 Thomas W. Clark and András Vukics
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import math
+
 import funcy
 import numpy as np
 
@@ -117,29 +119,63 @@ def special_contexts(timeline, special_contexts=wt_adwin.CONTEXTS__SPECIAL):
 
 def final_state(timeline, special_contexts=None):
     """
-    Refuses a timeline whose final state leaves unnamed a variable the run touches (A26,
-    #205): one with any row the run plays, before it or during it. The final state is what
-    the sequencer plays however the run ends, completed or stopped (B11), and only for the
-    variables it names, so any other would be left wherever the timeline last put it. A run
-    stopped in a magnetic trap left its coils at the trap's current.
+    Completes the final state from the initial one (#160), and refuses a timeline whose
+    final state cannot be completed (A26, #205).
+
+    The final state is what the sequencer plays however the run ends, completed or stopped
+    (B11), and only for the variables it names, so any other would be left wherever the
+    timeline last put it. A run stopped in a magnetic trap left its coils at the trap's
+    current. So every variable the run touches, before it or during it, has to be in it.
+
+    **A variable the final state does not name ends where it began**: its row before the
+    run is written again after it. That is the default because the usual run is one shot of
+    many, and the apparatus is to be found by the next as this one found it; a timeline
+    then states, after the run, only what is to end differently. The rule lives here and
+    not in a stage because it is about the table as it reaches the machine, whatever
+    order its parts were written in: a channel that a module adds to the initial state
+    of a finished timeline is covered too.
+
+    **A variable with no row before the run and none after it is refused**, by name: there
+    is nothing to return it to, and leaving it where the run put it is what A26 was.
 
     Expects the anchors removed, as `connection.remove_unconnected_variables` leaves the
-    timeline. The contexts after the run are those with a positive sentinel.
+    timeline. The contexts before the run are those with a negative sentinel, the ones
+    after it those with a positive one. Returns the timeline with the completing rows
+    appended, at plus infinity, so the same function shows what a conversion will play.
     """
     if special_contexts is None:
         special_contexts = wt_adwin.CONTEXTS__SPECIAL
+    before = [c for c, sentinel in special_contexts.items() if sentinel < 0]
     after = [c for c, sentinel in special_contexts.items() if sentinel > 0]
     mask__after = timeline["context"].isin(after)
     named = set(timeline.loc[mask__after, "variable"])
-    unnamed = sorted(set(timeline.loc[~mask__after, "variable"]) - named)
+
+    # One row per variable: two before the run are refused later, by `special_contexts`.
+    returned = timeline[
+        timeline["context"].isin(before if after else [])
+        & ~timeline["variable"].isin(named)
+    ].drop_duplicates(subset="variable", keep="last")
+
+    unnamed = sorted(
+        set(timeline.loc[~mask__after, "variable"]) - named - set(returned["variable"])
+    )
     if unnamed:
         raise ValueError(
-            "The final state ({}) does not name {}, which the run touches. It is played"
-            " however the run ends, completed or stopped, and only for what it names, so"
-            " these would be left wherever the timeline last put them. Give each the value"
-            " the apparatus is to be left at.".format(" or ".join(after), unnamed)
+            "The final state ({}) does not name {}, which the run touches, and the"
+            " initial state ({}) does not either, so there is no value to return them"
+            " to. The final state is played however the run ends, completed or stopped,"
+            " and only for what it names, so these would be left wherever the timeline"
+            " last put them. Give each the value the apparatus is to be left at, after"
+            " the run or before it.".format(
+                " or ".join(after), unnamed, " or ".join(before)
+            )
         )
-    return timeline
+    if returned.empty:
+        return timeline
+    return wt_frame.concat(
+        [timeline, returned.assign(time=math.inf, context=after[-1])],
+        ignore_index=True,
+    )
 
 
 def types(timeline, schema=wt_adwin.SCHEMA):

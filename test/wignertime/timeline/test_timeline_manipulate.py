@@ -105,6 +105,8 @@ def test_cascade():
         frame.new(
             [
                 [-math.inf, "lockbox__MOT__MHz", 0.0, "ADwin_LowInit"],
+                [-math.inf, "coil__MOT_lower__A", -1.0, "ADwin_LowInit"],
+                [-math.inf, "coil__MOT_upper__A", -0.98, "ADwin_LowInit"],
                 [-math.inf, "coil__compensation_X__A", 0.25, "ADwin_LowInit"],
                 [-math.inf, "coil__compensation_Y__A", 1.5, "ADwin_LowInit"],
                 [-math.inf, "coil__MOT_lower_plus__A", 0.1, "ADwin_LowInit"],
@@ -217,10 +219,10 @@ def test_cascade_stays_permissive_where_the_target_has_kwargs():
     path must survive it -- see `sec:forwarding`.
     """
     built = tl.to_timeline(
-        tl.cascade(ex.init, ex.MOT, init_coil__MOT_lower__A=0.5, MOT_duration=1.0)
+        tl.cascade(ex.init, ex.MOT, init_AOM__imaging__V=0.5, MOT_duration=1.0)
     )
     assert 0.5 in set(
-        built.loc[built["variable"] == "coil__MOT_lower__A", "value"]
+        built.loc[built["variable"] == "AOM__imaging__V", "value"]
     ), "injection through `init` into `default_state` must still work"
 
 

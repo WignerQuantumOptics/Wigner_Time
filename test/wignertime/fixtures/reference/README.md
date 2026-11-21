@@ -38,6 +38,20 @@ that stayed are identical and in the same order. The arrays shrank accordingly: 
 analogue array from 17 379 rows to 5 472 at 2 µs. A `functools.partial` is now named by the
 function it binds and what it binds.
 
+**Once more on 2026-11-20, for #160, the demo's table and arrays:** the conversion completes the
+final state from the initial one, and the demo's initial state names the MOT coils, so its
+`finish` states two rows after the run, the MOT's shutters, not twenty. Checked before
+regenerating: in both cases that reach `finish`, each row that went after the run was at the
+variable's initial value, and the rows of the run are identical. The arrays gained two rows at
+each period, the MOT coils in the initial state, and changed in nothing else: the same run from
+a shorter description.
+
+**And on 2026-11-21, for #160, the lab's table and arrays:** the lab's `finish` states only the
+three shutters that end open, and its default state names the MOT coils. Checked case by case
+before regenerating: the rows of every run are identical, and the arrays of the 18 converted
+cases gain two rows, the MOT coils in the initial state, at 5 and 1 µs alike. The final state
+that is played is the one it was.
+
 | file | what it is |
 | --- | --- |
 | `demo.parquet` | `timeline_demo` (89 rows), and the same with the camera trigger of `sec:interweaving` placed at molasses |
