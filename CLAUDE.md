@@ -544,8 +544,11 @@ real, which is what #154 was about.
   Trailing `__002` on filenames is `file.py`'s collision suffix. Stage parameters mirror the core
   functions: `time`, not `t`.
 - **pandas is the interface, not a detail to hide** (decided 2026-09-30): the paper says a
-  timeline *is* a `pandas.DataFrame`, and no change of backend is planned. So use pandas directly
-  where it fits. `internal/dataframe.py` (imported as `wt_frame`) was meant as a seam for a polars
+  timeline *is* a `pandas.DataFrame`, and no change of backend is planned for 1.0.0. So use pandas
+  directly where it fits. **A second backend is deferred, not declined** (maintainer, 2026-11-21):
+  #167, pandas or polars over narwhals, drafted as #171, sits in `1.x`. A coauthor wants it, and
+  it hardly touches the API, since a user reaches the table mostly through the package's
+  functions. Do not propose closing #171. `internal/dataframe.py` (imported as `wt_frame`) was meant as a seam for a polars
   backend; it is now the home of the helpers whose behaviour carries one of the package's rules, and
   new helpers belong there only if they do too. **Sort with `wt_frame.sort`, never `sort_values`
   bare**: pandas sorts one column unstably by default, and order among tied rows is meaning (A18).

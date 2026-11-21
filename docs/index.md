@@ -154,7 +154,7 @@ For analog connections, also specify a linear factor, conversion function or cal
         ],
     )
 ```
-Specify how you want your experiment to begin and end, using readable options and user-specific keywords. The initial and final states belong to no instant of the run, so they are placed before and after it, at −∞ and +∞.
+Specify how you want your experiment to begin, using readable options and user-specific keywords. The initial state belongs to no instant of the run, so it is placed before it, at −∞. The final state need not be written: after the run, every variable returns to its initial value unless stated otherwise.
 
 ``` python
     import math
@@ -163,14 +163,6 @@ Specify how you want your experiment to begin and end, using readable options an
     initial = tl.update(
         time=-math.inf,
         context="ADwin_LowInit",
-        shutter__MOT=1,
-        AOM__MOT=0,
-        AOM__MOT__transmission=1.0,
-        lockbox__MOT__MHz=0.0,
-    )
-    final = tl.update(
-        time=math.inf,
-        context="ADwin_Finish",
         shutter__MOT=1,
         AOM__MOT=0,
         AOM__MOT__transmission=1.0,
@@ -201,7 +193,6 @@ tline = tl.to_timeline(
         initial,
         MOT,
         detuned_growth,
-        final,
     )
 )
 ```
